@@ -1,4 +1,4 @@
-**Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON; Morales-Hernández et al.,in preparation)**
+**Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON; Morales-Hernández et al., Submitted to Environmental Modelling & Software)**
 
 *Refer to User's Guide, located in doc subdirectory, for instructions on requirements, installation, and other details.* 
 
@@ -31,4 +31,4 @@ Highest TRITON computational efficiency can be achieved by using GPU implementat
 8.  Case 05	: Harvey 10m
 
 
-Morales-Hernández, M., M. B. Sharif, A. Kalyanapu, S. K. Ghafoor, T. T. Dullo, S. Gangrade, S.-C. Kao, and K. J. Evans (2020), TRITON: A multi-GPU open source 2D high resolution flood model, in preparation.
+Morales-Hernández, M., Sharif, Md. B., Kalyanapu, A., Ghafoor, S. K., Dullo, T.T., Gangrade, S.,  Kao, S.-C., Norman, M. R. and Evans, K. J. (2020), TRITON: A Multi-GPU Open Source 2D Hydrodynamic Flood, Submitted to Environmental Modelling & Software.
