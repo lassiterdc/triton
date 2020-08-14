@@ -1,6 +1,6 @@
 **Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON; Morales-Hernández et al., Submitted to Environmental Modelling & Software)**
 
-[](https://triton.ornl.gov/)
+[TRITON Website](https://triton.ornl.gov/)
 
 *Refer to User's Guide, located in doc subdirectory, for instructions on requirements, installation, and other details.* 
 
