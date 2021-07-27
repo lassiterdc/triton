@@ -1,4 +1,4 @@
-/** @file ConfigUtils.h
+/** @file config_utils.h
  *  @brief Header containing the ConfigUtils class
  *
  *  This contains the subroutines and eventually any 
@@ -23,78 +23,145 @@
 namespace ConfigUtils
 {
 	template<typename T>
-	struct arguments
+	struct arguments	/**< Structure to contain all arguments extracted from configuration (cfg) file. */
 	{
 		bool
-			time_increment_fixed,
-			time_series_flag,
-			gpu_direct_flag;
+		time_increment_fixed,	/**< Flag to indicate time step size characteristics. True = Constant time step size, False = Variable time step size. */
+		time_series_flag,	/**< Flag to allow time series output. True = Output time series, False = Don't output time series. */
+		gpu_direct_flag;	/**< Flag to allow GPU-Direct use. True = Use GPU-Direct, False = Don't use GPU-Direct. */
 
 		int
-			checkpoint_id,
-			num_sources,
-			num_runoffs,
-			num_extbc,
-			it_count;
+		checkpoint_id,	/**< Use for hot start. If 0 then that means a clean start. Greater than 0 means start from that specific checkpoint. */
+		num_sources,	/**< The total number of flow locations in Hygrograph. If there are no flow locations then 0 is allowed. */
+		num_runoffs,	/**< The total number of Runoffs. */
+		num_extbc,	/**< The total number of External boundary cells group. Each group can contain one or multiple cells. */
+		it_count,	/**< The total number of iterations up to a specific point. 0 in case of a clean start, greater than 0 otherwise. */
+		factor_interval_domain_decomposition;	/**< Factor applied to the print interval time to check for domain decomposition. */
 
 		T
-			time_step,
-			sim_start_time,
-			sim_duration,
-			print_interval,
-			courant,
-			const_mann,
-			hextra;
+		time_step,	/**< Indicates the time step size. Time step size determines the time for the next computation. */
+		sim_start_time,	/**< Starting time point of a simulation. Usually 0 for a new simulation. */
+		sim_duration,	/**< Finishing time point of a simulation. Regardless of the starting point, simulation always ends at this point. */
+		print_interval,	/**< Use for outputting files. After every defined print interval time, the program will save outputs in an external file. */
+		courant,	/**< Represents Courant number. */
+		const_mann,	/**< Constant manning value to use in every cell in case of no external manning file is provided. */
+		hextra;	/**< Represents a the minimum water depth tolerance */
 
 		std::string
-			outfile_pattern,
-			hydrograph_filename,
-			runoff_filename,
-			print_option,
-			input_format,
-			output_format,
-			output_option,
-			dem_filename,
-			src_loc_file,
-			runoff_map,
-			observation_loc_file,
-			extbc_file,
-			extbc_dir,
-			h_infile,
-			qx_infile,
-			qy_infile,
-			n_infile;
+		outfile_pattern,	/**< Output file directory and name pattern. */
+		hydrograph_filename,	/**< Directory of the Hygrograph file to use. */
+		runoff_filename,	/**< Directory of the Runoff file to use. */
+		print_option,	/**< Use to determine output types. h to output just the h (depth), huv to output all h (depth),u and v (velocities). */
+		max_value_print_option,	/**< Use to determine maximum value of each cells output types. h to output just the h (depth). */
+		input_format,	/**< Expected input file format. BIN for binary file or ASC for ascii file. */
+		output_format,	/**< Expected output file format. BIN for binary file or ASC for ascii file. */
+		output_option,	/**< Strategy to use for outputting into files. PAR for parallel outputs or SEQ for sequential outputs. PAR saves each MPI partitions subdomain in separate files and SEQ saves the whole domain into one file. */
+		dem_filename,	/**< Directory of the DEM file to use. */
+		src_loc_file,	/**< Directory of the file that contains the information of all flow locations. */
+		runoff_map,	/**< Directory of the Runoff map to use. */
+		observation_loc_file,	/**< Directory of the file that contains the information of all cells to observe and generate time series output. */
+		extbc_file,	/**< Directory of the External boundary condition file to use. */
+		extbc_dir,	/**< Parent directory of the External boundary condition files. */
+		h_infile,	/**< Initial water depth file directory. */
+		qx_infile,	/**< Initial flux in x direction file directory. */
+		qy_infile,	/**< Initial flux in y direction file directory. */
+		n_infile,	/**< Directory of the manning file to use. */
+		domain_decomposition;	/**< Domain decomposition. Options are static or dynamic. Static by default*/
+
 
 		std::vector<T>
-			src_x_loc,
-			src_y_loc,
-			observation_x_loc,
-			observation_y_loc,
-			extbc_x1_loc,
-			extbc_y1_loc,
-			extbc_x2_loc,
-			extbc_y2_loc;
-		
-		std::vector<int>
-			extbc_bctype;
-			std::vector<std::string>
-			extbc_fname;
+		src_x_loc,	/**< Vector to hold all the Longitude value of all the flow locations serially. */
+		src_y_loc,	/**< Vector to hold all the Latitude value of all the flow locations serially. */
+		observation_x_loc,	/**< Vector to hold all the Longitude value of all the observation cells. */
+		observation_y_loc,	/**< Vector to hold all the Latitude value of all the observation cells. */
+		extbc_x1_loc,	/**< Vector to hold all the Longitude value of the starting cell of an external boundary condition. */
+		extbc_y1_loc,	/**< Vector to hold all the Latitude value of the starting cell of an external boundary condition. */
+		extbc_x2_loc,	/**< Vector to hold all the Longitude value of the ending cell of an external boundary condition. */
+		extbc_y2_loc;	/**< Vector to hold all the Latitude value of the ending cell of an external boundary condition. */
+
+		std::vector<int> extbc_bctype;	/**< Contains all external boundary condition type serially. */
+		std::vector<std::string> extbc_fname;	/**< Contains all external boundary condition file name serially. */
 
 	};
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It calculates the corresponding value of each attribute name from the contents of the configuration (cfg) file.
+*
+*  @param x attibute name
+*  @param y contents of cfg file
+*  @param d default value
+*  @return The corresponding value
+*/
 	std::string argsd(std::string x, std::map<std::string, std::string> y, std::string d);
+
+
+/** @brief It calculates the corresponding value of each attribute name from the contents of the configuration (cfg) file without any default value.
+*
+*  @param x attibute name
+*  @param y contents of cfg file
+*  @return The corresponding value
+*/
 	std::string args(std::string x, std::map<std::string, std::string> y);
+
+
+/** @brief It extracts the whole configuration string and constructs an attribute key-value mapping.
+*
+*  @param cfg_content cfg file content
+*  @return Attribute key value mapping
+*/
 	std::map<std::string, std::string> parse_cfg(std::string cfg_content);
+
+
+/** @brief It extracts each flow location and observation cells Longitude and Latitude value and constructs a (x,y) location mapping.
+*
+*  @param filename file to parse
+*  @param type determine flow location of observation
+*  @return (x,y) location mapping
+*/
 	std::map<std::string, std::string> parse_src_location(std::string filename, int type);
+
+
+/** @brief It extracts each external boundary condition file and constructs an attribute key-value mapping.
+*
+*  @param filename file to parse
+*  @param dir parent directory of filename
+*  @return Attribute key value mapping
+*/
 	std::map<std::string, std::string> parse_extbc_file(std::string filename, std::string dir);
+
+
+/** @brief It calculates all argument values and constructs struct arguments object.
+*
+*  @param cfg file to parse
+*  @return The arguments object contating all argument
+*/
 	template<typename T>
 	arguments<T> get_args(std::string cfg);
+
+
+/** @brief It reads a configuration (cfg) file and constructs a string of the whole file.
+*
+*  @param filepath file to read
+*  @return Contents as a string
+*/
 	std::string file_content_to_string(std::string filepath);
+
+
+/** @brief It computes the root directory from the full path, shortening it out when a backslash is found.
+*
+*  @param path The full path
+*  @return A string with the project directory
+*/
 	std::string get_root_dir(const char* path);
 
-	/* --------------------------------------------------------------------------- */
+/** @brief It reads the number of rows from the output file when checkpoint is enabled.
+*
+*  @param project_dir String containing the project directory
+*  @param dyn_rows Array of size "number of ranks" that will contain the number of rows
+*  @param checkpoint_id Checkpoint id
+*/
+	void read_and_parse_checkpoint_partition(std::string project_dir, int *dyn_rows, int checkpoint_id);
+
 
 	std::string argsd(std::string x, std::map<std::string, std::string> y, std::string d)
 	{
@@ -108,14 +175,12 @@ namespace ConfigUtils
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	std::string args(std::string x, std::map<std::string, std::string> y)
 	{
 		return argsd(x, y, "");
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	std::map<std::string, std::string> parse_cfg(std::string cfg_content)
 	{
@@ -160,12 +225,11 @@ namespace ConfigUtils
 				}
 				arglist.insert(std::pair<std::string, std::string>(key, value));
 			}
-		}	
+		}
 
 		return arglist;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	std::map<std::string, std::string> parse_src_location(std::string filename, int type)
 	{
@@ -231,8 +295,6 @@ namespace ConfigUtils
 	}
 
 
-/****************************************************************************************/
-
 	std::map<std::string, std::string> parse_extbc_file(std::string filename, std::string dir)
 	{
 		std::map<std::string, std::string> arglist;
@@ -245,11 +307,10 @@ namespace ConfigUtils
 			exit(EXIT_FAILURE);
 		}
 
-		std::string bctype = ""; 
+		std::string bctype = "";
 		std::string src_x1_loc = "", src_y1_loc = "";
 		std::string src_x2_loc = "", src_y2_loc = "";
-		std::string bcfname = ""; 
-
+		std::string bcfname = "";
 
 		while (std::getline(ifs, line))
 		{
@@ -268,12 +329,15 @@ namespace ConfigUtils
 				std::string y1_value = kv[2];
 				std::string x2_value = kv[3];
 				std::string y2_value = kv[4];
-				
+
 				int auxtype=std::stoi(kv[0]);
 				std::string bcfname_value ="";
-				if(auxtype!=0){
+				if(auxtype!=0)
+				{
 					bcfname_value = kv[5];
-				}else{
+				}
+				else
+				{
 					bcfname_value = "0.0";
 				}
 
@@ -304,7 +368,7 @@ namespace ConfigUtils
 					y2_value.erase(y2_value.begin());
 					y2_value.erase(y2_value.end() - 1);
 				}
-				
+
 				if (bcfname_value[0] == '"' && bcfname_value[bcfname_value.size() - 1] == '"')
 				{
 					bcfname_value.erase(bcfname_value.begin());
@@ -316,16 +380,18 @@ namespace ConfigUtils
 				src_y1_loc = src_y1_loc + "," + y1_value;
 				src_x2_loc = src_x2_loc + "," + x2_value;
 				src_y2_loc = src_y2_loc + "," + y2_value;
-				
-				if(auxtype==1){
+
+				if(auxtype==1)
+				{
 					bcfname = bcfname + "," + dir + "/" + bcfname_value;
-				}else{ //case 0, 2, 3
+				}
+				else   //case 0, 2, 3
+				{
 					bcfname = bcfname + "," + bcfname_value;
 				}
 			}
 		}
 
-		
 		bctype = bctype.substr(1);
 		src_x1_loc = src_x1_loc.substr(1);
 		src_y1_loc = src_y1_loc.substr(1);
@@ -342,13 +408,9 @@ namespace ConfigUtils
 
 		ifs.close();
 
-
 		return arglist;
 	}
 
-
-
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	arguments<T> get_args(std::string cfg)
@@ -381,6 +443,7 @@ namespace ConfigUtils
 		arglist.checkpoint_id = atoi((argsd("checkpoint_id", argmap, "0")).c_str());
 		arglist.it_count = atoi((argsd("it_count", argmap, "0")).c_str());
 		arglist.print_option = StringUtils::tolower(args("print_option", argmap));
+		arglist.max_value_print_option = argsd("max_value_print_option", argmap, "");
 		arglist.input_format = args("input_format", argmap);
 		arglist.output_format = args("output_format", argmap);
 		arglist.output_option = args("output_option", argmap);
@@ -389,6 +452,9 @@ namespace ConfigUtils
 		arglist.qx_infile = argsd("qx_infile", argmap, "");
 		arglist.qy_infile = argsd("qy_infile", argmap, "");
 		arglist.n_infile = argsd("n_infile", argmap, "");
+
+		arglist.domain_decomposition = args("domain_decomposition", argmap);
+		arglist.factor_interval_domain_decomposition = atoi((args("factor_interval_domain_decomposition", argmap)).c_str());
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
 		arglist.sim_duration = atof((args("sim_duration", argmap)).c_str());
@@ -423,7 +489,6 @@ namespace ConfigUtils
 		return arglist;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	std::string file_content_to_string(std::string filepath)
 	{
@@ -443,11 +508,10 @@ namespace ConfigUtils
 			exit(EXIT_FAILURE);
 		}
 
-
-
 		return file_content;
 	}
-	
+
+
 	std::string get_root_dir(const char* path)
 	{
 		std::string spath(path);
@@ -456,6 +520,41 @@ namespace ConfigUtils
 
 		return spath.substr(0, (spath.find_last_of("/\\")));
 	}
+
+	void read_and_parse_checkpoint_partition(std::string project_dir, int *dyn_rows, int checkpoint_id)
+	{
+		
+		std::string outdir = project_dir + "/" + OUTPUT_DIR + "/domain_decomposition/";
+		std::string filename = outdir + "domain_decomposition" + std::to_string(checkpoint_id) + ".txt";
+		
+		std::ifstream ifs(filename.c_str());
+		std::string line;
+
+		if (!ifs.good())
+		{
+			std::cerr << ERROR "Error reading file: " << filename << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		while (std::getline(ifs, line))
+		{
+			line = StringUtils::trim(line);
+
+			if (line.size() > 0 && line[0] != '%')
+			{
+				std::vector<std::string> kv = StringUtils::split(line, ',');
+				std::string rank_id = kv[0];
+				std::string nrows = kv[1];
+				std::string ncols = kv[2];
+				int rank_int=std::stoi(kv[0]);
+				dyn_rows[rank_int]=std::stoi(kv[1]);
+			}
+		}
+
+		ifs.close();
+
+	}
+
 }
 
 #endif

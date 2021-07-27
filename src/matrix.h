@@ -1,4 +1,4 @@
-/** @file Matrix.h
+/** @file matrix.h
  *  @brief Header containing the Matrix class
  *
  *  This contains the subroutines and eventually any 
@@ -25,93 +25,368 @@
 namespace Matrix
 {
 	template<class T>
-	class matrix
+	class matrix	/**< Matrix class to process 2D grid data structure. */
 	{
 
 	public:
+
+/** @brief Constructor.
+*
+*/	
 		matrix<T>();
+		
+		
+/** @brief Constructor. Creates a matrix of given size.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*/
 		matrix<T>(int rows, int cols);
+		
+		
+/** @brief Constructor. Creates a matrix of giver size and 2D array.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*  @param arr 2d Array
+*/		
 		matrix<T>(int rows, int cols, T** arr);
+		
+		
+/** @brief Constructor. Creates a matrix from another matrix.
+*
+*  @param m Giver matrix
+*/
 		matrix<T>(matrix<T> const& m);
 
+
+/** @brief Destruction. Releases allocated memory.
+*
+*/
 		~matrix<T>();
 
+
+/** @brief Operator to create matrix by address and given size.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*/
 		T& operator()(int row, int col);
+		
+		
+/** @brief Operator to create matrix by given size.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*/		
 		T operator()(int row, int col) const;
+		
+		
+/** @brief Assignement operator to copy a matrix object into another.
+*
+*  @param m Matrix object
+*/		
 		matrix& operator=(matrix<T> m);
+		
+		
+/** @brief It multiplies each cell of a matrix by a constant value and creates a copy.
+*
+*  @param value Contant multiplier
+*/		
 		matrix& operator*=(T value);
+		
+
+/** @brief It multiplies each cell of a matrix by a constant value.
+*
+*  @param value Contant multiplier
+*/		
 		matrix& operator*(T value);
+		
+		
+/** @brief It adds a constant value with each cell of a matrix.
+*
+*  @param value Contant addition value
+*/		
 		matrix& operator+(T value);
+		
+		
+/** @brief It adds corresponding cells value of two different matrix.
+*
+*  @param m Matrix
+*/			
 		matrix& operator+(matrix const& m);
+		
+		
+/** @brief It adds corresponding cells value of two different matrix and creates a copy.
+*
+*  @param m Matrix
+*/			
 		matrix& operator+=(matrix const& m);
+		
+		
+/** @brief It adds a constant value with each cell of a matrix and create a copy.
+*
+*  @param value Contant addition value
+*/			
 		matrix& operator+=(T value);
+		
+
+/** @brief It multiply corresponding cells value of two different matrix.
+*
+*  @param m Matrix
+*/			
 		matrix<T>& operator*(matrix const& m);
 
+
+/** @brief Get data from the matrix.
+*
+*  @return Pointer of array
+*/	
 		T* get_data() const;
+		
+		
+/** @brief Get beginning address of data.
+*
+*  @return Pointer of first position
+*/		
 		T* begin();
+		
+
+/** @brief It calculates address of a specific position of data
+*
+*  @param row Row number of cell
+*  @param col Column number of cell
+*  @return Pointer of the position
+*/			
 		T* get_address_at(int row, int col);
 
+
+/** @brief Gets the total number of rows
+*
+*  @return Number of rows
+*/	
 		int get_num_rows() const;
+		
+		
+/** @brief Gets the total number of columns
+*
+*  @return Number ofcolumns
+*/		
 		int get_num_cols() const;
+		
+		
+/** @brief Gets the number of ghost rows in each boundary
+*
+*  @return Number of rows
+*/		
 		int get_ghost_nrows() const;
+		
+		
+/** @brief Gets the number of ghost columns in each boundary
+*
+*  @return Number of columns
+*/			
 		int get_ghost_ncols() const;
 
+
+/** @brief Sets the number of rows and columns of a Matrix
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*/	
 		void set_size(int rows, int cols);
+		
+		
+/** @brief It resizes previous matrix in a new dimension
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*/		
 		void resize(int rows, int cols);
 
+
+/** @brief It sets value in a particular cell.
+*
+*  @param row Row index
+*  @param col Column index
+*  @param value Value to set
+*/
 		void set_value(int row, int col, T value);
+		
+		
+/** @brief It sets value in a particular cell.
+*
+*  @param cell Cell index in pair
+*  @param value Value to set
+*/		
 		void set_value(std::pair<int, int> cell, T value);
+		
+		
+/** @brief It sets value in a particular cell.
+*
+*  @param index Cell index
+*  @param value Value to set
+*/		
 		void set_value(int index, T value);
 
+
+/** @brief Gets value from a particular cell.
+*
+*  @param row Row index
+*  @param col Colum index
+*  @return Value of that cell
+*/
 		T get_value(int row, int col);
+		
+		
+/** @brief Gets value from a particular cell.
+*
+*  @param cell Cell index in pair
+*  @return Value of that cell
+*/
 		T get_value(std::pair<int, int>);
+		
+		
+/** @brief Gets value from a particular cell.
+*
+*  @param index Cell index
+*  @return Value of that cell
+*/		
 		T get_value(int index);
 
+
+/** @brief It adds ghost rows and columns in each boundary.
+*
+*  @param grows Number of ghost rows
+*  @param grows Number of ghost columns
+*  @param value Value of each ghost cell
+*/
 		void add_ghost_cells(int grows, int gcols, T value);
+		
+		
+/** @brief It removes ghost cells from the domain.
+*
+*/		
 		void remove_ghost_cells();
+		
+		
+/** @brief It copies values from boundary cells of domain into ghost cells.
+*
+*/		
 		void copy_value_into_ghost_cells();
+		
+		
+/** @brief It copies the elevation of boundary cells values into ghost cells. 
+*
+*  @param irows Index of boundary cells row
+*  @param icols Index of boundary cells column
+*  @param ncells Number of cells
+*  @param location Position of the boundary
+*/		
 		void copy_elevation_into_ghost_cells(std::vector<int> irows, std::vector<int> icols, int ncells, int location);
+		
+		
+/** @brief Put infinite walls in boundary cells.
+*
+*/	
 		void set_infinite_walls();
 
+
+/** @brief It calculates if a cell in inside boundary or not. 
+*
+*  @param row Row index
+*  @param col Column index
+*  @return Bound status
+*/
 		bool is_inbounds(int row, int col);
+		
+		
+/** @brief Fill whole matrix with 0 as a floting point number.
+*
+*/		
 		void zero_fill();
+		
+		
+/** @brief Fill whole matrix with 0 as a integer number.
+*
+*/		
 		void zero_fill_int();
+		
+		
+/** @brief Change value of each cell as a base with a power.
+*
+*  @param e Power
+*/		
 		void pow(T e);
+		
+		
+/** @brief Change value of each cell by its square.
+*
+*/			
 		void square();
 
+
+/** @brief Load values into matrix from an ascii file.
+*
+*  @param filepath File name
+*/
 		void load_from_ascii_file(std::string& filepath);
+		
+		
+/** @brief Load values into matrix from an ascii file.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*  @param filepath File name
+*/
 		void load_from_ascii_file(int rows, int cols, std::string& filepath);
+		
+		
+/** @brief Load values into matrix from an ascii file.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*  @param filepath File name
+*  @param header_size Number of headers
+*/		
 		void load_from_ascii_file(int rows, int cols, std::string& filepath, int header_size);
+		
+		
+/** @brief Load values into matrix from a binary file.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*  @param filepath File name
+*/		
 		void load_from_binary_file(int rows, int cols, std::string& filepath);
+		
+		
+/** @brief Load values into matrix from a binary file.
+*
+*  @param rows Number of rows
+*  @param cols Number of columns
+*  @param filepath File name
+*  @param header_size Number of headers
+*/
 		void load_from_binary_file(int rows, int cols, std::string& filepath, int header_size);
+		
+		
+/** @brief It calculates dimension of an ascii file.
+*
+*  @param filepath File name
+*  @return Rows and columns
+*/		
 		std::pair<int, int> get_dims_2d(std::string& filepath);
 
+
 	private:
-		int ghost_nrows_ = 0, ghost_ncols_ = 0;
-		int rows_, cols_;
-		T* data_;
+		int ghost_nrows_ = 0;	/**< Number of ghost rows in each boundary */
+		int ghost_ncols_ = 0;	/**< Number of ghost columns in each boundary */
+		int rows_;	/**< Number of rows */
+		int cols_;	/**< Number of columns */
+		T* data_;	/**< Array contains 2d grid data of the domain */
 	};
 
-
-	/* --------------------------------------------------------------------------- */
-
-	/*class MatrixInvalidValueException : public std::exception
-	{
-		std::string msg;
-	public:
-		MatrixInvalidValueException(int r, int c)
-			: msg(std::string("Spotted an invalid value (possible overflow) at: ") + std::to_string(r) + std::string(", ") + std::to_string(c) + std::string(")")) {}
-
-		MatrixInvalidValueException(int i)
-			: msg(std::string("Spotted an invalid value (possible overflow) at: ") + std::to_string(i) + std::string(")")) {}
-
-		virtual const char* what() const throw ()
-		{
-			return msg.c_str();
-		}
-	};*/
-
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	matrix<T>::matrix()
@@ -120,8 +395,7 @@ namespace Matrix
 		this->cols_ = 0;
 		this->data_ = NULL;
 	}
-
-	/* --------------------------------------------------------------------------- */
+	
 
 	template<class T>
 	matrix<T>::matrix(int rows, int cols) : rows_(rows), cols_(cols)
@@ -135,7 +409,6 @@ namespace Matrix
 		this->data_ = new T[rows * cols]();
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	matrix<T>::matrix(int rows, int cols, T** arr)
@@ -159,7 +432,6 @@ namespace Matrix
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	matrix<T>::matrix(matrix<T> const& m)
@@ -176,16 +448,14 @@ namespace Matrix
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	matrix<T>::~matrix()
 	{
 		if (this->data_ != NULL)
-			delete[] this->data_;
+		delete[] this->data_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T& matrix<T>::operator()(int row, int col)
@@ -200,7 +470,6 @@ namespace Matrix
 		return this->data_[this->cols_ * row + col];
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T matrix<T>::operator()(int row, int col) const
@@ -214,7 +483,6 @@ namespace Matrix
 		return this->data_[this->cols_ * row + col];
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator*=(T value)
@@ -230,7 +498,6 @@ namespace Matrix
 		return *this;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator*(T value)
@@ -246,7 +513,6 @@ namespace Matrix
 		return *this;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator*(matrix const& m)
@@ -279,7 +545,6 @@ namespace Matrix
 		return R;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator+(matrix const& m)
@@ -304,7 +569,6 @@ namespace Matrix
 		return R;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator+=(matrix const& m)
@@ -320,7 +584,6 @@ namespace Matrix
 		return *this;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator+=(T value)
@@ -336,7 +599,6 @@ namespace Matrix
 		return *this;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	matrix<T>& matrix<T>::operator=(matrix<T> m)
@@ -359,7 +621,6 @@ namespace Matrix
 		return *this;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T* matrix<T>::begin()
@@ -367,7 +628,6 @@ namespace Matrix
 		return &(this->data_[0]);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T* matrix<T>::get_address_at(int row, int col)
@@ -375,7 +635,6 @@ namespace Matrix
 		return &(this->data_[this->cols_ * row + col]);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T* matrix<T>::get_data() const
@@ -383,7 +642,6 @@ namespace Matrix
 		return this->data_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int matrix<T>::get_num_rows() const
@@ -391,7 +649,6 @@ namespace Matrix
 		return this->rows_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int matrix<T>::get_num_cols() const
@@ -399,7 +656,6 @@ namespace Matrix
 		return this->cols_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int matrix<T>::get_ghost_nrows() const
@@ -407,7 +663,6 @@ namespace Matrix
 		return this->ghost_nrows_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int matrix<T>::get_ghost_ncols() const
@@ -415,7 +670,6 @@ namespace Matrix
 		return this->ghost_ncols_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::set_size(int rows, int cols)
@@ -423,20 +677,18 @@ namespace Matrix
 		this->resize(rows, cols);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::resize(int rows, int cols)
 	{
 		if (this->data_ != NULL)
-			delete[] this->data_;
+		delete[] this->data_;
 		this->rows_ = rows;
 		this->cols_ = cols;
 
 		this->data_ = new T[rows_ * cols_]();
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::set_value(int index, T value)
@@ -452,7 +704,6 @@ namespace Matrix
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::set_value(int row, int col, T value)
@@ -460,7 +711,6 @@ namespace Matrix
 		this->set_value((this->cols_ * row + col), value);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::set_value(std::pair<int, int> cell, T value)
@@ -468,7 +718,6 @@ namespace Matrix
 		this->set_value((this->cols_ * cell.first + cell.second), value);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T matrix<T>::get_value(int index)
@@ -481,7 +730,6 @@ namespace Matrix
 		return this->data_[index];
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T matrix<T>::get_value(int row, int col)
@@ -495,7 +743,6 @@ namespace Matrix
 		return this->get_value(this->cols_ * row + col);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T matrix<T>::get_value(std::pair<int, int> cell)
@@ -503,7 +750,6 @@ namespace Matrix
 		return this->get_value(cell.first, cell.second);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::add_ghost_cells(int grows, int gcols, T value)
@@ -543,7 +789,6 @@ namespace Matrix
 		delete[] bak;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::remove_ghost_cells()
@@ -574,7 +819,6 @@ namespace Matrix
 		delete[] bak;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::copy_value_into_ghost_cells()
@@ -582,13 +826,17 @@ namespace Matrix
 
 		for (int i = 0; i < this->rows_; i++)
 		{
-			this->data_[i*this->cols_ + 0] = this->data_[i*this->cols_ + 1];
-			this->data_[i*this->cols_ + (this->cols_ - 1)] = this->data_[i*this->cols_ + (this->cols_ - 2)];
+			for(int k=0;k<GHOST_CELL_PADDING;k++){
+				this->data_[i*this->cols_ + k] = this->data_[i*this->cols_ + GHOST_CELL_PADDING];
+				this->data_[i*this->cols_ + (this->cols_ - k - 1)] = this->data_[i*this->cols_ + (this->cols_ - GHOST_CELL_PADDING-1)];
+			}
 		}
 		for (int i = 0; i < this->cols_; i++)
 		{
-			this->data_[0 * this->cols_ + i] = this->data_[1 * this->cols_ + i];
-			this->data_[(this->rows_ - 1)*this->cols_ + i] = this->data_[(this->rows_ - 2)*this->cols_ + i];
+			for(int k=0;k<GHOST_CELL_PADDING;k++){
+				this->data_[k * this->cols_ + i] = this->data_[GHOST_CELL_PADDING * this->cols_ + i];
+				this->data_[(this->rows_ - k - 1)*this->cols_ + i] = this->data_[(this->rows_ - GHOST_CELL_PADDING- 1)*this->cols_ + i];
+			}
 		}
 	}
 
@@ -606,40 +854,48 @@ namespace Matrix
 			int iy=icols[i]+GHOST_CELL_PADDING;
 
 			if(location==0){
-				this->data_[ix*ncols + iy-1] = this->data_[ix*ncols + iy];
+				for(int k=0;k<GHOST_CELL_PADDING;k++){
+					this->data_[ix*ncols + iy-k-1] = this->data_[ix*ncols + iy];
+				}
 			}
 			if(location==2){
-				this->data_[ix*ncols + iy+1] = this->data_[ix*ncols + iy];
+				for(int k=0;k<GHOST_CELL_PADDING;k++){
+					this->data_[ix*ncols + iy+k+1] = this->data_[ix*ncols + iy];
+				}
 			}
 			if(location==1){
-				this->data_[(ix-1)*ncols + iy] = this->data_[ix*ncols + iy];
+				for(int k=0;k<GHOST_CELL_PADDING;k++){
+					this->data_[(ix-k-1)*ncols + iy] = this->data_[ix*ncols + iy];
+				}
 			}
 			if(location==3){
-				this->data_[(ix+1)*ncols + iy] = this->data_[ix*ncols + iy];
+				for(int k=0;k<GHOST_CELL_PADDING;k++){
+					this->data_[(ix+k+1)*ncols + iy] = this->data_[ix*ncols + iy];
+				}
 			}
 		}
 	}
 
-
-
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::set_infinite_walls()
 	{
 		for (int i = 0; i < this->rows_; i++)
 		{
-			this->data_[i*this->cols_ + 0] = 1e6;
-			this->data_[i*this->cols_ + (this->cols_ - 1)] = 1e6;
+			for(int k=0;k<GHOST_CELL_PADDING;k++){
+				this->data_[i*this->cols_ + k] = 1e6;
+				this->data_[i*this->cols_ + (this->cols_ - k - 1)] = 1e6;
+			}
 		}
 		for (int i = 0; i < this->cols_; i++)
 		{
-			this->data_[0 * this->cols_ + i] = 1e6;
-			this->data_[(this->rows_ - 1)*this->cols_ + i] = 1e6;
+			for(int k=0;k<GHOST_CELL_PADDING;k++){
+				this->data_[k * this->cols_ + i] = 1e6;
+				this->data_[(this->rows_ - k - 1)*this->cols_ + i] = 1e6;
+			}
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	bool matrix<T>::is_inbounds(int row, int col)
@@ -647,7 +903,6 @@ namespace Matrix
 		return (row < this->rows_ && row >= 0 && col < this->cols_ && col >= 0);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::zero_fill()
@@ -661,7 +916,6 @@ namespace Matrix
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::zero_fill_int()
@@ -675,7 +929,6 @@ namespace Matrix
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::pow(T e)
@@ -690,7 +943,6 @@ namespace Matrix
 		}
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::square()
@@ -705,8 +957,6 @@ namespace Matrix
 			}
 		}
 	}
-
-	/* --------------------------------------------------------------------------- */
 
 
 	template<typename T>
@@ -771,7 +1021,6 @@ namespace Matrix
 		std::cerr << OK "File " << filepath << " read" << std::endl;		
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::load_from_ascii_file(int rows, int cols, std::string& filepath)
@@ -786,6 +1035,8 @@ namespace Matrix
 		this->set_size(rows, cols);
 
 		int i = 0;
+		int percentage=10;
+
 		std::ifstream infile(filepath);
 
 		if (!infile.is_open())
@@ -810,6 +1061,11 @@ namespace Matrix
 
 			for (; strit != row.end(); strit++, j++)
 			{
+				if(j>cols-1){
+					std::cerr << std::endl << ERROR "Error reading file: " << filepath << ". More than one space as separator?. Check row " << i+1 << std::endl;
+					exit(EXIT_FAILURE);
+				}
+
 				val = *strit;
 
 				if(val.find(".") != std::string::npos)
@@ -822,13 +1078,24 @@ namespace Matrix
 				}
 			}
 			i++;
+			//this is to show the percentage (by 10%) for large files
+			if(cols*rows>1e7 && (i*100/rows > percentage)){
+				if(percentage==10){
+					std::cerr << "     " ;
+				}
+				std::cerr << percentage << "% ";
+				percentage+=10;
+				if(percentage==100){
+					std::cerr << std::endl;
+				}
+			}
+
 		}
 		infile.close();
 		std::cerr << OK "File " << filepath << " read" << std::endl;
 		
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::load_from_ascii_file(int rows, int cols, std::string& filepath, int header_size)
@@ -852,14 +1119,14 @@ namespace Matrix
 		std::string line;
 
 		int line_number = 0;
-
+		int percentage=10;
 		while (infile.good())
 		{
 			std::getline(infile, line);
 
 			line_number++;
 			if (line_number <= header_size)
-				continue;
+			continue;
 
 			int j = 0;
 			std::vector<std::string> row = StringUtils::split(line, ' ');
@@ -868,6 +1135,11 @@ namespace Matrix
 
 			for (; strit != row.end(); strit++, j++)
 			{
+				if(j>cols-1){
+					std::cerr << std::endl << ERROR "Error reading file: " << filepath << ". More than one space as separator?. Check row " << i+1 << std::endl;
+					exit(EXIT_FAILURE);
+				}
+
 				val = *strit;
 
 				if(val.find(".") != std::string::npos)
@@ -880,13 +1152,23 @@ namespace Matrix
 				}
 			}
 			i++;
+			//this is to show the percentage (by 10%) for large files
+			if(cols*rows>1e7 && (i*100/rows > percentage)){
+				if(percentage==10){
+					std::cerr << "     " ;
+				}
+				std::cerr << percentage << "% ";
+				percentage+=10;
+				if(percentage==100){
+					std::cerr << std::endl;
+				}
+			}
 		}
 		infile.close();
 		std::cerr << OK "File " << filepath << " read" << std::endl;
 		
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void matrix<T>::load_from_binary_file(int rows, int cols, std::string& filepath)
@@ -924,8 +1206,7 @@ namespace Matrix
 		std::cerr << OK "File " << filepath << " read" << std::endl;
 		
 	}
-	
-	/* --------------------------------------------------------------------------- */
+
 
 	template<typename T>
 	void matrix<T>::load_from_binary_file(int rows, int cols, std::string& filepath, int header_size)
@@ -952,7 +1233,6 @@ namespace Matrix
 
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	std::pair<int, int> matrix<T>::get_dims_2d(std::string& filepath)

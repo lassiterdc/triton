@@ -1,4 +1,4 @@
-/** @file Kernels.h
+/** @file kernels.h
  *  @brief Header containing the Kernels class
  *
  *  This contains the subroutines and eventually any 
@@ -24,48 +24,33 @@
 
 namespace Kernels
 {
-	template<typename T>
-#ifdef ACTIVE_GPU
-	__global__
-#endif
-	void initialize_sqrt(int size, T *h_arr, T *sqrth, T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1)
-	{
-#ifdef ACTIVE_GPU
-		int id = blockIdx.x * blockDim.x + threadIdx.x;
-		if (id >= size)
-			return;
-#else
-#pragma omp parallel for
-		for (int id = 0; id < size; id++)
-		{
-#endif
-			T hij=h_arr[id];
-			T sqrthij=0.0;
-			if(hij > 0.0)
-			{
-				sqrthij = sqrt(hij);
-			}
-			sqrth[id] = sqrthij;
-			rhsh0[id] = 0.0;
-			rhsh1[id] = 0.0;
-			rhsqx0[id] = 0.0;
-			rhsqx1[id] = 0.0;
-			rhsqy0[id] = 0.0;
-			rhsqy1[id] = 0.0;
 
-#ifdef ACTIVE_OMP
-		}
-#endif
-	}
-
-	/* --------------------------------------------------------------------------- */
-
+/** @brief It calculates flux in x direction.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param dx Cell size
+*  @param dt Time step size
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param dem DEM array in that domain/subdomain (elevation)
+*  @param sqrth Square root of water depth array
+*  @param rhsh0 RHS array to store partial water depth contributions (east-north)
+*  @param rhsh1 RHS array to store partial water depth contributions (west-south)
+*  @param rhsqx0 RHS array to store partial discharge in x direction contributions (east-north)
+*  @param rhsqx1 RHS array to store partial discharge in x direction contributions (west-south)
+*  @param rhsqy0 RHS array to store partial discharge in y direction contributions (east-north)
+*  @param rhsqy1 RHS array to store partial discharge in y direction contributions (west-south)
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
 	void flux_x(int size, int nrows, int ncols, T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr, T *dem, T *sqrth, 
-			T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1, T hextra)
+	T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1, T hextra)
 	{
 
 		/**************************************
@@ -80,7 +65,7 @@ namespace Kernels
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
@@ -92,11 +77,12 @@ namespace Kernels
 			int rx = (ix * ncols);	//row offset
 
 			bool
-				is_top = (ix == 0),
-				is_btm = (ix == nrows - 1),
-				is_rt = (iy == ncols - 1);
+			is_top = (ix <= GHOST_CELL_PADDING-1),
+			is_btm = (ix >= nrows - GHOST_CELL_PADDING),
+			is_lt = (iy <= GHOST_CELL_PADDING-2),
+			is_rt = (iy >= ncols - GHOST_CELL_PADDING);
 
-			if (is_top || is_rt || is_btm)   //top, right and bottom are not computed. For the X-flux they dont need to be computed. Caution! If domain decomposition changes, this would change (left and right interfaces should be reconsidered)
+			if (is_top || is_rt || is_lt || is_btm)  //top, right and bottom are not computed. For the X-flux they dont need to be computed. Caution! If domain decomposition changes, this would change (left and right interfaces should be reconsidered)*/
 			{
 #ifdef ACTIVE_GPU
 				return;
@@ -119,7 +105,7 @@ namespace Kernels
 			if (h1 > 0.0 || h2 > 0.0)
 			{
 				int i;
-				T alpha[3], beta[3], eigen[3], eigenE[3], eigev[3][3], d1[3], d2[3];
+				T alpha[3], beta[3], eigen[3], eigenE[3]={0.0}, eigev[3][3], d1[3]={0.0}, d2[3]={0.0};
 				T u1, u2, v1, v2;
 
 				T qx1 = qx_arr[id1];
@@ -168,10 +154,6 @@ namespace Kernels
 				eigen[2] = un + c12;
 
 				//entropy correction
-				for (i = 0; i < 3; i++)
-				{
-					eigenE[i] = 0.0;
-				}
 
 				T e1 = u1 * nx + v1 * ny - SQRTG * sqh1;
 				T e2 = u2 * nx + v2 * ny - SQRTG * sqh2;
@@ -234,18 +216,12 @@ namespace Kernels
 				hp = h1 + alpha[0];
 				if (eigen[0] * eigen[2]<0.0 && hp>0.0 && h1 > 0.0 && h2 > 0.0)  //subcritical
 				{
-					beta[0] = fmax(beta[0], alpha[0] * eigen[0] - h1 * dx*0.5 / dt);
-					beta[0] = fmin(beta[0], -alpha[2] * eigen[2] + h2 * dx*0.5 / dt);
+					beta[0] = fmax(beta[0], eigen[0]/(eigen[0]+eigenE[2])*(alpha[0] * eigen[0] - h1 * dx*0.5 / dt + eigenE[2]*h2));
+					beta[0] = fmin(beta[0], eigen[2]/(eigen[2]+eigenE[0])*(-alpha[2] * eigen[2] + h2 * dx*0.5 / dt + eigenE[0]*h1));
 				}
 
 				beta[1] = 0.0;
 				beta[2] = -beta[0];
-
-				for (i = 0; i < 3; i++)
-				{
-					d1[i] = 0.0;
-					d2[i] = 0.0;
-				}
 
 				l1 = hp - beta[0] / eigen[0]; //left intermediate state
 				l2 = hp + beta[2] / eigen[2]; //right intermediate state
@@ -316,6 +292,14 @@ namespace Kernels
 				rhsh1[id2] = dt * d2[0] / dx;
 				rhsqx1[id2] = dt * d2[1] / dx;
 				rhsqy1[id2] = dt * d2[2] / dx;
+			}else{
+				rhsh0[id1] = 0.0;
+				rhsqx0[id1] = 0.0;
+				rhsqy0[id1] = 0.0;
+
+				rhsh1[id2] = 0.0;
+				rhsqx1[id2] = 0.0;
+				rhsqy1[id2] = 0.0;
 			}
 
 #ifdef ACTIVE_OMP
@@ -323,14 +307,33 @@ namespace Kernels
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It calculates flux in y direction.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param dx Cell size
+*  @param dt Time step size
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param dem DEM array in that domain/subdomain (elevation)
+*  @param sqrth Square root of water depth array
+*  @param rhsh0 RHS array to store partial water depth contributions (east-north)
+*  @param rhsh1 RHS array to store partial water depth contributions (west-south)
+*  @param rhsqx0 RHS array to store partial discharge in x direction contributions (east-north)
+*  @param rhsqx1 RHS array to store partial discharge in x direction contributions (west-south)
+*  @param rhsqy0 RHS array to store partial discharge in y direction contributions (east-north)
+*  @param rhsqy1 RHS array to store partial discharge in y direction contributions (west-south)
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
 	void flux_y(int size, int nrows, int ncols, T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr, T *dem, T *sqrth,
-			T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1, T hextra)
+	T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1, T hextra)
 	{
 
 		/**************************************
@@ -348,7 +351,7 @@ namespace Kernels
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
@@ -360,11 +363,15 @@ namespace Kernels
 			int rx = (ix * ncols);	//row offset
 
 			bool
-				is_top = (ix == 0),
-				is_lt = (iy == 0),
-				is_rt = (iy == ncols - 1);
+			is_top = (ix <= GHOST_CELL_PADDING-1),
+			is_btm = (ix >= nrows - GHOST_CELL_PADDING+1),
+			is_lt = (iy <= GHOST_CELL_PADDING-1),
+			is_rt = (iy >= ncols - GHOST_CELL_PADDING);
 
-			if (is_top || is_rt || is_lt)   //top, right and left cells are not computed. Bottom is neccesary beacuse we need to compute the N edge, which is equal to the south of rows-1. Caution! If domain decomposition changes, this would change
+
+			if (is_top || is_rt || is_lt || is_btm)   //top, right and left cells are not computed. Bottom is neccesary because we need to compute the N edge, which is equal to the south of rows-1. Caution! If domain decomposition changes, this would change
+
+
 			{
 #ifdef ACTIVE_GPU
 				return;
@@ -387,7 +394,7 @@ namespace Kernels
 			if (h1 > 0.0 || h2 > 0.0)
 			{
 				int i;
-				T alpha[3], beta[3], eigen[3], eigenE[3], eigev[3][3], d1[3], d2[3];
+				T alpha[3], beta[3], eigen[3], eigenE[3]={0.0}, eigev[3][3], d1[3]={0.0}, d2[3]={0.0};
 				T u1, u2, v1, v2;
 
 				T qx1 = qx_arr[id1];
@@ -434,10 +441,6 @@ namespace Kernels
 				eigen[2] = un + c12;
 
 				//entropy correction
-				for (i = 0; i < 3; i++)
-				{
-					eigenE[i] = 0.0;
-				}
 
 				T e1 = u1 * nx + v1 * ny - SQRTG * sqh1;
 				T e2 = u2 * nx + v2 * ny - SQRTG * sqh2;
@@ -500,18 +503,12 @@ namespace Kernels
 				hp = h1 + alpha[0];
 				if (eigen[0] * eigen[2]<0.0 && hp>0.0 && h1 > 0.0 && h2 > 0.0)  //subcritical
 				{
-					beta[0] = fmax(beta[0], alpha[0] * eigen[0] - h1 * dx*0.5 / dt);
-					beta[0] = fmin(beta[0], -alpha[2] * eigen[2] + h2 * dx*0.5 / dt);
+					beta[0] = fmax(beta[0], eigen[0]/(eigen[0]+eigenE[2])*(alpha[0] * eigen[0] - h1 * dx*0.5 / dt + eigenE[2]*h2));
+					beta[0] = fmin(beta[0], eigen[2]/(eigen[2]+eigenE[0])*(-alpha[2] * eigen[2] + h2 * dx*0.5 / dt + eigenE[0]*h1));
 				}
 
 				beta[1] = 0.0;
 				beta[2] = -beta[0];
-
-				for (i = 0; i < 3; i++)
-				{
-					d1[i] = 0.0;
-					d2[i] = 0.0;
-				}
 
 				l1 = hp - beta[0] / eigen[0]; //left intermediate state
 				l2 = hp + beta[2] / eigen[2]; //right intermediate state
@@ -590,19 +587,37 @@ namespace Kernels
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It calculates each cells new depth, fluxes and updates them.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param dt Time step size
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param dem DEM array in that domain/subdomain (elevation)
+*  @param n_arr Manning array in that domain/subdomain
+*  @param rhsh0 RHS array to store partial water depth contributions (east-north)
+*  @param rhsh1 RHS array to store partial water depth contributions (west-south)
+*  @param rhsqx0 RHS array to store partial discharge in x direction contributions (east-north)
+*  @param rhsqx1 RHS array to store partial discharge in x direction contributions (west-south)
+*  @param rhsqy0 RHS array to store partial discharge in y direction contributions (east-north)
+*  @param rhsqy1 RHS array to store partial discharge in y direction contributions (west-south)
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
 	void update_cells(int size, int nrows, int ncols, T dt, T *h_arr, T *qx_arr, T *qy_arr, T *dem, T *n_arr,
-			T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1, T hextra)
+	T *rhsh0, T *rhsh1, T *rhsqx0, T *rhsqx1, T *rhsqy0, T *rhsqy1, T hextra)
 	{
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
@@ -613,10 +628,10 @@ namespace Kernels
 			int iy = (id % ncols);	//col id
 
 			bool
-				is_top = (ix == 0),
-				is_btm = (ix == nrows - 1),
-				is_lt = (iy == 0),
-				is_rt = (iy == ncols - 1);
+			is_top = (ix <= GHOST_CELL_PADDING-1),
+			is_btm = (ix >= nrows - GHOST_CELL_PADDING),
+			is_lt = (iy <= GHOST_CELL_PADDING-1),
+			is_rt = (iy >= ncols - GHOST_CELL_PADDING);
 
 			if (is_top || is_lt || is_rt || is_btm) //exclude halo cells
 			{
@@ -633,7 +648,7 @@ namespace Kernels
 			//update depth
 			hij = hn - rhsh0[id] - rhsh1[id];
 
-			//if there are negative depths, there are removed (for the moment). Should be residual values (close to machine accuracy but negative)
+			//if there are negative depths, there are removed. Should be residual values (close to machine accuracy but negative)
 			if (hij < 0.0)
 			{
 				hij = 0.0;
@@ -674,18 +689,30 @@ namespace Kernels
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It updates solid wall condition for all cells except q_y for halo cells.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param dem DEM array in that domain/subdomain (elevation)
+*  @param max_h_arr Max water depth array
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*  @param mpi_tasks Number of MPI tasks (domain decomposition)
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
-	void wet_dry(int size, int nrows, int ncols, T dt, T *h_arr, T *qx_arr, T *qy_arr, T *dem, T hextra)
+	void wet_dry(int size, int nrows, int ncols, T dt, T *h_arr, T *qx_arr, T *qy_arr, T *dem, T *max_h_arr, T hextra, int mpi_tasks)
 	{
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
@@ -697,10 +724,11 @@ namespace Kernels
 			int rx = (ix * ncols);	//row offset
 
 			bool
-				is_top = (ix == 0),
-				is_btm = (ix == nrows - 1),
-				is_lt = (iy == 0),
-				is_rt = (iy == ncols - 1);
+			is_top = (ix <= GHOST_CELL_PADDING-1),
+			is_btm = (ix >= nrows - GHOST_CELL_PADDING),
+			is_lt = (iy <= GHOST_CELL_PADDING-1),
+			is_rt = (iy >= ncols - GHOST_CELL_PADDING);
+
 
 			if (is_top || is_lt || is_rt || is_btm) //exclude halo cells
 			{
@@ -711,7 +739,6 @@ namespace Kernels
 #endif
 			}
 
-			//wet/dry fronts. Remove velocities
 			T hij = h_arr[id];
 			T zij = dem[id];
 
@@ -721,152 +748,206 @@ namespace Kernels
 				{
 					qx_arr[id] = 0.0;
 				}
-				if (((hij + zij < dem[rx - ncols + iy]) && (h_arr[rx - ncols + iy] < EPS12)) || ((hij + zij < dem[rx + ncols + iy]) && (h_arr[rx + ncols + iy] < EPS12)))
-				{
-					qy_arr[id] = 0.0;
+				if(ix==GHOST_CELL_PADDING && mpi_tasks>1){ //first real row
+						if ((hij + zij < dem[rx + ncols + iy]) && (h_arr[rx + ncols + iy] < EPS12))
+						{
+							qy_arr[id] = 0.0;
+						}
+
+				}else{
+					if(ix==nrows - 2*GHOST_CELL_PADDING && mpi_tasks>1){ //last real row
+						if ((hij + zij < dem[rx - ncols + iy]) && (h_arr[rx - ncols + iy] < EPS12))											  {
+							qy_arr[id] = 0.0;
+						}
+					}else{
+						if (((hij + zij < dem[rx - ncols + iy]) && (h_arr[rx - ncols + iy] < EPS12)) || ((hij + zij < dem[rx + ncols + iy]) && (h_arr[rx + ncols + iy] < EPS12)))
+						{
+							qy_arr[id] = 0.0;
+						}
+							
+					}
+
 				}
+			}
+			
+			if(hij > max_h_arr[id]) max_h_arr[id] = hij;
 
+#ifdef ACTIVE_OMP
+		}
+#endif
+	}
+
+
+/** @brief It updates q_y for halo cells.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param dem DEM array in that domain/subdomain (elevation)
+*  @param max_h_arr Max water depth array
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*  @param mpi_tasks Number of MPI tasks (domain decomposition)
+*/
+	template<typename T>
+#ifdef ACTIVE_GPU
+	__global__
+#endif
+	void wet_dry_qy_halo(int size, int nrows, int ncols, T *h_arr, T *qy_arr, T *dem, T hextra)
+	{
+#ifdef ACTIVE_GPU
+		int id = blockIdx.x * blockDim.x + threadIdx.x;
+		if (id >= size)
+		return;
+#else
+#pragma omp parallel for
+		for (int id = 0; id < size; id++)
+		{
+#endif
+			int id1, id2;
+
+			id1 =  id+(nrows - 2*GHOST_CELL_PADDING-1)*ncols;
+
+			if(id < ncols*GHOST_CELL_PADDING)
+			{
+				id1=id;
 			}
 
+			id2=id1+ncols;
+
+			T h1 = h_arr[id1];
+			T h2 = h_arr[id2];
+			T z1 = dem[id1];
+			T z2 = dem[id2];
+
+			if (h1 > hextra && h1+z1 < z2 && h2 < EPS12)
+			{
+				qy_arr[id1] = 0.0;
+			}
+			if (h2 > hextra && h2+z2 < z1 && h1 < EPS12)
+			{
+				qy_arr[id2] = 0.0;
+			}
+			
 #ifdef ACTIVE_OMP
 		}
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+
+
+/** @brief It copies all halo cells flux value from halo flux bundle to main discharge array.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param halo_qxqy Bundle array that contains only halo discharge cells
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
-	void halo_copy_to_gpu_h(int size, int nrows, int ncols, T *h_arr, T *halo_h)
+	void halo_copy_to_gpu(int size, int nrows, int ncols, T *h_arr, T *qx_arr, T *qy_arr, T *halo)
 	{
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
 		{
 #endif
 
-			h_arr[id] = halo_h[id];
+			int index =  id + 2*ncols*GHOST_CELL_PADDING;
+			if(id < ncols*GHOST_CELL_PADDING)
+			{
+				index = id;
+			}
+			
+			h_arr[id]  = halo[index + 0*GHOST_CELL_PADDING*ncols];
+			qx_arr[id] = halo[index + 1*GHOST_CELL_PADDING*ncols];
+			qy_arr[id] = halo[index + 2*GHOST_CELL_PADDING*ncols];
 
-			int temp = id + (nrows - 2)*ncols;
+			int temp = id + (nrows - 2*GHOST_CELL_PADDING)*ncols;
 
-			h_arr[temp] = halo_h[id + 2 * ncols];
+			h_arr[temp]  = halo[index + 6*GHOST_CELL_PADDING*ncols];
+			qx_arr[temp] = halo[index + 7*GHOST_CELL_PADDING*ncols];
+			qy_arr[temp] = halo[index + 8*GHOST_CELL_PADDING*ncols];
 
 #ifdef ACTIVE_OMP
 		}
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It copies all halo cells from main array to halo flux bundle.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param halo_qxqy Bundle array that contains only halo discharge cells
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
-	void halo_copy_to_gpu_qxqy(int size, int nrows, int ncols, T *qx_arr, T *qy_arr, T *halo_uv)
+	void halo_copy_from_gpu(int size, int nrows, int ncols, T *h_arr, T *qx_arr, T *qy_arr, T *halo)
 	{
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
 		{
 #endif
 
-			int index =  id + ncols;
-			if(id < ncols)
+			int index = id + 2*ncols*GHOST_CELL_PADDING;
+			if(id < ncols*GHOST_CELL_PADDING)
 			{
 				index = id;
 			}
 
-			qx_arr[id] = halo_uv[index];
-			qy_arr[id] = halo_uv[index + ncols];
+			halo[index + 0*GHOST_CELL_PADDING*ncols] = h_arr[id];
+			halo[index + 1*GHOST_CELL_PADDING*ncols] = qx_arr[id];
+			halo[index + 2*GHOST_CELL_PADDING*ncols] = qy_arr[id];
 
-			int temp = id + (nrows - 2)*ncols;
+			int temp = id + (nrows - 2*GHOST_CELL_PADDING)*ncols;
 
-			qx_arr[temp] = halo_uv[index + 4 * ncols];
-			qy_arr[temp] = halo_uv[index + 5 * ncols];
-
-#ifdef ACTIVE_OMP
-		}
-#endif
-	}
-
-	/* --------------------------------------------------------------------------- */
-
-	template<typename T>
-#ifdef ACTIVE_GPU
-	__global__
-#endif
-	void halo_copy_from_gpu_h(int size, int nrows, int ncols, T *h_arr, T *halo_h)
-	{
-#ifdef ACTIVE_GPU
-		int id = blockIdx.x * blockDim.x + threadIdx.x;
-		if (id >= size)
-			return;
-#else
-#pragma omp parallel for
-		for (int id = 0; id < size; id++)
-		{
-#endif
-
-			halo_h[id] = h_arr[id];
-
-			int temp = id + (nrows - 2)*ncols;
-
-			halo_h[id + 2 * ncols] = h_arr[temp];
+			halo[index + 6*GHOST_CELL_PADDING*ncols] = h_arr[temp];
+			halo[index + 7*GHOST_CELL_PADDING*ncols] = qx_arr[temp];
+			halo[index + 8*GHOST_CELL_PADDING*ncols] = qy_arr[temp];
 
 #ifdef ACTIVE_OMP
 		}
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
-	template<typename T>
-#ifdef ACTIVE_GPU
-	__global__
-#endif
-	void halo_copy_from_gpu_qxqy(int size, int nrows, int ncols, T *qx_arr, T *qy_arr, T *halo_uv)
-	{
-#ifdef ACTIVE_GPU
-		int id = blockIdx.x * blockDim.x + threadIdx.x;
-		if (id >= size)
-			return;
-#else
-#pragma omp parallel for
-		for (int id = 0; id < size; id++)
-		{
-#endif
-
-			int index = id + ncols;
-			if(id < ncols)
-			{
-				index = id;
-			}
-
-			halo_uv[index] = qx_arr[id];
-			halo_uv[index + ncols] = qy_arr[id];
-
-			int temp = id + (nrows - 2)*ncols;
-
-			halo_uv[index + 4 * ncols] = qx_arr[temp];
-			halo_uv[index + 5 * ncols] = qy_arr[temp];
-
-#ifdef ACTIVE_OMP
-		}
-#endif
-	}
-
-	/* --------------------------------------------------------------------------- */
-
+/** @brief It calculates flow for each flow locations and updates depth value of those cells.
+*
+*  @param size Array size
+*  @param hyd_time Array that contains time information of hydrograph file
+*  @param hyd_val Array that contains flow information of hydrograph file
+*  @param dx Cell size
+*  @param dt Time step size
+*  @param simtime Current time of simulation
+*  @param _idx_low Time index just before current time
+*  @param _idx_high Time index just after current time
+*  @param h_arr Water depth array
+*  @param pos_arr Flow location position array
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
@@ -876,7 +957,7 @@ namespace Kernels
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
@@ -911,8 +992,22 @@ namespace Kernels
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It calculates runoff and updates depth and flux value of those cells.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param dt Time step size
+*  @param runoff_id Array that contains runoff id
+*  @param index_row_runoff Index of current row runoff
+*  @param n_rows_runoff Number of runoff rows
+*  @param runoff_intensity Array of runoff intensity
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
@@ -922,19 +1017,37 @@ namespace Kernels
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 #pragma omp parallel for
 		for (int id = 0; id < size; id++)
 		{
 #endif
 
+			int ix = (id / ncols);	//row id
+			int iy = (id % ncols);	//col id
+
+			bool
+				is_top = (ix <= GHOST_CELL_PADDING-1),
+				is_btm = (ix >= nrows - GHOST_CELL_PADDING),
+				is_lt = (iy <= GHOST_CELL_PADDING-1),
+				is_rt = (iy >= ncols - GHOST_CELL_PADDING);
+
+			if (is_top || is_lt || is_rt || is_btm) //exclude halo cells
+			{
+#ifdef ACTIVE_GPU
+				return;
+#else
+				continue;
+#endif
+			}
+
 			int id_r;
 			T net;
 			T hij = h_arr[id];
 
 			id_r = runoff_id[id];
-			//runoff_intensity contains the vector of runoff intensities (NROWSRUNOFFS*NTIMES)
+			//runoff_intensity contains the vector of runoff intensities (nrowsRunoffs*ntimes)
 			net = runoff_intensity[id_r*n_rows_runoff + index_row_runoff];
 			hij += net * dt;
 			//if water is below hextra, velocities are removed
@@ -957,13 +1070,23 @@ namespace Kernels
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It calculates time step size for each cell. It also performs first step of reduction to find minimum time step size.
+*
+*  @param size Number of times to execute
+*  @param dx Cell size
+*  @param input_qx Discharge in x direction array
+*  @param input_qy Discharge in y direction array
+*  @param input_h Water depth array
+*  @param output Time step size holder array
+*  @param cn CFL value
+*  @param hextra Minimum depth (tolerance below water is at rest)
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
 #endif
-	void compute_dt(int size, T dx, T *input_qx, T *input_qy, T *input_h, T *output, T cn, T hextra)
+	void compute_dt_and_sqrt(int size, T dx, T *input_qx, T *input_qy, T *input_h,  T *input_sqrth, T *output, T cn, T hextra)
 	{
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -974,18 +1097,13 @@ namespace Kernels
 		if (id < size)
 		{
 			T hij = input_h[id];
+			T sqrthij = fmax(sqrt(hij),0.0);
+			input_sqrth[id] = sqrthij;
+
 			if (hij > hextra)
-			{
-				T dtx = (dx / (fabs(input_qx[id] / hij) + sqrt(G * hij)));
-				T dty = (dx / (fabs(input_qy[id] / hij) + sqrt(G * hij)));
-				if(dtx < dty)
-				{
-					l_output[tx] = cn * dtx;
-				}
-				else
-				{
-					l_output[tx] = cn * dty;
-				}
+			{				
+				T maxu=fmax(fabs(input_qx[id]),fabs(input_qy[id]))/hij;
+				l_output[tx]=cn*dx/(maxu+ SQRTG*sqrthij);
 			}
 		}
 
@@ -1010,25 +1128,24 @@ namespace Kernels
 		{
 			output[id] = MAX_VALUE;
 			T hij = input_h[id];
+			T sqrthij = fmax(sqrt(hij),0.0);
+			input_sqrth[id] = sqrthij;
+
 			if (hij > hextra)
-			{
-				T dtx = (dx / (fabs(input_qx[id] / hij) + sqrt(G * hij)));
-				T dty = (dx / (fabs(input_qy[id] / hij) + sqrt(G * hij)));
-				if(dtx < dty)
-				{
-					output[id] = cn * dtx;
-				}
-				else
-				{
-					output[id] = cn * dty;
-				}
+			{				
+				T maxu=fmax(fabs(input_qx[id]),fabs(input_qy[id]))/hij;
+				output[id]=cn*dx/(maxu+ SQRTG*sqrthij);
 			}
 		}
 #endif
 	}
 
-	/* --------------------------------------------------------------------------- */
 
+/** @brief It calculates minimum time step size using further reduction.
+*
+*  @param size Array size
+*  @param input Array that contains all time step sizes
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
@@ -1077,7 +1194,27 @@ namespace Kernels
 	}
 
 
-
+/** @brief It calculates external boundary condition in each boundary cells and updates those cells depth.
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param dt Time step size
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param dem DEM array in that domain/subdomain
+*  @param n_arr Manning array in that domain/subdomain
+*  @param relative_index Index of boundary cells in that subdomain
+*  @param extbctype Boundary condition type of each cells
+*  @param start_index Start index of each boundary condition
+*  @param nrows_vars Number of rows for each variable
+*  @param extbcvar1 First variable array of boundary conditions
+*  @param extbcvar2 Second variable array of boundary conditions
+*  @param simtime Current time of the simulation
+*  @param rank Current process number
+*  @param total_process Total number of MPI processes
+*/
 	template<typename T>
 #ifdef ACTIVE_GPU
 	__global__
@@ -1087,12 +1224,11 @@ namespace Kernels
 #ifdef ACTIVE_GPU
 		int id = blockIdx.x * blockDim.x + threadIdx.x;
 		if (id >= size)
-			return;
+		return;
 #else
 		for (int id = 0; id < size; id++)
 		{
 #endif
-
 			int ii=relative_index[id];
 			int bctype=extbctype[id];
 			int start_index2=start_index[id];
@@ -1102,10 +1238,10 @@ namespace Kernels
 			int iy = (ii % ncols);	//col id
 
 			bool
-				is_top = (ix == 1),
-				is_btm = (ix == nrows - 2),
-				is_lt = (iy == 1),
-				is_rt = (iy == ncols - 2);
+			is_top = (ix == 1),
+			is_btm = (ix == nrows - 2),
+			is_lt = (iy == 1),
+			is_rt = (iy == ncols - 2);
 			
 			T hij,qxij,qyij;
 
@@ -1210,7 +1346,6 @@ namespace Kernels
 #endif
 
 	}
-
 }
 
 #endif

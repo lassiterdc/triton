@@ -1,4 +1,4 @@
-/** @file Triton.h
+/** @file triton.h
  *  @brief Header containing the Triton class
  *
  *  This contains the subroutines and eventually any 
@@ -26,110 +26,275 @@
 namespace Triton
 {
 	template<class T>
-	class triton
+	class triton	/**< Main class to perform the simulation. */
 	{
 	public:
+		
+/** @brief Constructor.
+*
+*  @param argc Number of arguments
+*  @param argv Arguments
+*/	
 		triton<T>(int argc, char* argv[]);
+		
+		
+/** @brief Destructor. Releases any allocated memory.
+*
+*/
 		~triton<T>();
 
+
+/** @brief It initializes the simulation.
+*
+*  @param rank_ Subdomain id
+*  @param size_ Number of subdomain
+*/
 		void initialize(int rank_, int size_);
+		
+		
+/** @brief It starts the simulation. It is the main simulation fuction.
+*
+*/		
 		void simulate();
 
+
 	private:
-		int rank;
-		int size;
-		int rows;
-		int cols;
-		int org_rows;
-		int org_cols;
-		int num_of_src;
-		int num_of_extbc;
-		int num_extbc_cells;
-		int index_row_runoff;
-		int idx_low = 0;
-		int checkpoint_id;
+		int rank;	/**< Current subdomain id */
+		int size;	/**< Total sumber of subdomains */
+		int rows;	/**< Number of rows in current subdomain */
+		int cols;	/**< Number of columns in current subdomain */
+		int org_rows;	/**< Number of rows in original domain without ghost cells */
+		int org_cols;	/**< Number of columns in original domain without ghost cells */
+		int num_of_src;	/**< Number of flow locations in current subdomain */
+		int num_of_extbc;	/**< Number of external boundary conditions */
+		int num_extbc_cells;	/**< Number of cells in all external boundary conditions */
+		int index_row_runoff;	/**< Index to keep track current runoff row id */
+		int idx_low = 0;	/**< Index to keep track lower index id when updating flow locations */
+		int checkpoint_id;	/**< Current checkpoint id */
 		
-		int host_src_pos_arr_size;
-		int host_hyg_time_arr_size;
-		int host_hyg_val_arr_size;
-		int host_bc_cells_size;
-		int host_bc_vars_arr_size;
-		int host_runoff_intensity_arr_size;
-		int host_reduce_dt_arr_sz;
-		int host_halo_h_arr_size;
-		int host_halo_qxqy_arr_size;
-		int nbytes;
-		int nbytes_halo_h;
-		int nbytes_halo_qxqy;
+		int host_src_pos_arr_size;	/**< Flow locations position container array size */
+		int host_hyg_time_arr_size;	/**< Hydrograph time values container array size */
+		int host_hyg_val_arr_size;	/**< Hydrograph flow values container array size */
+		int host_bc_cells_size;	/**< Boundary condition cells container array size */
+		int host_bc_vars_arr_size;	/**< Boundary condition variables container array size */
+		int host_runoff_intensity_arr_size;	/**< Runoff intensity container array size */
+		int host_reduce_dt_arr_sz;	/**< Time step size per cell container array size */
+		int host_halo_arr_size;	/**< Halo cells container array size (water depth and discharges)*/
+		int nbytes;	/**< Subdomain size in bytes */
+		int nbytes_halo;	/**< Halo cells bundle size in bytes */
 		
-		T simtime;
-		T cell_size;
-		T local_dt;
-		T global_dt;
+		T simtime;	/**< Current simulation time */
+		T cell_size;	/**< Cell size of the grid */
+		T local_dt;	/**< Time step size in current subdomain */
+		T global_dt;	/**< Time step size in the whole domain */
+		T average_dt;	/**< Average time step size dince the last output */
+		T init_dt;	/**< Time step size in case the domain is dry and the time step size is chosen dynamically*/
 		
-		std::string project_dir;
-		std::string cfg_content;
-		std::string cfg_dir;
+		std::string project_dir;	/**< Project directory */
+		std::string cfg_content;	/**< Content of the input cfg file */
+		std::string cfg_dir;	/**< Directory of input cfg file */
 
-		SuperTimer::super_timer st;
-		ConfigUtils::arguments<T> arglist;
-		Hydrograph::hydrograph<T> hyg, roff;
-		Constants::sources_list_t observation_cells;
-		MpiUtils::partition_data_t pd;
-		DemFile::dem_file<T> dem, sub_dem;
-		Matrix::matrix<T> hin, uin, vin, nin, hot_hin, hot_qxin, hot_qyin;
-		Matrix::matrix<T> sub_hin, sub_qxin, sub_qyin, sub_nin, sub_hot_hin, sub_hot_qxin, sub_hot_qyin;
-		Matrix::matrix<int> rin, sub_rin;
+		SuperTimer::super_timer st;	/**< Time object to keep truct every custom timer */
+		ConfigUtils::arguments<T> arglist;	/**< Object that holds all arguments and values from input cfg file */
+		Hydrograph::hydrograph<T> hyg;	/**< Object that hold flow locations update data from hydrograph input file */
+		Hydrograph::hydrograph<T> roff;	/**< Object that hold runoff input data */
+		Constants::sources_list_t observation_cells;	/**< Cell index information of all observation cells */
+		MpiUtils::partition_data_t pd;	/**< Partition information of all subdomains */
+		DemFile::dem_file<T> dem;	/**< Main domain's DEM file information and data */
+		DemFile::dem_file<T> sub_dem;	/**< Current subdomain's DEM file information and data */
+		Matrix::matrix<T> hin;	/**< Main domain's initial depth file data */
+		Matrix::matrix<T> uin;	/**< Main domain's initial flux X data */
+		Matrix::matrix<T> vin;	/**< Main domain's initial flux Y data */
+		Matrix::matrix<T> nin;	/**< Main domain's initial manning data */
+		Matrix::matrix<T> hot_hin;	/**< Main domain's water depth checkpoint data */
+		Matrix::matrix<T> hot_qxin;	/**< Main domain's flux X checkpoint data */
+		Matrix::matrix<T> hot_qyin;	/**< Main domain's flux Y checkpoint data */
+		Matrix::matrix<T> sub_hin;	/**< Current subdomain's water depth data */
+		Matrix::matrix<T> sub_qxin;	/**< Current subdomain's flux X data */
+		Matrix::matrix<T> sub_qyin;	/**< Current subdomain's flux Y data */
+		Matrix::matrix<T> sub_nin;	/**< Crrent subdomain's manning data */
+		Matrix::matrix<T> sub_hot_hin;	/**< Current subdomain's water depth checkpoint data */
+		Matrix::matrix<T> sub_hot_qxin;	/**< Current subdomain's discharge X checkpoint data */
+		Matrix::matrix<T> sub_hot_qyin;	/**< Current subdomain's discharge Y checkpoint data */
+		Matrix::matrix<T> sub_max_value_h;	/**< Current subdomain's max water depth of each cell */
+		Matrix::matrix<T> hot_max_value_h;	/**< Main domain's max water depth checkpoint data */
 		
-		int* host_src_pos_arr;
-		int* host_relative_bc_index;
-		int* host_bc_type;
-		int* host_bc_start_index;
-		int* host_bc_nrows_vars;
-		int* host_runoff_id_arr;
+		Matrix::matrix<int> rin;	/**< Main domain's runoff data */
+		Matrix::matrix<int> sub_rin;	/**< Current subdomain's runoff data */
 		
-		T* host_hyg_time_arr;
-		T* host_hyg_val_arr;
-		T* host_extbc_var1_arr;
-		T* host_extbc_var2_arr;
-		T* host_runoff_intensity_arr;
-		T* host_halo_h_arr;
-		T* host_halo_qxqy_arr;
-		T* host_sqrth_arr;
-		T* host_dt_values_arr;
-		T* host_rhsh0;
-		T* host_rhsh1;
-		T* host_rhsqx0;
-		T* host_rhsqx1;
-		T* host_rhsqy0;
-		T* host_rhsqy1;
+		int* host_src_pos_arr;	/**< Current subdomains flow locations position array */
+		int* host_relative_bc_index;	/**< Boundary condition cells relative positions in current subdomain */
+		int* host_bc_type;	/**< Boundary condition types of each boundary cells */
+		int* host_bc_start_index;	/**< Separate boundary condition start indexes */
+		int* host_bc_nrows_vars;	/**< Boundary condition variable of every rows */
+		int* host_runoff_id_arr;	/**< Array that contains runoff ids */
+		
+		T* host_hyg_time_arr;	/**< Hydrograph time values container array */
+		T* host_hyg_val_arr;	/**< Hydrograph flow values container array */
+		T* host_extbc_var1_arr;	/**< Boundary condition variables container array */
+		T* host_extbc_var2_arr;	/**< Boundary condition variables container array*/
+		T* host_runoff_intensity_arr;	/**< Runoff intensity container array*/
+		T* host_halo_arr;	/**< Halo cells container array*/
+		T* host_sqrth_arr;	/**< Square root value array of every cells water depth */
+		T* host_dt_values_arr;	/**< Time step size array of every cells */
+		T* host_rhsh0;	/**< Intermediate raster array to hold partial water depth */
+		T* host_rhsh1;	/**< Intermediate raster array to hold partial water depth */
+		T* host_rhsqx0;	/**< Intermediate raster array to hold partial flux X */
+		T* host_rhsqx1;	/**< Intermediate raster array to hold partial flux X */
+		T* host_rhsqy0;	/**< Intermediate raster array to hold partial flux Y */
+		T* host_rhsqy1;	/**< Intermediate raster array to hold partial flux Y */
 
-		std::vector<T*> host_vec;
-		std::vector<int*> host_vec_int;
+		std::vector<T*> host_vec;	/**< Vector that contains all floating point array to use in simulation. */
+		std::vector<int*> host_vec_int;	/**< Vector that contains all integer array to use in simulation. */
+
+		Output::output<T> out; /**Object to manage output files. */ 
 
 #ifdef ACTIVE_GPU
-		cudaStream_t streams;
-		std::vector<T*> device_vec;
-		std::vector<int*> device_vec_int;
+		cudaStream_t streams;	/**< Cuda stream */
+		std::vector<T*> device_vec;	/**< Device vector that contains all floating point array to use in simulation. */
+		std::vector<int*> device_vec_int;	/**< Device vector that contains all integer array to use in simulation. */
 #endif
 
+/** @brief This function is used to compute the time step size in the case the domain is dry and the dynamic CFL condition is set. It is computed according to the hydrograph interval, runoff interval and print interval divided by 100.
+* 
+*/
+		void compute_init_dt();
+
+
+
+/** @brief This function is used to calculate minimum time step size for each sub domain.
+*
+*/
 		void compute_local_dt();
+		
+		
+/** @brief This function is used to calculate minimum time step size between all sub domain.
+*
+*  @param print_id Current checkpoint id
+*/		
 		void compute_global_dt(int print_id);
+		
+		
+/** @brief This function is used to compute next state. All main computation is done inside this function.
+*
+*/		
 		void compute_new_state();
+		
+		
+/** @brief It calculates a cell's column index.
+*
+*  @param src_x X location
+*  @param xllc X coordinate of the origin
+*  @param cell_size_ Cell size
+*  @return The corresponding value
+*/		
 		int calc_src_col(T src_x, T xllc, T cell_size_);
+		
+		
+/** @brief It calculates a cell's row index.
+*
+*  @param src_y Y location
+*  @param yllc Y coordinate of the origin
+*  @param cell_size_ Cell size
+*  @param nrows Number of rows
+*  @return The corresponding value
+*/		
 		int calc_src_row(T src_y, T yllc, T cell_size_, int nrows);
+		
+		
+/** @brief This function reads from configuration file, process it for further use.
+*
+*  @param cfg_dir Cfg file directory
+*  @param checkpoint_id Current checkpoint id
+*/		
 		void read_configuration(std::string cfg_dir, int checkpoint_id);
+		
+		
+/** @brief This function reads all flow locations information.
+*
+*/			
 		void read_inflows();
+		
+		
+/** @brief This function reads all matrix type data file.
+*
+*/		
 		void read_matrix_files();
+		
+
+/** @brief This function processes all flow locations and partition them in different subdomain.
+*
+*/		
 		void process_source_locations();
+		
+		
+/** @brief This function reads all observation cells information.
+*
+*/		
 		void process_observation_cells();
+		
+		
+/** @brief This function reads all boundary conditions and allow different subdomain capability.
+*
+*/
 		void process_boundary_condition();
+		
+		
+/** @brief This function processes all the matrix file and partition them into different sub domain.
+*
+*/		
 		void partition_matrix_files();
+		
+		
+/** @brief This function processes runoff if available.
+*
+*/		
 		void process_runoff();
+		
+		
+/** @brief This function creates additional arrays needed for simulation.
+*
+*/		
 		void create_host_aux_vectors();
+		
+		
+/** @brief This function creates host vector for simulation combining all needed arrays.
+*
+*/		
 		void create_host_vectors();
+		
+		
+/** @brief This function creates device vector for simulation combining all needed arrays.
+*
+*/		
 		void create_device_vectors();
+
+
+/** @brief This function creates new load balance domain decomposition.
+*
+*/		
+		void new_domain_decomposition();
+
+		/** @brief This function gathers all the information from dynamic partition, creates the new partition based on previous MPI times and broadcasts the information from process 0 to the rest of the processes.
+*
+*/		
+		int MPI_time_based_domain_decomposition();
+
+		/** @brief This function resets previous arrays.
+*
+*/		
+		void reset_arrays();
+
+
+/** @brief This function processes all the matrix file and partition them into different sub domain for dynamic balancing
+*
+*/		
+		void partition_matrix_files_dynamic();
+
+
+
 	};
+
 
 	template<class T>
 	triton<T>::triton(int argc, char* argv[])
@@ -141,16 +306,16 @@ namespace Triton
 		{
 			cfg_dir = std::string(argv[1]);
 		}
-	
-		#ifdef ACTIVE_OMP
+		
+#ifdef ACTIVE_OMP
 		int threads = 1;
 		if(argc > 2)
 		{
 			threads = atoi(argv[2]);
 		}
 		omp_set_num_threads(threads);
-		#endif
-	
+#endif
+		
 		checkpoint_id = 0;
 		if(argc > 3)
 		{
@@ -158,6 +323,7 @@ namespace Triton
 		}
 
 	}
+
 
 	template<typename T>
 	void triton<T>::initialize(int rank_, int size_)
@@ -171,8 +337,20 @@ namespace Triton
 		read_inflows();
 		
 		read_matrix_files();
-		
+
+		//the first partitioning at the beginning of the simulation is homogeneous (static) unless there is checkpoint, more than 1 processes and dynamic partition
 		pd = MpiUtils::partition_data_t(size, org_rows, org_cols);
+		if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0){
+			int *dyn_rows = new int[size];
+			if(rank==0){
+				ConfigUtils::read_and_parse_checkpoint_partition(project_dir, dyn_rows, arglist.checkpoint_id);
+			}
+			MPI_Bcast(dyn_rows, size, MPI_INT, 0, MPI_COMM_WORLD); 
+			for(int i=0;i<pd.size;i++){
+				pd.part_dims[i].first=dyn_rows[i]+2*GHOST_CELL_PADDING;
+			}
+		}
+
 		process_source_locations();
 		process_observation_cells();
 		
@@ -185,6 +363,7 @@ namespace Triton
 		create_host_vectors();
 		create_device_vectors();
 	}
+	
 	
 	template<typename T>
 	void triton<T>::read_configuration(std::string cfg_dir, int checkpoint_id)
@@ -238,10 +417,8 @@ namespace Triton
 				std::cerr << DASH << arglist.observation_x_loc.size() << " observation points defined" << std::endl;
 			}
 		}
-
-
-
 	}
+	
 	
 	template<typename T>
 	void triton<T>::read_inflows()
@@ -272,6 +449,7 @@ namespace Triton
 			}
 		}
 	}
+	
 	
 	template<typename T>
 	void triton<T>::read_matrix_files()
@@ -398,6 +576,14 @@ namespace Triton
 				string filedirQY(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_00.out");
 				hot_qyin.load_from_binary_file(org_rows, org_cols, filedirQY);
 				hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				
+				if (arglist.max_value_print_option.size() > 0)	
+				{
+					string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_00.out");
+					hot_max_value_h.load_from_binary_file(org_rows, org_cols, filedirMaxH);
+					hot_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				}
+				
 				if (rank == 0){
 					std::cerr << OK "Checkpoint files read" << std::endl;
 				}
@@ -405,6 +591,7 @@ namespace Triton
 			}
 		}
 	}
+	
 	
 	template<typename T>
 	void triton<T>::process_source_locations()
@@ -419,7 +606,7 @@ namespace Triton
 			std::vector<T> src_x = arglist.src_x_loc;
 			std::vector<T> src_y = arglist.src_y_loc;
 
-			int num_sources = src_x.size();
+			int num_sources = arglist.num_sources;
 			src_rows.assign(num_sources, 0);
 			src_cols.assign(num_sources, 0);
 
@@ -427,6 +614,11 @@ namespace Triton
 			{
 				src_cols[i] = calc_src_col(src_x[i], dem.get_xll_corner(), dem.get_cell_size());
 				src_rows[i] = calc_src_row(src_y[i], dem.get_yll_corner(), dem.get_cell_size(), org_rows);
+				
+				if(src_cols[i] >= org_cols || src_rows[i] >= org_rows || src_cols[i]<0 || src_rows[i]<0){
+					std::cerr << ERROR "Source " << i+1  << " is out of bounds" << std::endl;
+					exit(EXIT_FAILURE);
+				}
 			}
 
 			for (int i = 0; i < arglist.num_sources; ++i)
@@ -437,7 +629,7 @@ namespace Triton
 				if(size > 1){
 					int source_row = src_rows[i];
 					int rows_sum = pd.part_dims[0].first - 2 * GHOST_CELL_PADDING;
-				
+					
 					if(source_row >= rows_sum){
 						for(int j=1; j<size; j++){
 							prev_rows_sum = rows_sum;
@@ -511,6 +703,7 @@ namespace Triton
 		}
 	}
 	
+	
 	template<typename T>
 	void triton<T>::process_observation_cells()
 	{
@@ -536,6 +729,7 @@ namespace Triton
 		}
 	}
 	
+	
 	template<typename T>
 	void triton<T>::process_boundary_condition()
 	{
@@ -556,7 +750,7 @@ namespace Triton
 			for(int i=0; i<arglist.num_extbc; i++){
 				extbc[i].extreme_cols.assign(2, 0); //there are two points per extbc
 				extbc[i].extreme_rows.assign(2, 0); //there are two points per extbc
-			
+				
 				T extreme_x1 = arglist.extbc_x1_loc[i];
 				T extreme_y1 = arglist.extbc_y1_loc[i];
 				T extreme_x2 = arglist.extbc_x2_loc[i];
@@ -641,7 +835,7 @@ namespace Triton
 				moving_index += extbc[i].ncells_local;
 			}
 		}
-				
+		
 		host_bc_vars_arr_size = 0;
 		if (num_of_extbc > 0)
 		{
@@ -677,9 +871,12 @@ namespace Triton
 		delete[] relative_bc_index;
 	}
 
+
 	template<typename T>
 	void triton<T>::partition_matrix_files()
 	{
+
+		//Note that the first partitioning at the beginning of the simulation is homogeneous (static)	
 		if(size > 1 && rank == 0){
 			std::cerr << IN "Creating partition data" << std::endl;
 		}
@@ -762,12 +959,22 @@ namespace Triton
 					sub_hot_hin = MpiUtils::scatter_exchange(hot_hin.get_data(), pd, rank);
 					sub_hot_qxin = MpiUtils::scatter_exchange(hot_qxin.get_data(), pd, rank);
 					sub_hot_qyin = MpiUtils::scatter_exchange(hot_qyin.get_data(), pd, rank);
+					
+					if (arglist.max_value_print_option.size() > 0)	
+					{
+						sub_max_value_h = MpiUtils::scatter_exchange(hot_max_value_h.get_data(), pd, rank);
+					}
 				}
 				else
 				{
 					sub_hot_hin = hot_hin;
 					sub_hot_qxin = hot_qxin;
 					sub_hot_qyin = hot_qyin;
+					
+					if (arglist.max_value_print_option.size() > 0)	
+					{
+						sub_max_value_h = hot_max_value_h;
+					}
 				}
 			}
 			else
@@ -805,6 +1012,13 @@ namespace Triton
 				MPI_Barrier(MPI_COMM_WORLD);
 				MpiUtils::exchange(sub_hot_qyin.begin(), rows, cols, rank, size, USE_MATRIX);
 				MPI_Barrier(MPI_COMM_WORLD);
+				
+				if (arglist.max_value_print_option.size() > 0)	
+				{
+					string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_num_2 + ".out");
+					sub_max_value_h.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirMaxH);
+					sub_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				}
 			}
 		}
 		
@@ -813,6 +1027,11 @@ namespace Triton
 			sub_hin = sub_hot_hin;
 			sub_qxin = sub_hot_qxin;
 			sub_qyin = sub_hot_qyin;
+			
+			if (arglist.max_value_print_option.size() <= 0)	
+			{
+				sub_max_value_h = sub_hin;
+			}
 		}
 		else
 		{
@@ -831,12 +1050,15 @@ namespace Triton
 			{
 				sub_qyin = values;
 			}
+			
+			sub_max_value_h = sub_hin;
 		}
 		if(size > 1 && rank == 0){
-			std::cerr << OK "Data has been partitioned" << std::endl;
+			std::cerr << OK "Data has been partitioned: " << arglist.domain_decomposition << " domain decomposition" <<std::endl;
 		}
 
 	}
+
 
 	template<typename T>
 	void triton<T>::process_runoff()
@@ -846,7 +1068,7 @@ namespace Triton
 			index_row_runoff = 0;
 			for (int j = 0; j < roff.get_num_inflow_rows() - 1; j++)
 			{
-				if (simtime >= roff.get_time_at(j) && simtime < roff.get_time_at(j + 1))
+				if (simtime > roff.get_time_at(j) && simtime <= roff.get_time_at(j + 1))
 				{
 					index_row_runoff = j;
 				}
@@ -897,20 +1119,15 @@ namespace Triton
 		}
 	}
 
+
 	template<typename T>
 	void triton<T>::create_host_aux_vectors()
 	{
-		host_halo_h_arr_size = 4 * cols;
-		host_halo_qxqy_arr_size = 8 * cols;
-		host_halo_h_arr = new T[host_halo_h_arr_size];
-		host_halo_qxqy_arr = new T[host_halo_qxqy_arr_size];
-		for (int i = 0; i < host_halo_h_arr_size; i++)
+		host_halo_arr_size = 12 * cols*GHOST_CELL_PADDING;
+		host_halo_arr = new T[host_halo_arr_size];
+		for (int i = 0; i < host_halo_arr_size; i++)
 		{
-			host_halo_h_arr[i] = 0.0;
-		}
-		for (int i = 0; i < host_halo_qxqy_arr_size; i++)
-		{
-			host_halo_qxqy_arr[i] = 0.0;
+			host_halo_arr[i] = 0.0;
 		}
 
 		host_sqrth_arr = new T[rows * cols];
@@ -919,7 +1136,7 @@ namespace Triton
 			host_sqrth_arr[j] = 0.0;
 		}
 		
-		#ifdef ACTIVE_GPU
+#ifdef ACTIVE_GPU
 		if ((rows*cols) % THREAD_BLOCK == 0)
 		{
 			host_reduce_dt_arr_sz = (rows*cols) / THREAD_BLOCK;
@@ -928,9 +1145,9 @@ namespace Triton
 		{
 			host_reduce_dt_arr_sz = (rows*cols) / THREAD_BLOCK + 1;
 		}
-		#else
+#else
 		host_reduce_dt_arr_sz = rows * cols;
-		#endif
+#endif
 		
 		host_dt_values_arr = new T[host_reduce_dt_arr_sz];
 		for (int i = 0; i < host_reduce_dt_arr_sz; i++)
@@ -955,8 +1172,8 @@ namespace Triton
 			host_rhsqy0[i] = 0.0;
 			host_rhsqy1[i] = 0.0;
 		}
-		
 	}
+
 
 	template<typename T>
 	void triton<T>::create_host_vectors()
@@ -969,6 +1186,7 @@ namespace Triton
 		host_vec.push_back(sub_qyin.get_data());
 		host_vec.push_back(sub_nin.get_data());
 		host_vec.push_back(sub_dem.get_data());
+		host_vec.push_back(sub_max_value_h.get_data());
 
 		host_vec.push_back(host_rhsh0);
 		host_vec.push_back(host_rhsh1);
@@ -978,8 +1196,7 @@ namespace Triton
 		host_vec.push_back(host_rhsqy1);
 
 		host_vec.push_back(host_sqrth_arr);
-		host_vec.push_back(host_halo_h_arr);
-		host_vec.push_back(host_halo_qxqy_arr);
+		host_vec.push_back(host_halo_arr);
 		host_vec.push_back(host_dt_values_arr);
 		host_vec.push_back(host_hyg_time_arr);
 		host_vec.push_back(host_hyg_val_arr);
@@ -1000,10 +1217,36 @@ namespace Triton
 	void triton<T>::create_device_vectors()
 	{
 		nbytes = (sizeof(T) * rows * cols);
-		nbytes_halo_h = (sizeof(T) * host_halo_h_arr_size);
-		nbytes_halo_qxqy = (sizeof(T) * host_halo_qxqy_arr_size);
+		nbytes_halo = (sizeof(T) * host_halo_arr_size);
 
-		#ifdef ACTIVE_GPU
+#ifdef ACTIVE_GPU
+
+		int deviceId = 0;
+		cudaError_t err = cudaGetDevice(&deviceId);
+		if (err != cudaSuccess) 
+		{
+			std::cerr << cudaGetErrorString(err) << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		
+		int deviceCount = 0;
+		err = cudaGetDeviceCount(&deviceCount);
+		if (err != cudaSuccess) 
+		{
+			std::cerr << cudaGetErrorString(err) << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		
+		if(deviceId != rank % deviceCount)
+		{
+			err = cudaSetDevice(rank % deviceCount);
+			if (err != cudaSuccess) 
+			{
+				std::cerr << cudaGetErrorString(err) << std::endl;
+				exit(EXIT_FAILURE);
+			}
+		}
+
 		cudaStreamCreate(&streams);
 
 		device_vec = std::vector<T*>();
@@ -1020,20 +1263,21 @@ namespace Triton
 
 
 		T *device_h, *device_qx, *device_qy,
-			*device_n, *device_dem, *device_sqrth_arr, *device_halo_h_arr, *device_halo_qxqy_arr, *device_dt_values_arr,
-			*device_rhsh0, *device_rhsh1, *device_rhsqx0, *device_rhsqx1, *device_rhsqy0, *device_rhsqy1,
-			*device_hyg_time_arr, *device_hyg_val_arr,
-			*device_runoff_intensity_arr,
-			*device_bc_var1_arr, *device_bc_var2_arr;
+		*device_n, *device_dem, *device_sqrth_arr, *device_halo_arr, *device_dt_values_arr,
+		*device_rhsh0, *device_rhsh1, *device_rhsqx0, *device_rhsqx1, *device_rhsqy0, *device_rhsqy1,
+		*device_hyg_time_arr, *device_hyg_val_arr,
+		*device_runoff_intensity_arr,
+		*device_bc_var1_arr, *device_bc_var2_arr, *device_max_value_h;
 
 		int *device_src_pos_arr, *device_runoff_id_arr, *device_relative_bc_index, *device_bc_type,
-			*device_bc_start_index, *device_bc_nrows_vars;
+		*device_bc_start_index, *device_bc_nrows_vars;
 		
 		cudaMalloc((void**)&device_h, nbytes);
 		cudaMalloc((void**)&device_qx, nbytes);
 		cudaMalloc((void**)&device_qy, nbytes);
 		cudaMalloc((void**)&device_n, nbytes);
 		cudaMalloc((void**)&device_dem, nbytes);
+		cudaMalloc((void**)&device_max_value_h, nbytes);
 
 		cudaMalloc((void**)&device_rhsh0, nbytes);
 		cudaMalloc((void**)&device_rhsh1, nbytes);
@@ -1043,8 +1287,7 @@ namespace Triton
 		cudaMalloc((void**)&device_rhsqy1, nbytes);
 
 		cudaMalloc((void**)&device_sqrth_arr, nbytes);
-		cudaMalloc((void**)&device_halo_h_arr, nbytes_halo_h);
-		cudaMalloc((void**)&device_halo_qxqy_arr, nbytes_halo_qxqy);
+		cudaMalloc((void**)&device_halo_arr, nbytes_halo);
 		cudaMalloc((void**)&device_dt_values_arr, nbytes_dt);
 		cudaMalloc((void**)&device_hyg_time_arr, nbytes_hyg_time);
 		cudaMalloc((void**)&device_hyg_val_arr, nbytes_hyg_val);
@@ -1065,6 +1308,7 @@ namespace Triton
 		device_vec.push_back(device_qy);
 		device_vec.push_back(device_n);
 		device_vec.push_back(device_dem);
+		device_vec.push_back(device_max_value_h);
 
 		device_vec.push_back(device_rhsh0);
 		device_vec.push_back(device_rhsh1);
@@ -1074,8 +1318,7 @@ namespace Triton
 		device_vec.push_back(device_rhsqy1);
 
 		device_vec.push_back(device_sqrth_arr);
-		device_vec.push_back(device_halo_h_arr);
-		device_vec.push_back(device_halo_qxqy_arr);
+		device_vec.push_back(device_halo_arr);
 		device_vec.push_back(device_dt_values_arr);
 		device_vec.push_back(device_hyg_time_arr);
 		device_vec.push_back(device_hyg_val_arr);
@@ -1096,6 +1339,7 @@ namespace Triton
 		cudaMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[N], host_vec[N], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[DEM], host_vec[DEM], nbytes, cudaMemcpyHostToDevice, streams);
+		cudaMemcpyAsync(device_vec[MAXH], host_vec[MAXH], nbytes, cudaMemcpyHostToDevice, streams);
 
 		cudaMemcpyAsync(device_vec[RHSH0], host_vec[RHSH0], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[RHSH1], host_vec[RHSH1], nbytes, cudaMemcpyHostToDevice, streams);
@@ -1105,8 +1349,7 @@ namespace Triton
 		cudaMemcpyAsync(device_vec[RHSQY1], host_vec[RHSQY1], nbytes, cudaMemcpyHostToDevice, streams);
 
 		cudaMemcpyAsync(device_vec[SQRTH], host_vec[SQRTH], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[HALOH], host_vec[HALOH], nbytes_halo_h, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[HALOQXQY], host_vec[HALOQXQY], nbytes_halo_qxqy, cudaMemcpyHostToDevice, streams);
+		cudaMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[DT], host_vec[DT], nbytes_dt, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[HYGT], host_vec[HYGT], nbytes_hyg_time, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[HYGV], host_vec[HYGV], nbytes_hyg_val, cudaMemcpyHostToDevice, streams);
@@ -1122,23 +1365,23 @@ namespace Triton
 		cudaMemcpyAsync(device_vec_int[BCINDEXSTART], host_vec_int[BCINDEXSTART], nbytes_bc_cell_size, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec_int[BCNROWSVARS], host_vec_int[BCNROWSVARS], nbytes_bc_cell_size, cudaMemcpyHostToDevice, streams);
 		cudaStreamSynchronize(streams);
-		#endif
+#endif
 	}
-	/* --------------------------------------------------------------------------- */
+
 
 	template<typename T>
 	int triton<T>::calc_src_col(T src_x, T xllc, T cell_size_)
 	{
-		return ceil(((src_x - xllc) / cell_size_)) - 1;
+		return ceil(((src_x - xllc) / cell_size_)+1e-16) - 1;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int triton<T>::calc_src_row(T src_y, T yllc, T cell_size_, int nrows)
 	{
-		return ceil((nrows - ((src_y - yllc) / cell_size_))) - 1;
+		return ceil((nrows - ((src_y - yllc) / cell_size_))+1e-16) - 1;
 	}
+
 
 	template<class T>
 	triton<T>::~triton()
@@ -1150,8 +1393,7 @@ namespace Triton
 		delete[] host_vec[HYGV];
 		delete[] host_vec[HYGT];
 		delete[] host_vec[DT];
-		delete[] host_vec[HALOQXQY];
-		delete[] host_vec[HALOH];
+		delete[] host_vec[HALO];
 		delete[] host_vec[SQRTH];
 		delete[] host_vec[RHSQY1];
 		delete[] host_vec[RHSQY0];
@@ -1182,15 +1424,18 @@ namespace Triton
 #endif
 	}
 
+
 	template<typename T>
 	void triton<T>::simulate()
 	{
+		compute_init_dt();
+
+		
 		if(rank==0){
 			std::cerr << OK "Simulation starts" << std::endl;
 		}
 		st.start(SIMULATION_TIME);
 		
-		Output::output<T> out;
 		out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 
 		if (arglist.time_series_flag)
@@ -1199,23 +1444,27 @@ namespace Triton
 		}
 
 		global_dt = arglist.time_step;
+		average_dt = 0.0;
 		local_dt = arglist.time_step;
 		int it_count = arglist.it_count;
+		int it_count_average = 0;
 		int print_id = arglist.checkpoint_id;
-
+		
+		
 		while (simtime < arglist.sim_duration)
 		{
 			it_count++;
+			it_count_average++;
 
 			if (!arglist.time_increment_fixed)
 			{
 				compute_local_dt();
 				compute_global_dt(print_id);
 			}
-			
 			compute_new_state();
 
 			simtime += global_dt;
+			average_dt+=global_dt;
 
 			if (simtime >= arglist.print_interval * (print_id + 1))
 			{
@@ -1226,26 +1475,70 @@ namespace Triton
 				cudaMemcpyAsync(host_vec[H], device_vec[H], nbytes, cudaMemcpyDeviceToHost, streams);
 				cudaMemcpyAsync(host_vec[QX], device_vec[QX], nbytes, cudaMemcpyDeviceToHost, streams);
 				cudaMemcpyAsync(host_vec[QY], device_vec[QY], nbytes, cudaMemcpyDeviceToHost, streams);
+				if (arglist.max_value_print_option.size() > 0)
+				{
+					cudaMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, cudaMemcpyDeviceToHost, streams);
+				}
 				cudaStreamSynchronize(streams);
 				st.stop(COMPUTE_TIME);
 #endif
 
 				st.start(IO_TIME);
-				out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.print_option, print_id, it_count, simtime, global_dt);
+				out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.print_option, print_id, it_count, simtime, average_dt/it_count_average,sub_max_value_h, arglist.max_value_print_option);
+				it_count_average=0;
+				average_dt=0.0;
 				st.stop(IO_TIME);
+
+				#if WRITE_PERFORMANCE
+					st.stop(SIMULATION_TIME);
+					st.stop(TOTAL_TIME);
+					out.write_times(st, print_id);
+					st.start(SIMULATION_TIME);
+					st.start(TOTAL_TIME);
+				#endif
+				
+				//mandatory in case of hotstart
+				if(strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0 && size > 1){
+					out.write_domain_decomposition(pd,print_id);
+				}
+
+				//we want to avoid repartitioning in the last iteration when simtime=arglist.sim_duration
+				if(strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0 && print_id%arglist.factor_interval_domain_decomposition==0 && size > 1 && simtime < arglist.sim_duration)
+				{
+					st.start(RESIZE_TIME);
+					new_domain_decomposition();
+					st.stop(RESIZE_TIME);
+				}
+
 			}
 
 		}
 		st.stop(SIMULATION_TIME);
 		st.stop(TOTAL_TIME);
 		
-		out.write_times(st);
+		out.write_times(st, -1);
 		if(rank==0){
 			std::cerr << OK "Simulation ends" << std::endl;
 		}
 
 
 	}
+
+
+	template<typename T>
+	void triton<T>::compute_init_dt()
+	{
+		init_dt=arglist.print_interval;
+		if (arglist.num_runoffs > 0){
+			init_dt=fmin(init_dt,roff.get_time_at(1)-roff.get_time_at(0));
+		}
+		if(num_of_src>0){
+			init_dt=fmin(init_dt,hyg.get_time_at(1)-hyg.get_time_at(0));
+		}
+		init_dt*=0.01;
+
+	}
+
 
 	template<typename T>
 	void triton<T>::compute_local_dt()
@@ -1254,8 +1547,8 @@ namespace Triton
 #ifdef ACTIVE_GPU
 		int cur_dt_arr_sz = host_reduce_dt_arr_sz;
 
-		Kernels::compute_dt << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >> > (rows*cols, cell_size,
-			device_vec[QX], device_vec[QY], device_vec[H], device_vec[DT], arglist.courant, arglist.hextra);
+		Kernels::compute_dt_and_sqrt << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >> > (rows*cols, cell_size,
+		device_vec[QX], device_vec[QY], device_vec[H], device_vec[SQRTH], device_vec[DT], arglist.courant, arglist.hextra);
 
 		while (cur_dt_arr_sz > 1)
 		{
@@ -1272,7 +1565,7 @@ namespace Triton
 		cudaMemcpyAsync(&local_dt, device_vec[DT], sizeof(T), cudaMemcpyDeviceToHost, streams);
 		cudaStreamSynchronize(streams);
 #else
-		Kernels::compute_dt(rows*cols, cell_size, host_vec[QX], host_vec[QY], host_vec[H], host_vec[DT], arglist.courant, arglist.hextra);
+		Kernels::compute_dt_and_sqrt(rows*cols, cell_size, host_vec[QX], host_vec[QY], host_vec[H], host_vec[SQRTH], host_vec[DT], arglist.courant, arglist.hextra);
 		Kernels::find_min_dt(rows*cols, host_vec[DT]);
 		local_dt = host_vec[DT][0];
 #endif
@@ -1285,9 +1578,11 @@ namespace Triton
 	{
 		if (size > 1)
 		{
+			st.start(BALANCING_MPI_TIME);
 			st.start(MPI_TIME);
 			MPI_Allreduce(&local_dt, &global_dt, 1, MPI_DATA_TYPE, MPI_MIN, MPI_COMM_WORLD);
 			st.stop(MPI_TIME);
+			st.stop(BALANCING_MPI_TIME);
 		}
 		else
 		{
@@ -1296,7 +1591,7 @@ namespace Triton
 
 		if (global_dt >= MAX_VALUE - 1.0)
 		{
-			global_dt = arglist.time_step;
+			global_dt = init_dt;
 		}
 
 		if (simtime + global_dt > arglist.print_interval * (print_id + 1))
@@ -1312,50 +1607,51 @@ namespace Triton
 		st.start(COMPUTE_TIME);
 
 #ifdef ACTIVE_GPU
-		Kernels::initialize_sqrt << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, device_vec[H], device_vec[SQRTH],
-			device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1]);
-
 		Kernels::flux_x << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, cell_size, global_dt,
-			device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
-			device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
+		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
+		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
 		Kernels::flux_y << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, cell_size, global_dt,
-			device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
-			device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
+		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
+		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
 		Kernels::update_cells << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
-			device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N],
-			device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
+		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N],
+		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 #else
-		Kernels::initialize_sqrt(rows*cols, host_vec[H], host_vec[SQRTH],
-			host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1]);
-
 		Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
-			host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[SQRTH],
-			host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
+		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[SQRTH],
+		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 
 		Kernels::flux_y(rows*cols, rows, cols, cell_size, global_dt,
-			host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[SQRTH],
-			host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
+		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[SQRTH],
+		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 
 		Kernels::update_cells(rows*cols, rows, cols, global_dt,
-			host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N],
-			host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
+		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N],
+		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 #endif
 
 		if (arglist.num_runoffs > 0)
 		{
-			if (simtime > roff.get_time_at(index_row_runoff + 1))
+			if(simtime > roff.get_time_at(roff.get_num_inflow_rows()-1))
+			{	
+				index_row_runoff=roff.get_num_inflow_rows()-1;
+			}
+			else
 			{
-				index_row_runoff++;
+				if (simtime > roff.get_time_at(index_row_runoff + 1))
+				{
+					index_row_runoff++;
+				}
 			}
 
 #ifdef ACTIVE_GPU
 			Kernels::update_runoff << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
-				device_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), device_vec[RUNIN], device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra);
+			device_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), device_vec[RUNIN], device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra);
 #else
 			Kernels::update_runoff(rows*cols, rows, cols, global_dt,
-				host_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), host_vec[RUNIN], host_vec[H], host_vec[QX], host_vec[QY], arglist.hextra);
+			host_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), host_vec[RUNIN], host_vec[H], host_vec[QX], host_vec[QY], arglist.hextra);
 #endif
 		}
 
@@ -1380,125 +1676,336 @@ namespace Triton
 
 #ifdef ACTIVE_GPU
 			Kernels::compute_flow << <(num_of_src + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (num_of_src, device_vec[HYGT], device_vec[HYGV],
-				cell_size, global_dt, simtime, idx_low, idx_high, device_vec[H], device_vec_int[SRCP]);
+			cell_size, global_dt, simtime, idx_low, idx_high, device_vec[H], device_vec_int[SRCP]);
 #else
 			Kernels::compute_flow(num_of_src, host_vec[HYGT], host_vec[HYGV],
-				cell_size, global_dt, simtime, idx_low, idx_high, host_vec[H], host_vec_int[SRCP]);
+			cell_size, global_dt, simtime, idx_low, idx_high, host_vec[H], host_vec_int[SRCP]);
 #endif
 		}
 
 
 		if (num_of_extbc > 0 && num_extbc_cells > 0)
 		{
-			#ifdef ACTIVE_GPU
+#ifdef ACTIVE_GPU
 			Kernels::compute_extbc_values<<< (num_extbc_cells + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
-		   #else
+#else
 			Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N], host_vec_int[BCRELATIVEINDEX], host_vec_int[BCTYPE], host_vec_int[BCINDEXSTART], host_vec_int[BCNROWSVARS], host_vec[EXTBCV1], host_vec[EXTBCV2], simtime, rank, size);
 
-			#endif
+#endif
 
 		}
+
+#ifdef ACTIVE_GPU
+		Kernels::wet_dry << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
+#else
+		Kernels::wet_dry(rows*cols, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[MAXH], arglist.hextra,size);
+#endif
 
 		if (size > 1)
 		{
 #ifdef ACTIVE_GPU
-			Kernels::halo_copy_from_gpu_h << <(2 * cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols, rows, cols, device_vec[H], device_vec[HALOH]);
+			Kernels::halo_copy_from_gpu << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
 
 			if (arglist.gpu_direct_flag)
 			{
 				cudaStreamSynchronize(streams);
 				st.stop(COMPUTE_TIME);
 
+				st.start(BALANCING_MPI_TIME);
 				st.start(MPI_TIME);
-				MpiUtils::exchange(device_vec[HALOH], 4, cols, rank, size, USE_HALO);
+				MpiUtils::exchange(device_vec[HALO], 12*GHOST_CELL_PADDING, cols, rank, size, USE_HALO);
 				st.stop(MPI_TIME);
+				st.stop(BALANCING_MPI_TIME);
 
 				st.start(COMPUTE_TIME);
 			}
 			else
 			{
-				cudaMemcpyAsync(host_vec[HALOH], device_vec[HALOH], nbytes_halo_h, cudaMemcpyDeviceToHost, streams);
+				cudaMemcpyAsync(host_vec[HALO], device_vec[HALO], nbytes_halo, cudaMemcpyDeviceToHost, streams);
 				cudaStreamSynchronize(streams);
 				st.stop(COMPUTE_TIME);
 
+				st.start(BALANCING_MPI_TIME);
 				st.start(MPI_TIME);
-				MpiUtils::exchange(host_vec[HALOH], 4, cols, rank, size, USE_HALO);
+				MpiUtils::exchange(host_vec[HALO], 12*GHOST_CELL_PADDING, cols, rank, size, USE_HALO);
 				st.stop(MPI_TIME);
+				st.stop(BALANCING_MPI_TIME);
 
 				st.start(COMPUTE_TIME);
-				cudaMemcpyAsync(device_vec[HALOH], host_vec[HALOH], nbytes_halo_h, cudaMemcpyHostToDevice, streams);
+				cudaMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, cudaMemcpyHostToDevice, streams);
 			}
 
-			Kernels::halo_copy_to_gpu_h << <(2 * cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols, rows, cols, device_vec[H], device_vec[HALOH]);
+			Kernels::halo_copy_to_gpu << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
 #else
-			Kernels::halo_copy_from_gpu_h(2 * cols, rows, cols, host_vec[H], host_vec[HALOH]);
-
+			Kernels::halo_copy_from_gpu(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY], host_vec[HALO]);
 			st.stop(COMPUTE_TIME);
 
+			st.start(BALANCING_MPI_TIME);
 			st.start(MPI_TIME);
-			MpiUtils::exchange(host_vec[HALOH], 4, cols, rank, size, USE_HALO);
+			MpiUtils::exchange(host_vec[HALO], 12*GHOST_CELL_PADDING, cols, rank, size, USE_HALO);
 			st.stop(MPI_TIME);
+			st.stop(BALANCING_MPI_TIME);
 
 			st.start(COMPUTE_TIME);
-
-			Kernels::halo_copy_to_gpu_h(2 * cols, rows, cols, host_vec[H], host_vec[HALOH]);
+			Kernels::halo_copy_to_gpu(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY], host_vec[HALO]);
 #endif
-		}
 
 #ifdef ACTIVE_GPU
-		Kernels::wet_dry << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], arglist.hextra);
+			Kernels::wet_dry_qy_halo << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QY], device_vec[DEM], arglist.hextra);
 #else
-		Kernels::wet_dry(rows*cols, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], arglist.hextra);
+			Kernels::wet_dry_qy_halo(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QY], host_vec[DEM], arglist.hextra);
 #endif
 
-		if (size > 1)
-		{
-#ifdef ACTIVE_GPU
-			Kernels::halo_copy_from_gpu_qxqy << <(2 * cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols, rows, cols, device_vec[QX], device_vec[QY], device_vec[HALOQXQY]);
-
-			if (arglist.gpu_direct_flag)
-			{
-				cudaStreamSynchronize(streams);
-				st.stop(COMPUTE_TIME);
-
-				st.start(MPI_TIME);
-				MpiUtils::exchange(device_vec[HALOQXQY], 8, cols, rank, size, USE_HALO);
-				st.stop(MPI_TIME);
-
-				st.start(COMPUTE_TIME);
-			}
-			else
-			{
-				cudaMemcpyAsync(host_vec[HALOQXQY], device_vec[HALOQXQY], nbytes_halo_qxqy, cudaMemcpyDeviceToHost, streams);
-				cudaStreamSynchronize(streams);
-				st.stop(COMPUTE_TIME);
-
-				st.start(MPI_TIME);
-				MpiUtils::exchange(host_vec[HALOQXQY], 8, cols, rank, size, USE_HALO);
-				st.stop(MPI_TIME);
-
-				st.start(COMPUTE_TIME);
-				cudaMemcpyAsync(device_vec[HALOQXQY], host_vec[HALOQXQY], nbytes_halo_qxqy, cudaMemcpyHostToDevice, streams);
-			}
-
-			Kernels::halo_copy_to_gpu_qxqy << <(2 * cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols, rows, cols, device_vec[QX], device_vec[QY], device_vec[HALOQXQY]);
-#else
-			Kernels::halo_copy_from_gpu_qxqy(2 * cols, rows, cols, host_vec[QX], host_vec[QY], host_vec[HALOQXQY]);
-
-			st.stop(COMPUTE_TIME);
-
-			st.start(MPI_TIME);
-			MpiUtils::exchange(host_vec[HALOQXQY], 8, cols, rank, size, USE_HALO);
-			st.stop(MPI_TIME);
-
-			st.start(COMPUTE_TIME);
-
-			Kernels::halo_copy_to_gpu_qxqy(2 * cols, rows, cols, host_vec[QX], host_vec[QY], host_vec[HALOQXQY]);
-#endif
 		}
-		
+
+
 		st.stop(COMPUTE_TIME);
 	}
+
+
+	template<typename T>
+	void triton<T>::new_domain_decomposition()
+	{
+			
+		if(MPI_time_based_domain_decomposition()){;
+
+			reset_arrays();
+
+			process_source_locations();
+
+			process_observation_cells();
+			
+			process_boundary_condition();
+
+			partition_matrix_files_dynamic();
+			
+			process_runoff();
+			create_host_aux_vectors();
+			
+			create_host_vectors();
+			create_device_vectors();
+
+			//a call to out.init is again neccessary to set the output configuration
+			out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+
+			if (arglist.time_series_flag)
+			{
+				out.init_time_series(arglist.observation_x_loc.size(), observation_cells);
+			}
+			
+
+		}
+
+
+	}
+	
+	template<typename T>
+	int triton<T>::MPI_time_based_domain_decomposition()
+	{
+		int *dyn_rows = new int[size];
+		double *mpi_time_all = new double[size];
+		double sumMPI;
+		double mpi_time = st.get_custom_time(BALANCING_MPI_TIME);
+		int sum_rows;
+		int flag=0;
+
+
+		MPI_Gather(&mpi_time, 1, MPI_DATA_TYPE, &mpi_time_all[rank], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+
+		if(rank==0){
+			sumMPI=0.0;
+			for(int j=0;j<size;j++){
+				sumMPI+=mpi_time_all[j];
+			}
+			
+			sum_rows=0;
+			for(int j=0;j<size;j++){
+				double factor = mpi_time_all[j]*size/sumMPI - 1.0;
+				if(fabs(factor)>0.05){ //greater than 5%
+					flag=1;
+				}
+				//0.1 is a weight factor to enforce gradual changes in domain size from one step to another
+				dyn_rows[j]=pd.part_dims[j].first + (int) floor((factor)*pd.rows/size*0.1);
+				//at least 2 real rows per subdomain 
+				dyn_rows[j]=max(dyn_rows[j],2+2*GHOST_CELL_PADDING);
+				sum_rows+=dyn_rows[j]-2*GHOST_CELL_PADDING;
+			}
+			
+			if(sum_rows<=pd.rows){
+				int rem = pd.rows - sum_rows;
+				if(rem>0){
+					for(int j=0;j<rem;j++){
+						dyn_rows[j]++;
+					}
+				}
+			}else{
+				std::cerr << ERROR "Re-partitioning algorithm is wrong" << std::endl;
+				exit(EXIT_FAILURE);	
+			}
+		}
+		MPI_Barrier(MPI_COMM_WORLD);
+		
+		MPI_Bcast(&flag, 1, MPI_INT, 0, MPI_COMM_WORLD); 
+		
+		if(flag==0){
+			st.restart(BALANCING_MPI_TIME);
+			return 0; 
+		}
+
+		MPI_Bcast(dyn_rows, size, MPI_INT, 0, MPI_COMM_WORLD); 
+
+
+		for(int i=0;i<pd.size;i++){
+			pd.part_dims[i].first=dyn_rows[i];
+		}
+
+		st.restart(BALANCING_MPI_TIME);
+		
+		delete[] dyn_rows;
+		delete[] mpi_time_all;
+		
+
+		return 1;
+
+	}
+
+
+	template<typename T>
+	void triton<T>::reset_arrays()
+	{
+
+		delete[] host_vec[EXTBCV2];
+		delete[] host_vec[EXTBCV1];
+		delete[] host_vec[RUNIN];
+		delete[] host_vec[HYGV];
+		delete[] host_vec[HYGT];
+		delete[] host_vec[DT];
+		delete[] host_vec[HALO];
+		delete[] host_vec[SQRTH];
+		delete[] host_vec[RHSQY1];
+		delete[] host_vec[RHSQY0];
+		delete[] host_vec[RHSQX1];
+		delete[] host_vec[RHSQX0];
+		delete[] host_vec[RHSH1];
+		delete[] host_vec[RHSH0];
+
+		delete[] host_vec_int[BCNROWSVARS];
+		delete[] host_vec_int[BCINDEXSTART];
+		delete[] host_vec_int[BCTYPE];
+		delete[] host_vec_int[BCRELATIVEINDEX];
+		delete[] host_vec_int[RUNID];
+		delete[] host_vec_int[SRCP];
+		
+#ifdef ACTIVE_GPU
+
+		//not neccessary since we are inside output so we already copied this data to the CPU
+		/*cudaMemcpyAsync(host_vec[H], device_vec[H], nbytes, cudaMemcpyDeviceToHost, streams);
+		cudaMemcpyAsync(host_vec[QX], device_vec[QX], nbytes, cudaMemcpyDeviceToHost, streams);
+		cudaMemcpyAsync(host_vec[QY], device_vec[QY], nbytes, cudaMemcpyDeviceToHost, streams);
+		if (arglist.max_value_print_option.size() > 0)
+		{
+			cudaMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, cudaMemcpyDeviceToHost, streams);
+		}
+		cudaStreamSynchronize(streams);*/
+
+		cudaStreamDestroy(streams);
+		while (!device_vec.empty())
+		{
+			cudaFree(device_vec.back());
+			device_vec.pop_back();
+		}
+		while (!device_vec_int.empty())
+		{
+			cudaFree(device_vec_int.back());
+			device_vec_int.pop_back();
+		}
+
+#endif
+
+	}
+
+
+	template<typename T>
+	void triton<T>::partition_matrix_files_dynamic()
+	{
+		sub_dem.resize(1,1);
+		sub_nin.resize(1,1);
+		sub_dem = MpiUtils::scatter_exchange(dem.get_data(), pd, rank);
+		sub_nin = MpiUtils::scatter_exchange(nin.get_data(), pd, rank);
+
+		rows = sub_dem.get_num_rows();
+		cols = sub_dem.get_num_cols();
+		
+		sub_dem.set_nrows(sub_dem.get_num_rows());
+		sub_dem.set_ncols(sub_dem.get_num_cols());
+		sub_dem.set_cell_size(dem.get_cell_size());
+		sub_dem.set_xll_corner(dem.get_xll_corner());
+		sub_dem.set_yll_corner(dem.get_yll_corner());
+		sub_dem.set_no_data_value(dem.get_no_data_value());
+		
+		if(arglist.runoff_map.size() > 0)
+		{
+			sub_rin = MpiUtils::scatter_exchange_int(rin.get_data(), pd, rank);
+		}
+
+		//gather H
+		if (rank == 0)
+		{
+			MPI_Gatherv(sub_hin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		else
+		{
+			MPI_Gatherv(sub_hin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+
+		sub_hin.resize(1,1);
+		sub_hin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+
+
+		//gather QX
+		if (rank == 0)
+		{
+			MPI_Gatherv(sub_qxin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		else
+		{
+			MPI_Gatherv(sub_qxin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		sub_qxin.resize(1,1);
+		sub_qxin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+		
+		//gather QY
+		if (rank == 0)
+		{
+			MPI_Gatherv(sub_qyin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		else
+		{
+			MPI_Gatherv(sub_qyin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		sub_qyin.resize(1,1);
+		sub_qyin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+
+
+		//gather MAXH
+		if (rank == 0)
+		{
+			MPI_Gatherv(sub_max_value_h.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		else
+		{
+			MPI_Gatherv(sub_max_value_h.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		sub_max_value_h.resize(1,1);
+		sub_max_value_h = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+
+		if(rank == 0){
+			std::cerr << OK "Data has been re-partitioned" << std::endl;
+		}
+
+	}
+
+
 }
 
 #endif

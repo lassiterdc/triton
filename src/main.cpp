@@ -52,6 +52,12 @@ using namespace std;
 #include "kernels.h"
 
 
+/** @brief Main function. This is the main function of the program.
+*
+*  @param argc Argument count
+*  @param argv Pointer array which points to each argument passed to the program. The program runs with cfg filename and number of threads (only for OpenMP version)
+*  @return 0
+*/
 int main(int argc, char* argv[])
 {
 	int rank, size;

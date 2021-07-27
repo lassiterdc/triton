@@ -1,4 +1,4 @@
-/** @file Hydrograph.h
+/** @file inflow.h
  *  @brief Header containing the Hydrograph class
  *
  *  This contains the subroutines and eventually any 
@@ -25,34 +25,106 @@
 namespace Hydrograph
 {
 	template<class T>
-	class hydrograph
+	class hydrograph	/**< To process and store hydrograph input files. */
 	{
 	public:
+		
+/** @brief Constructor. Takes no argument.
+*
+*/	
 		hydrograph();
+		
+		
+/** @brief Constructor. Takes filename as an argument to construct the object.
+*
+*  @param filename Input file name
+*/	
 		hydrograph(std::string filename);
 
+
+/** @brief It reads content from a hydrograph file and construct data.
+*
+*  @param filename Input file name
+*/
 		void load_from_file(std::string filename);
 
+
+/** @brief To get all the contents in each rows of hydrograph file. 
+*
+*  @return All input rows.
+*/
 		std::vector<std::vector<T>> get_rows();
+		
+		
+/** @brief It calculates flow value at a specific row index for a specific flow location number.
+*
+*  @param index Row index
+*  @param source_num Flow location serial number
+*  @return Flow value
+*/		
 		T get_flow_at(int index, int source_num);
+		
+		
+/** @brief It calculates time at a specific row index.
+*
+*  @param index Row index
+*  @return Time value
+*/			
 		T get_time_at(int index);
 
+
+/** @brief To get number of inflow rows.
+*
+*  @return Inflow rows count
+*/	
 		int get_num_inflow_rows();
+		
+		
+/** @brief To get number of inflows.
+*
+*  @return Inflows count
+*/	
 		int get_num_inflows();
+		
+		
+/** @brief It converts all data time values from hour to second
+*
+*/			
 		void convert_time_hr_to_secs();
+		
+		
+/** @brief It converts all rate values from hour to second
+*
+*/	
 		void convert_rate_hr_to_secs();
+		
+		
+/** @brief It converts all mm values to m
+*
+*/			
 		void convert_rate_mm_to_m();
+		
+		
+/** @brief It sets number of flow rows.
+*
+*  @param rows Number of rows
+*/			
 		void set_num_flow_rows(int rows);
+		
+		
+/** @brief It sets number of inflow locations.
+*
+*  @param sources inflow location count
+*/			
 		void set_num_sources(int sources);
 
 	private:
-		bool time_is_hours_;
-		int flow_rows_, num_sources_;
-		std::vector<std::vector<T> > data_;
+		bool time_is_hours_;	/**< Flag to check time is in hours ot not. If true, time is in hours unit. */
+		int flow_rows_;	  /**< Number of flow rows. */
+		int num_sources_;	/**< Number of flow locations. */
+		std::vector<std::vector<T> > data_;	  /**< Contains all the flow data. Inner vector contains data for each row. */
 	};
 
-
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	hydrograph<T>::hydrograph()
@@ -61,7 +133,6 @@ namespace Hydrograph
 		set_num_sources(1);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	hydrograph<T>::hydrograph(std::string filename)
@@ -72,7 +143,6 @@ namespace Hydrograph
 		set_num_flow_rows(data_.size());
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int hydrograph<T>::get_num_inflow_rows()
@@ -80,7 +150,6 @@ namespace Hydrograph
 		return flow_rows_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int hydrograph<T>::get_num_inflows()
@@ -88,7 +157,6 @@ namespace Hydrograph
 		return num_sources_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void hydrograph<T>::set_num_flow_rows(int rows)
@@ -96,7 +164,6 @@ namespace Hydrograph
 		flow_rows_ = rows;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void hydrograph<T>::set_num_sources(int sources)
@@ -104,7 +171,6 @@ namespace Hydrograph
 		num_sources_ = sources;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void hydrograph<T>::load_from_file(std::string filename)
@@ -125,7 +191,7 @@ namespace Hydrograph
 			std::string line;
 			std::getline(ifs, line);
 			if (!ifs)
-				break;
+			break;
 
 			line_num++;
 			line = StringUtils::trim(line);
@@ -152,7 +218,6 @@ namespace Hydrograph
 
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	std::vector<std::vector<T>> hydrograph<T>::get_rows()
@@ -160,28 +225,26 @@ namespace Hydrograph
 		return data_;
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T hydrograph<T>::get_time_at(int index)
 	{
 		if (index >= static_cast<int>(data_.size()))
 		{
-			std::cerr << ERROR "Extbc index out of bounds" << std::endl;
+			std::cerr << ERROR "Inflow or runoff index out of bounds: " << index << " out of " << data_.size() << std::endl;
 			exit(EXIT_FAILURE);
 		}
 
 		return (data_.at(index)).at(0);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T hydrograph<T>::get_flow_at(int index, int source_num)
 	{
 		if (index >= static_cast<int>(data_.size()))
 		{
-			std::cerr << ERROR "Extbc index out of bounds" << std::endl;
+			std::cerr << ERROR "Inflow or runoff index out of bounds: " << index << " out of " << data_.size() << std::endl;
 			exit(EXIT_FAILURE);
 
 		}
@@ -189,7 +252,6 @@ namespace Hydrograph
 		return (data_.at(index)).at(source_num);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void hydrograph<T>::convert_time_hr_to_secs()
@@ -208,8 +270,6 @@ namespace Hydrograph
 	}
 
 
-	/* --------------------------------------------------------------------------- */
-
 	template<typename T>
 	void hydrograph<T>::convert_rate_hr_to_secs()
 	{
@@ -224,9 +284,6 @@ namespace Hydrograph
 	}
 
 
-
-	/* --------------------------------------------------------------------------- */
-
 	template<typename T>
 	void hydrograph<T>::convert_rate_mm_to_m()
 	{
@@ -237,9 +294,7 @@ namespace Hydrograph
 				data_[j][i + 1] *= MM_TO_M_FACTOR;
 			}
 		}
-
 	}
-
 }
 
 #endif

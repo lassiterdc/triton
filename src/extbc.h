@@ -1,4 +1,4 @@
-/** @file ExtBC.h
+/** @file extbc.h
  *  @brief Header containing the ExtBC class
  *
  *  This contains the subroutines and eventually any 
@@ -20,52 +20,120 @@
 #ifndef EXTBC_H
 #define EXTBC_H
 
+
 namespace ExtBC
 {
 	template<class T>
-	class extBC
+	class extBC	/**< To process and store data related to external boundary condition. */
 	{
 	public:
+		
+/** @brief Constructor. Takes no argument.
+*
+*/	
 		extBC();
+		
+		
+/** @brief Constructor. Takes filename containing boundary condition and boundary condition type. Reads from files and push each row in a vector and construct data.
+*
+*  @param filename File name
+*  @param bctype Boundary condition type
+*/		
 		extBC(std::string filename, int bctype);
 
+
+/** @brief Reads from files and push each row in a vector and construct data.
+*
+*  @param filename File name
+*  @param bctype Boundary condition type
+*/	
 		void load_from_file(std::string filename, int bctype);
+		
+		
+/** @brief It checks for extreme boundary condition and calculates the number of cells in that boundary condition.
+*
+*  @param e_cols Extreme columns vector
+*  @param e_rows Extreme rows vector
+*  @param ncols Number of columns
+*  @param nrows Number of rows
+*  @return Number of cells in that boundary condition
+*/		
 		int check_extreme_extbc(std::vector<int> e_cols, std::vector<int> e_rows, int ncols, int nrows);
+		
+		
+/** @brief It calculates involved cells corresponding to a boundary condition.
+*
+*  @param e_cols Extreme columns vector
+*  @param e_rows Extreme rows vector
+*  @param ncols Number of columns
+*  @param nrows Number of rows
+*  @param bctype Boundary condition type
+*/		
 		void create_involved_cells(std::vector<int> e_cols, std::vector<int> e_rows, int ncols, int nrows, int bctype);
 
+
+/** @brief It returns all data saved from boundary condition file.
+*
+*  @return Boundary condition data
+*/
 		std::vector<std::vector<T>> get_rows();
 		
+		
+/** @brief It calculates vector at a specific index and return that vecors 0 indexed value.
+*
+*  @param index Data vector's index
+*  @return value 
+*/
 		T get_var1_at(int index);
+		
+		
+/** @brief It calculates vector at a specific index and return that vecors 1 indexed value.
+*
+*  @param index Data vector's index
+*  @return value
+*/		
 		T get_var2_at(int index);
 
+
+/** @brief Use to get number of rows in boundary condition data.
+*
+*  @return Number of rows
+*/
 		int get_num_rows();
+		
+/** @brief Use to set number of rows in boundary condition data.
+*
+*  @param rows Number of rows
+*/		
 		void set_num_rows(int rows);
 
+
+/** @brief It converts hour data to seconds.
+*
+*/
 		void convert_to_secs();
-		int ncells;
-		int location; //0--> westBoundary  1-->northBoundary 2-->eastBoundary 3--> southBoundary
-		int ncells_local;
-		std::vector<int> extreme_rows, extreme_cols;
-		std::vector<int> i_cols;
-		std::vector<int> i_rows;
+		
+		
+		int ncells;	/**< Number of cells of a boundary condition. */
+		int location;	/**< 0--> westBoundary  1-->northBoundary 2-->eastBoundary 3--> southBoundary */
+		int ncells_local;	/**< Number of cells of a boundary condition in a subdomain. */
+		std::vector<int> extreme_rows;	/**< Extreme rows */
+		std::vector<int>extreme_cols;	/**< Extreme columns */
+		std::vector<int> i_cols;	/**< Involved columns. */
+		std::vector<int> i_rows;	/**< Involved rows. */
 
 	private:
-		int num_rows_;
-		std::vector<std::vector<T> > data_;
+		int num_rows_;	/**< Number of rows. */
+		std::vector<std::vector<T> > data_;	/**< Data contains all the rows of a boundary condition file. */
 	};
 
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	extBC<T>::extBC()
 	{
 		set_num_rows(0);
-
 	}
 
-
-
-	/* --------------------------------------------------------------------------- */
 
 	template<class T>
 	extBC<T>::extBC(std::string filename, int bctype)
@@ -82,12 +150,8 @@ namespace ExtBC
 			data_.push_back(row);
 		}
 		set_num_rows(data_.size());
-
-
-
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	int extBC<T>::get_num_rows()
@@ -96,16 +160,11 @@ namespace ExtBC
 	}
 
 
-	/* --------------------------------------------------------------------------- */
-
 	template<typename T>
 	void extBC<T>::set_num_rows(int rows)
 	{
 		num_rows_ = rows;
 	}
-
-	/* --------------------------------------------------------------------------- */
-
 
 
 	template<typename T>
@@ -119,7 +178,6 @@ namespace ExtBC
 			exit(EXIT_FAILURE);
 		}
 
-
 		int line_num = 0;
 
 		for (;;)
@@ -127,7 +185,7 @@ namespace ExtBC
 			std::string line;
 			std::getline(ifs, line);
 			if (!ifs)
-				break;
+			break;
 
 			line_num++;
 			line = StringUtils::trim(line);
@@ -141,13 +199,25 @@ namespace ExtBC
 				data_.push_back(row);
 			}
 		}
-
-
 	}
+
 
 	template<typename T>
 	int extBC<T>::check_extreme_extbc(std::vector<int> e_cols, std::vector<int> e_rows, int ncols, int nrows)
 	{
+
+		if(e_cols[0]>=ncols || e_cols[1]>=ncols){
+			std::cerr << ERROR "Please revise x-coordinates of the external BC. It must be at the boundary of the domain" << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		if(e_rows[0]>=nrows || e_rows[1]>=nrows){
+			std::cerr << ERROR "Please revise y-coordinates of the external BC. It must be at the boundary of the domain" << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+	
+
 		if(e_cols[0]!=0 && e_cols[0]!=ncols-1 && e_rows[0]!=0 && e_rows[0]!=nrows-1){ //first point
 			std::cerr << ERROR "Error selecting the external BC. It must be at the boundary of the domain" << std::endl;
 			exit(EXIT_FAILURE);
@@ -223,17 +293,13 @@ namespace ExtBC
 	}
 
 
-
-	/* --------------------------------------------------------------------------- */
-
 	template<typename T>
 	std::vector<std::vector<T>> extBC<T>::get_rows()
 	{
 		return data_;
 	}
 
-	/* --------------------------------------------------------------------------- */
-
+	
 	template<typename T>
 	T extBC<T>::get_var1_at(int index)
 	{
@@ -246,7 +312,6 @@ namespace ExtBC
 		return (data_.at(index)).at(0);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	T extBC<T>::get_var2_at(int index)
@@ -261,21 +326,17 @@ namespace ExtBC
 		return (data_.at(index)).at(1);
 	}
 
-	/* --------------------------------------------------------------------------- */
 
 	template<typename T>
 	void extBC<T>::convert_to_secs()
 	{
-
 		typename std::vector<std::vector<T>>::iterator it = data_.begin();
 
 		for (; it != data_.end(); it++)
 		{
 			(*it)[0] = it->at(0) * HOUR_TO_SEC_FACTOR;
 		}
-
 	}
-
 }
 
 #endif
