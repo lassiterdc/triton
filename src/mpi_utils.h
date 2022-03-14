@@ -210,7 +210,7 @@ namespace MpiUtils
 				lcols2 = pd.part_dims[p].second,
 				subsize2 = lrows2 * lcols2;
 
-				MPI_Isend(&global[row_pos*lcols2], subsize2, MPI_DATA_TYPE, p, 0, MPI_COMM_WORLD,&send_request[p-1]);
+				MPI_Isend(&global[row_pos*(long long)lcols2], subsize2, MPI_DATA_TYPE, p, 0, MPI_COMM_WORLD,&send_request[p-1]);
 				row_pos += lrows2 - 2*GHOST_CELL_PADDING;
 			}
 		}
@@ -255,7 +255,7 @@ namespace MpiUtils
 				lcols2 = pd.part_dims[p].second,
 				subsize2 = lrows2 * lcols2;
 
-				MPI_Isend(&global[row_pos*lcols2], subsize2, MPI_INTEGER, p, 0, MPI_COMM_WORLD,&send_request[p-1]);
+				MPI_Isend(&global[row_pos*(long long)lcols2], subsize2, MPI_INTEGER, p, 0, MPI_COMM_WORLD,&send_request[p-1]);
 				row_pos += lrows2 - 2*GHOST_CELL_PADDING;
 			}
 		}

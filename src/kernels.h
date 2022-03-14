@@ -1346,6 +1346,121 @@ namespace Kernels
 #endif
 
 	}
+
+
+/** @brief It updates ghost cells for open boundaries
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*/
+	template<typename T>
+#ifdef ACTIVE_GPU
+	__global__
+#endif
+	void copy_info_to_exterior_boundaries_west_east(int size, int nrows, int ncols, T *h_arr, T *qx_arr, T *qy_arr)
+	{
+#ifdef ACTIVE_GPU
+		int id = blockIdx.x * blockDim.x + threadIdx.x;
+		if (id >= size)
+		return;
+#else
+#pragma omp parallel for
+		for (int id = 0; id < size; id++)
+		{
+#endif
+			
+			int id_ghost;
+			int id_inner;
+
+			if(id<nrows*GHOST_CELL_PADDING){
+				id_ghost=(id%nrows)*ncols+id/nrows;
+				id_inner=(id%nrows)*ncols+GHOST_CELL_PADDING;
+			}else{
+				id_ghost=(id%nrows)*ncols+id/nrows+ncols-(2*GHOST_CELL_PADDING);
+				id_inner=(id%nrows)*ncols+ncols-1-GHOST_CELL_PADDING;
+			}	
+			
+			h_arr[id_ghost]=h_arr[id_inner];
+			qx_arr[id_ghost]=qx_arr[id_inner];
+			qy_arr[id_ghost]=qy_arr[id_inner];
+
+#ifdef ACTIVE_OMP
+		}
+#endif
+	}
+
+
+
+/** @brief It updates ghost cells for open boundaries
+*
+*  @param size Array size
+*  @param nrows Number of rows in that domain/subdomain
+*  @param ncols Number of columns in that domain/subdomain
+*  @param h_arr Water depth array
+*  @param qx_arr Discharge in x direction array
+*  @param qy_arr Discharge in y direction array
+*  @param rank Current process number
+*  @param total_process Total number of MPI processes
+
+*/
+	template<typename T>
+#ifdef ACTIVE_GPU
+	__global__
+#endif
+	void copy_info_to_exterior_boundaries_north_south(int size, int nrows, int ncols, T *h_arr, T *qx_arr, T *qy_arr, int rank, int total_process)
+	{
+#ifdef ACTIVE_GPU
+		int id = blockIdx.x * blockDim.x + threadIdx.x;
+		if (id >= size)
+		return;
+#else
+#pragma omp parallel for
+		for (int id = 0; id < size; id++)
+		{
+#endif
+			
+			if (rank > 0 && rank < total_process - 1) //exclude interior domains
+			{
+#ifdef ACTIVE_GPU
+				return;
+#else
+				continue;
+#endif
+			}
+
+			int id_ghost;
+			int id_inner;
+
+			//it's neccesary to include every assignment inside the if clause to consider the case total_process=1
+			if(rank==0){
+				id_ghost=id;
+				id_inner=(id%ncols)+GHOST_CELL_PADDING*ncols;
+				h_arr[id_ghost]=h_arr[id_inner];
+				qx_arr[id_ghost]=qx_arr[id_inner];
+				qy_arr[id_ghost]=qy_arr[id_inner];
+			}
+
+			if(rank == total_process - 1){
+				id_ghost=id+(nrows-GHOST_CELL_PADDING)*ncols;
+				id_inner=(id%ncols)+(nrows-GHOST_CELL_PADDING-1)*ncols;
+				h_arr[id_ghost]=h_arr[id_inner];
+				qx_arr[id_ghost]=qx_arr[id_inner];
+				qy_arr[id_ghost]=qy_arr[id_inner];
+			}
+
+
+#ifdef ACTIVE_OMP
+		}
+#endif
+	}
+
+
+
 }
 
 #endif
+

@@ -480,8 +480,12 @@ namespace Triton
 			dem.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
 			dem.set_nrows(dem.get_num_rows());
 			dem.set_ncols(dem.get_num_cols());
-
-			dem.set_infinite_walls();
+			
+			if(!arglist.open_boundaries){
+				dem.set_infinite_walls();
+			}else{
+				dem.copy_value_into_ghost_cells();
+			}
 
 			if(!arglist.n_infile.empty())
 			{
@@ -515,6 +519,10 @@ namespace Triton
 					hin.load_from_binary_file(org_rows, org_cols, arglist.h_infile);
 				}
 				hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				
+				if(arglist.open_boundaries){				
+					hin.copy_value_into_ghost_cells();
+				}
 			}
 			if (arglist.qx_infile.size() > 0)
 			{
@@ -527,6 +535,11 @@ namespace Triton
 					uin.load_from_binary_file(org_rows, org_cols, arglist.qx_infile);
 				}
 				uin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				
+				if(arglist.open_boundaries){				
+					uin.copy_value_into_ghost_cells();
+				}
+
 			}
 			if (arglist.qy_infile.size() > 0)
 			{
@@ -539,6 +552,11 @@ namespace Triton
 					vin.load_from_binary_file(org_rows, org_cols, arglist.qy_infile);
 				}
 				vin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				
+				if(arglist.open_boundaries){				
+					vin.copy_value_into_ghost_cells();
+				}
+
 			}
 
 			if (arglist.runoff_map.size() > 0)
@@ -568,20 +586,36 @@ namespace Triton
 				string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_00.out");
 				hot_hin.load_from_binary_file(org_rows, org_cols, filedirH);
 				hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				if(arglist.open_boundaries){				
+					hot_hin.copy_value_into_ghost_cells();
+				}
 
 				string filedirQX(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_00.out");
 				hot_qxin.load_from_binary_file(org_rows, org_cols, filedirQX);
 				hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				if(arglist.open_boundaries){				
+					hot_qxin.copy_value_into_ghost_cells();
+				}
+
 
 				string filedirQY(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_00.out");
 				hot_qyin.load_from_binary_file(org_rows, org_cols, filedirQY);
 				hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				
+				if(arglist.open_boundaries){				
+					hot_qyin.copy_value_into_ghost_cells();
+				}
+
 				
 				if (arglist.max_value_print_option.size() > 0)	
 				{
 					string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_00.out");
 					hot_max_value_h.load_from_binary_file(org_rows, org_cols, filedirMaxH);
 					hot_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+					if(arglist.open_boundaries){				
+						hot_max_value_h.copy_value_into_ghost_cells();
+					}
+
 				}
 				
 				if (rank == 0){
@@ -997,15 +1031,21 @@ namespace Triton
 				string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_num_2 + ".out");
 				sub_hot_hin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirH);
 				sub_hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
-
+				if(arglist.open_boundaries){				
+					sub_hot_hin.copy_value_into_ghost_cells();
+				}
 				string filedirU(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_num_2 + ".out");
 				sub_hot_qxin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirU);
 				sub_hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
-
+				if(arglist.open_boundaries){				
+					sub_hot_qxin.copy_value_into_ghost_cells();
+				}
 				string filedirV(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_num_2 + ".out");
 				sub_hot_qyin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirV);
 				sub_hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
-				
+				if(arglist.open_boundaries){				
+					sub_hot_qyin.copy_value_into_ghost_cells();
+				}
 				MpiUtils::exchange(sub_hot_hin.begin(), rows, cols, rank, size, USE_MATRIX);
 				MPI_Barrier(MPI_COMM_WORLD);
 				MpiUtils::exchange(sub_hot_qxin.begin(), rows, cols, rank, size, USE_MATRIX);
@@ -1018,6 +1058,9 @@ namespace Triton
 					string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_num_2 + ".out");
 					sub_max_value_h.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirMaxH);
 					sub_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+					if(arglist.open_boundaries){				
+						sub_max_value_h.copy_value_into_ghost_cells();
+					}
 				}
 			}
 		}
@@ -1450,6 +1493,10 @@ namespace Triton
 		int it_count_average = 0;
 		int print_id = arglist.checkpoint_id;
 		
+		//this is to allow simtime different from zero without checkpointing
+		if(print_id==0 && simtime>0.0){
+			print_id=simtime/arglist.print_interval;
+		}
 		
 		while (simtime < arglist.sim_duration)
 		{
@@ -1684,6 +1731,18 @@ namespace Triton
 		}
 
 
+		if(arglist.open_boundaries){
+
+			#ifdef ACTIVE_GPU
+				Kernels::copy_info_to_exterior_boundaries_west_east << <(2*rows*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2*rows*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY]);
+				Kernels::copy_info_to_exterior_boundaries_north_south << <(cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY],rank, size);
+			#else
+				Kernels::copy_info_to_exterior_boundaries_west_east(2*rows*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY]);
+				Kernels::copy_info_to_exterior_boundaries_north_south(cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY],rank, size, host_vec[DEM]);
+			#endif
+
+		}
+
 		if (num_of_extbc > 0 && num_extbc_cells > 0)
 		{
 #ifdef ACTIVE_GPU
@@ -1700,6 +1759,8 @@ namespace Triton
 #else
 		Kernels::wet_dry(rows*cols, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[MAXH], arglist.hextra,size);
 #endif
+
+
 
 		if (size > 1)
 		{

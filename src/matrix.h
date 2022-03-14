@@ -406,7 +406,7 @@ namespace Matrix
 			exit(EXIT_FAILURE);
 		}
 
-		this->data_ = new T[rows * cols]();
+		this->data_ = new T[rows * (long long)cols]();
 	}
 
 
@@ -421,13 +421,13 @@ namespace Matrix
 
 		this->rows_ = rows;
 		this->cols_ = cols;
-		this->data_ = new T[rows * cols]();
+		this->data_ = new T[rows * (long long) cols]();
 
 		for (int i = 0; i < this->rows_; ++i)
 		{
 			for (int j = 0; j < this->cols_; ++j)
 			{
-				this->data_[this->cols_ * i + j] = arr[i][j];
+				this->data_[(long long) this->cols_ * i + j] = arr[i][j];
 			}
 		}
 	}
@@ -440,9 +440,9 @@ namespace Matrix
 
 		this->rows_ = m.get_num_rows();
 		this->cols_ = m.get_num_cols();
-		this->data_ = new T[rows_ * cols_]();
+		this->data_ = new T[rows_ * (long long) cols_]();
 
-		for (int i = 0; i < this->rows_ * this->cols_; ++i)
+		for (long long i = 0; i < this->rows_ * (long long) this->cols_; ++i)
 		{
 			this->data_[i] = data[i];
 		}
@@ -467,7 +467,7 @@ namespace Matrix
 
 		}
 
-		return this->data_[this->cols_ * row + col];
+		return this->data_[(long long) this->cols_ * row + col];
 	}
 
 
@@ -480,7 +480,7 @@ namespace Matrix
 			exit(EXIT_FAILURE);
 		}
 
-		return this->data_[this->cols_ * row + col];
+		return this->data_[(long long) this->cols_ * row + col];
 	}
 
 
@@ -491,7 +491,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[this->cols_ * i + j] *= value;
+				this->data_[(long long) this->cols_ * i + j] *= value;
 			}
 		}
 
@@ -506,7 +506,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[this->cols_ * i + j] *= value;
+				this->data_[(long long)this->cols_ * i + j] *= value;
 			}
 		}
 
@@ -535,7 +535,7 @@ namespace Matrix
 
 				for (int n = 0; n < m.get_num_cols(); n++)
 				{
-					sum += this->data_[this->cols_ * i + n] * m(n, j);
+					sum += this->data_[(long long) this->cols_ * i + n] * m(n, j);
 				}
 
 				R.set_val(i, j, sum);
@@ -562,7 +562,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				R.set_val(i, j, (this->data_[this->cols_ * i + j] + m(i, j)));
+				R.set_val(i, j, (this->data_[(long long) this->cols_ * i + j] + m(i, j)));
 			}
 		}
 
@@ -577,7 +577,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[this->cols_ * i + j] += m(i, j);
+				this->data_[(long long) this->cols_ * i + j] += m(i, j);
 			}
 		}
 
@@ -592,7 +592,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[this->cols_ * i + j] = this->data_[this->cols_ * i + j] + value;
+				this->data_[(long long) this->cols_ * i + j] = this->data_[(long long) this->cols_ * i + j] + value;
 			}
 		}
 
@@ -632,7 +632,7 @@ namespace Matrix
 	template<typename T>
 	T* matrix<T>::get_address_at(int row, int col)
 	{
-		return &(this->data_[this->cols_ * row + col]);
+		return &(this->data_[(long long) this->cols_ * row + col]);
 	}
 
 
@@ -686,14 +686,14 @@ namespace Matrix
 		this->rows_ = rows;
 		this->cols_ = cols;
 
-		this->data_ = new T[rows_ * cols_]();
+		this->data_ = new T[rows_ * (long long) cols_]();
 	}
 
 
 	template<typename T>
 	void matrix<T>::set_value(int index, T value)
 	{
-		if (index >= 0 && index < this->rows_ * this->cols_)
+		if (index >= 0 && index < this->rows_ * (long long)this->cols_)
 		{
 			this->data_[index] = value;
 		}
@@ -708,14 +708,14 @@ namespace Matrix
 	template<typename T>
 	void matrix<T>::set_value(int row, int col, T value)
 	{
-		this->set_value((this->cols_ * row + col), value);
+		this->set_value(((long long)this->cols_ * row + col), value);
 	}
 
 
 	template<typename T>
 	void matrix<T>::set_value(std::pair<int, int> cell, T value)
 	{
-		this->set_value((this->cols_ * cell.first + cell.second), value);
+		this->set_value(((long long) this->cols_ * cell.first + cell.second), value);
 	}
 
 
@@ -740,7 +740,7 @@ namespace Matrix
 			exit(EXIT_FAILURE);
 		}
 
-		return this->get_value(this->cols_ * row + col);
+		return this->get_value((long long) this->cols_ * row + col);
 	}
 
 
@@ -754,13 +754,13 @@ namespace Matrix
 	template<typename T>
 	void matrix<T>::add_ghost_cells(int grows, int gcols, T value)
 	{
-		T* bak = new T[this->rows_ * this->cols_]();
+		T* bak = new T[this->rows_ * (long long) this->cols_]();
 
 		for (int i = 0; i < this->rows_; i++)
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				bak[(this->cols_ * i) + j] = this->data_[(this->cols_ * i) + j];
+				bak[((long long) this->cols_ * i) + j] = this->data_[((long long) this->cols_ * i) + j];
 			}
 		}
 
@@ -774,11 +774,11 @@ namespace Matrix
 			{
 				if((i >= grows) && (j >= gcols) && (i < (this->rows_ - grows)) && (j < (this->cols_ - gcols)))
 				{
-					this->data_[(this->cols_ * i) + j] = bak[(ocols * k) + l];
+					this->data_[((long long)this->cols_ * i) + j] = bak[((long long)ocols * k) + l];
 				}
 				else
 				{
-					this->data_[(this->cols_ * i) + j] = value;
+					this->data_[((long long) this->cols_ * i) + j] = value;
 				}
 			}
 		}
@@ -793,13 +793,13 @@ namespace Matrix
 	template<typename T>
 	void matrix<T>::remove_ghost_cells()
 	{
-		T* bak = new T[this->rows_ * this->cols_]();
+		T* bak = new T[this->rows_ * (long long)this->cols_]();
 
 		for (int i = 0; i < this->rows_; i++)
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				bak[(this->cols_ * i) + j] = this->data_[(this->cols_ * i) + j];
+				bak[((long long)this->cols_ * i) + j] = this->data_[((long long)this->cols_ * i) + j];
 			}
 		}
 
@@ -809,7 +809,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[(this->cols_ * i) + j] = bak[(this->cols_ + (this->ghost_ncols_ * 2)) * (i + this->ghost_nrows_) + (j + this->ghost_ncols_)];
+				this->data_[((long long)this->cols_ * i) + j] = bak[((long long)this->cols_ + (this->ghost_ncols_ * 2)) * (i + this->ghost_nrows_) + (j + this->ghost_ncols_)];
 			}
 		}
 
@@ -827,15 +827,15 @@ namespace Matrix
 		for (int i = 0; i < this->rows_; i++)
 		{
 			for(int k=0;k<GHOST_CELL_PADDING;k++){
-				this->data_[i*this->cols_ + k] = this->data_[i*this->cols_ + GHOST_CELL_PADDING];
-				this->data_[i*this->cols_ + (this->cols_ - k - 1)] = this->data_[i*this->cols_ + (this->cols_ - GHOST_CELL_PADDING-1)];
+				this->data_[i*(long long)this->cols_ + k] = this->data_[i*(long long)this->cols_ + GHOST_CELL_PADDING];
+				this->data_[i*(long long)this->cols_ + (this->cols_ - k - 1)] = this->data_[i*(long long)this->cols_ + (this->cols_ - GHOST_CELL_PADDING-1)];
 			}
 		}
 		for (int i = 0; i < this->cols_; i++)
 		{
 			for(int k=0;k<GHOST_CELL_PADDING;k++){
-				this->data_[k * this->cols_ + i] = this->data_[GHOST_CELL_PADDING * this->cols_ + i];
-				this->data_[(this->rows_ - k - 1)*this->cols_ + i] = this->data_[(this->rows_ - GHOST_CELL_PADDING- 1)*this->cols_ + i];
+				this->data_[k * (long long)this->cols_ + i] = this->data_[GHOST_CELL_PADDING * (long long)this->cols_ + i];
+				this->data_[(this->rows_ - k - 1)*(long long)this->cols_ + i] = this->data_[(this->rows_ - GHOST_CELL_PADDING- 1)*(long long)this->cols_ + i];
 			}
 		}
 	}
@@ -855,22 +855,22 @@ namespace Matrix
 
 			if(location==0){
 				for(int k=0;k<GHOST_CELL_PADDING;k++){
-					this->data_[ix*ncols + iy-k-1] = this->data_[ix*ncols + iy];
+					this->data_[ix*(long long)ncols + iy-k-1] = this->data_[ix*(long long)ncols + iy];
 				}
 			}
 			if(location==2){
 				for(int k=0;k<GHOST_CELL_PADDING;k++){
-					this->data_[ix*ncols + iy+k+1] = this->data_[ix*ncols + iy];
+					this->data_[ix*(long long)ncols + iy+k+1] = this->data_[ix*(long long)ncols + iy];
 				}
 			}
 			if(location==1){
 				for(int k=0;k<GHOST_CELL_PADDING;k++){
-					this->data_[(ix-k-1)*ncols + iy] = this->data_[ix*ncols + iy];
+					this->data_[(ix-k-1)*(long long)ncols + iy] = this->data_[ix*(long long)ncols + iy];
 				}
 			}
 			if(location==3){
 				for(int k=0;k<GHOST_CELL_PADDING;k++){
-					this->data_[(ix+k+1)*ncols + iy] = this->data_[ix*ncols + iy];
+					this->data_[(ix+k+1)*(long long)ncols + iy] = this->data_[ix*(long long)ncols + iy];
 				}
 			}
 		}
@@ -883,15 +883,15 @@ namespace Matrix
 		for (int i = 0; i < this->rows_; i++)
 		{
 			for(int k=0;k<GHOST_CELL_PADDING;k++){
-				this->data_[i*this->cols_ + k] = 1e6;
-				this->data_[i*this->cols_ + (this->cols_ - k - 1)] = 1e6;
+				this->data_[i*(long long)this->cols_ + k] = 1e6;
+				this->data_[i*(long long)this->cols_ + (this->cols_ - k - 1)] = 1e6;
 			}
 		}
 		for (int i = 0; i < this->cols_; i++)
 		{
 			for(int k=0;k<GHOST_CELL_PADDING;k++){
-				this->data_[k * this->cols_ + i] = 1e6;
-				this->data_[(this->rows_ - k - 1)*this->cols_ + i] = 1e6;
+				this->data_[k * (long long)this->cols_ + i] = 1e6;
+				this->data_[(this->rows_ - k - 1)*(long long)this->cols_ + i] = 1e6;
 			}
 		}
 	}
@@ -911,7 +911,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[(this->cols_ * i) + j] = 0.0;
+				this->data_[((long long)this->cols_ * i) + j] = 0.0;
 			}
 		}
 	}
@@ -924,7 +924,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[(this->cols_ * i) + j] = 0;
+				this->data_[((long long)this->cols_ * i) + j] = 0;
 			}
 		}
 	}
@@ -938,7 +938,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				this->data_[this->cols_ * i + j] = std::pow(this->data_[this->cols_ * i + j], e);
+				this->data_[(long long)this->cols_ * i + j] = std::pow(this->data_[(long long)this->cols_ * i + j], e);
 			}
 		}
 	}
@@ -952,8 +952,8 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				T value = this->data_[this->cols_ * i + j];
-				this->data_[this->cols_ * i + j] = value*value;
+				T value = this->data_[(long long)this->cols_ * i + j];
+				this->data_[(long long)this->cols_ * i + j] = value*value;
 			}
 		}
 	}
@@ -1006,11 +1006,11 @@ namespace Matrix
 
 					if (val.find(".") != std::string::npos)
 					{
-						this->data_[this->cols_ * (rownum - 1) + j] = atof(val.c_str());
+						this->data_[(long long)this->cols_ * (rownum - 1) + j] = atof(val.c_str());
 					}
 					else
 					{
-						this->data_[this->cols_ * (rownum - 1) + j] = atoi(val.c_str());
+						this->data_[(long long)this->cols_ * (rownum - 1) + j] = atoi(val.c_str());
 					}
 				}
 			}
@@ -1070,16 +1070,16 @@ namespace Matrix
 
 				if(val.find(".") != std::string::npos)
 				{
-					this->data_[(this->cols_ * i) + j] = (T)atof(val.c_str());
+					this->data_[((long long)this->cols_ * i) + j] = (T)atof(val.c_str());
 				}
 				else
 				{
-					this->data_[(this->cols_ * i) + j] = (T)atoi(val.c_str());
+					this->data_[((long long)this->cols_ * i) + j] = (T)atoi(val.c_str());
 				}
 			}
 			i++;
 			//this is to show the percentage (by 10%) for large files
-			if(cols*rows>1e7 && (i*100/rows > percentage)){
+			if((long long)cols*rows>1e7 && (i*100/rows > percentage)){
 				if(percentage==10){
 					std::cerr << "     " ;
 				}
@@ -1144,16 +1144,16 @@ namespace Matrix
 
 				if(val.find(".") != std::string::npos)
 				{
-					this->data_[(this->cols_ * i) + j] = (T)atof(val.c_str());
+					this->data_[((long long)this->cols_ * i) + j] = (T)atof(val.c_str());
 				}
 				else
 				{
-					this->data_[(this->cols_ * i) + j] = (T)atoi(val.c_str());
+					this->data_[((long long)this->cols_ * i) + j] = (T)atoi(val.c_str());
 				}
 			}
 			i++;
 			//this is to show the percentage (by 10%) for large files
-			if(cols*rows>1e7 && (i*100/rows > percentage)){
+			if((long long)cols*rows>1e7 && (i*100/rows > percentage)){
 				if(percentage==10){
 					std::cerr << "     " ;
 				}
@@ -1200,7 +1200,7 @@ namespace Matrix
 		}
 
 		infile.seekg(sizeof(T) * BIN_DEFAULT_HEADER_SIZE, std::ios::beg);
-		infile.read((char*)this->data_, sizeof(T) * rows * cols);
+		infile.read((char*)this->data_, sizeof(T) * rows * (long long)cols);
 
 		infile.close();
 		std::cerr << OK "File " << filepath << " read" << std::endl;
@@ -1226,7 +1226,7 @@ namespace Matrix
 		}
 
 		infile.seekg(sizeof(T) * header_size, std::ios::beg);
-		infile.read((char*)this->data_, sizeof(T) * rows * cols);
+		infile.read((char*)this->data_, sizeof(T) * rows * (long long)cols);
 
 		infile.close();
 		std::cerr << OK "File " << filepath << " read" << std::endl;

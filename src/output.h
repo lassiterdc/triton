@@ -194,7 +194,7 @@ namespace Output
 	public:
 		int cur_proc_data_size = 0;	/**< Number of cells in current subdomain */
 		int *recvcounts = NULL;	/**< Array to hold every subdomains cell count */
-		int total_data_size = 0;	/**< Number of cells in main domain */
+		long long total_data_size = 0;	/**< Number of cells in main domain */
 		int *displs = NULL;	/**< Position array to hold each sub domains starting point in main domain */
 		T *total_data_arr = NULL;	/**< Main domains data or collection data of every subdomain */
 	};
@@ -256,12 +256,12 @@ namespace Output
 		{
 			displs = new int[size];
 			displs[0] = 0;
-			total_data_size += recvcounts[0];
+			total_data_size += (long long) recvcounts[0];
 
 			for (int i = 1; i < size_; i++)
 			{
-				total_data_size += recvcounts[i];
-				displs[i] = displs[i - 1] + recvcounts[i - 1];
+				total_data_size += (long long)recvcounts[i];
+				displs[i] = displs[i - 1] + (long long)recvcounts[i - 1];
 			}
 			
 			total_data_arr = new T[total_data_size];
@@ -468,7 +468,7 @@ namespace Output
 			{
 				for(int j=off; j<total_cols-off;j++)
 				{
-					mat << total_data_arr[i*total_cols+j];
+					mat << total_data_arr[i*(long long)total_cols+j];
 
 					if (j < total_cols - off - 1)
 					{
@@ -604,7 +604,7 @@ namespace Output
 			
 			for(int i=off; i<total_rows-off; i++)
 			{
-				mat.write((char*) &total_data_arr[i*total_cols+off], (total_cols-2*off) * sizeof(T));
+				mat.write((char*) &total_data_arr[i*(long long)total_cols+off], (total_cols-2*off) * sizeof(T));
 			}
 			mat.close();
 
@@ -737,7 +737,7 @@ namespace Output
 		for (int i = 0; i < observation_loc_size_; i++)
 		{
 			std::pair<int, int> pair = observation_cells_[i];
-			T value = total_data_arr[pair.first * cols_ + pair.second];
+			T value = total_data_arr[pair.first * (long long) cols_ + pair.second];
 			str = str + "," + std::to_string(value);
 		}
 		str = str + "\n";

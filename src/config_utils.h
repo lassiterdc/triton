@@ -28,7 +28,8 @@ namespace ConfigUtils
 		bool
 		time_increment_fixed,	/**< Flag to indicate time step size characteristics. True = Constant time step size, False = Variable time step size. */
 		time_series_flag,	/**< Flag to allow time series output. True = Output time series, False = Don't output time series. */
-		gpu_direct_flag;	/**< Flag to allow GPU-Direct use. True = Use GPU-Direct, False = Don't use GPU-Direct. */
+		gpu_direct_flag,	/**< Flag to allow GPU-Direct use. True = Use GPU-Direct, False = Don't use GPU-Direct. */
+		open_boundaries; /**<Flag to impose open or closed boundaries. By default, open_boundaries=0*/ 
 
 		int
 		checkpoint_id,	/**< Use for hot start. If 0 then that means a clean start. Greater than 0 means start from that specific checkpoint. */
@@ -419,6 +420,8 @@ namespace ConfigUtils
 
 		arguments<T> arglist;
 
+		arglist.open_boundaries=0; //by default
+
 		arglist.outfile_pattern = argsd("outfile_pattern", argmap, "");
 		arglist.hydrograph_filename = args("hydrograph_filename", argmap);
 		arglist.runoff_filename = args("runoff_filename", argmap);
@@ -436,6 +439,7 @@ namespace ConfigUtils
 		arglist.courant = atof((args("courant", argmap)).c_str());
 		arglist.hextra = atof((args("hextra", argmap)).c_str());
 		arglist.gpu_direct_flag = atoi((args("gpu_direct_flag", argmap)).c_str());
+		arglist.open_boundaries = atoi((args("open_boundaries", argmap)).c_str());
 
 		arglist.num_sources = atoi((args("num_sources", argmap)).c_str());
 		arglist.num_runoffs = atoi((args("num_runoffs", argmap)).c_str());
