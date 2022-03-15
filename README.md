@@ -33,4 +33,4 @@ Highest TRITON computational efficiency can be achieved by using GPU implementat
 8.  Case 05	: Harvey 10m
 
 
-Morales-Hernández, M., Sharif, Md. B., Kalyanapu, A., Ghafoor, S. K., Dullo, T.T., Gangrade, S.,  Kao, S.-C., Norman, M. R. and Evans, K. J. (2020), TRITON: A Multi-GPU Open Source 2D Hydrodynamic Flood, Submitted to Environmental Modelling & Software.
+Morales-Hernández, M., Sharif, M.B., Kalyanapu, A., Ghafoor, S.K., Dullo, T.T., Gangrade, S., Kao, S.C., Norman, M.R. and Evans, K.J., 2021. TRITON: A Multi-GPU Open Source 2D Hydrodynamic Flood Model. Environmental Modelling & Software, p.105034 [https://doi.org/10.1016/j.envsoft.2021.105034](https://doi.org/10.1016/j.envsoft.2021.105034)
