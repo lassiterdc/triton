@@ -1738,7 +1738,7 @@ namespace Triton
 				Kernels::copy_info_to_exterior_boundaries_north_south << <(cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY],rank, size);
 			#else
 				Kernels::copy_info_to_exterior_boundaries_west_east(2*rows*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY]);
-				Kernels::copy_info_to_exterior_boundaries_north_south(cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY],rank, size, host_vec[DEM]);
+				Kernels::copy_info_to_exterior_boundaries_north_south(cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY],rank, size);
 			#endif
 
 		}
