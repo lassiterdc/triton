@@ -38,9 +38,9 @@ std::vector<std::string> split(const std::string &s, char delim)
 	return split(s, delim, elems);
 }
 
-std::pair<int, int> get_dims_2d(string& filepath)
+std::pair<long, long> get_dims_2d(string& filepath)
 {
-	int num_cols = 0, num_rows = 0;
+	long num_cols = 0, num_rows = 0;
 	bool first = false;
 	ifstream infile(filepath.c_str());
 		
@@ -60,24 +60,24 @@ std::pair<int, int> get_dims_2d(string& filepath)
 
 	infile.close();
 
-	return std::pair<int, int>(num_cols, num_rows);
+	return std::pair<long, long>(num_cols, num_rows);
 }
 
 void ascii2bin(string input_file, string output_file){
-	std::tuple<int, int> dims = get_dims_2d(input_file);
-	int row = std::get<1>(dims);
-	int col = std::get<0>(dims);
+	std::tuple<long, long> dims = get_dims_2d(input_file);
+	long nrows = std::get<1>(dims);
+	long ncols = std::get<0>(dims);
 
-    value_t *arr = new value_t [row*col];
+    value_t *arr = new value_t [nrows*ncols];
 	
 	ifstream input(input_file.c_str());
-	int i = 0;
+	long i = 0;
 
 	string line;
 
 	while (input.good())
 	{
-		int j = 0;
+		long j = 0;
 		std::getline(input, line);
 		std::vector<std::string> row = split(line, ' ');
 		std::string val;
@@ -86,20 +86,20 @@ void ascii2bin(string input_file, string output_file){
 		for (; strit != row.end(); strit++, j++)
 		{
 			val = *strit;
-			arr[(col * i) + j] = (val.find(".") != std::string::npos) ? (value_t)atof(val.c_str()) : (value_t)atoi(val.c_str());
+			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (value_t)atof(val.c_str()) : (value_t)atoi(val.c_str());
 		}
 		i++;
 	}
 	input.close();
 
     ofstream output(output_file.c_str(), std::ios::binary);
-	value_t put_rows_value = (value_t)(row);
-	value_t put_cols_value = (value_t)(col);
+	value_t put_rows_value = (value_t)(nrows);
+	value_t put_cols_value = (value_t)(ncols);
 			
 	output.write((char*) &put_rows_value, sizeof(value_t));
 	output.write((char*) &put_cols_value, sizeof(value_t));
 
-	output.write((char*)&arr[0], row*col * sizeof(value_t));
+	output.write((char*)&arr[0], nrows*ncols * sizeof(value_t));
     output.close();
 
     delete[] arr;

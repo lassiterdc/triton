@@ -42,10 +42,10 @@ std::vector<std::string> split(const std::string &s, char delim)
 
 void ascii2bin_dem(string input_file, string output_file){
 	ifstream ifs(input_file.c_str());
-	int line_num = 0;
+	long line_num = 0;
 	
-	int row, col, no_data_value;
-	value_t xllcorner, yllcorner, cellsize;
+	long nrows, ncols;
+	value_t xllcorner, yllcorner, cellsize, no_data_value;
 
 	while (true)
 	{
@@ -67,12 +67,12 @@ void ascii2bin_dem(string input_file, string output_file){
 			{
 				case 1:
 				{
-					col = atoi(value);
+					ncols = atoi(value);
 					break;
 				}
 				case 2:
 				{
-					row = atoi(value);
+					nrows = atoi(value);
 					break;
 				}
 				case 3:
@@ -92,7 +92,7 @@ void ascii2bin_dem(string input_file, string output_file){
 				}
 				case 6:
 				{
-					no_data_value = atoi(value);
+					no_data_value = atof(value);
 					break;
 				}
 				default:
@@ -104,12 +104,12 @@ void ascii2bin_dem(string input_file, string output_file){
 	}
 	ifs.close();
 	
-	value_t *arr = new value_t [row*col];
-	int i = 0;
+	value_t *arr = new value_t [nrows*ncols];
+	long i = 0;
 	ifstream infile(input_file.c_str());
 	std::string line;
 
-	int line_number = 0;
+	long line_number = 0;
 
 	while (infile.good())
 	{
@@ -119,7 +119,7 @@ void ascii2bin_dem(string input_file, string output_file){
 		if (line_number <= DEM_HEADER_SIZE)
 			continue;
 
-		int j = 0;
+		long j = 0;
 		std::vector<std::string> row = split(line, ' ');
 		std::string val;
 		std::vector<std::string>::iterator strit = row.begin();
@@ -128,25 +128,25 @@ void ascii2bin_dem(string input_file, string output_file){
 		{
 			val = *strit;
 
-			arr[(col * i) + j] = (val.find(".") != std::string::npos) ? (value_t)atof(val.c_str()) : (value_t)atoi(val.c_str());
+			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (value_t)atof(val.c_str()) : (value_t)atoi(val.c_str());
 		}
 		i++;
 	}
 	infile.close();
 
     ofstream output(output_file.c_str(), std::ios::binary);
-	value_t put_rows_value = (value_t)(row);
-	value_t put_cols_value = (value_t)(col);
+	value_t put_rows_value = (value_t)(nrows);
+	value_t put_cols_value = (value_t)(ncols);
 	value_t put_no_data_value = (value_t)(no_data_value);
-			
+
 	output.write((char*) &put_cols_value, sizeof(value_t));
 	output.write((char*) &put_rows_value, sizeof(value_t));
 	output.write((char*) &xllcorner, sizeof(value_t));
 	output.write((char*) &yllcorner, sizeof(value_t));
 	output.write((char*) &cellsize, sizeof(value_t));
-	output.write((char*) &no_data_value, sizeof(value_t));
+	output.write((char*) &put_no_data_value, sizeof(value_t));
 
-	output.write((char*)&arr[0], row*col * sizeof(value_t));
+	output.write((char*)&arr[0], nrows*ncols * sizeof(value_t));
     output.close();
 
     delete[] arr;

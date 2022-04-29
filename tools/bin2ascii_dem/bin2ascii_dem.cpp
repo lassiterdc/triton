@@ -27,33 +27,33 @@ void bin2ascii_dem(string input_file, string output_file){
 	value_t *header_arr = new value_t[HEADER];
 	input.read((char*) header_arr, HEADER * sizeof(value_t)); 
 
-	int col = (int) header_arr[0];
-	int row = (int) header_arr[1];
+	long ncols = (long) header_arr[0];
+	long nrows = (long) header_arr[1];
 	value_t xll_corner = header_arr[2];
 	value_t yll_corner = header_arr[3];
 	value_t cell_size = header_arr[4];
-	int no_data_value = (int)header_arr[5];
+	value_t no_data_value = header_arr[5];
 
-    value_t *arr = new value_t [row*col];
+    value_t *arr = new value_t [nrows*ncols];
 
 	input.seekg(HEADER * sizeof(value_t), std::ios::beg);
-    input.read((char*) arr, sizeof(value_t) * row * col);
+    input.read((char*) arr, sizeof(value_t) * nrows * ncols);
     input.close();
 
     ofstream output(output_file.c_str());
-	output << "ncols         " << col << endl;
-	output << "nrows         " << row << endl;
+	output << "ncols         " << ncols << endl;
+	output << "nrows         " << nrows << endl;
 	output << "xllcorner     " << std::setprecision(std::numeric_limits<value_t>::max_digits10) << std::fixed << xll_corner << endl;
 	output << "yllcorner     " << std::setprecision(std::numeric_limits<value_t>::max_digits10) << std::fixed << yll_corner << endl;
 	output << "cellsize      " << std::setprecision(std::numeric_limits<value_t>::max_digits10) << std::fixed << cell_size << endl;
-	output << "NODATA_value  " << no_data_value << endl;
+	output << "NODATA_value  " << std::setprecision(std::numeric_limits<value_t>::max_digits10) << std::fixed << no_data_value << endl;
 	
-    output << std::setprecision(4) << std::fixed;
+    output << std::setprecision(5) << std::fixed;
 
-    for(int i=0; i<row; i++){
-        for(int j=0; j<col; j++){
-            output << arr[i*col+j];
-            if(j<col-1){
+    for(long i=0; i<nrows; i++){
+        for(long j=0; j<ncols; j++){
+            output << arr[i*ncols+j];
+            if(j<ncols-1){
                 output << " ";
             }
         }

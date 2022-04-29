@@ -4,7 +4,7 @@
 # Author: Mario Morales-Hernandez
 
 OUTPUT_DIR="${1:-../../output/bin}"
-MERGE_DIR="${2:-../../output/OTF}"
+MERGE_DIR="${2:-../../output/OTG}"
 NTIMES="${3:-120}"
 
 PATTERN="H_01"

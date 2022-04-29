@@ -26,22 +26,22 @@ void bin2ascii(string input_file, string output_file){
 	value_t *dim_arr = new value_t[HEADER];
 	input.read((char*) dim_arr, HEADER * sizeof(value_t)); 
 
-	int row = (int) dim_arr[0];
-	int col = (int) dim_arr[1];
+	long nrows = (long) dim_arr[0];
+	long ncols = (long) dim_arr[1];
 
-    value_t *arr = new value_t [row*col];
+    value_t *arr = new value_t [nrows*ncols];
 
 	input.seekg(HEADER * sizeof(value_t), std::ios::beg);
-    input.read((char*) arr, sizeof(value_t) * row * col);
+    input.read((char*) arr, sizeof(value_t) * nrows * ncols);
     input.close();
 
     ofstream output(output_file.c_str());
     output << std::setprecision(6) << std::fixed;
 
-    for(int i=0; i<row; i++){
-        for(int j=0; j<col; j++){
-            output << arr[i*col+j];
-            if(j<col-1){
+    for(long i=0; i<nrows; i++){
+        for(long j=0; j<ncols; j++){
+            output << arr[i*ncols+j];
+            if(j<ncols-1){
                 output << " ";
             }
         }
