@@ -243,7 +243,7 @@ namespace StringUtils
 
 	std::string itoa(int i)
 	{
-		return (static_cast<std::ostringstream*> (&(std::ostringstream() << i))->str());
+		return std::to_string(i);
 	}
 
 

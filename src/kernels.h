@@ -1322,23 +1322,34 @@ namespace Kernels
 				h_arr[ii-1] = hij;
 				qx_arr[ii-1] = -qxij;
 				qy_arr[ii-1] = 0.0;
+				h_arr[ii] = hij;
+				qx_arr[ii] = -qxij;
+				qy_arr[ii] = 0.0;
 			}
 			if(is_rt){ //east
 				h_arr[ii+1] = hij;
 				qx_arr[ii+1] = qxij;
 				qy_arr[ii+1] = 0.0;
+				h_arr[ii] = hij;
+				qx_arr[ii] = qxij;
+				qy_arr[ii] = 0.0;
 			}
 			if (rank == 0 && is_top){ //north
 				h_arr[ii-ncols] = hij;
 				qx_arr[ii-ncols] = 0.0;
 				qy_arr[ii-ncols] = qyij;
+				h_arr[ii] = hij;
+				qx_arr[ii] = 0.0;
+				qy_arr[ii] = qyij;
 			}
-
 			if (rank == total_process - 1 && is_btm) //south
 			{
 				h_arr[ii+ncols] = hij;
 				qx_arr[ii+ncols] = 0.0;
 				qy_arr[ii+ncols] = -qyij;
+				h_arr[ii] = hij;
+				qx_arr[ii] = 0.0;
+				qy_arr[ii] = -qyij;
 			}
 
 #ifdef ACTIVE_OMP
