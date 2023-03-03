@@ -15,5 +15,5 @@ endif
 triton: src/main.cpp
 	if [ ! -d "build" ]; then mkdir build; fi
 	@echo 'Compiling file: $<'
-	$(CC) $(INC_DIRS:%=-I%) $(FLAGS) $(DFLAGS) -O3 $(LIBRARIES) -o "build/$@" "$<" --std=c++20
+	$(CC) $(INC_DIRS:%=-I%) $(FLAGS) $(DFLAGS) -O3 $(LIBRARIES) -o "build/$@" "$<" --std=c++17
 	@echo 'Building finished: $@'

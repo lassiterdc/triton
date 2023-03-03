@@ -57,10 +57,13 @@ namespace Output
 		
 /** @brief It initializes time series outputs in a file.
 *
-*  @param observation_loc_size Number of cells
-*  @param observation_cells All cell index
+*  @param num_of_obs_points number of local observation points
+*  @param num_of_obs_points_global number of global observation points
+*  @param relative_obs_index Relative array of indexes of local observation cells for the global array
+*  @param observation_cells Local cell index
+*  @param observation_cells_global Global cell index
 */			
-		void init_time_series(int observation_loc_size, Constants::sources_list_t observation_cells);
+		void init_time_series(int num_of_obs_points, int num_of_obs_points_global, std::vector<int> relative_obs_index, Constants::sources_list_t observation_cells, Constants::sources_list_t observation_cells_global);
 		
 		
 /** @brief It calculates which data to output in file. Also prints checkpoint id.
@@ -137,7 +140,18 @@ namespace Output
 *  @param print_id Current checkpoint id
 *  @param simtime Current time of simulation
 */		
-		void output_time_series(std::string what_mat, int print_id, T simtime);
+		void output_time_series_sequential(std::string what_mat, int print_id, T simtime);
+
+
+/** @brief It outputs time series data in a file.
+*
+*  @param arr Subdomain data
+*  @param what_mat Data type
+*  @param print_id Current checkpoint id
+*  @param simtime Current time of simulation
+*/		
+		void output_time_series_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime);
+
 
 
 /** @brief It calculates content of updated configuration and outputs it in a file.
@@ -187,8 +201,15 @@ namespace Output
 		std::string cfg_content_;	/**< Contents of the input cfg (Configuration) file */
 		std::string output_option_;	/**< Strategy to use for outputting into files. PAR for parallel outputs or SEQ for sequential outputs. PAR saves each MPI partitions subdomain in separate files and SEQ saves the whole domain into one file. */
 
-		int observation_loc_size_;	/**< Number of observation cells */
-		Constants::sources_list_t observation_cells_;	/**< Index position of observation cells in main domain */
+		int num_of_obs_points_;	/**< Number of observation points per subdomain */
+		int num_of_obs_points_global_;	/**< Number of observation points in the global domain */
+		std::vector<int> relative_obs_index_;	/**< relative index position of observation cells per subdomain wrt to the global domain*/
+		std::vector<int> time_series_index_relative_; /** relative index position of each observation cell in the global array after gathering*/
+		int* relative_obs_index_global_;	/**< relative index position of observation cells in the global domain*/
+		int* obs_points_per_subdomain;	/**< array of size MPI ranks containing the number of observation points per subdomain*/
+		Constants::sources_list_t observation_cells_;	/**< Index position of observation cells in local domain */
+		Constants::sources_list_t observation_cells_global_;	/**< Index position of observation cells in global domain */
+
 
 	
 	public:
@@ -197,6 +218,11 @@ namespace Output
 		long long total_data_size = 0;	/**< Number of cells in main domain */
 		int *displs = NULL;	/**< Position array to hold each sub domains starting point in main domain */
 		T *total_data_arr = NULL;	/**< Main domains data or collection data of every subdomain */
+		int *displs_time_series = NULL ; /**< Position array to hold each sub domains starting point in main domain for time series */
+		T *total_data_time_series = NULL ; /**< Main domain data for time series */
+		
+		
+
 	};
 
 
@@ -208,7 +234,12 @@ namespace Output
 		if (displs != NULL)
 		delete[] displs;
 		if (total_data_arr != NULL)
-		delete[] total_data_arr;
+		delete[] total_data_arr;		
+		if (displs_time_series != NULL)
+		delete[] displs_time_series;
+		if (total_data_time_series != NULL)
+		delete[] total_data_time_series;		
+
 	}
 
 
@@ -270,10 +301,64 @@ namespace Output
 
 
 	template<typename T>
-	void output<T>::init_time_series(int observation_loc_size, Constants::sources_list_t observation_cells)
+	void output<T>::init_time_series(int num_of_obs_points, int num_of_obs_points_global, std::vector<int> relative_obs_index, Constants::sources_list_t observation_cells, Constants::sources_list_t observation_cells_global)
 	{
-		observation_loc_size_ = observation_loc_size;
+
+		if (displs_time_series != NULL)
+		delete[] displs_time_series;
+		if (total_data_time_series != NULL)
+		delete[] total_data_time_series;	
+
+		num_of_obs_points_ = num_of_obs_points;
+		relative_obs_index_ = relative_obs_index;
+		num_of_obs_points_global_=num_of_obs_points_global;
 		observation_cells_ = observation_cells;
+		observation_cells_global_ = observation_cells_global;
+
+		if(rank_==0){
+			obs_points_per_subdomain= new int[size_];
+		}
+		MPI_Gather(&num_of_obs_points_, 1, MPI_INT, obs_points_per_subdomain, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		
+		if (rank_ == 0)
+		{
+			displs_time_series = new int[size_];
+			displs_time_series[0] = 0;
+
+			for (int i = 1; i < size_; i++)
+			{
+				displs_time_series[i] = displs_time_series[i - 1] + obs_points_per_subdomain[i - 1];
+			}
+			
+			total_data_time_series = new T[num_of_obs_points_global];
+		}
+
+		//auxiliary array to convert it from vector and to pass it to MPI_Gatherv
+		int *relative_local_array = &relative_obs_index[0];
+
+		relative_obs_index_global_ = NULL;
+		if(rank_ == 0){
+			relative_obs_index_global_ = (int*)malloc(num_of_obs_points_global_ * sizeof(int));
+		}
+
+    	MPI_Gatherv(relative_local_array, num_of_obs_points_, MPI_INT, relative_obs_index_global_, obs_points_per_subdomain, displs_time_series, MPI_INT, 0, MPI_COMM_WORLD);
+
+		if(rank_ == 0){
+			for (int i = 0; i < num_of_obs_points_global_; i++){
+				for (int j = 0; j < num_of_obs_points_global_; j++){
+					if(i==relative_obs_index_global_[j]){
+						time_series_index_relative_.push_back(j);
+						break;
+					}
+				}
+			}
+		}
+		
+		if (size_ > 1)
+		{
+			MPI_Barrier(MPI_COMM_WORLD);
+		}
+
 	}
 
 
@@ -478,6 +563,12 @@ namespace Output
 				mat << std::endl;
 			}
 			mat.close();
+
+			if (time_series_flag_)
+			{
+				output_time_series_sequential(what_mat, print_id, simtime);
+			}
+
 		}
 		if (size_ > 1)
 		{
@@ -533,6 +624,14 @@ namespace Output
 		mat.open((filepath).c_str());
 		mat << std::fixed << arr;
 		mat.close();
+
+
+		if (time_series_flag_)
+		{
+			output_time_series_parallel(arr,what_mat, print_id, simtime);
+		}
+
+
 	}
 
 
@@ -610,7 +709,7 @@ namespace Output
 
 			if (time_series_flag_)
 			{
-				output_time_series(what_mat, print_id, simtime);
+				output_time_series_sequential(what_mat, print_id, simtime);
 			}
 		}
 		if (size_ > 1)
@@ -677,6 +776,12 @@ namespace Output
 		}
 		
 		mat.close();
+
+		if (time_series_flag_)
+		{
+			output_time_series_parallel(arr,what_mat, print_id, simtime);
+		}
+
 	}
 
 
@@ -700,7 +805,7 @@ namespace Output
 
 
 	template<typename T>
-	void output<T>::output_time_series(std::string what_mat, int print_id, T simtime)
+	void output<T>::output_time_series_sequential(std::string what_mat, int print_id, T simtime)
 	{
 		std::string outdir = project_dir_ + "/" + OUTPUT_DIR + "/" + TIME_SERIES_DIR + "/";
 		DIR* dir;
@@ -723,7 +828,7 @@ namespace Output
 		if (print_id <= 1)
 		{
 			std::string str = "Time(s)";
-			for (int i = 0; i < observation_loc_size_; i++)
+			for (int i = 0; i < num_of_obs_points_global_; i++)
 			{
 				str = str + "," + what_mat + "_at_Point_" + std::to_string(i + 1);
 			}
@@ -734,9 +839,10 @@ namespace Output
 		}
 		std::string str = std::to_string(simtime);
 		std::ofstream out(filedir, std::ios::app);
-		for (int i = 0; i < observation_loc_size_; i++)
+		for (int i = 0; i < num_of_obs_points_global_; i++)
 		{
-			std::pair<int, int> pair = observation_cells_[i];
+			std::pair<int, int> pair = observation_cells_global_[i];
+			//the value is computed according to the observation cells because we have the number of 
 			T value = total_data_arr[pair.first * (long long) cols_ + pair.second];
 			str = str + "," + std::to_string(value);
 		}
@@ -745,6 +851,85 @@ namespace Output
 		out.close();
 	}
 
+	template<typename T>
+	void output<T>::output_time_series_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime)
+	{
+		std::string outdir = project_dir_ + "/" + OUTPUT_DIR + "/" + TIME_SERIES_DIR + "/";
+		DIR* dir;
+		if(outdir.empty())
+		{
+			dir = opendir(".");
+		}
+		else
+		{
+			dir = opendir(outdir.c_str());
+		}
+		if (!dir)
+		{
+			mkdir(outdir.c_str(), S_IRWXU);
+		}
+		else
+		closedir(dir);
+
+
+		std::string filedir = outdir + what_mat + "_at_Xsec.txt";		
+		if (rank_ == 0)
+		{
+			if (print_id <= 1)
+			{
+				std::string str = "Time(s)";
+				for (int i = 0; i < num_of_obs_points_global_; i++)
+				{
+					str = str + "," + what_mat + "_at_Point_" + std::to_string(i + 1);
+				}
+				str = str + "\n";
+				std::ofstream output(filedir);
+				output << str;
+				output.close();
+			}
+
+		}
+
+
+		double *value_obs = (double*)malloc(num_of_obs_points_ * sizeof(double));
+
+		double* value_obs_global = NULL;
+		if(rank_ == 0){
+			value_obs_global = (double*)malloc(num_of_obs_points_global_ * sizeof(double));
+		}
+
+		for (int i = 0; i < num_of_obs_points_; i++)
+		{
+			value_obs[i] = arr.get_value(observation_cells_[i]);
+		}
+
+    	MPI_Gatherv(value_obs, num_of_obs_points_, MPI_DATA_TYPE, value_obs_global, obs_points_per_subdomain, displs_time_series, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+
+
+		if(rank_ == 0){
+			std::string str = std::to_string(simtime);
+			std::ofstream out(filedir, std::ios::app);
+			for (int i = 0; i < num_of_obs_points_global_; i++)
+			{
+				str = str + "," + std::to_string(value_obs_global[time_series_index_relative_[i]]);
+			}	
+			str = str + "\n";
+			out << str;
+			out.close();
+		}
+
+		free(value_obs);
+		if(rank_ == 0){
+			free(value_obs_global);
+		}
+
+		if (size_ > 1)
+		{
+			MPI_Barrier(MPI_COMM_WORLD);
+		}
+
+
+	}
 
 	template<typename T>
 	void output<T>::output_cfg(T simtime, int print_id, T average_dt, int it_count)

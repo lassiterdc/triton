@@ -66,6 +66,7 @@ namespace Triton
 		int org_rows;	/**< Number of rows in original domain without ghost cells */
 		int org_cols;	/**< Number of columns in original domain without ghost cells */
 		int num_of_src;	/**< Number of flow locations in current subdomain */
+		int num_of_obs_points;	/**< Number of observations points in current subdomain */
 		int num_of_extbc;	/**< Number of external boundary conditions */
 		int num_extbc_cells;	/**< Number of cells in all external boundary conditions */
 		int index_row_runoff;	/**< Index to keep track current runoff row id */
@@ -83,6 +84,8 @@ namespace Triton
 		int nbytes;	/**< Subdomain size in bytes */
 		int nbytes_halo;	/**< Halo cells bundle size in bytes */
 		
+		std::vector<int> relative_obs_index; 	/**< Relative index position of observation cells per subdomain wrt to the global domain*/
+
 		T simtime;	/**< Current simulation time */
 		T cell_size;	/**< Cell size of the grid */
 		T local_dt;	/**< Time step size in current subdomain */
@@ -98,7 +101,8 @@ namespace Triton
 		ConfigUtils::arguments<T> arglist;	/**< Object that holds all arguments and values from input cfg file */
 		Hydrograph::hydrograph<T> hyg;	/**< Object that hold flow locations update data from hydrograph input file */
 		Hydrograph::hydrograph<T> roff;	/**< Object that hold runoff input data */
-		Constants::sources_list_t observation_cells;	/**< Cell index information of all observation cells */
+		Constants::sources_list_t observation_cells;	/**< Local cell index information of all observation cells */
+		Constants::sources_list_t observation_cells_global;	/**< Global cell index information of all observation cells */
 		MpiUtils::partition_data_t pd;	/**< Partition information of all subdomains */
 		DemFile::dem_file<T> dem;	/**< Main domain's DEM file information and data */
 		DemFile::dem_file<T> sub_dem;	/**< Current subdomain's DEM file information and data */
@@ -741,26 +745,68 @@ namespace Triton
 	template<typename T>
 	void triton<T>::process_observation_cells()
 	{
+
+		num_of_obs_points = 0;
+
 		if (arglist.time_series_flag)
 		{
 			std::vector<T> observation_x = arglist.observation_x_loc;
 			std::vector<T> observation_y = arglist.observation_y_loc;
 
-			int num_observation_loc = observation_x.size();
+			int num_observation_loc_global = observation_x.size();
 			std::vector<int> observation_rows, observation_cols;
 
-			observation_rows.assign(num_observation_loc, 0);
-			observation_cols.assign(num_observation_loc, 0);
+			observation_rows.assign(num_observation_loc_global, 0);
+			observation_cols.assign(num_observation_loc_global, 0);
 
-			for (int i = 0; i < num_observation_loc; ++i)
+			for (int i = 0; i < num_observation_loc_global; ++i)
 			{
-				observation_cols[i] = calc_src_col(observation_x[i], dem.get_xll_corner(), dem.get_cell_size()) + GHOST_CELL_PADDING;
-				observation_rows[i] = calc_src_row(observation_y[i], dem.get_yll_corner(), dem.get_cell_size(), org_rows) + GHOST_CELL_PADDING;
+				observation_cols[i] = calc_src_col(observation_x[i], dem.get_xll_corner(), dem.get_cell_size());
+				observation_rows[i] = calc_src_row(observation_y[i], dem.get_yll_corner(), dem.get_cell_size(), org_rows);
+				
+				if(observation_cols[i] >= org_cols || observation_rows[i] >= org_rows || observation_cols[i]<0 || observation_rows[i]<0){
+					std::cerr << ERROR "Observation " << i+1  << " is out of bounds" << std::endl;
+				}
+				std::pair<int, int> scell(observation_rows[i]+ GHOST_CELL_PADDING, observation_cols[i]+ GHOST_CELL_PADDING);
+				observation_cells_global.push_back(scell);
 
-				std::pair<int, int> scell(observation_rows[i], observation_cols[i]);
-				observation_cells.push_back(scell);
 			}
+
+
+			for (int i = 0; i < num_observation_loc_global; ++i)
+			{
+				int srank = 0;
+				int prev_rows_sum = 0;
+
+				if(size > 1){
+					int observation_row = observation_rows[i];
+					int rows_sum = pd.part_dims[0].first - 2 * GHOST_CELL_PADDING;
+					
+					if(observation_row >= rows_sum){
+						for(int j=1; j<size; j++){
+							prev_rows_sum = rows_sum;
+							rows_sum += pd.part_dims[j].first - 2 * GHOST_CELL_PADDING;
+							if(observation_row < rows_sum){
+								srank = j;
+								break;
+							}
+						}
+					}
+				}
+				observation_rows[i] = observation_rows[i] - prev_rows_sum + GHOST_CELL_PADDING;
+				observation_cols[i] = observation_cols[i] + GHOST_CELL_PADDING;
+				
+				if (rank == srank)
+				{
+					relative_obs_index.push_back(i);
+					std::pair<int, int> scell(observation_rows[i], observation_cols[i]);
+					observation_cells.push_back(scell);
+					num_of_obs_points++;
+				}
+			}
+
 		}
+
 	}
 	
 	
@@ -1483,7 +1529,7 @@ namespace Triton
 
 		if (arglist.time_series_flag)
 		{
-			out.init_time_series(arglist.observation_x_loc.size(), observation_cells);
+			out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global);
 		}
 
 		global_dt = arglist.time_step;
@@ -1851,7 +1897,8 @@ namespace Triton
 
 			if (arglist.time_series_flag)
 			{
-				out.init_time_series(arglist.observation_x_loc.size(), observation_cells);
+				out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global);
+
 			}
 			
 
