@@ -61,16 +61,16 @@ do
    # Extract the lines using the head and tail commands
 	#pipe the file without the header (6 lines that's why the 7) and split it
 	digit=$(printf '%02d\n' $idx)
-	tail -n+7 $INPUT_DEM | tail -n +$start_index | head -n $(( i-start_index+1 )) > "$casename_dem"_"$digit".dem  
+	tail -n+7 $INPUT_DEM | tail -n +$start_index | head -n $(( i-start_index+1 )) > "$casename_dem"_"$digit".dem & 
 	pwait $cpus
 	if [[ $IS_MANN == "YES" ]]
 	then
-		tail -n +$start_index $INPUT_MANN | head -n $(( i-start_index+1 )) > "$casename_mann"_"$digit".mann 
+		tail -n +$start_index $INPUT_MANN | head -n $(( i-start_index+1 )) > "$casename_mann"_"$digit".mann &
 		pwait $cpus
 	fi
 	if [[ $IS_RMAP == "YES" ]]
 	then
-		tail -n +$start_index $INPUT_RMAP | head -n $(( i-start_index+1 )) > "$casename_rmap"_"$digit".rmap 
+		tail -n +$start_index $INPUT_RMAP | head -n $(( i-start_index+1 )) > "$casename_rmap"_"$digit".rmap &
 		pwait $cpus
 	fi
 	 echo "Split ASCII file" $idx
@@ -115,7 +115,7 @@ then
 	for f in "$input_folder"*.*
 	do
 		filename=$(basename $f)
-		./ascii2bin "$input_folder$filename" "$output_folder$filename" 1 
+		./ascii2bin "$input_folder$filename" "$output_folder$filename" 1 &
 		pwait $cpus
 	done
 	cd $output_folder
@@ -134,7 +134,7 @@ then
 		for f in "$input_folder"*.*
 		do
 			filename=$(basename $f)
-			./ascii2bin "$input_folder$filename" "$output_folder$filename" 1 
+			./ascii2bin "$input_folder$filename" "$output_folder$filename" 1 &
 			pwait $cpus
 		done
 	fi
@@ -152,7 +152,7 @@ then
 		for f in "$input_folder"*.*
 		do
 			filename=$(basename $f)
-			./ascii2bin_rmap "$input_folder$filename" "$output_folder$filename" 1 
+			./ascii2bin_rmap "$input_folder$filename" "$output_folder$filename" 1 &
 			pwait $cpus
 		done
 
