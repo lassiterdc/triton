@@ -55,9 +55,11 @@ namespace ConfigUtils
 		print_option,	/**< Use to determine output types. h to output just the h (depth), huv to output all h (depth),u and v (velocities). */
 		max_value_print_option,	/**< Use to determine maximum value of each cells output types. h to output just the h (depth). */
 		input_format,	/**< Expected input file format. BIN for binary file or ASC for ascii file. */
+		input_option,	/**< Strategy to use for input files. PAR for parallel input or SEQ for sequential inp. PAR reads each MPI partitions subdomain in separate files and SEQ reads the whole domain from one file. Applied to all raster formats. By default, SEQ is considered.*/
 		output_format,	/**< Expected output file format. BIN for binary file or ASC for ascii file. */
 		output_option,	/**< Strategy to use for outputting into files. PAR for parallel outputs or SEQ for sequential outputs. PAR saves each MPI partitions subdomain in separate files and SEQ saves the whole domain into one file. */
 		dem_filename,	/**< Directory of the DEM file to use. */
+		header_filename,	/**< Directory of the header file to use (in case of parallel reading). */
 		src_loc_file,	/**< Directory of the file that contains the information of all flow locations. */
 		runoff_map,	/**< Directory of the Runoff map to use. */
 		observation_loc_file,	/**< Directory of the file that contains the information of all cells to observe and generate time series output. */
@@ -421,13 +423,14 @@ namespace ConfigUtils
 		arguments<T> arglist;
 
 		arglist.open_boundaries=0; //by default
+		arglist.input_option = "SEQ"; //by default
 
 		arglist.outfile_pattern = argsd("outfile_pattern", argmap, "");
 		arglist.hydrograph_filename = args("hydrograph_filename", argmap);
 		arglist.runoff_filename = args("runoff_filename", argmap);
-		arglist.dem_filename = args("dem_filename", argmap);
+		arglist.dem_filename = args("dem_filename", argmap); //in the case of PAR input, the dem file should include only the name (without extension and _)
 		arglist.src_loc_file = argsd("src_loc_file", argmap, "");
-		arglist.runoff_map = argsd("runoff_map", argmap, "");
+		arglist.runoff_map = argsd("runoff_map", argmap, ""); //in the case of PAR input, the rmap file should include only the name (without extension and _)
 		arglist.observation_loc_file = argsd("observation_loc_file", argmap, "");
 		arglist.extbc_file = argsd("extbc_file", argmap, "");
 		arglist.extbc_dir = argsd("extbc_dir", argmap, "");
@@ -449,13 +452,14 @@ namespace ConfigUtils
 		arglist.print_option = StringUtils::tolower(args("print_option", argmap));
 		arglist.max_value_print_option = argsd("max_value_print_option", argmap, "");
 		arglist.input_format = args("input_format", argmap);
+		arglist.input_option = args("input_option", argmap);
 		arglist.output_format = args("output_format", argmap);
 		arglist.output_option = args("output_option", argmap);
 
 		arglist.h_infile = argsd("h_infile", argmap, "");
 		arglist.qx_infile = argsd("qx_infile", argmap, "");
 		arglist.qy_infile = argsd("qy_infile", argmap, "");
-		arglist.n_infile = argsd("n_infile", argmap, "");
+		arglist.n_infile = argsd("n_infile", argmap, "");  //in the case of PAR input, the n_infile file should include only the name (without extension and _)
 
 		arglist.domain_decomposition = args("domain_decomposition", argmap);
 		arglist.factor_interval_domain_decomposition = atoi((args("factor_interval_domain_decomposition", argmap)).c_str());
@@ -488,6 +492,10 @@ namespace ConfigUtils
 			arglist.extbc_x2_loc = StringUtils::vecstr_to_vecflt<T>(StringUtils::split((args("extbc_x2_loc", extbc_map)), ','));
 			arglist.extbc_y2_loc = StringUtils::vecstr_to_vecflt<T>(StringUtils::split((args("extbc_y2_loc", extbc_map)), ','));
 			arglist.extbc_fname = StringUtils::split((args("extbc_fname", extbc_map)), ',');
+		}
+
+		if(strcmp(arglist.input_option.c_str(), "PAR")==0){
+			arglist.header_filename = args("header_filename", argmap);
 		}
 
 		return arglist;
