@@ -218,6 +218,7 @@ namespace Output
 		long long total_data_size = 0;	/**< Number of cells in main domain */
 		int *displs = NULL;	/**< Position array to hold each sub domains starting point in main domain */
 		T *total_data_arr = NULL;	/**< Main domains data or collection data of every subdomain */
+		int *total_data_arr_int = NULL;	/**< Main domains data or collection data of every subdomain */
 		int *displs_time_series = NULL ; /**< Position array to hold each sub domains starting point in main domain for time series */
 		T *total_data_time_series = NULL ; /**< Main domain data for time series */
 		
@@ -296,6 +297,7 @@ namespace Output
 			}
 			
 			total_data_arr = new T[total_data_size];
+			total_data_arr_int = new int[total_data_size];
 		}
 	}
 

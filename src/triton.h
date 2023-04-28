@@ -737,7 +737,7 @@ namespace Triton
 
 		if (arglist.h_infile.size() > 0)
 		{
-			string filedir_hin(arglist.h_infile + "_" + temp_rank + ".inith");
+			string filedir_hin(arglist.h_infile + "_" + temp_rank + ".out");
 
 			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
 			{
@@ -761,7 +761,7 @@ namespace Triton
 
 		if (arglist.qx_infile.size() > 0)
 		{
-			string filedir_qxin(arglist.qx_infile + "_" + temp_rank + ".initqx");
+			string filedir_qxin(arglist.qx_infile + "_" + temp_rank + ".out");
 
 			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
 			{
@@ -784,7 +784,7 @@ namespace Triton
 
 		if (arglist.qy_infile.size() > 0)
 		{
-			string filedir_qyin(arglist.qy_infile + "_" + temp_rank + ".initqy");
+			string filedir_qyin(arglist.qy_infile + "_" + temp_rank + ".out");
 
 			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
 			{
@@ -824,7 +824,7 @@ namespace Triton
 			//MPI_Barrier(MPI_COMM_WORLD);
 		}
 		
-		if (arglist.checkpoint_id > 0) //this is not tested yet
+		if (arglist.checkpoint_id > 0) //this is not tested yet for dynamic
 		{
 			if (rank == 0){
 				std::cerr << IN "Reading checkpoint files" << std::endl;
@@ -851,7 +851,7 @@ namespace Triton
 
 
 			string filedirQY(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
-			sub_hot_qyin.load_from_binary_file(org_rows, org_cols, filedirQY);
+			sub_hot_qyin.load_from_binary_file(lrows, lcols, filedirQY);
 			sub_hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
 			
 			if(arglist.open_boundaries){				
@@ -2341,26 +2341,72 @@ namespace Triton
 
 	template<typename T>
 	void triton<T>::partition_matrix_files_dynamic()
-	{
-		sub_dem.resize(1,1);
-		sub_nin.resize(1,1);
-		sub_dem = MpiUtils::scatter_exchange(dem.get_data(), pd, rank);
-		sub_nin = MpiUtils::scatter_exchange(nin.get_data(), pd, rank);
+	{		
+		if(strcmp(arglist.input_option.c_str(), "SEQ")==0){ //sequential
+			sub_dem.resize(1,1);
+			sub_nin.resize(1,1);
 
+			sub_dem = MpiUtils::scatter_exchange(dem.get_data(), pd, rank);
+			sub_nin = MpiUtils::scatter_exchange(nin.get_data(), pd, rank);
+			
+			if(arglist.runoff_map.size() > 0)
+			{
+				sub_rin = MpiUtils::scatter_exchange_int(rin.get_data(), pd, rank);
+			}
+
+		}else{
+			//gather dem
+			if (rank == 0)
+			{
+				MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			sub_dem.resize(1,1);
+			sub_dem = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+			
+			//gather nin
+			if (rank == 0)
+			{
+				MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			sub_nin.resize(1,1);
+			sub_nin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+
+			if(arglist.runoff_map.size() > 0)
+			{	
+				//gather rmap
+				if (rank == 0)
+				{
+					MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+				}
+				else
+				{
+					MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+				}
+				sub_rin.resize(1,1);
+				sub_rin = MpiUtils::scatter_exchange_int(out.total_data_arr_int, pd, rank);
+			}
+
+
+		}
+		
 		rows = sub_dem.get_num_rows();
 		cols = sub_dem.get_num_cols();
-		
+			
 		sub_dem.set_nrows(sub_dem.get_num_rows());
 		sub_dem.set_ncols(sub_dem.get_num_cols());
 		sub_dem.set_cell_size(dem.get_cell_size());
 		sub_dem.set_xll_corner(dem.get_xll_corner());
 		sub_dem.set_yll_corner(dem.get_yll_corner());
 		sub_dem.set_no_data_value(dem.get_no_data_value());
-		
-		if(arglist.runoff_map.size() > 0)
-		{
-			sub_rin = MpiUtils::scatter_exchange_int(rin.get_data(), pd, rank);
-		}
+
 
 		//gather H
 		if (rank == 0)
