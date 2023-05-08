@@ -256,6 +256,8 @@ namespace Output
 		delete[] displs;
 		if (total_data_arr != NULL)
 		delete[] total_data_arr;
+		if (total_data_arr_int != NULL)
+		delete[] total_data_arr_int;
 
 		rows_ = rows;
 		cols_ = cols;
