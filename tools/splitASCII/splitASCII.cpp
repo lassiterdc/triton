@@ -6,13 +6,14 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <mpi.h>
+#include <math.h>
 
-const int NFILES = 552;
-const std::string IS_MANN = "NO";
-const std::string IS_RMAP = "NO";
+const int NFILES = 7;
+const std::string IS_MANN = "YES";
+const std::string IS_RMAP = "YES";
 
-const std::string TRITON_DIR = "/home/mario/fork_tritonmpi/tritonmpi";
-const std::string INPUT_DEM = TRITON_DIR + "/input/dem/asc/rasterEbro2x2.asc";
+const std::string TRITON_DIR = "/home/user/fork_tritonmpi/tritonmpi";
+const std::string INPUT_DEM = TRITON_DIR + "/input/dem/asc/case03.dem";
 const std::string INPUT_MANN = TRITON_DIR + "/input/mann/asc/case03.mann";
 const std::string INPUT_RMAP = TRITON_DIR + "/input/runoff/case03_runoff.rmap";
 
@@ -35,126 +36,212 @@ std::vector<std::string> split(const std::string &s, char delim)
 }
 
 
-void split_dem_to_bin(const std::string& casename_dem, const int start_index, const int end_index, const int idx, const long ncols) {
+void split_dem_to_bin(const std::string& casename_dem, const int start_idx, const int end_idx, const std::vector<int> line_numbers, const long ncols) {
     
-	 std::ifstream input(INPUT_DEM);
-    if (!input.is_open()) {
-        std::cerr << "Error opening input DEM file." << std::endl;
-        return;
-    }
+	std::ifstream input(INPUT_DEM);
+   if (!input.is_open()) {
+       std::cerr << "Error opening input DEM file." << std::endl;
+       return;
+   }
 
-    std::string line;
-    int line_count = -6;
-	 long i = 0;
-	 int nrows_local=end_index-start_index;
-	 double *arr = new double [nrows_local*ncols];
+   std::string line;
+   int line_count = -6;
+	int start_index= ((start_idx == 0) ? 0 : line_numbers[start_idx - 1]);
+	int end_index=line_numbers[end_idx - 1];
+	int nrows_total=end_index-start_index;
 
-    while (std::getline(input, line)) {
-        if (line_count < 0) {
-            // Skip the header lines
-            line_count++;
-            continue;
-        }
-        if (line_count >= start_index && line_count < end_index) {
-				std::vector<std::string> row = split(line, ' ');
-				std::string val;
-				std::vector<std::string>::iterator strit = row.begin();
-				long j = 0;
-				for (; strit != row.end(); strit++, j++)
-				{
-					val = *strit;
-					arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (double)atof(val.c_str()) : (double)atoi(val.c_str());
-				}
-				i++;
-        }
-        line_count++;
-    }
+   double *arr = new double [nrows_total*ncols];
 
-    input.close();
-    
-    std::string outfile = casename_dem + "_" + (idx < 10 ? "0" : "") + std::to_string(idx) + ".dem";
-    std::ofstream output(outfile, std::ios::binary);
+   // Skip lines until reaching start_index
+   while (line_count < start_index  && std::getline(input, line)) {
+   	line_count++;
+   }
 
-    if (!output.is_open()) {
-        std::cerr << "Error opening file: " << outfile << std::endl;
-        return;
-    }
-	 double put_rows_value = (double)(nrows_local);
-	 double put_cols_value = (double)(ncols);
-			
-	 output.write((char*) &put_rows_value, sizeof(double));
-	 output.write((char*) &put_cols_value, sizeof(double));
+	long i = 0;
+   while (line_count < end_index && std::getline(input, line)) {
+		std::vector<std::string> row = split(line, ' ');
+		std::string val;
+		std::vector<std::string>::iterator strit = row.begin();
+		long j = 0;
+		for (; strit != row.end(); strit++, j++)
+		{
+			val = *strit;
+			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (double)atof(val.c_str()) : (double)atoi(val.c_str());
+		}
+		i++;
+		line_count++;
+	}
 
-	 output.write((char*)&arr[0], nrows_local*ncols * sizeof(double));
-    output.close();
+	input.close();
 
-    delete[] arr; 
+	int sum=0;
+	for (int idx = start_idx; idx < end_idx; idx++) {
+		start_index = (idx == 0) ? 0 : line_numbers[idx - 1] ;
+		end_index = line_numbers[idx];
+	 	int nrows_local=end_index-start_index;
 
-    std::cout << "Split ASCII DEM file and converted to BIN " << outfile << std::endl;
+		 std::string outfile = casename_dem + "_" + (idx < 10 ? "0" : "") + std::to_string(idx) + ".dem";
+		 std::ofstream output(outfile, std::ios::binary);
 
-}
+		 if (!output.is_open()) {
+			  std::cerr << "Error opening file: " << outfile << std::endl;
+			  return;
+		 }
+		 double put_rows_value = (double)(nrows_local);
+		 double put_cols_value = (double)(ncols);
+				
+		 output.write((char*) &put_rows_value, sizeof(double));
+		 output.write((char*) &put_cols_value, sizeof(double));
 
-void split_mann_to_bin(const std::string& casename_mann, const int start_index, const int end_index, const int idx, const long ncols) {
+		 output.write((char*)&arr[sum], nrows_local*ncols * sizeof(double));
+		 output.close();
 
-    std::ifstream input(INPUT_MANN);
+		 sum+=nrows_local*ncols;
+		 std::cout << "Split ASCII DEM file and converted to BIN " << outfile << std::endl;
 
-    if (!input.is_open()) {
-        std::cerr << "Error opening MANN file" << std::endl;
-        return;
-    }
-
-    std::string line;
-    int line_count = 0;
-	 long i = 0;
-	 int nrows_local=end_index-start_index;
-	 double *arr = new double [nrows_local*ncols];
-
-    while (std::getline(input, line)) {
-        if (line_count >= start_index && line_count < end_index) {
-				std::vector<std::string> row = split(line, ' ');
-				std::string val;
-				std::vector<std::string>::iterator strit = row.begin();
-				long j = 0;
-				for (; strit != row.end(); strit++, j++)
-				{
-					val = *strit;
-					arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (double)atof(val.c_str()) : (double)atoi(val.c_str());
-				}
-				i++;
-        }
-
-        line_count++;
-    }
-
-    input.close();
-
-
-	 std::string outfile = casename_mann + "_" + (idx < 10 ? "0" : "") + std::to_string(idx) + ".mann";
-    std::ofstream output(outfile, std::ios::binary);
-
-    if (!output.is_open()) {
-        std::cerr << "Error opening file: " << outfile << std::endl;
-        return;
-    }
-	 double put_rows_value = (double)(nrows_local);
-	 double put_cols_value = (double)(ncols);
-			
-	 output.write((char*) &put_rows_value, sizeof(double));
-	 output.write((char*) &put_cols_value, sizeof(double));
-
-	 output.write((char*)&arr[0], nrows_local*ncols * sizeof(double));
-    output.close();
-
-    delete[] arr; 
-
-    output.close();
-
-	 std::cout << "Split ASCII MANN file and converted to BIN " << outfile << std::endl;
-
+	 }
+	 delete[] arr; 
 
 }
 
 
+void split_mann_to_bin(const std::string& casename_mann, const int start_idx, const int end_idx, const std::vector<int> line_numbers, const long ncols) {
+    
+	std::ifstream input(INPUT_MANN);
+   if (!input.is_open()) {
+       std::cerr << "Error opening input MANN file." << std::endl;
+       return;
+   }
+
+   std::string line;
+   int line_count = 0;
+	int start_index= ((start_idx == 0) ? 0 : line_numbers[start_idx - 1]);
+	int end_index=line_numbers[end_idx - 1];
+	int nrows_total=end_index-start_index;
+
+   double *arr = new double [nrows_total*ncols];
+
+    // Skip lines until reaching start_index
+    while (line_count < start_index  && std::getline(input, line)) {
+        line_count++;
+    }
+
+	long i = 0;
+   while (line_count < end_index && std::getline(input, line)) {
+		std::vector<std::string> row = split(line, ' ');
+		std::string val;
+		std::vector<std::string>::iterator strit = row.begin();
+		long j = 0;
+		for (; strit != row.end(); strit++, j++)
+		{
+			val = *strit;
+			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (double)atof(val.c_str()) : (double)atoi(val.c_str());
+		}
+		i++;
+		line_count++;
+	}
+
+	input.close();
+
+	int sum=0;
+	for (int idx = start_idx; idx < end_idx; idx++) {
+		start_index = (idx == 0) ? 0 : line_numbers[idx - 1] ;
+		end_index = line_numbers[idx];
+	 	int nrows_local=end_index-start_index;
+
+		 std::string outfile = casename_mann + "_" + (idx < 10 ? "0" : "") + std::to_string(idx) + ".mann";
+		 std::ofstream output(outfile, std::ios::binary);
+
+		 if (!output.is_open()) {
+			  std::cerr << "Error opening file: " << outfile << std::endl;
+			  return;
+		 }
+		 double put_rows_value = (double)(nrows_local);
+		 double put_cols_value = (double)(ncols);
+				
+		 output.write((char*) &put_rows_value, sizeof(double));
+		 output.write((char*) &put_cols_value, sizeof(double));
+
+		 output.write((char*)&arr[sum], nrows_local*ncols * sizeof(double));
+		 output.close();
+
+		 sum+=nrows_local*ncols;
+		 std::cout << "Split ASCII MANN file and converted to BIN " << outfile << std::endl;
+
+	 }
+	 delete[] arr; 
+
+}
+
+void split_rmap_to_bin(const std::string& casename_rmap, const int start_idx, const int end_idx, const std::vector<int> line_numbers, const long ncols) {
+    
+	std::ifstream input(INPUT_RMAP);
+   if (!input.is_open()) {
+       std::cerr << "Error opening input RMAP file." << std::endl;
+       return;
+   }
+
+   std::string line;
+   int line_count = 0;
+	int start_index= ((start_idx == 0) ? 0 : line_numbers[start_idx - 1]);
+	int end_index=line_numbers[end_idx - 1];
+	int nrows_total=end_index-start_index;
+
+   int *arr = new int [nrows_total*ncols];
+
+
+    // Skip lines until reaching start_index
+    while (line_count < start_index  && std::getline(input, line)) {
+        line_count++;
+    }
+
+
+	long i = 0;
+   while (line_count < end_index && std::getline(input, line)) {
+		std::vector<std::string> row = split(line, ' ');
+		std::string val;
+		std::vector<std::string>::iterator strit = row.begin();
+		long j = 0;
+		for (; strit != row.end(); strit++, j++)
+		{
+			val = *strit;
+			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (int)atof(val.c_str()) : (int)atoi(val.c_str());
+		}
+		i++;
+		line_count++;
+	}
+
+	input.close();
+
+	int sum=0;
+	for (int idx = start_idx; idx < end_idx; idx++) {
+		start_index = (idx == 0) ? 0 : line_numbers[idx - 1] ;
+		end_index = line_numbers[idx];
+	 	int nrows_local=end_index-start_index;
+
+		 std::string outfile = casename_rmap + "_" + (idx < 10 ? "0" : "") + std::to_string(idx) + ".rmap";
+		 std::ofstream output(outfile, std::ios::binary);
+
+		 if (!output.is_open()) {
+			  std::cerr << "Error opening file: " << outfile << std::endl;
+			  return;
+		 }
+		 int put_rows_value = (int)(nrows_local);
+		 int put_cols_value = (int)(ncols);
+				
+		 output.write((char*) &put_rows_value, sizeof(int));
+		 output.write((char*) &put_cols_value, sizeof(int));
+
+		 output.write((char*)&arr[sum], nrows_local*ncols * sizeof(int));
+		 output.close();
+
+		 sum+=nrows_local*ncols;
+		 std::cout << "Split ASCII RMAP file and converted to BIN " << outfile << std::endl;
+
+	 }
+	 delete[] arr; 
+
+}
 
 void split_rmap_to_bin(const std::string& casename_rmap, const int start_index, const int end_index, const int idx, const long ncols) {
 
@@ -182,7 +269,10 @@ void split_rmap_to_bin(const std::string& casename_rmap, const int start_index, 
 					arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (int)atof(val.c_str()) : (int)atoi(val.c_str());
 				}
 				i++;
+        }else if (line_count >= end_index) {
+            break;  // Stop reading the file once the desired lines have been processed
         }
+
 
         line_count++;
     }
@@ -329,7 +419,7 @@ int main(int argc, char** argv) {
 
     int nlines = nrows / NFILES;
     int rem = nrows % NFILES;
-    std::vector<int> line_numbers(NFILES - 1);
+    std::vector<int> line_numbers(NFILES);
     int sum = 0;
 
     for (int i = 0; i < NFILES - 1; i++) {
@@ -341,37 +431,29 @@ int main(int argc, char** argv) {
             sum++;
         }
     }
+	 line_numbers[NFILES - 1] = nrows;
 
 	int num_lines = line_numbers.size();
 	int lines_per_process = (num_lines + size - 1) / size;
 	int start_idx = rank * lines_per_process;
 	int end_idx = std::min((rank + 1) * lines_per_process, num_lines);
-
-	for (int idx = start_idx; idx < end_idx; idx++) {
-		int i = line_numbers[idx];
-		int start_index = (idx == 0) ? 0 : line_numbers[idx - 1] ;
-		split_dem_to_bin(casename_dem, start_index, i, idx,ncols);
-		if (IS_MANN == "YES") {
-      	split_mann_to_bin(casename_mann, start_index, i, idx, ncols);
-      }
-      if (IS_RMAP == "YES") {
-      	split_rmap_to_bin(casename_rmap, start_index, i, idx, ncols);
-      }
+	
+	if(rank==size-1){ //last file
+		end_idx=num_lines;
 	}
 
-	MPI_Barrier(MPI_COMM_WORLD);
+	split_dem_to_bin(casename_dem, start_idx, end_idx, line_numbers, ncols );
+	if (IS_MANN == "YES") {
+   	split_mann_to_bin(casename_mann, start_idx, end_idx, line_numbers, ncols);
+	}
+   if (IS_RMAP == "YES") {
+   	split_rmap_to_bin(casename_rmap, start_idx, end_idx, line_numbers, ncols);
+	}
 
-	 if(rank==size-1){
-	 	int idx=num_lines;
-	 	int start_index = line_numbers[idx - 1] ;
-    	split_dem_to_bin(casename_dem, start_index, nrows, idx,ncols);
-		if (IS_MANN == "YES") {
-      	split_mann_to_bin(casename_mann, start_index, nrows, idx,ncols);
-    	}
-    	if (IS_RMAP == "YES") {
-      	split_rmap_to_bin(casename_rmap, start_index, nrows, idx,ncols);
-    	}
-	 }
+	
+
+	 MPI_Barrier(MPI_COMM_WORLD);
+
 
 	 if(rank==0){
     	std::cout << "ASCII files generated" << std::endl;
