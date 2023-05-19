@@ -7,32 +7,35 @@
 #include <sys/stat.h>
 #include <mpi.h>
 #include <math.h>
+#include <algorithm> // Add this line to include the <algorithm> header
+
 
 const int NFILES = 7;
 const std::string IS_MANN = "YES";
 const std::string IS_RMAP = "YES";
 
-const std::string TRITON_DIR = "/home/user/fork_tritonmpi/tritonmpi";
+const std::string TRITON_DIR = "/home/mario/fork_tritonmpi/tritonmpi";
 const std::string INPUT_DEM = TRITON_DIR + "/input/dem/asc/case03.dem";
 const std::string INPUT_MANN = TRITON_DIR + "/input/mann/asc/case03.mann";
 const std::string INPUT_RMAP = TRITON_DIR + "/input/runoff/case03_runoff.rmap";
 
 
-std::vector<std::string>& split(const std::string &s, char delim, std::vector<std::string> &elems)
+std::vector<std::string>& split(const std::string& s, char delim, std::vector<std::string>& elems)
 {
-	std::stringstream ss(s);
-	std::string item;
-	while (std::getline(ss, item, delim))
-	{
-		elems.push_back(item);
-	}
-	return elems;
+    std::stringstream ss(s);
+    std::string item;
+    while (std::getline(ss, item, delim))
+    {
+        elems.emplace_back(std::move(item));
+    }
+    return elems;
 }
 
-std::vector<std::string> split(const std::string &s, char delim)
+std::vector<std::string> split(const std::string& s, char delim)
 {
-	std::vector<std::string> elems;
-	return split(s, delim, elems);
+    std::vector<std::string> elems;
+    elems.reserve(std::count(s.begin(), s.end(), delim) + 1);
+    return split(s, delim, elems);
 }
 
 
@@ -59,15 +62,10 @@ void split_dem_to_bin(const std::string& casename_dem, const int start_idx, cons
 
 	long i = 0;
    while (line_count < end_index && std::getline(input, line)) {
-		std::vector<std::string> row = split(line, ' ');
-		std::string val;
-		std::vector<std::string>::iterator strit = row.begin();
-		long j = 0;
-		for (; strit != row.end(); strit++, j++)
-		{
-			val = *strit;
-			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (double)atof(val.c_str()) : (double)atoi(val.c_str());
-		}
+   	std::vector<std::string> row = split(line, ' ');
+   	for (long j = 0; j < row.size(); j++) {
+   		arr[(ncols * i) + j] = (double)atof(row[j].c_str());
+    	}
 		i++;
 		line_count++;
 	}
@@ -121,22 +119,17 @@ void split_mann_to_bin(const std::string& casename_mann, const int start_idx, co
 
    double *arr = new double [nrows_total*ncols];
 
-    // Skip lines until reaching start_index
-    while (line_count < start_index  && std::getline(input, line)) {
-        line_count++;
-    }
+   // Skip lines until reaching start_index
+   while (line_count < start_index  && std::getline(input, line)) {
+   	line_count++;
+   }
 
 	long i = 0;
    while (line_count < end_index && std::getline(input, line)) {
-		std::vector<std::string> row = split(line, ' ');
-		std::string val;
-		std::vector<std::string>::iterator strit = row.begin();
-		long j = 0;
-		for (; strit != row.end(); strit++, j++)
-		{
-			val = *strit;
-			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (double)atof(val.c_str()) : (double)atoi(val.c_str());
-		}
+   	std::vector<std::string> row = split(line, ' ');
+   	for (long j = 0; j < row.size(); j++) {
+   		arr[(ncols * i) + j] = (double)atof(row[j].c_str());
+    	}
 		i++;
 		line_count++;
 	}
@@ -190,23 +183,17 @@ void split_rmap_to_bin(const std::string& casename_rmap, const int start_idx, co
    int *arr = new int [nrows_total*ncols];
 
 
-    // Skip lines until reaching start_index
-    while (line_count < start_index  && std::getline(input, line)) {
-        line_count++;
-    }
-
+   // Skip lines until reaching start_index
+   while (line_count < start_index  && std::getline(input, line)) {
+   	line_count++;
+   }
 
 	long i = 0;
    while (line_count < end_index && std::getline(input, line)) {
-		std::vector<std::string> row = split(line, ' ');
-		std::string val;
-		std::vector<std::string>::iterator strit = row.begin();
-		long j = 0;
-		for (; strit != row.end(); strit++, j++)
-		{
-			val = *strit;
-			arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (int)atof(val.c_str()) : (int)atoi(val.c_str());
-		}
+   	std::vector<std::string> row = split(line, ' ');
+   	for (long j = 0; j < row.size(); j++) {
+   		arr[(ncols * i) + j] = atoi(row[j].c_str());
+    	}
 		i++;
 		line_count++;
 	}
@@ -243,65 +230,6 @@ void split_rmap_to_bin(const std::string& casename_rmap, const int start_idx, co
 
 }
 
-void split_rmap_to_bin(const std::string& casename_rmap, const int start_index, const int end_index, const int idx, const long ncols) {
-
-    std::ifstream input(INPUT_RMAP);
-    if (!input.is_open() ) {
-        std::cerr << "Error opening RMAP file" << std::endl;
-        return;
-    }
-
-    std::string line;
-    int line_count = 0;
-	 long i = 0;
-	 long nrows_local=end_index-start_index;
-	 int *arr = new int [nrows_local*ncols];
-
-    while (std::getline(input, line)) {
-        if (line_count >= start_index && line_count < end_index) {
-				std::vector<std::string> row = split(line, ' ');
-				std::string val;
-				std::vector<std::string>::iterator strit = row.begin();
-				long j = 0;
-				for (; strit != row.end(); strit++, j++)
-				{
-					val = *strit;
-					arr[(ncols * i) + j] = (val.find(".") != std::string::npos) ? (int)atof(val.c_str()) : (int)atoi(val.c_str());
-				}
-				i++;
-        }else if (line_count >= end_index) {
-            break;  // Stop reading the file once the desired lines have been processed
-        }
-
-
-        line_count++;
-    }
-
-    input.close();
-
-    std::string outfile = casename_rmap + "_" + (idx < 10 ? "0" : "") + std::to_string(idx) + ".rmap";
-    std::ofstream output(outfile, std::ios::binary);
-
-    if (!output.is_open()) {
-        std::cerr << "Error opening file: " << outfile << std::endl;
-        return;
-    }
-	 int put_rows_value = (int)(nrows_local);
-	 int put_cols_value = (int)(ncols);
-			
-	 output.write((char*) &put_rows_value, sizeof(int));
-	 output.write((char*) &put_cols_value, sizeof(int));
-
-	 output.write((char*)&arr[0], nrows_local*ncols * sizeof(int));
-    output.close();
-
-    delete[] arr; 
-
-    output.close();
-
-	 std::cout << "Split ASCII RMAP file and converted to BIN " << outfile << std::endl;
-
-}
 
 int main(int argc, char** argv) {
 
