@@ -493,6 +493,10 @@ namespace ConfigUtils
 			arglist.extbc_y2_loc = StringUtils::vecstr_to_vecflt<T>(StringUtils::split((args("extbc_y2_loc", extbc_map)), ','));
 			arglist.extbc_fname = StringUtils::split((args("extbc_fname", extbc_map)), ',');
 		}
+		
+		if(strcmp(arglist.input_option.c_str(), "")==0){ //no input_option provided (for legacy version)
+			arglist.input_option = "SEQ"; //by default
+		}
 
 		if(strcmp(arglist.input_option.c_str(), "PAR")==0){
 			arglist.header_filename = args("header_filename", argmap);

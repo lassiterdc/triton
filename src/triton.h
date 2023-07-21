@@ -1819,7 +1819,7 @@ namespace Triton
 		cudaMemcpyAsync(device_vec[H], host_vec[H], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[QX], host_vec[QX], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[N], host_vec[N], nbytes, cudaMemcpyHostToDevice, streams);
+		cudaMemcpyAsync(device_vec[NMAN], host_vec[NMAN], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[DEM], host_vec[DEM], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[MAXH], host_vec[MAXH], nbytes, cudaMemcpyHostToDevice, streams);
 
@@ -2106,7 +2106,7 @@ namespace Triton
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
 		Kernels::update_cells << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
-		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N],
+		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 #else
 		Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
@@ -2118,7 +2118,7 @@ namespace Triton
 		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 
 		Kernels::update_cells(rows*cols, rows, cols, global_dt,
-		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N],
+		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[NMAN],
 		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 #endif
 
@@ -2189,9 +2189,9 @@ namespace Triton
 		if (num_of_extbc > 0 && num_extbc_cells > 0)
 		{
 #ifdef ACTIVE_GPU
-			Kernels::compute_extbc_values<<< (num_extbc_cells + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
+			Kernels::compute_extbc_values<<< (num_extbc_cells + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
 #else
-			Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N], host_vec_int[BCRELATIVEINDEX], host_vec_int[BCTYPE], host_vec_int[BCINDEXSTART], host_vec_int[BCNROWSVARS], host_vec[EXTBCV1], host_vec[EXTBCV2], simtime, rank, size);
+			Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[NMAN], host_vec_int[BCRELATIVEINDEX], host_vec_int[BCTYPE], host_vec_int[BCINDEXSTART], host_vec_int[BCNROWSVARS], host_vec[EXTBCV1], host_vec[EXTBCV2], simtime, rank, size);
 
 #endif
 
