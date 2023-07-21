@@ -44,7 +44,7 @@ namespace Matrix
 		matrix<T>(int rows, int cols);
 		
 		
-/** @brief Constructor. Creates a matrix of giver size and 2D array.
+/** @brief Constructor. Creates a matrix of given size and 2D array.
 *
 *  @param rows Number of rows
 *  @param cols Number of columns
@@ -55,7 +55,7 @@ namespace Matrix
 		
 /** @brief Constructor. Creates a matrix from another matrix.
 *
-*  @param m Giver matrix
+*  @param m Given matrix
 */
 		matrix<T>(matrix<T> const& m);
 

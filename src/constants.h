@@ -63,7 +63,7 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define H 0    /**< Water depth array position in vector. */
 #define QX 1    /**< Flux X array position in vector. */
 #define QY 2    /**< Flux Y array position in vector. */
-#define N 3    /**< Manning array position in vector. */
+#define NMAN 3    /**< Manning array position in vector. */
 #define DEM 4    /**< DEM array position in vector. */
 #define MAXH 5    /**< Max values of water depth array position in vector. */
 #define RHSH0 6    /**< Partial water depth 1 array position in vector. */

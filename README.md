@@ -34,3 +34,37 @@ Highest TRITON computational efficiency can be achieved by using GPU implementat
 
 
 Morales-Hernández, M., Sharif, M.B., Kalyanapu, A., Ghafoor, S.K., Dullo, T.T., Gangrade, S., Kao, S.C., Norman, M.R. and Evans, K.J., 2021. TRITON: A Multi-GPU Open Source 2D Hydrodynamic Flood Model. Environmental Modelling & Software, p.105034 [https://doi.org/10.1016/j.envsoft.2021.105034](https://doi.org/10.1016/j.envsoft.2021.105034)
+
+
+**Instructions to run a case with parallel input**
+
+1.  Open the script "scriptSplitASCII" and configure the following parameters (in caps):
+
+*  TRITON_DIR: triton directory
+*  NFILES: The number of files to split the ASCII file(s) into. It should match the number of ranks in the TRITON simulation
+*  INPUT_DEM: DEM input file (in ASCII format)
+*  IS_MANN: flag for the mann file (YES or NO)
+*  INPUT_MANN: in case IS_MANN=YES, this parameter contains the mann input file (in ASCII format)
+*  IS_RMAP: flag for the rmap file (YES or NO)
+*  INPUT_RMAP: in case IS_RMAP=YES, this parameter contains the rmap input file (in ASCII format)
+*  OUTPUT_FORMAT: ASC or BIN, depending on the desired output format for the sequence of files
+*  ASCII2BIN_FOLDER: in case OUTPUT_FORMAT=BIN, it points to the ascii2bin directory (not the ascii2bin_dem)
+*  ASCII2BIN_RMAP_FOLDER: in case OUTPUT_FORMAT=BIN and IS_RMAP=YES, it points to the ascii2bin_rmap directory
+
+
+
+2.  Run the script.  
+
+
+3.  Configure the cfg file as follows for the following parameters:
+
+*  dem_filename: include the path of the split files plus the basename (without underscores or numbers). Example: "input/dem/bin/par/case03"
+*  Add header_filename and point it to the exact name of the header that the script has generated. Example: "input/dem/bin/par/case03.header" 
+*  n_infile: include the path of the split files plus the basename (without underscores or numbers). Example: "input/mann/bin/par/case03"
+*  runoff_map: include the path of the split files plus the basename (without underscores or numbers). Example: ""input/runoff/bin/par/case03_runoff"
+*  input_format: BIN
+*  Add input_option: PAR
+
+4.  Run TRITON with the same MPI ranks as stated in NFILES.
+
+

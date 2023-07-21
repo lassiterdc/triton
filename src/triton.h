@@ -104,6 +104,7 @@ namespace Triton
 		Constants::sources_list_t observation_cells;	/**< Local cell index information of all observation cells */
 		Constants::sources_list_t observation_cells_global;	/**< Global cell index information of all observation cells */
 		MpiUtils::partition_data_t pd;	/**< Partition information of all subdomains */
+		MpiUtils::partition_data_t pd_aux;	/**< Auxuliar partition information of all subdomains in case of dynamic decomposition and parallel input */
 		DemFile::dem_file<T> dem;	/**< Main domain's DEM file information and data */
 		DemFile::dem_file<T> sub_dem;	/**< Current subdomain's DEM file information and data */
 		Matrix::matrix<T> hin;	/**< Main domain's initial depth file data */
@@ -218,12 +219,23 @@ namespace Triton
 *
 */			
 		void read_inflows();
-		
-		
-/** @brief This function reads all matrix type data file.
+
+
+/** @brief This function reads the header of the dem files
 *
 */		
-		void read_matrix_files();
+		void read_header_dem_files();
+		
+		
+/** @brief This function reads all matrix type data file in sequential mode.
+*
+*/		
+		void read_matrix_files_sequential();
+
+/** @brief This function reads all matrix type data file in parallel mode.
+*
+*/		
+		void read_matrix_files_parallel();
 		
 
 /** @brief This function processes all flow locations and partition them in different subdomain.
@@ -339,8 +351,12 @@ namespace Triton
 		simtime = arglist.sim_start_time;
 		
 		read_inflows();
+
+		read_header_dem_files();
 		
-		read_matrix_files();
+		if(strcmp(arglist.input_option.c_str(), "SEQ")==0){
+			read_matrix_files_sequential();
+		}
 
 		//the first partitioning at the beginning of the simulation is homogeneous (static) unless there is checkpoint, more than 1 processes and dynamic partition
 		pd = MpiUtils::partition_data_t(size, org_rows, org_cols);
@@ -359,9 +375,17 @@ namespace Triton
 		process_observation_cells();
 		
 		process_boundary_condition();
-		partition_matrix_files();
-		
+
+		if(strcmp(arglist.input_option.c_str(), "SEQ")==0){
+			partition_matrix_files();
+		}else{
+			//we need pd_aux to read the dem, the rmap and the mann files with a "regular" decomposition and then convert them to the dynamic 
+			pd_aux = MpiUtils::partition_data_t(size, org_rows, org_cols);
+			read_matrix_files_parallel();
+		}	
+
 		process_runoff();
+
 		create_host_aux_vectors();
 		
 		create_host_vectors();
@@ -456,21 +480,33 @@ namespace Triton
 	
 	
 	template<typename T>
-	void triton<T>::read_matrix_files()
+	void triton<T>::read_header_dem_files()
 	{
-		if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
-		{
-			dem.load_header_from_dem_file_ascii(arglist.dem_filename);
-		}
-		else
-		{
-			dem.load_header_from_dem_file_binary(arglist.dem_filename);
+		if(strcmp(arglist.input_option.c_str(), "SEQ")==0){
+
+			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+			{
+				dem.load_header_from_dem_file_ascii(arglist.dem_filename);
+			}
+			else
+			{
+				dem.load_header_from_dem_file_binary(arglist.dem_filename);
+			}
+		}else{
+			//same subroutine to read the header, but from the header file instead of the full dem file
+			//the header will be read from ASCII always, regardless of the input_format
+			dem.load_header_from_dem_file_ascii(arglist.header_filename);
 		}
 		
 		org_rows = dem.get_nrows();
 		org_cols = dem.get_ncols();
 		cell_size = dem.get_cell_size();
-		
+	}
+
+	template<typename T>
+	void triton<T>::read_matrix_files_sequential()
+	{
+
 		if (rank == 0)
 		{
 			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
@@ -629,6 +665,356 @@ namespace Triton
 			}
 		}
 	}
+
+
+	template<typename T>
+	void triton<T>::read_matrix_files_parallel()
+	{
+
+		int lrows = pd.part_dims[rank].first - 2 * GHOST_CELL_PADDING;
+		int lcols = pd.part_dims[rank].second - 2 * GHOST_CELL_PADDING;
+
+		//regular decomposition, just from dem, mann and rmap. In the usual case they match lrows and lcols. They will only differ for dynamic domain decomposition
+		int lrows1 = pd_aux.part_dims[rank].first - 2 * GHOST_CELL_PADDING;
+		int lcols1 = pd_aux.part_dims[rank].second - 2 * GHOST_CELL_PADDING;
+		
+		string temp_rank(to_string(rank));
+		if (rank < 10)
+		{
+			temp_rank = "0" + temp_rank;
+		}
+
+		string filedir_dem(arglist.dem_filename + "_" + temp_rank + ".dem");
+		if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+		{
+			sub_dem.load_from_ascii_file(lrows1, lcols1, filedir_dem, 0); //0 is because there is no header_dem_size in parallel reading. The header is in a separate file		
+		}
+		else
+		{
+			sub_dem.load_from_binary_file(lrows1, lcols1, filedir_dem); //the binary reading always have two values at the beginnig with the number of rows and columns.
+		}
+
+		sub_dem.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+		
+		if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0){
+			//we need to call out.init to have all the information in the struct out that is used afterwards. we need (lrows1,lcols1) plus the ghost cells as arguments 
+			//since the subroutine workis with the full subdomain (including ghost cells)
+			out.init(lrows1+2 * GHOST_CELL_PADDING, lcols1+2 * GHOST_CELL_PADDING, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+			if (rank == 0)
+			{
+				MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			//now in out.total_data_arr we have the full dem that we have to partition according to the last state in the dynamic decomposition
+			sub_dem.resize(1,1);
+			sub_dem = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+		}
+		
+		rows = sub_dem.get_num_rows();
+		cols = sub_dem.get_num_cols();
+		
+		sub_dem.set_nrows(sub_dem.get_num_rows());
+		sub_dem.set_ncols(sub_dem.get_num_cols());
+		sub_dem.set_cell_size(dem.get_cell_size());
+		sub_dem.set_xll_corner(dem.get_xll_corner());
+		sub_dem.set_yll_corner(dem.get_yll_corner());
+		sub_dem.set_no_data_value(dem.get_no_data_value());
+
+		if(!arglist.open_boundaries){
+			sub_dem.set_infinite_walls();
+		}else{
+			sub_dem.copy_value_into_ghost_cells();
+		}
+
+		MpiUtils::exchange(sub_dem.begin(), rows, cols, rank, size, USE_MATRIX);
+		MPI_Barrier(MPI_COMM_WORLD);
+		
+		//modify ghost values that contains any sort of external boundary condition
+		if (num_of_extbc > 0 && num_extbc_cells > 0){
+			for(int i=0;i<num_extbc_cells;i++){
+				int ii = host_relative_bc_index[i];
+				int ix = (ii / cols);	//row id
+				int iy = (ii % cols);	//col id
+				bool
+				is_top = (ix == 1),
+				is_btm = (ix == rows - 2),
+				is_lt = (iy == 1),
+				is_rt = (iy == cols - 2);
+
+				if(is_lt){ //west
+					sub_dem.set_value(ii-1, sub_dem.get_value(ii));
+				}
+				if(is_rt){ //east
+					sub_dem.set_value(ii+1, sub_dem.get_value(ii));
+				}
+				if (rank == 0 && is_top){ //north
+					sub_dem.set_value(ii-cols, sub_dem.get_value(ii));
+				}
+				if (rank == size - 1 && is_btm) //south
+				{
+					sub_dem.set_value(ii+cols, sub_dem.get_value(ii));
+				}
+			
+			}
+			
+		}
+
+
+		if(!arglist.n_infile.empty())
+		{
+			string filedir_nin(arglist.n_infile + "_" + temp_rank + ".mann");
+			
+			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+			{
+				sub_nin.load_from_ascii_file(lrows1, lcols1, filedir_nin);
+			}
+			else
+			{
+				sub_nin.load_from_binary_file(lrows1, lcols1, filedir_nin);
+			}
+		}
+		else
+		{
+			//if there is no manning file we still have to build the sub_nin matrices with lrows1,lcols1 . We can just do it with lrows,lcols and do nothing for the dynamic decomposition 
+			sub_nin.resize(lrows, lcols);
+			sub_nin.zero_fill();
+			sub_nin += arglist.const_mann;
+		}
+		sub_nin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+
+		if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0 && !arglist.n_infile.empty()){
+			//note that we do this just in the case of the user provided with a mann file. If it is a constant number we don't have to do it since we assigned correctly the size using lrows,lcols
+			if (rank == 0)
+			{
+				MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			//now in out.total_data_arr we have the full nin that we have to partition according to the last state in the dynamic decomposition
+			sub_nin.resize(1,1);
+			sub_nin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+
+		}
+
+		sub_nin.copy_value_into_ghost_cells();
+		sub_nin.square();
+
+		MpiUtils::exchange(sub_nin.begin(), rows, cols, rank, size, USE_MATRIX);
+		MPI_Barrier(MPI_COMM_WORLD);
+
+
+		if (arglist.h_infile.size() > 0)
+		{
+			string filedir_hin(arglist.h_infile + "_" + temp_rank + ".out");
+
+			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+			{
+				sub_hin.load_from_ascii_file(lrows, lcols, filedir_hin);
+			}
+			else
+			{
+				sub_hin.load_from_binary_file(lrows, lcols, filedir_hin);
+			}
+
+			sub_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+			
+			if(arglist.open_boundaries){				
+				sub_hin.copy_value_into_ghost_cells();
+			}
+			
+			MpiUtils::exchange(sub_hin.begin(), rows, cols, rank, size, USE_MATRIX);
+			MPI_Barrier(MPI_COMM_WORLD);
+		
+		}
+
+		if (arglist.qx_infile.size() > 0)
+		{
+			string filedir_qxin(arglist.qx_infile + "_" + temp_rank + ".out");
+
+			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+			{
+				sub_qxin.load_from_ascii_file(lrows, lcols, filedir_qxin);
+			}
+			else
+			{
+				sub_qxin.load_from_binary_file(lrows, lcols, filedir_qxin);
+			}
+			sub_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+			
+			if(arglist.open_boundaries){				
+				sub_qxin.copy_value_into_ghost_cells();
+			}
+			MpiUtils::exchange(sub_qxin.begin(), rows, cols, rank, size, USE_MATRIX);
+			MPI_Barrier(MPI_COMM_WORLD);
+
+
+		}
+
+		if (arglist.qy_infile.size() > 0)
+		{
+			string filedir_qyin(arglist.qy_infile + "_" + temp_rank + ".out");
+
+			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+			{
+				sub_qyin.load_from_ascii_file(lrows, lcols, filedir_qyin);
+			}
+			else
+			{
+				sub_qyin.load_from_binary_file(lrows, lcols, filedir_qyin);
+			}
+			sub_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+			
+			if(arglist.open_boundaries){				
+				sub_qyin.copy_value_into_ghost_cells();
+			}
+			MpiUtils::exchange(sub_qyin.begin(), rows, cols, rank, size, USE_MATRIX);
+			MPI_Barrier(MPI_COMM_WORLD);
+
+		}
+
+		if (arglist.runoff_map.size() > 0)
+		{
+			string filedir_rmap(arglist.runoff_map + "_" + temp_rank + ".rmap");
+
+			if (strcmp(arglist.input_format.c_str(), "ASC") == 0)
+			{
+				sub_rin.load_from_ascii_file(lrows1, lcols1, filedir_rmap);
+			}
+			else
+			{
+				sub_rin.load_from_binary_file(lrows1, lcols1, filedir_rmap);
+			}
+			sub_rin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0);
+
+			if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0){
+				
+				if (rank == 0)
+				{
+					MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+				}
+				else
+				{
+					MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+				}
+				sub_rin.resize(1,1);
+				sub_rin = MpiUtils::scatter_exchange_int(out.total_data_arr_int, pd, rank);
+
+			}
+
+			sub_rin.copy_value_into_ghost_cells();
+
+			//not neccesary to exchange. Otherwise a new function should be done because MpiUtils::exchange works with doubles
+			//MpiUtils::exchange(sub_rin.begin(), rows, cols, rank, size, USE_MATRIX);
+			//MPI_Barrier(MPI_COMM_WORLD);
+		}
+		
+
+		if (arglist.checkpoint_id > 0)
+		{
+			if (rank == 0){
+				std::cerr << IN "Reading checkpoint files" << std::endl;
+			}
+			string temp_num(to_string(arglist.checkpoint_id));
+			if (arglist.checkpoint_id < 10)
+			{
+				temp_num = "0" + temp_num;
+			}
+
+			string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_rank + ".out");
+			sub_hot_hin.load_from_binary_file(lrows, lcols, filedirH);
+			sub_hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+			if(arglist.open_boundaries){				
+				sub_hot_hin.copy_value_into_ghost_cells();
+			}
+
+			string filedirQX(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_rank + ".out");
+			sub_hot_qxin.load_from_binary_file(lrows, lcols, filedirQX);
+			sub_hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+			if(arglist.open_boundaries){				
+				sub_hot_qxin.copy_value_into_ghost_cells();
+			}
+
+
+			string filedirQY(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
+			sub_hot_qyin.load_from_binary_file(lrows, lcols, filedirQY);
+			sub_hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+			
+			if(arglist.open_boundaries){				
+				sub_hot_qyin.copy_value_into_ghost_cells();
+			}
+
+			MpiUtils::exchange(sub_hot_hin.begin(), rows, cols, rank, size, USE_MATRIX);
+			MPI_Barrier(MPI_COMM_WORLD);
+			MpiUtils::exchange(sub_hot_qxin.begin(), rows, cols, rank, size, USE_MATRIX);
+			MPI_Barrier(MPI_COMM_WORLD);
+			MpiUtils::exchange(sub_hot_qyin.begin(), rows, cols, rank, size, USE_MATRIX);
+			MPI_Barrier(MPI_COMM_WORLD);
+
+			
+			if (arglist.max_value_print_option.size() > 0)	
+			{
+				string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_rank + ".out");
+				sub_max_value_h.load_from_binary_file(lrows, lcols, filedirMaxH);
+				sub_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
+				if(arglist.open_boundaries){				
+					sub_max_value_h.copy_value_into_ghost_cells();
+				}
+
+			}
+			
+			if (rank == 0){
+				std::cerr << OK "Checkpoint files read" << std::endl;
+			}
+
+		}
+
+		//overwrite hin, qxin, qyin 
+		if (arglist.checkpoint_id > 0)
+		{
+			sub_hin = sub_hot_hin;
+			sub_qxin = sub_hot_qxin;
+			sub_qyin = sub_hot_qyin;
+			
+			if (arglist.max_value_print_option.size() <= 0)	
+			{
+				sub_max_value_h = sub_hin;
+			}
+		}
+		else
+		{
+			Matrix::matrix<T> values(rows, cols);
+			values.zero_fill();
+
+			if (arglist.h_infile.size() <= 0)
+			{
+				sub_hin = values;
+			}
+			if (arglist.qx_infile.size() <= 0)
+			{
+				sub_qxin = values;
+			}
+			if (arglist.qy_infile.size() <= 0)
+			{
+				sub_qyin = values;
+			}
+			
+			sub_max_value_h = sub_hin;
+		}
+
+		if (rank == 0){
+			std::cerr << OK "Data read in parallel" << std::endl;
+		}
+
+
+	}
+
+
+
 	
 	
 	template<typename T>
@@ -847,8 +1233,12 @@ namespace Triton
 			
 			for(int i=0; i<arglist.num_extbc; i++){
 				extbc[i].create_involved_cells(extbc[i].extreme_cols,extbc[i].extreme_rows,org_cols,org_rows,arglist.extbc_bctype[i]);
-				if(rank==0){
-					dem.copy_elevation_into_ghost_cells(extbc[i].i_rows,extbc[i].i_cols,extbc[i].ncells, extbc[i].location);
+				if(strcmp(arglist.input_option.c_str(), "SEQ")==0){
+					if(rank==0){
+						dem.copy_elevation_into_ghost_cells(extbc[i].i_rows,extbc[i].i_cols,extbc[i].ncells, extbc[i].location);
+					}
+				}else{
+					//in parallel input mode, we cannot copy the elevation into ghost cells because the sub_dem files haven't been loaded yet. It's done after while reading in parallel				
 				}
 			}
 			
@@ -1029,7 +1419,7 @@ namespace Triton
 				sub_qyin = vin;
 			}
 		}
-		
+	
 		if (arglist.checkpoint_id > 0)
 		{
 			if(strcmp(arglist.output_option.c_str(), "SEQ") == 0)
@@ -1065,28 +1455,28 @@ namespace Triton
 					temp_num = "0" + temp_num;
 				}
 				
-				string temp_num_2(to_string(rank));
+				string temp_rank(to_string(rank));
 				if (rank < 10)
 				{
-					temp_num_2 = "0" + temp_num_2;
+					temp_rank = "0" + temp_rank;
 				}
 
 				int host_dem_original_row = rows - 2 * GHOST_CELL_PADDING;
 				int host_dem_original_col = cols - 2 * GHOST_CELL_PADDING;
 
-				string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_num_2 + ".out");
+				string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_rank + ".out");
 				sub_hot_hin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirH);
 				sub_hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
 				if(arglist.open_boundaries){				
 					sub_hot_hin.copy_value_into_ghost_cells();
 				}
-				string filedirU(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_num_2 + ".out");
+				string filedirU(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_rank + ".out");
 				sub_hot_qxin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirU);
 				sub_hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
 				if(arglist.open_boundaries){				
 					sub_hot_qxin.copy_value_into_ghost_cells();
 				}
-				string filedirV(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_num_2 + ".out");
+				string filedirV(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
 				sub_hot_qyin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirV);
 				sub_hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
 				if(arglist.open_boundaries){				
@@ -1101,7 +1491,7 @@ namespace Triton
 				
 				if (arglist.max_value_print_option.size() > 0)	
 				{
-					string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_num_2 + ".out");
+					string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_rank + ".out");
 					sub_max_value_h.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirMaxH);
 					sub_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
 					if(arglist.open_boundaries){				
@@ -1110,7 +1500,8 @@ namespace Triton
 				}
 			}
 		}
-		
+
+		//overwrite hin, qxin, qyin 
 		if (arglist.checkpoint_id > 0)
 		{
 			sub_hin = sub_hot_hin;
@@ -1195,7 +1586,8 @@ namespace Triton
 		{
 			host_runoff_intensity_arr[j] = 0.0;
 		}
-
+		
+		
 		if (arglist.num_runoffs > 0)
 		{
 			for (int j = 0; j < arglist.num_runoffs; j++)
@@ -1205,7 +1597,8 @@ namespace Triton
 					host_runoff_intensity_arr[j*roff.get_num_inflow_rows() + k] = roff.get_flow_at(k, j + 1);
 				}
 			}
-		}
+		}					
+
 	}
 
 
@@ -1426,7 +1819,7 @@ namespace Triton
 		cudaMemcpyAsync(device_vec[H], host_vec[H], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[QX], host_vec[QX], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[N], host_vec[N], nbytes, cudaMemcpyHostToDevice, streams);
+		cudaMemcpyAsync(device_vec[NMAN], host_vec[NMAN], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[DEM], host_vec[DEM], nbytes, cudaMemcpyHostToDevice, streams);
 		cudaMemcpyAsync(device_vec[MAXH], host_vec[MAXH], nbytes, cudaMemcpyHostToDevice, streams);
 
@@ -1518,19 +1911,23 @@ namespace Triton
 	void triton<T>::simulate()
 	{
 		compute_init_dt();
-
 		
 		if(rank==0){
 			std::cerr << OK "Simulation starts" << std::endl;
 		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
+
 		st.start(SIMULATION_TIME);
-		
+
 		out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 
 		if (arglist.time_series_flag)
 		{
 			out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global);
 		}
+
 
 		global_dt = arglist.time_step;
 		average_dt = 0.0;
@@ -1709,7 +2106,7 @@ namespace Triton
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
 		Kernels::update_cells << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
-		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N],
+		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 #else
 		Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
@@ -1721,7 +2118,7 @@ namespace Triton
 		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 
 		Kernels::update_cells(rows*cols, rows, cols, global_dt,
-		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N],
+		host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[NMAN],
 		host_vec[RHSH0], host_vec[RHSH1], host_vec[RHSQX0], host_vec[RHSQX1], host_vec[RHSQY0], host_vec[RHSQY1], arglist.hextra);
 #endif
 
@@ -1792,9 +2189,9 @@ namespace Triton
 		if (num_of_extbc > 0 && num_extbc_cells > 0)
 		{
 #ifdef ACTIVE_GPU
-			Kernels::compute_extbc_values<<< (num_extbc_cells + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[N], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
+			Kernels::compute_extbc_values<<< (num_extbc_cells + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
 #else
-			Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[N], host_vec_int[BCRELATIVEINDEX], host_vec_int[BCTYPE], host_vec_int[BCINDEXSTART], host_vec_int[BCNROWSVARS], host_vec[EXTBCV1], host_vec[EXTBCV2], simtime, rank, size);
+			Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[NMAN], host_vec_int[BCRELATIVEINDEX], host_vec_int[BCTYPE], host_vec_int[BCINDEXSTART], host_vec_int[BCNROWSVARS], host_vec[EXTBCV1], host_vec[EXTBCV2], simtime, rank, size);
 
 #endif
 
@@ -2035,26 +2432,72 @@ namespace Triton
 
 	template<typename T>
 	void triton<T>::partition_matrix_files_dynamic()
-	{
-		sub_dem.resize(1,1);
-		sub_nin.resize(1,1);
-		sub_dem = MpiUtils::scatter_exchange(dem.get_data(), pd, rank);
-		sub_nin = MpiUtils::scatter_exchange(nin.get_data(), pd, rank);
+	{		
+		if(strcmp(arglist.input_option.c_str(), "SEQ")==0){ //sequential
+			sub_dem.resize(1,1);
+			sub_nin.resize(1,1);
 
+			sub_dem = MpiUtils::scatter_exchange(dem.get_data(), pd, rank);
+			sub_nin = MpiUtils::scatter_exchange(nin.get_data(), pd, rank);
+			
+			if(arglist.runoff_map.size() > 0)
+			{
+				sub_rin = MpiUtils::scatter_exchange_int(rin.get_data(), pd, rank);
+			}
+
+		}else{
+			//gather dem
+			if (rank == 0)
+			{
+				MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			sub_dem.resize(1,1);
+			sub_dem = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+			
+			//gather nin
+			if (rank == 0)
+			{
+				MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			}
+			sub_nin.resize(1,1);
+			sub_nin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
+
+			if(arglist.runoff_map.size() > 0)
+			{	
+				//gather rmap
+				if (rank == 0)
+				{
+					MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+				}
+				else
+				{
+					MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+				}
+				sub_rin.resize(1,1);
+				sub_rin = MpiUtils::scatter_exchange_int(out.total_data_arr_int, pd, rank);
+			}
+
+
+		}
+		
 		rows = sub_dem.get_num_rows();
 		cols = sub_dem.get_num_cols();
-		
+			
 		sub_dem.set_nrows(sub_dem.get_num_rows());
 		sub_dem.set_ncols(sub_dem.get_num_cols());
 		sub_dem.set_cell_size(dem.get_cell_size());
 		sub_dem.set_xll_corner(dem.get_xll_corner());
 		sub_dem.set_yll_corner(dem.get_yll_corner());
 		sub_dem.set_no_data_value(dem.get_no_data_value());
-		
-		if(arglist.runoff_map.size() > 0)
-		{
-			sub_rin = MpiUtils::scatter_exchange_int(rin.get_data(), pd, rank);
-		}
+
 
 		//gather H
 		if (rank == 0)
