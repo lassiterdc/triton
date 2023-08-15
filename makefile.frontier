@@ -1,0 +1,11 @@
+CC := hipcc
+INC_DIRS := $(HIP_PATH)/include/hip  $(MPI_ROOT)/include
+FLAGS := --rocm-path=$(ROCM_PATH) --offload-arch=gfx90a -x hip
+LIBRARIES := -L$(OMPI_DIR)/lib -L$(HIP_PATH)/../lib
+DFLAGS := -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 -DACTIVE_GPU=1 -DAMDGPU=1
+
+triton: $(SRCDIR)/main.cpp
+	if [ ! -d "$(BUILDDIR)" ]; then mkdir $(BUILDDIR); fi
+	@echo 'Compiling file: $<'
+	$(CC) $(INC_DIRS:%=-I%) $(FLAGS) $(DFLAGS) -O3 $(LIBRARIES) -o "$(BUILDDIR)/$@" "$<" --std=c++11
+	@echo 'Building finished: $@'
