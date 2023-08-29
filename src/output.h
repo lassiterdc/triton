@@ -582,6 +582,30 @@ namespace Output
 
 
 	template<typename T>
+	std::ostream& operator<<(std::ostream& out, Matrix::matrix<T>& M)
+	{
+		int m = M.get_num_rows();
+		int n = M.get_num_cols();
+		int off = GHOST_CELL_PADDING;
+		for (int i = off; i < m - off; i++)
+		{
+			for (int j = off; j < n - off; j++)
+			{
+				out << (T)M(i, j);
+
+				if (j < (n - off) - off)
+				{
+					out << " ";
+				}
+			}
+			out << std::endl;
+		}
+
+		return out;
+	}
+
+
+	template<typename T>
 	void output<T>::write_output_ascii_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime)
 	{
 		std::string root_dir(project_dir_ + "/" + OUTPUT_DIR + "/");
@@ -998,30 +1022,6 @@ namespace Output
 		std::ofstream output(filedir);
 		output << str2;
 		output.close();
-	}
-
-
-	template<typename T>
-	std::ostream& operator<<(std::ostream& out, Matrix::matrix<T>& M)
-	{
-		int m = M.get_num_rows();
-		int n = M.get_num_cols();
-		int off = GHOST_CELL_PADDING;
-		for (int i = off; i < m - off; i++)
-		{
-			for (int j = off; j < n - off; j++)
-			{
-				out << (T)M(i, j);
-
-				if (j < (n - off) - off)
-				{
-					out << " ";
-				}
-			}
-			out << std::endl;
-		}
-
-		return out;
 	}
 
 
