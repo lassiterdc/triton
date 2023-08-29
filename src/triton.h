@@ -19,10 +19,10 @@
 
 #ifndef TRITON_H
 #define TRITON_H
+#include "gputils.h"
 #include "kernels.h"
 #include "output.h"
 #include "mpi_utils.h"
-#include "gputils.h"
 
 namespace Triton
 {
@@ -2038,7 +2038,7 @@ namespace Triton
 #ifdef ACTIVE_GPU
 		int cur_dt_arr_sz = host_reduce_dt_arr_sz;
 
-		Kernels::compute_dt_and_sqrt << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >> > (rows*cols, cell_size,
+		Kernels::compute_dt_and_sqrt <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >>> (rows*cols, cell_size,
 		device_vec[QX], device_vec[QY], device_vec[H], device_vec[SQRTH], device_vec[DT], arglist.courant, arglist.hextra);
 
 		while (cur_dt_arr_sz > 1)
@@ -2048,7 +2048,7 @@ namespace Triton
 			{
 				temp_dt_arr_sz = (cur_dt_arr_sz / THREAD_BLOCK);
 			}
-			Kernels::find_min_dt << <temp_dt_arr_sz, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >> > (cur_dt_arr_sz, device_vec[DT]);
+			Kernels::find_min_dt <<<temp_dt_arr_sz, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >>> (cur_dt_arr_sz, device_vec[DT]);
 
 			cur_dt_arr_sz = temp_dt_arr_sz;
 		}
@@ -2098,15 +2098,15 @@ namespace Triton
 		st.start(COMPUTE_TIME);
 
 #ifdef ACTIVE_GPU
-		Kernels::flux_x << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, cell_size, global_dt,
+		Kernels::flux_x <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, cell_size, global_dt,
 		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
-		Kernels::flux_y << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, cell_size, global_dt,
+		Kernels::flux_y <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, cell_size, global_dt,
 		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
-		Kernels::update_cells << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
+		Kernels::update_cells <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, global_dt,
 		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 #else
@@ -2138,7 +2138,7 @@ namespace Triton
 			}
 
 #ifdef ACTIVE_GPU
-			Kernels::update_runoff << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
+			Kernels::update_runoff <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, global_dt,
 			device_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), device_vec[RUNIN], device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra);
 #else
 			Kernels::update_runoff(rows*cols, rows, cols, global_dt,
@@ -2166,7 +2166,7 @@ namespace Triton
 			}
 
 #ifdef ACTIVE_GPU
-			Kernels::compute_flow << <(num_of_src + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (num_of_src, device_vec[HYGT], device_vec[HYGV],
+			Kernels::compute_flow <<<(num_of_src + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_of_src, device_vec[HYGT], device_vec[HYGV],
 			cell_size, global_dt, simtime, idx_low, idx_high, device_vec[H], device_vec_int[SRCP]);
 #else
 			Kernels::compute_flow(num_of_src, host_vec[HYGT], host_vec[HYGV],
@@ -2178,8 +2178,8 @@ namespace Triton
 		if(arglist.open_boundaries){
 
 			#ifdef ACTIVE_GPU
-				Kernels::copy_info_to_exterior_boundaries_west_east << <(2*rows*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2*rows*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY]);
-				Kernels::copy_info_to_exterior_boundaries_north_south << <(cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY],rank, size);
+				Kernels::copy_info_to_exterior_boundaries_west_east <<<(2*rows*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2*rows*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY]);
+				Kernels::copy_info_to_exterior_boundaries_north_south <<<(cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY],rank, size);
 			#else
 				Kernels::copy_info_to_exterior_boundaries_west_east(2*rows*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY]);
 				Kernels::copy_info_to_exterior_boundaries_north_south(cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY],rank, size);
@@ -2199,7 +2199,7 @@ namespace Triton
 		}
 
 #ifdef ACTIVE_GPU
-		Kernels::wet_dry << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
+		Kernels::wet_dry <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
 #else
 		Kernels::wet_dry(rows*cols, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[MAXH], arglist.hextra,size);
 #endif
@@ -2209,7 +2209,7 @@ namespace Triton
 		if (size > 1)
 		{
 #ifdef ACTIVE_GPU
-			Kernels::halo_copy_from_gpu << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
+			Kernels::halo_copy_from_gpu <<<(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
 
 			if (arglist.gpu_direct_flag)
 			{
@@ -2240,7 +2240,7 @@ namespace Triton
 				gpuMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, gpuMemcpyHostToDevice, streams);
 			}
 
-			Kernels::halo_copy_to_gpu << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
+			Kernels::halo_copy_to_gpu <<<(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
 #else
 			Kernels::halo_copy_from_gpu(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY], host_vec[HALO]);
 			st.stop(COMPUTE_TIME);
@@ -2256,7 +2256,7 @@ namespace Triton
 #endif
 
 #ifdef ACTIVE_GPU
-			Kernels::wet_dry_qy_halo << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QY], device_vec[DEM], arglist.hextra);
+			Kernels::wet_dry_qy_halo <<<(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QY], device_vec[DEM], arglist.hextra);
 #else
 			Kernels::wet_dry_qy_halo(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QY], host_vec[DEM], arglist.hextra);
 #endif
