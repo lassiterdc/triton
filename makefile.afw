@@ -12,8 +12,8 @@ else
 	DFLAGS := -DACTIVE_OMP=1
 endif
 
-triton: src/main.cpp
-	if [ ! -d "build" ]; then mkdir build; fi
+triton: $(SRCDIR)/main.cpp
+	if [ ! -d $(BUILDDIR) ]; then mkdir $(BUILDDIR); fi
 	@echo 'Compiling file: $<'
-	$(CC) $(INC_DIRS:%=-I%) $(FLAGS) $(DFLAGS) -O3 $(LIBRARIES) -o "build/$@" "$<" --std=c++11
+	$(CC) $(INC_DIRS:%=-I%) $(FLAGS) $(DFLAGS) -O3 $(LIBRARIES) -o "$(BUILDDIR)/$@" "$<" --std=c++11
 	@echo 'Building finished: $@'

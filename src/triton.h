@@ -19,6 +19,7 @@
 
 #ifndef TRITON_H
 #define TRITON_H
+#include "gputils.h"
 #include "kernels.h"
 #include "output.h"
 #include "mpi_utils.h"
@@ -155,7 +156,7 @@ namespace Triton
 		Output::output<T> out; /**Object to manage output files. */ 
 
 #ifdef ACTIVE_GPU
-		cudaStream_t streams;	/**< Cuda stream */
+		gpuStream_t streams;	/**< Cuda stream */
 		std::vector<T*> device_vec;	/**< Device vector that contains all floating point array to use in simulation. */
 		std::vector<int*> device_vec_int;	/**< Device vector that contains all integer array to use in simulation. */
 #endif
@@ -1704,32 +1705,32 @@ namespace Triton
 #ifdef ACTIVE_GPU
 
 		int deviceId = 0;
-		cudaError_t err = cudaGetDevice(&deviceId);
-		if (err != cudaSuccess) 
+		gpuError_t err = gpuGetDevice(&deviceId);
+		if (err != gpuSuccess) 
 		{
-			std::cerr << cudaGetErrorString(err) << std::endl;
+			std::cerr << gpuGetErrorString(err) << std::endl;
 			exit(EXIT_FAILURE);
 		}
 		
 		int deviceCount = 0;
-		err = cudaGetDeviceCount(&deviceCount);
-		if (err != cudaSuccess) 
+		err = gpuGetDeviceCount(&deviceCount);
+		if (err != gpuSuccess) 
 		{
-			std::cerr << cudaGetErrorString(err) << std::endl;
+			std::cerr << gpuGetErrorString(err) << std::endl;
 			exit(EXIT_FAILURE);
 		}
 		
 		if(deviceId != rank % deviceCount)
 		{
-			err = cudaSetDevice(rank % deviceCount);
-			if (err != cudaSuccess) 
+			err = gpuSetDevice(rank % deviceCount);
+			if (err != gpuSuccess) 
 			{
-				std::cerr << cudaGetErrorString(err) << std::endl;
+				std::cerr << gpuGetErrorString(err) << std::endl;
 				exit(EXIT_FAILURE);
 			}
 		}
 
-		cudaStreamCreate(&streams);
+		gpuStreamCreate(&streams);
 
 		device_vec = std::vector<T*>();
 		device_vec_int = std::vector<int*>();
@@ -1754,36 +1755,36 @@ namespace Triton
 		int *device_src_pos_arr, *device_runoff_id_arr, *device_relative_bc_index, *device_bc_type,
 		*device_bc_start_index, *device_bc_nrows_vars;
 		
-		cudaMalloc((void**)&device_h, nbytes);
-		cudaMalloc((void**)&device_qx, nbytes);
-		cudaMalloc((void**)&device_qy, nbytes);
-		cudaMalloc((void**)&device_n, nbytes);
-		cudaMalloc((void**)&device_dem, nbytes);
-		cudaMalloc((void**)&device_max_value_h, nbytes);
+		gpuMalloc((void**)&device_h, nbytes);
+		gpuMalloc((void**)&device_qx, nbytes);
+		gpuMalloc((void**)&device_qy, nbytes);
+		gpuMalloc((void**)&device_n, nbytes);
+		gpuMalloc((void**)&device_dem, nbytes);
+		gpuMalloc((void**)&device_max_value_h, nbytes);
 
-		cudaMalloc((void**)&device_rhsh0, nbytes);
-		cudaMalloc((void**)&device_rhsh1, nbytes);
-		cudaMalloc((void**)&device_rhsqx0, nbytes);
-		cudaMalloc((void**)&device_rhsqx1, nbytes);
-		cudaMalloc((void**)&device_rhsqy0, nbytes);
-		cudaMalloc((void**)&device_rhsqy1, nbytes);
+		gpuMalloc((void**)&device_rhsh0, nbytes);
+		gpuMalloc((void**)&device_rhsh1, nbytes);
+		gpuMalloc((void**)&device_rhsqx0, nbytes);
+		gpuMalloc((void**)&device_rhsqx1, nbytes);
+		gpuMalloc((void**)&device_rhsqy0, nbytes);
+		gpuMalloc((void**)&device_rhsqy1, nbytes);
 
-		cudaMalloc((void**)&device_sqrth_arr, nbytes);
-		cudaMalloc((void**)&device_halo_arr, nbytes_halo);
-		cudaMalloc((void**)&device_dt_values_arr, nbytes_dt);
-		cudaMalloc((void**)&device_hyg_time_arr, nbytes_hyg_time);
-		cudaMalloc((void**)&device_hyg_val_arr, nbytes_hyg_val);
-		cudaMalloc((void**)&device_runoff_intensity_arr, nbytes_runoff_intensity);
-		cudaMalloc((void**)&device_bc_var1_arr, nbytes_bc_vars);
-		cudaMalloc((void**)&device_bc_var2_arr, nbytes_bc_vars);
+		gpuMalloc((void**)&device_sqrth_arr, nbytes);
+		gpuMalloc((void**)&device_halo_arr, nbytes_halo);
+		gpuMalloc((void**)&device_dt_values_arr, nbytes_dt);
+		gpuMalloc((void**)&device_hyg_time_arr, nbytes_hyg_time);
+		gpuMalloc((void**)&device_hyg_val_arr, nbytes_hyg_val);
+		gpuMalloc((void**)&device_runoff_intensity_arr, nbytes_runoff_intensity);
+		gpuMalloc((void**)&device_bc_var1_arr, nbytes_bc_vars);
+		gpuMalloc((void**)&device_bc_var2_arr, nbytes_bc_vars);
 
 
-		cudaMalloc((void**)&device_src_pos_arr, nbytes_src_pos);
-		cudaMalloc((void**)&device_runoff_id_arr, nbytes_runoff_id);
-		cudaMalloc((void**)&device_relative_bc_index, nbytes_bc_cell_size);
-		cudaMalloc((void**)&device_bc_type, nbytes_bc_cell_size);
-		cudaMalloc((void**)&device_bc_start_index, nbytes_bc_cell_size);
-		cudaMalloc((void**)&device_bc_nrows_vars, nbytes_bc_cell_size);
+		gpuMalloc((void**)&device_src_pos_arr, nbytes_src_pos);
+		gpuMalloc((void**)&device_runoff_id_arr, nbytes_runoff_id);
+		gpuMalloc((void**)&device_relative_bc_index, nbytes_bc_cell_size);
+		gpuMalloc((void**)&device_bc_type, nbytes_bc_cell_size);
+		gpuMalloc((void**)&device_bc_start_index, nbytes_bc_cell_size);
+		gpuMalloc((void**)&device_bc_nrows_vars, nbytes_bc_cell_size);
 
 		device_vec.push_back(device_h);
 		device_vec.push_back(device_qx);
@@ -1816,37 +1817,37 @@ namespace Triton
 		device_vec_int.push_back(device_bc_nrows_vars);
 
 
-		cudaMemcpyAsync(device_vec[H], host_vec[H], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[QX], host_vec[QX], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[NMAN], host_vec[NMAN], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[DEM], host_vec[DEM], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[MAXH], host_vec[MAXH], nbytes, cudaMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[H], host_vec[H], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[QX], host_vec[QX], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[NMAN], host_vec[NMAN], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[DEM], host_vec[DEM], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[MAXH], host_vec[MAXH], nbytes, gpuMemcpyHostToDevice, streams);
 
-		cudaMemcpyAsync(device_vec[RHSH0], host_vec[RHSH0], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[RHSH1], host_vec[RHSH1], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[RHSQX0], host_vec[RHSQX0], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[RHSQX1], host_vec[RHSQX1], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[RHSQY0], host_vec[RHSQY0], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[RHSQY1], host_vec[RHSQY1], nbytes, cudaMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RHSH0], host_vec[RHSH0], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RHSH1], host_vec[RHSH1], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RHSQX0], host_vec[RHSQX0], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RHSQX1], host_vec[RHSQX1], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RHSQY0], host_vec[RHSQY0], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RHSQY1], host_vec[RHSQY1], nbytes, gpuMemcpyHostToDevice, streams);
 
-		cudaMemcpyAsync(device_vec[SQRTH], host_vec[SQRTH], nbytes, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[DT], host_vec[DT], nbytes_dt, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[HYGT], host_vec[HYGT], nbytes_hyg_time, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[HYGV], host_vec[HYGV], nbytes_hyg_val, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[RUNIN], host_vec[RUNIN], nbytes_runoff_intensity, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[EXTBCV1], host_vec[EXTBCV1], nbytes_bc_vars, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec[EXTBCV2], host_vec[EXTBCV2], nbytes_bc_vars, cudaMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[SQRTH], host_vec[SQRTH], nbytes, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[DT], host_vec[DT], nbytes_dt, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[HYGT], host_vec[HYGT], nbytes_hyg_time, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[HYGV], host_vec[HYGV], nbytes_hyg_val, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[RUNIN], host_vec[RUNIN], nbytes_runoff_intensity, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[EXTBCV1], host_vec[EXTBCV1], nbytes_bc_vars, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec[EXTBCV2], host_vec[EXTBCV2], nbytes_bc_vars, gpuMemcpyHostToDevice, streams);
 
 
-		cudaMemcpyAsync(device_vec_int[SRCP], host_vec_int[SRCP], nbytes_src_pos, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec_int[RUNID], host_vec_int[RUNID], nbytes_runoff_id, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec_int[BCRELATIVEINDEX], host_vec_int[BCRELATIVEINDEX], nbytes_bc_cell_size, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec_int[BCTYPE], host_vec_int[BCTYPE], nbytes_bc_cell_size, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec_int[BCINDEXSTART], host_vec_int[BCINDEXSTART], nbytes_bc_cell_size, cudaMemcpyHostToDevice, streams);
-		cudaMemcpyAsync(device_vec_int[BCNROWSVARS], host_vec_int[BCNROWSVARS], nbytes_bc_cell_size, cudaMemcpyHostToDevice, streams);
-		cudaStreamSynchronize(streams);
+		gpuMemcpyAsync(device_vec_int[SRCP], host_vec_int[SRCP], nbytes_src_pos, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec_int[RUNID], host_vec_int[RUNID], nbytes_runoff_id, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec_int[BCRELATIVEINDEX], host_vec_int[BCRELATIVEINDEX], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec_int[BCTYPE], host_vec_int[BCTYPE], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec_int[BCINDEXSTART], host_vec_int[BCINDEXSTART], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
+		gpuMemcpyAsync(device_vec_int[BCNROWSVARS], host_vec_int[BCNROWSVARS], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
+		gpuStreamSynchronize(streams);
 #endif
 	}
 
@@ -1894,13 +1895,13 @@ namespace Triton
 #ifdef ACTIVE_GPU
 		while (!device_vec.empty())
 		{
-			cudaFree(device_vec.back());
+			gpuFree(device_vec.back());
 			device_vec.pop_back();
 		}
 
 		while (!device_vec_int.empty())
 		{
-			cudaFree(device_vec_int.back());
+			gpuFree(device_vec_int.back());
 			device_vec_int.pop_back();
 		}
 #endif
@@ -1962,14 +1963,14 @@ namespace Triton
 
 #ifdef ACTIVE_GPU
 				st.start(COMPUTE_TIME);
-				cudaMemcpyAsync(host_vec[H], device_vec[H], nbytes, cudaMemcpyDeviceToHost, streams);
-				cudaMemcpyAsync(host_vec[QX], device_vec[QX], nbytes, cudaMemcpyDeviceToHost, streams);
-				cudaMemcpyAsync(host_vec[QY], device_vec[QY], nbytes, cudaMemcpyDeviceToHost, streams);
+				gpuMemcpyAsync(host_vec[H], device_vec[H], nbytes, gpuMemcpyDeviceToHost, streams);
+				gpuMemcpyAsync(host_vec[QX], device_vec[QX], nbytes, gpuMemcpyDeviceToHost, streams);
+				gpuMemcpyAsync(host_vec[QY], device_vec[QY], nbytes, gpuMemcpyDeviceToHost, streams);
 				if (arglist.max_value_print_option.size() > 0)
 				{
-					cudaMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, cudaMemcpyDeviceToHost, streams);
+					gpuMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, gpuMemcpyDeviceToHost, streams);
 				}
-				cudaStreamSynchronize(streams);
+				gpuStreamSynchronize(streams);
 				st.stop(COMPUTE_TIME);
 #endif
 
@@ -2037,7 +2038,7 @@ namespace Triton
 #ifdef ACTIVE_GPU
 		int cur_dt_arr_sz = host_reduce_dt_arr_sz;
 
-		Kernels::compute_dt_and_sqrt << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >> > (rows*cols, cell_size,
+		Kernels::compute_dt_and_sqrt <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >>> (rows*cols, cell_size,
 		device_vec[QX], device_vec[QY], device_vec[H], device_vec[SQRTH], device_vec[DT], arglist.courant, arglist.hextra);
 
 		while (cur_dt_arr_sz > 1)
@@ -2047,13 +2048,13 @@ namespace Triton
 			{
 				temp_dt_arr_sz = (cur_dt_arr_sz / THREAD_BLOCK);
 			}
-			Kernels::find_min_dt << <temp_dt_arr_sz, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >> > (cur_dt_arr_sz, device_vec[DT]);
+			Kernels::find_min_dt <<<temp_dt_arr_sz, THREAD_BLOCK, THREAD_BLOCK * sizeof(T), streams >>> (cur_dt_arr_sz, device_vec[DT]);
 
 			cur_dt_arr_sz = temp_dt_arr_sz;
 		}
 
-		cudaMemcpyAsync(&local_dt, device_vec[DT], sizeof(T), cudaMemcpyDeviceToHost, streams);
-		cudaStreamSynchronize(streams);
+		gpuMemcpyAsync(&local_dt, device_vec[DT], sizeof(T), gpuMemcpyDeviceToHost, streams);
+		gpuStreamSynchronize(streams);
 #else
 		Kernels::compute_dt_and_sqrt(rows*cols, cell_size, host_vec[QX], host_vec[QY], host_vec[H], host_vec[SQRTH], host_vec[DT], arglist.courant, arglist.hextra);
 		Kernels::find_min_dt(rows*cols, host_vec[DT]);
@@ -2097,15 +2098,15 @@ namespace Triton
 		st.start(COMPUTE_TIME);
 
 #ifdef ACTIVE_GPU
-		Kernels::flux_x << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, cell_size, global_dt,
+		Kernels::flux_x <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, cell_size, global_dt,
 		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
-		Kernels::flux_y << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, cell_size, global_dt,
+		Kernels::flux_y <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, cell_size, global_dt,
 		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
-		Kernels::update_cells << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
+		Kernels::update_cells <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, global_dt,
 		device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN],
 		device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 #else
@@ -2137,7 +2138,7 @@ namespace Triton
 			}
 
 #ifdef ACTIVE_GPU
-			Kernels::update_runoff << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt,
+			Kernels::update_runoff <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, global_dt,
 			device_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), device_vec[RUNIN], device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra);
 #else
 			Kernels::update_runoff(rows*cols, rows, cols, global_dt,
@@ -2165,7 +2166,7 @@ namespace Triton
 			}
 
 #ifdef ACTIVE_GPU
-			Kernels::compute_flow << <(num_of_src + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (num_of_src, device_vec[HYGT], device_vec[HYGV],
+			Kernels::compute_flow <<<(num_of_src + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (num_of_src, device_vec[HYGT], device_vec[HYGV],
 			cell_size, global_dt, simtime, idx_low, idx_high, device_vec[H], device_vec_int[SRCP]);
 #else
 			Kernels::compute_flow(num_of_src, host_vec[HYGT], host_vec[HYGV],
@@ -2177,8 +2178,8 @@ namespace Triton
 		if(arglist.open_boundaries){
 
 			#ifdef ACTIVE_GPU
-				Kernels::copy_info_to_exterior_boundaries_west_east << <(2*rows*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2*rows*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY]);
-				Kernels::copy_info_to_exterior_boundaries_north_south << <(cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY],rank, size);
+				Kernels::copy_info_to_exterior_boundaries_west_east <<<(2*rows*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2*rows*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY]);
+				Kernels::copy_info_to_exterior_boundaries_north_south <<<(cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY],rank, size);
 			#else
 				Kernels::copy_info_to_exterior_boundaries_west_east(2*rows*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY]);
 				Kernels::copy_info_to_exterior_boundaries_north_south(cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY],rank, size);
@@ -2198,7 +2199,7 @@ namespace Triton
 		}
 
 #ifdef ACTIVE_GPU
-		Kernels::wet_dry << <(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
+		Kernels::wet_dry <<<(rows*cols + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
 #else
 		Kernels::wet_dry(rows*cols, rows, cols, global_dt, host_vec[H], host_vec[QX], host_vec[QY], host_vec[DEM], host_vec[MAXH], arglist.hextra,size);
 #endif
@@ -2208,11 +2209,11 @@ namespace Triton
 		if (size > 1)
 		{
 #ifdef ACTIVE_GPU
-			Kernels::halo_copy_from_gpu << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
+			Kernels::halo_copy_from_gpu <<<(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
 
 			if (arglist.gpu_direct_flag)
 			{
-				cudaStreamSynchronize(streams);
+				gpuStreamSynchronize(streams);
 				st.stop(COMPUTE_TIME);
 
 				st.start(BALANCING_MPI_TIME);
@@ -2225,8 +2226,8 @@ namespace Triton
 			}
 			else
 			{
-				cudaMemcpyAsync(host_vec[HALO], device_vec[HALO], nbytes_halo, cudaMemcpyDeviceToHost, streams);
-				cudaStreamSynchronize(streams);
+				gpuMemcpyAsync(host_vec[HALO], device_vec[HALO], nbytes_halo, gpuMemcpyDeviceToHost, streams);
+				gpuStreamSynchronize(streams);
 				st.stop(COMPUTE_TIME);
 
 				st.start(BALANCING_MPI_TIME);
@@ -2236,10 +2237,10 @@ namespace Triton
 				st.stop(BALANCING_MPI_TIME);
 
 				st.start(COMPUTE_TIME);
-				cudaMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, cudaMemcpyHostToDevice, streams);
+				gpuMemcpyAsync(device_vec[HALO], host_vec[HALO], nbytes_halo, gpuMemcpyHostToDevice, streams);
 			}
 
-			Kernels::halo_copy_to_gpu << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
+			Kernels::halo_copy_to_gpu <<<(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QX], device_vec[QY], device_vec[HALO]);
 #else
 			Kernels::halo_copy_from_gpu(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QX], host_vec[QY], host_vec[HALO]);
 			st.stop(COMPUTE_TIME);
@@ -2255,7 +2256,7 @@ namespace Triton
 #endif
 
 #ifdef ACTIVE_GPU
-			Kernels::wet_dry_qy_halo << <(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >> > (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QY], device_vec[DEM], arglist.hextra);
+			Kernels::wet_dry_qy_halo <<<(2 * cols*GHOST_CELL_PADDING + THREAD_BLOCK - 1) / THREAD_BLOCK, THREAD_BLOCK, 0, streams >>> (2 * cols*GHOST_CELL_PADDING, rows, cols, device_vec[H], device_vec[QY], device_vec[DEM], arglist.hextra);
 #else
 			Kernels::wet_dry_qy_halo(2 * cols*GHOST_CELL_PADDING, rows, cols, host_vec[H], host_vec[QY], host_vec[DEM], arglist.hextra);
 #endif
@@ -2404,24 +2405,24 @@ namespace Triton
 #ifdef ACTIVE_GPU
 
 		//not neccessary since we are inside output so we already copied this data to the CPU
-		/*cudaMemcpyAsync(host_vec[H], device_vec[H], nbytes, cudaMemcpyDeviceToHost, streams);
-		cudaMemcpyAsync(host_vec[QX], device_vec[QX], nbytes, cudaMemcpyDeviceToHost, streams);
-		cudaMemcpyAsync(host_vec[QY], device_vec[QY], nbytes, cudaMemcpyDeviceToHost, streams);
+		/*gpuMemcpyAsync(host_vec[H], device_vec[H], nbytes, gpuMemcpyDeviceToHost, streams);
+		gpuMemcpyAsync(host_vec[QX], device_vec[QX], nbytes, gpuMemcpyDeviceToHost, streams);
+		gpuMemcpyAsync(host_vec[QY], device_vec[QY], nbytes, gpuMemcpyDeviceToHost, streams);
 		if (arglist.max_value_print_option.size() > 0)
 		{
-			cudaMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, cudaMemcpyDeviceToHost, streams);
+			gpuMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, gpuMemcpyDeviceToHost, streams);
 		}
-		cudaStreamSynchronize(streams);*/
+		gpuStreamSynchronize(streams);*/
 
-		cudaStreamDestroy(streams);
+		gpuStreamDestroy(streams);
 		while (!device_vec.empty())
 		{
-			cudaFree(device_vec.back());
+			gpuFree(device_vec.back());
 			device_vec.pop_back();
 		}
 		while (!device_vec_int.empty())
 		{
-			cudaFree(device_vec_int.back());
+			gpuFree(device_vec_int.back());
 			device_vec_int.pop_back();
 		}
 
