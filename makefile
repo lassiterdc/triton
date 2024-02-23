@@ -19,11 +19,15 @@ summit_omp:
 afw_gpu:
 	make -f makefile.afw ACTIVE_GPU=1 SRCDIR=$(SRCDIR) BUILDDIR=$(BUILDDIR)
 
+afw_cuda:	afw_gpu
+
 afw_omp:
 	make -f makefile.afw ACTIVE_OMP=1 SRCDIR=$(SRCDIR) BUILDDIR=$(BUILDDIR)
 
 frontier_gpu:
 	make -f makefile.frontier ACTIVE_GPU=1 SRCDIR=$(SRCDIR) BUILDDIR=$(BUILDDIR)
+
+frontier_hip:	frontier_gpu
 
 clean:
 	rm -rf $(BUILDDIR)/triton

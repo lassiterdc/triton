@@ -1,14 +1,14 @@
 ifdef ACTIVE_GPU
 	CC := nvcc -ccbin CC
-	INC_DIRS := /opt/cray/pe/mpich/8.1.6/ofi/gnu/9.1/include
+	INC_DIRS := $(MPICH_DIR)/include
 	FLAGS := -arch=sm_70 -x cu
-	LIBRARIES := -L$(CUDA_DIR)/targets/ppc64le-linux/lib/stubs -L/opt/cray/pe/mpich/8.1.6/ofi/gnu/9.1/lib -lnvidia-ml
 	DFLAGS := -DACTIVE_GPU=1
+	LIBRARIES := -L$(MPICH_DIR)/lib -lnvidia-ml -lcuda $(PE_MPICH_GTL_DIR_nvidia70) $(PE_MPICH_GTL_LIBS_nvidia70)
 else
 	CC := CC
-	INC_DIRS := /opt/cray/pe/mpich/8.1.6/ofi/gnu/9.1/include
+	INC_DIRS := $(MPICH_DIR)/include
 	FLAGS := -Wall -fopenmp
-	LIBRARIES := -L/opt/cray/pe/mpich/8.1.6/ofi/gnu/9.1/lib 
+	LIBRARIES := -L$(MPICH_DIR)/lib
 	DFLAGS := -DACTIVE_OMP=1
 endif
 
