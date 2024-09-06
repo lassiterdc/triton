@@ -3,7 +3,9 @@ ifdef ACTIVE_GPU
 	INC_DIRS := $(MPICH_DIR)/include
 	FLAGS := -arch=sm_70 -x cu
 	DFLAGS := -DACTIVE_GPU=1
-	LIBRARIES := -L$(MPICH_DIR)/lib -lnvidia-ml -lcuda $(PE_MPICH_GTL_DIR_nvidia70) $(PE_MPICH_GTL_LIBS_nvidia70)
+	LIBRARIES := -L$(MPICH_DIR)/lib -lcuda
+	# Holding these for GPU aware MPI
+	# $(PE_MPICH_GTL_DIR_nvidia70) $(PE_MPICH_GTL_LIBS_nvidia70)
 else
 	CC := CC
 	INC_DIRS := $(MPICH_DIR)/include
@@ -15,5 +17,11 @@ endif
 triton: $(SRCDIR)/main.cpp
 	if [ ! -d $(BUILDDIR) ]; then mkdir $(BUILDDIR); fi
 	@echo 'Compiling file: $<'
-	$(CC) $(INC_DIRS:%=-I%) $(FLAGS) $(DFLAGS) -O3 $(LIBRARIES) -o "$(BUILDDIR)/$@" "$<" --std=c++11
+	$(CC) \
+		$(INC_DIRS:%=-I%) \
+		$(FLAGS) \
+		$(DFLAGS) \
+		-O3 \
+		$(LIBRARIES) \
+		-o "$(BUILDDIR)/$@" "$<" --std=c++11
 	@echo 'Building finished: $@'
