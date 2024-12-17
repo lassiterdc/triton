@@ -3,7 +3,7 @@ ifdef ACTIVE_GPU
 	INC_DIRS := $(MPICH_DIR)/include
 	FLAGS := -arch=sm_70 -x cu
 	DFLAGS := -DACTIVE_GPU=1
-	LIBRARIES := -L$(MPICH_DIR)/lib -lcuda
+	LIBRARIES := -L$(MPICH_DIR)/lib -lcuda $(PE_MPICH_GTL_DIR_nvidia70) $(PE_MPICH_GTL_LIBS_nvidia70)
 	# Holding these for GPU aware MPI
 	# $(PE_MPICH_GTL_DIR_nvidia70) $(PE_MPICH_GTL_LIBS_nvidia70)
 else
