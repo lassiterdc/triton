@@ -21,6 +21,12 @@
 #include "constants.h"
 #include "matrix.h"
 
+#include <gdal.h>  
+#include <gdal_priv.h>  
+#include <ogr_spatialref.h>  
+#include <ogr_geometry.h>  
+#include <cpl_conv.h> // For geotiff output
+
 namespace Output
 {
 	template<class T>
@@ -44,6 +50,9 @@ namespace Output
 *
 *  @param rows Rows in subdomain
 *  @param cols Columns in subdomain
+*  @param xll X coordinate of the origin
+*  @param yll Y coordinate of the origin
+*  @param cellsize Cell size
 *  @param rank Current sub domain id
 *  @param size Number of sub domains
 *  @param project_dir Main project directory
@@ -52,7 +61,7 @@ namespace Output
 *  @param cfg_content Contents of input cfg file
 *  @param output_option Determines how to write data
 */		
-		void init(int rows, int cols, int rank, int size, std::string project_dir, std::string outfile_pattern, int time_series_flag, std::string cfg_content, std::string output_option);
+		void init(int rows, int cols, double xll, double yll, double cellsize, int rank, int size, std::string project_dir, std::string outfile_pattern, int time_series_flag, std::string cfg_content, std::string output_option);
 		
 		
 /** @brief It initializes time series outputs in a file.
@@ -72,6 +81,7 @@ namespace Output
 *  @param qx_arr Discharge in x direction data
 *  @param qy_arr Discharge in y direction data
 *  @param output_format Format of output files
+*  @param projection Projection system
 *  @param print_option Which data to write
 *  @param print_id Current checkpoint id
 *  @param it_count Number of iterations so far
@@ -80,7 +90,7 @@ namespace Output
 *  @param max_value_h Max value of water depth data
 *  @param max_value_print_option Which max value data to write
 */		
-		void write_output(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, std::string output_format, std::string print_option, int print_id, int it_count, T simtime, T average_dt, Matrix::matrix<T>& max_value_h, std::string max_value_print_option);
+		void write_output(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, std::string output_format, std::string projection, std::string print_option, int print_id, int it_count, T simtime, T average_dt, Matrix::matrix<T>& max_value_h, std::string max_value_print_option);
 		
 		
 /** @brief It outputs a specific data array's full domain in a single ascii file. 
@@ -121,6 +131,26 @@ namespace Output
 *  @param simtime Current time of simulation
 */			
 		void write_output_binary_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime);
+
+
+/** @brief It outputs a specific data array's full domain in a single GeoTIFF file. 
+*
+*  @param arr Subdomain data
+*  @param what_mat Data type
+*  @param print_id Current checkpoint id
+*  @param simtime Current time of simulation
+*/		
+		void write_output_geotiff_sequential(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime, std::string projection);
+		
+		
+/** @brief It outputs a specific data array's sub domain in a GeoTIFF file. All subdomain outputs seperately in different file.
+*
+*  @param arr Subdomain data
+*  @param what_mat Data type
+*  @param print_id Current checkpoint id
+*  @param simtime Current time of simulation
+*/			
+		void write_output_geotiff_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime, std::string projection);
 		
 		
 /** @brief It calculates output file name.
@@ -151,7 +181,6 @@ namespace Output
 *  @param simtime Current time of simulation
 */		
 		void output_time_series_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime);
-
 
 
 /** @brief It calculates content of updated configuration and outputs it in a file.
@@ -193,6 +222,9 @@ namespace Output
 	private:
 		int rows_;	/**< Number of rows in a subdomain */
 		int cols_;	/**< Number of columns in a sub domain */
+		double xll_;	/**< X coordinate of the origin */
+		double yll_;	/**< Y coordinate of the origin */
+		double cellsize_;	/**< Size of a cell */
 		int rank_;	/**< Current subdomain id */
 		int size_;	/**< Total number of sub domain */
 		int time_series_flag_;	/**< Flag to determine output time series or not. If true, output the time series. */
@@ -245,7 +277,7 @@ namespace Output
 
 
 	template<typename T>
-	void output<T>::init(int rows, int cols, int rank, int size, std::string project_dir, std::string outfile_pattern, int time_series_flag, std::string cfg_content, std::string output_option)
+	void output<T>::init(int rows, int cols, double xll, double yll, double cellsize, int rank, int size, std::string project_dir, std::string outfile_pattern, int time_series_flag, std::string cfg_content, std::string output_option)
 	{
 
 		cur_proc_data_size = 0;
@@ -261,6 +293,9 @@ namespace Output
 
 		rows_ = rows;
 		cols_ = cols;
+		xll_ = xll;
+		yll_ = yll;
+		cellsize_ = cellsize;
 		rank_ = rank;
 		size_ = size;
 		project_dir_ = project_dir;
@@ -301,6 +336,8 @@ namespace Output
 			total_data_arr = new T[total_data_size];
 			total_data_arr_int = new int[total_data_size];
 		}
+
+		MPI_Bcast(&total_data_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	}
 
 
@@ -367,7 +404,7 @@ namespace Output
 
 
 	template<typename T>
-	void output<T>::write_output(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, std::string output_format, std::string print_option, int print_id, int it_count, T simtime, T average_dt, Matrix::matrix<T>& max_value_h, std::string max_value_print_option)
+	void output<T>::write_output(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, std::string output_format, std::string projection, std::string print_option, int print_id, int it_count, T simtime, T average_dt, Matrix::matrix<T>& max_value_h, std::string max_value_print_option)
 	{
 		if (strcmp(output_format.c_str(), "ASC") == 0)
 		{
@@ -431,7 +468,7 @@ namespace Output
 				}
 			}
 		}
-		else
+		if (strcmp(output_format.c_str(), "BIN") == 0)
 		{
 			if (print_option.find("h") != std::string::npos)
 			{
@@ -484,7 +521,59 @@ namespace Output
 				}
 			}
 		}
+		if (strcmp(output_format.c_str(), "GTIFF") == 0)
+		{
+			if (print_option.find("h") != std::string::npos)
+			{
+				if(strcmp(output_option_.c_str(), "SEQ") == 0)
+				{
+					write_output_geotiff_sequential(h_arr, "H", print_id, simtime, projection);
+				}
+				else
+				{
+					write_output_geotiff_parallel(h_arr, "H", print_id, simtime, projection);
+			}
+		}
 
+			if (print_option.find("u") != std::string::npos)
+			{
+				if(strcmp(output_option_.c_str(), "SEQ") == 0)
+				{
+					write_output_geotiff_sequential(qx_arr, "QX", print_id, simtime, projection);
+				}
+				else
+				{
+					write_output_geotiff_parallel(qx_arr, "QX", print_id, simtime, projection);
+				}
+			}
+
+			if (print_option.find("v") != std::string::npos)
+			{
+				if(strcmp(output_option_.c_str(), "SEQ") == 0)
+				{
+					write_output_geotiff_sequential(qy_arr, "QY", print_id, simtime, projection);
+				}
+				else
+				{
+					write_output_geotiff_parallel(qy_arr, "QY", print_id, simtime, projection);
+				}
+			}
+			
+			if (max_value_print_option.size() > 0)
+			{
+				if (max_value_print_option.find("h") != std::string::npos)
+				{
+					if(strcmp(output_option_.c_str(), "SEQ") == 0)
+					{
+						write_output_geotiff_sequential(max_value_h, "MH", print_id, simtime, projection);
+					}
+					else
+					{
+						write_output_geotiff_parallel(max_value_h, "MH", print_id, simtime, projection);
+					}
+				}
+			}
+		}
 
 		if (rank_ == 0)
 		{
@@ -810,6 +899,241 @@ namespace Output
 			output_time_series_parallel(arr,what_mat, print_id, simtime);
 		}
 
+	}
+
+
+	template<typename T>
+	void output<T>::write_output_geotiff_sequential(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime, std::string projection)
+	{
+		if (rank_ == 0)
+		{
+			MPI_Gatherv(arr.get_address_at(0, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+		else
+		{
+			MPI_Gatherv(arr.get_address_at(GHOST_CELL_PADDING, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		}
+
+		if (rank_ == 0)
+		{
+			std::string root_dir(project_dir_ + "/" + OUTPUT_DIR + "/");
+
+			DIR* dir;
+			if(root_dir.empty())
+			{
+				dir = opendir(".");
+			}
+			else
+			{
+				dir = opendir(root_dir.c_str());
+			}
+			if (!dir)
+			{
+				mkdir(root_dir.c_str(), S_IRWXU);
+			}
+			else
+			closedir(dir);
+
+			root_dir.pop_back();
+
+
+			std::string filepath = get_mat_path(what_mat, root_dir, std::string(GEO_DIR), print_id, ".tif");
+			std::string file_dir(project_dir_ + "/" + OUTPUT_DIR + "/" + GEO_DIR + "/");
+
+			DIR* dir2;
+			if(file_dir.empty())
+			{
+				dir2 = opendir(".");
+			}
+			else
+			{
+				dir2 = opendir(file_dir.c_str());
+			}
+			if (!dir2)
+			{
+				mkdir(file_dir.c_str(), S_IRWXU);
+			}
+			else
+			closedir(dir2);
+
+			// Initialize GDAL
+			GDALAllRegister();
+
+			int total_cols = cols_;
+			int total_rows = total_data_size / total_cols;
+			int off = GHOST_CELL_PADDING;
+
+			int raster_rows = total_rows - 2 * off;
+			int raster_cols = total_cols - 2 * off;
+
+			GDALDriver* poDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
+			if (poDriver == nullptr)
+			{
+				std::cerr << "No se pudo obtener el driver GeoTIFF" << std::endl;
+				return;
+			}
+
+			GDALDataset* poDataset = poDriver->Create(filepath.c_str(), raster_cols, raster_rows, 1, GDT_Float32, nullptr);
+			if (poDataset == nullptr)
+			{
+				std::cerr << "Error al crear el archivo GeoTIFF en " << filepath << std::endl;
+				return;
+			}
+
+			// Geo-referenced transformation. GeoTiff uses top left corner as origin
+			// double adfGeoTransform[6] = { xOrigin, pixelWidth, xRotation, yOrigin, yRotation, pixelHeight };
+			double yll = yll_;
+			double xll = xll_;
+			double pixel_size = cellsize_;
+			double y_ul = yll + raster_rows * pixel_size; // Upper left corner y coordinate
+			double adfGeoTransform[6] = { xll, pixel_size, 0.0, y_ul, 0.0, -pixel_size };
+			poDataset->SetGeoTransform(adfGeoTransform);
+
+			// Asign coordenate system
+			OGRSpatialReference oSRS;
+			oSRS.SetWellKnownGeogCS(projection.c_str()); // Pass projection string
+			char* pszSRSWKT = nullptr;
+			oSRS.exportToWkt(&pszSRSWKT);
+			poDataset->SetProjection(pszSRSWKT);
+			CPLFree(pszSRSWKT);
+
+			GDALRasterBand* poBand = poDataset->GetRasterBand(1);
+
+			for (int i = 0; i < raster_rows; i++)
+			{
+				float *pafWriteline = (float *)CPLMalloc(sizeof(float) * raster_cols);
+				for (int j = 0; j < raster_cols; j++)
+				{
+					pafWriteline[j] = total_data_arr[(i + off) * (long long)total_cols + j + off];
+				}
+				CPLErr err = poBand->RasterIO(GF_Write, 0, i, raster_cols, 1, pafWriteline, raster_cols, 1, GDT_Float32, 0, 0);
+				if (err != CE_None) 
+				{
+					std::cerr << "Error al escribir en el raster en la fila " << i << std::endl;
+				}
+				CPLFree(pafWriteline);
+			}
+		
+			GDALClose(poDataset);
+
+			if (time_series_flag_)
+			{
+				output_time_series_sequential(what_mat, print_id, simtime);
+			}
+		}
+
+		if (size_ > 1)
+		{
+			MPI_Barrier(MPI_COMM_WORLD);
+		}
+	}
+
+
+	template<typename T>
+	void output<T>::write_output_geotiff_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, T simtime, std::string projection)
+	{
+		std::string root_dir(project_dir_ + "/" + OUTPUT_DIR + "/");
+
+		DIR* dir;
+		if(root_dir.empty())
+		{
+			dir = opendir(".");
+		}
+		else
+		{
+			dir = opendir(root_dir.c_str());
+		}
+		if (!dir)
+		{
+			mkdir(root_dir.c_str(), S_IRWXU);
+		}
+		else
+		closedir(dir);
+		root_dir.pop_back();
+
+
+		std::string filepath = get_mat_path(what_mat, root_dir, GEO_DIR, print_id, ".tif");
+		std::string file_dir(project_dir_ + "/" + OUTPUT_DIR + "/" + GEO_DIR + "/");
+
+		DIR* dir2;
+		if(file_dir.empty())
+		{
+			dir2 = opendir(".");
+		}
+		else
+		{
+			dir2 = opendir(file_dir.c_str());
+		}
+		if (!dir2)
+		{
+			mkdir(file_dir.c_str(), S_IRWXU);
+		}
+		else
+		closedir(dir2);
+
+		// Initialize GDAL
+		GDALAllRegister();
+
+		int off = GHOST_CELL_PADDING;
+		int raster_rows = rows_ - 2 * off;
+		int raster_cols = cols_ - 2 * off;
+		
+		GDALDriver* poDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
+		if (poDriver == nullptr)
+		{
+			std::cerr << "No se pudo obtener el driver GeoTIFF" << std::endl;
+			return;
+		}
+
+		GDALDataset* poDataset = poDriver->Create(filepath.c_str(), raster_cols, raster_rows, 1, GDT_Float32, nullptr);
+		if (poDataset == nullptr)
+		{
+			std::cerr << "Error al crear el archivo GeoTIFF en " << filepath << std::endl;
+			return;
+		}
+
+
+		// Geo-referenced transformation. GeoTiff uses top left corner as origin
+		// double adfGeoTransform[6] = { xOrigin, pixelWidth, xRotation, yOrigin, yRotation, pixelHeight };
+		double yll = yll_; 
+		double xll = xll_;
+		double pixel_size = cellsize_;
+		double y_ul = yll + (size_-rank_) * raster_rows * pixel_size; // Upper left corner y coordinate, which now depends also on the rank_ 
+		double adfGeoTransform[6] = { xll, pixel_size, 0.0, y_ul, 0.0, -pixel_size };
+		poDataset->SetGeoTransform(adfGeoTransform);
+
+		// Asign coordenate system
+		OGRSpatialReference oSRS;
+		oSRS.SetWellKnownGeogCS(projection.c_str()); // Pass projection string
+		char* pszSRSWKT = nullptr;
+		oSRS.exportToWkt(&pszSRSWKT);
+		poDataset->SetProjection(pszSRSWKT);
+		CPLFree(pszSRSWKT);
+
+		GDALRasterBand* poBand = poDataset->GetRasterBand(1);
+
+		for (int i = 0; i < raster_rows; i++)
+		{
+			float *pafWriteline = (float *)CPLMalloc(sizeof(float) * raster_cols);
+			for (int j = 0; j < raster_cols; j++)
+			{
+				pafWriteline[j] = *arr.get_address_at(i,j); // Así accedemos al valor del puntero que apunta a la dirección de memoria (i,j) de la matriz, que es lo que nos interesa
+			}
+
+			CPLErr err = poBand->RasterIO(GF_Write, 0, i, raster_cols, 1, pafWriteline, raster_cols, 1, GDT_Float32, 0, 0);
+			if (err != CE_None) 
+			{
+				std::cerr << "Error al escribir en el raster en la fila " << i << std::endl;
+			}
+			CPLFree(pafWriteline);
+		}
+		
+		GDALClose(poDataset);
+
+		if (time_series_flag_)
+		{
+			output_time_series_parallel(arr,what_mat, print_id, simtime);
+		}
 	}
 
 

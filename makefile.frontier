@@ -2,7 +2,7 @@ CC := hipcc
 INC_DIRS := $(ROCM_PATH)/include/hip $(MPICH_DIR)/include
 LIB_DIRS := -L$(MPICH_DIR)/lib -L$(HIP_LIB_PATH)
 FLAGS := --rocm-path=$(ROCM_PATH) --offload-arch=gfx90a -x hip
-LIBRARIES := -lmpi -lamdhip64
+LIBRARIES := -lmpi -lamdhip64 -lgdal
 GTL_LIBS := $(PE_MPICH_GTL_DIR_amd_gfx90a) $(PE_MPICH_GTL_LIBS_amd_gfx90a)
 DFLAGS := -D__HIP_ROCclr__ -D__HIP_ARCH_GFX90A__=1 -DACTIVE_GPU=1 -DAMDGPU=1
 

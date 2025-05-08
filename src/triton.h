@@ -64,6 +64,9 @@ namespace Triton
 		int size;	/**< Total sumber of subdomains */
 		int rows;	/**< Number of rows in current subdomain */
 		int cols;	/**< Number of columns in current subdomain */
+		double xll;	/**< X coordinate of the origin */
+		double yll;	/**< Y coordinate of the origin */
+		double cellsize;	/**< Size of a cell */
 		int org_rows;	/**< Number of rows in original domain without ghost cells */
 		int org_cols;	/**< Number of columns in original domain without ghost cells */
 		int num_of_src;	/**< Number of flow locations in current subdomain */
@@ -700,7 +703,11 @@ namespace Triton
 		if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0){
 			//we need to call out.init to have all the information in the struct out that is used afterwards. we need (lrows1,lcols1) plus the ghost cells as arguments 
 			//since the subroutine workis with the full subdomain (including ghost cells)
-			out.init(lrows1+2 * GHOST_CELL_PADDING, lcols1+2 * GHOST_CELL_PADDING, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+			double xll = sub_dem.get_xll_corner();
+			double yll = sub_dem.get_yll_corner();
+			double cellsize = sub_dem.get_cell_size();
+			
+			out.init(lrows1+2 * GHOST_CELL_PADDING, lcols1+2 * GHOST_CELL_PADDING, xll, yll, cellsize, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 			if (rank == 0)
 			{
 				MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
@@ -1922,7 +1929,12 @@ namespace Triton
 
 		st.start(SIMULATION_TIME);
 
-		out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+		
+		double xll = dem.get_xll_corner();
+		double yll = dem.get_yll_corner();
+		double cellsize = dem.get_cell_size();
+
+		out.init(rows, cols, xll, yll, cellsize, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 
 		if (arglist.time_series_flag)
 		{
@@ -1975,7 +1987,7 @@ namespace Triton
 #endif
 
 				st.start(IO_TIME);
-				out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.print_option, print_id, it_count, simtime, average_dt/it_count_average,sub_max_value_h, arglist.max_value_print_option);
+				out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt/it_count_average,sub_max_value_h, arglist.max_value_print_option);
 				it_count_average=0;
 				average_dt=0.0;
 				st.stop(IO_TIME);
@@ -2291,7 +2303,11 @@ namespace Triton
 			create_device_vectors();
 
 			//a call to out.init is again neccessary to set the output configuration
-			out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+			double xll = dem.get_xll_corner();
+			double yll = dem.get_yll_corner();
+			double cellsize = dem.get_cell_size();
+
+			out.init(rows, cols, xll, yll, cellsize, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 
 			if (arglist.time_series_flag)
 			{

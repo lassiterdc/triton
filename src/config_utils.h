@@ -56,8 +56,9 @@ namespace ConfigUtils
 		max_value_print_option,	/**< Use to determine maximum value of each cells output types. h to output just the h (depth). */
 		input_format,	/**< Expected input file format. BIN for binary file or ASC for ascii file. */
 		input_option,	/**< Strategy to use for input files. PAR for parallel input or SEQ for sequential inp. PAR reads each MPI partitions subdomain in separate files and SEQ reads the whole domain from one file. Applied to all raster formats. By default, SEQ is considered.*/
-		output_format,	/**< Expected output file format. BIN for binary file or ASC for ascii file. */
+		output_format,	/**< Expected output file format. BIN for binary file or ASC for ascii file or GTIFF for GeoTIFF file. */
 		output_option,	/**< Strategy to use for outputting into files. PAR for parallel outputs or SEQ for sequential outputs. PAR saves each MPI partitions subdomain in separate files and SEQ saves the whole domain into one file. */
+		projection,	    /**< Projection system to use. */
 		dem_filename,	/**< Directory of the DEM file to use. */
 		header_filename,	/**< Directory of the header file to use (in case of parallel reading). */
 		src_loc_file,	/**< Directory of the file that contains the information of all flow locations. */
@@ -455,6 +456,7 @@ namespace ConfigUtils
 		arglist.input_option = args("input_option", argmap);
 		arglist.output_format = args("output_format", argmap);
 		arglist.output_option = args("output_option", argmap);
+		arglist.projection = argsd("projection", argmap, DEFAULT_PROJECTION);
 
 		arglist.h_infile = argsd("h_infile", argmap, "");
 		arglist.qx_infile = argsd("qx_infile", argmap, "");

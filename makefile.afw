@@ -3,12 +3,12 @@ ifdef ACTIVE_GPU
 	INC_DIRS := $(MPICH_DIR)/include
 	FLAGS := -arch=sm_80 -x cu
 	DFLAGS := -DACTIVE_GPU=1
-	LIBRARIES := -L$(MPICH_DIR)/lib -lcuda $(PE_MPICH_GTL_DIR_nvidia80) $(PE_MPICH_GTL_LIBS_nvidia80) -lmpi
+	LIBRARIES := -L$(MPICH_DIR)/lib -lcuda $(PE_MPICH_GTL_DIR_nvidia80) $(PE_MPICH_GTL_LIBS_nvidia80) -lmpi -lgdal
 else
 	CC := CC
 	INC_DIRS := $(MPICH_DIR)/include
 	FLAGS := -Wall -fopenmp
-	LIBRARIES := -L$(MPICH_DIR)/lib
+	LIBRARIES := -L$(MPICH_DIR)/lib -lgdal
 	DFLAGS := -DACTIVE_OMP=1
 endif
 
@@ -21,5 +21,5 @@ triton: $(SRCDIR)/main.cpp
 		$(DFLAGS) \
 		-O3 \
 		$(LIBRARIES) \
-		-o "$(BUILDDIR)/$@" "$<" --std=c++11
+		-o "$(BUILDDIR)/$@" "$<" -L/usr/lib -lgdal --std=c++11
 	@echo 'Building finished: $@'

@@ -39,6 +39,8 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define CFG_DIR "cfg"    /**< Default folder name containing all configuration (cfg) files. */
 #define BIN_DIR "bin"    /**< Default folder name containing binary files. */
 #define ASCII_DIR "asc"    /**< Deafult folder name containing ascii files. */
+#define GEO_DIR "gtiff"    /**< Deafult folder name containing geotiff files. */
+#define DEFAULT_PROJECTION "WGS84"    /**< Default projection system. */
 #define TIME_SERIES_DIR "series"    /**< Deafult folder name containing time series outputs. */
 #define DEFAULT_CFG "case4.cfg"    /**< Deafult configuration (cfg) file name. */
 
@@ -91,7 +93,7 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define TIMER_NSECS 0    /**< To use nano second in Timer. */
 #define TIMER_SECS 1    /**< To use second in Timer. */
 
-#define G 9.81    /**< Gravitational acceleration. */
+#define _G_ 9.81    /**< Gravitational acceleration. */
 #define SQRTG 3.132091953    /**< Square root of Gravitational acceleration. */
 #define EPS12 1e-12    /**< Tolerance e-12. */
 #define FT3_TO_M3_FACTOR 0.028316847    /**< Factor to convert feet cube to meter cube. */

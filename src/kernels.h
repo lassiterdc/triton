@@ -142,7 +142,7 @@ namespace Kernels
 
 				T h12 = 0.5*(h1 + h2);
 				T dh = h2 - h1;
-				T c12 = sqrt(G*h12);
+				T c12 = sqrt(_G_*h12);
 
 				T u12 = (u1*sqh1 + u2 * sqh2) / (sqh1 + sqh2);
 				T v12 = (v1*sqh1 + v2 * sqh2) / (sqh1 + sqh2);
@@ -210,7 +210,7 @@ namespace Kernels
 				}
 
 
-				beta[0] = 0.5*G*(hp - 0.5*fabs(dzp))*dzp / c12;
+				beta[0] = 0.5*_G_*(hp - 0.5*fabs(dzp))*dzp / c12;
 
 				//wet-wet correction
 				hp = h1 + alpha[0];
@@ -431,7 +431,7 @@ namespace Kernels
 
 				T h12 = 0.5*(h1 + h2);
 				T dh = h2 - h1;
-				T c12 = sqrt(G*h12);
+				T c12 = sqrt(_G_*h12);
 				T u12 = (u1*sqh1 + u2 * sqh2) / (sqh1 + sqh2);
 				T v12 = (v1*sqh1 + v2 * sqh2) / (sqh1 + sqh2);
 				T un = u12 * nx + v12 * ny;
@@ -496,7 +496,7 @@ namespace Kernels
 					}
 				}
 
-				beta[0] = 0.5*G*(hp - 0.5*fabs(dzp))*dzp / c12;
+				beta[0] = 0.5*_G_*(hp - 0.5*fabs(dzp))*dzp / c12;
 
 
 				//wet-wet correction
@@ -669,7 +669,7 @@ namespace Kernels
 				T modM = sqrt(mx*mx + my * my);
 				if (n_arr[id] > EPS12 && hn >= hextra && modM > EPS12)
 				{
-					T tt = dt * G*n_arr[id] * modM / (hn*hn*cbrt(hn));
+					T tt = dt * _G_*n_arr[id] * modM / (hn*hn*cbrt(hn));
 					qxij = -0.5*(mx - mx * sqrt(1.0 + 4.0*tt)) / tt;
 					qyij = -0.5*(my - my * sqrt(1.0 + 4.0*tt)) / tt;
 				}
@@ -1313,7 +1313,7 @@ namespace Kernels
 				qyij=hij*vel;
 			}
 			if(bctype==3){ //Froude
-				T vel=auxvalue*sqrt(G*hij);
+				T vel=auxvalue*sqrt(_G_*hij);
 				qxij=hij*vel;
 				qyij=hij*vel;
 			}
