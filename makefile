@@ -10,6 +10,9 @@ hpc_gpu:
 hpc_omp:
 	make -f makefile.hpc ACTIVE_OMP=1 SRCDIR=$(SRCDIR) BUILDDIR=$(BUILDDIR)
 
+macos_omp:
+	make -f makefile.macos ACTIVE_OMP=1 SRCDIR=$(SRCDIR) BUILDDIR=$(BUILDDIR)
+
 afw_gpu:
 	make -f makefile.afw ACTIVE_GPU=1 SRCDIR=$(SRCDIR) BUILDDIR=$(BUILDDIR)
 
