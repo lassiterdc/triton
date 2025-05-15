@@ -538,7 +538,7 @@ namespace Matrix
 					sum += this->data_[(long long) this->cols_ * i + n] * m(n, j);
 				}
 
-				R.set_val(i, j, sum);
+				R.set_value(i, j, sum);
 			}
 		}
 
@@ -562,7 +562,7 @@ namespace Matrix
 		{
 			for (int j = 0; j < this->cols_; j++)
 			{
-				R.set_val(i, j, (this->data_[(long long) this->cols_ * i + j] + m(i, j)));
+				R.set_value(i, j, (this->data_[(long long) this->cols_ * i + j] + m(i, j)));
 			}
 		}
 
