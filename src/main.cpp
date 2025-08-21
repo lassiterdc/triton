@@ -33,7 +33,11 @@
 #include <dirent.h>
 #include <cmath>
 #include <cstring>
+
+#ifdef KOKKOS_ENABLE_OPENMP
 #include <omp.h>
+#endif
+
 #include "mpi.h"
 
 using namespace std;
@@ -62,16 +66,17 @@ int main(int argc, char* argv[])
 {
 	int rank, size;
 	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	
-	Triton::triton<value_t> model(argc, argv);
-	//initialize
-	model.initialize(rank, size);
-	//simulate
-	model.simulate();
-
+  Kokkos::initialize();
+  {
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    Triton::triton<value_t> model(argc, argv);
+    //initialize
+    model.initialize(rank, size);
+    //simulate
+    model.simulate();
+  }
+  Kokkos::finalize();
 	MPI_Finalize();
-
 	return 0;
 }
