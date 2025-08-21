@@ -1,70 +1,105 @@
-**Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON; Morales-Hernández et al., Submitted to Environmental Modelling & Software)**
+# TRITON – Two-dimensional Runoff Inundation Toolkit for Operational Needs
 
-[TRITON Website](https://triton.ornl.gov/)
+TRITON is an open-source, high-performance software framework for 2D flood simulation. Its core is a computationally efficient, physics-based hydraulic model that operates on a regular, structured grid and solves the full 2D shallow water equations.
 
-*Refer to User's Guide, located in doc subdirectory, for instructions on requirements, installation, and other details.* 
+## Features
 
-A 2D open source flood simulation tool designed for modern high performance computing (HPC). The core of the tool is a computationally efficient, physics-based hydraulic model that operates on a regular/structured grid and solves the full 2D shallow water equations. The key features of TRITON are:
+- **Cross-Platform & HPC Ready** – Runs on single or multiple CPUs (OpenMP+MPI) and supports GPU acceleration (CUDA+MPI) for maximum computational efficiency.
+- **Flexible Forcing & Inputs** – Uses topographical data (e.g., DEM, LIDAR) on a uniform Cartesian grid and supports streamflow hydrographs, gridded runoff, or both as hydrological forcing.
+- **Rich Output Options** – Produces water depth, 2D velocity maps, and unit discharge data, plus time series outputs at user-defined points and intervals.
+- **Linux/Unix Native** – Built for Linux/Unix systems with input/output in ASCII or binary formats, along with tools for easy format conversion.
+- **SI Units Standard** – Operates using the International System of Units (SI); users must convert to U.S. customary units if needed.
 
+![Simulation Output](doc/_static/TRITON_output_example.jpg)
 
-*  It can operate on multiple computer platforms and utilize modern HPC environments. The users can take advantage of:
-1.  Implementation with a single central processing unit (CPU) or multiple CPUs (using OpenMP+MPI)
-2.  Implementation with a single graphics processing unit (GPU) or multiple GPUs (using CUDA+MPI)
+## Repository Structure
 
-Highest TRITON computational efficiency can be achieved by using GPU implementation.
+```
+triton/
+├── doc/           # User guides, API references, and technical documentation
+├── src/           # Core simulation source code
+├── tools/         # Tools for TRITON
+├── external/      # Kokkos Git submodule
+├── input/         # Sample simulation input data files
+├── test/          # Regression test suite based on CTest
+├── cmake/         # CMake configuration modules and machine files
+├── Makefile       # Commands to generate documentation and a TRITON Docker image
+└── README.md      # Project overview and usage instructions
+```
 
+## Installation
 
-*  TRITON utilizes topographical data (e.g., digital elevation model [DEM], light detection and ranging [LIDAR]), as its base input, in a uniform (Cartesian) grid structure. The model can be driven by streamflow hydrographs at specified locations or gridded runoff hydrographs, or both which serves as the model’s hydrological forcing. The primary TRITON output includes water depth and 2D velocity maps at user defined time intervals. Other variables such as unit discharge values can be outputted. TRITON can also output timeseries of simulated results as user-defined point locations.
+TRITON can be built from source or run using a pre-built container.
 
-*  TRITON is developed on Linux/Unix platform. The input/output files can be either in ascii or binary formats. A set of tools and instruction are provided for format conversion.
+### **Prerequisites**
+- CMake ≥ 3.16
+- C++17 or later compiler (GCC, Clang, or Intel)  
+- [MPI](https://www.mpi-forum.org/) (for distributed runs)  
+- Optional: CUDA, HIP, or SYCL for GPU acceleration  
 
-*  The model utilizes International System of Units (SI). Users who are more familiar with United States (US) customary units need to perform proper unit conversion themselves.
+### **Build Instructions**
+```bash
+git clone --recursive https://code.ornl.gov/hydro/triton.git
+cd triton
+mkdir build && cd build
+cmake ..
+./triton_build.sh
+```
 
+### **Using Docker (Optional)**
+```bash
+make docker_build
+make docker_run
 
-*  A set of Test Cases are provided :
+docker pull grnydawn/triton-mpich
+```
 
-1.  Case 01 : TaumSauk
-2.  Case 02a: Paraboloid Case - Resolution 0.04m
-3.  Case 02b: Paraboloid Case - Resolution 0.02m
-4.  Case 02c: Paraboloid Case - Resolution 0.01m
-5.  Case 02d: Paraboloid Case - Resolution 0.005m
-6.  Case 03 : Runoff
-7.  Case 04	: Harvey 30m 
-8.  Case 05	: Harvey 10m
+## Running a Simulation
 
+Run a sample case using:
+```bash
+./trtion_run.sh
+```
 
-Morales-Hernández, M., Sharif, M.B., Kalyanapu, A., Ghafoor, S.K., Dullo, T.T., Gangrade, S., Kao, S.C., Norman, M.R. and Evans, K.J., 2021. TRITON: A Multi-GPU Open Source 2D Hydrodynamic Flood Model. Environmental Modelling & Software, p.105034 [https://doi.org/10.1016/j.envsoft.2021.105034](https://doi.org/10.1016/j.envsoft.2021.105034)
+Simulation results will be stored in `output/`.
 
+## Documentation
 
-**Instructions to run a case with parallel input**
+- [User Guide:T.B.D.]
+- [API ReferenceT.B.D.]
 
-1.  Open the script "scriptSplitASCII" and configure the following parameters (in caps):
+Full documentation is also available at: [Triton Documentation](https://triton.ornl.gov/documentation)
 
-*  TRITON_DIR: triton directory
-*  NFILES: The number of files to split the ASCII file(s) into. It should match the number of ranks in the TRITON simulation
-*  INPUT_DEM: DEM input file (in ASCII format)
-*  IS_MANN: flag for the mann file (YES or NO)
-*  INPUT_MANN: in case IS_MANN=YES, this parameter contains the mann input file (in ASCII format)
-*  IS_RMAP: flag for the rmap file (YES or NO)
-*  INPUT_RMAP: in case IS_RMAP=YES, this parameter contains the rmap input file (in ASCII format)
-*  OUTPUT_FORMAT: ASC or BIN, depending on the desired output format for the sequence of files
-*  ASCII2BIN_FOLDER: in case OUTPUT_FORMAT=BIN, it points to the ascii2bin directory (not the ascii2bin_dem)
-*  ASCII2BIN_RMAP_FOLDER: in case OUTPUT_FORMAT=BIN and IS_RMAP=YES, it points to the ascii2bin_rmap directory
+## Testing
 
+Triton includes regression tests:
+```bash
+./triton_ctest.sh
+```
 
+## Contributing
 
-2.  Run the script.  
+We welcome contributions!  
 
+1. Fork the repository.  
+2. Create a feature branch:  
+   ```bash
+   git checkout -b feature/my-new-feature
+   ```
+3. Commit your changes and open a Merge Request (MR).  
 
-3.  Configure the cfg file as follows for the following parameters:
+## License
 
-*  dem_filename: include the path of the split files plus the basename (without underscores or numbers). Example: "input/dem/bin/par/case03"
-*  Add header_filename and point it to the exact name of the header that the script has generated. Example: "input/dem/bin/par/case03.header" 
-*  n_infile: include the path of the split files plus the basename (without underscores or numbers). Example: "input/mann/bin/par/case03"
-*  runoff_map: include the path of the split files plus the basename (without underscores or numbers). Example: ""input/runoff/bin/par/case03_runoff"
-*  input_format: BIN
-*  Add input_option: PAR
+Triton is released under the **3-Clause BSD License**. See [LICENSE](LICENSE) for more details.
 
-4.  Run TRITON with the same MPI ranks as stated in NFILES.
+## Acknowledgments
 
+Triton was developed by researchers and engineers at **[Your Organization]** with support from:
+- [Funding Agency / Grant Info]
+- [Partner Institutions]
 
+## Contact
+
+For questions, bug reports, or feature requests:
+- Open an issue via GitLab: [Issues Page](https://code.ornl.gov/hydro/triton/-/issues)  
+- Email: T.B.D.

@@ -1,0 +1,17 @@
+
+process_target(ascii2bin_rmap              ./ascii2bin_rmap/ascii2bin_rmap.cpp        )
+process_target(join_bin_headerBinary       ./join_bin/headerBinary.cpp                )
+process_target(writeHeaderBinary           ./join_bin/writeHeaderBinary.cpp           )
+process_target(bin2ascii                   ./bin2ascii/bin2ascii.cpp                  )
+process_target(discharge2velocity          ./discharge2velocity/discharge2velocity.cpp)
+process_target(ascii2bin                   ./ascii2bin/ascii2bin.cpp                  )
+process_target(bin2ascii_rmap              ./bin2ascii_rmap/bin2ascii_rmap.cpp        )
+process_target(convertOTG_bin_headerBinary ./convertOTG_bin/headerBinary.cpp          )
+process_target(ascii2bin_dem               ./ascii2bin_dem/ascii2bin_dem.cpp          )
+process_target(splitASCII                  ./splitASCII/splitASCII.cpp                )
+process_target(bin2ascii_dem               ./bin2ascii_dem/bin2ascii_dem.cpp          )
+
+if(HAVE_GDAL)
+  process_target(bin2geotiff  ./bin2geotiff/bin2geotiff.cpp)
+  target_link_libraries(bin2geotiff PUBLIC gdal)
+endif()
