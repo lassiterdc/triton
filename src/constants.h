@@ -20,6 +20,13 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+#include <Kokkos_Core.hpp>
+#include <Kokkos_StdAlgorithms.hpp>
+#include <libgen.h> // to fix "use of undeclared basename" error
+#define AUTO_LABEL() (std::string(basename(__FILE__)) + std::string(":") + std::to_string(__LINE__)).c_str()
+
+#define DEBUG() {Kokkos::fence(); MPI_Barrier(MPI_COMM_WORLD); std::cout << __FILE__ << " , " << __LINE__ << std::endl;}
+
 namespace Constants
 {
 	typedef std::pair<int, int> dims_t;    /**< Custom type to define dimension. The first number represents the rows and the second number is the columns. */
