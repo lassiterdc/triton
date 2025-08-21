@@ -14,12 +14,23 @@ if(MACHINE STREQUAL Windows)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
+# Find GDAL
+find_package(GDAL REQUIRED)
+if(GDAL_FOUND)
+    message(STATUS "Found GDAL: ${GDAL_INCLUDE_DIR}")
+else()
+    message(FATAL_ERROR "GDAL not found. Please install libgdal-dev or load it as a module")
+endif()
+
+
 # add external packages
 add_subdirectory(${TRITON_SOURCE_DIR}/external)
 
 # build triton
 process_target(triton.exe ./src/main.cpp)
 target_include_directories(triton.exe PUBLIC ${Kokkos_INCLUDE_DIRS_RET})
+target_include_directories(triton.exe PUBLIC ${GDAL_INCLUDE_DIR})
+target_link_libraries(triton.exe PUBLIC ${GDAL_LIBRARY})
 add_build_and_run_scripts()
 
 # add tools

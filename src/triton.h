@@ -64,6 +64,9 @@ namespace Triton
     int size; /**< Total sumber of subdomains */
     int rows; /**< Number of rows in current subdomain */
     int cols; /**< Number of columns in current subdomain */
+    T xll;	/**< X coordinate of the origin */
+    T yll;	/**< Y coordinate of the origin */
+    T cellsize;	/**< Size of a cell */
     int org_rows; /**< Number of rows in original domain without ghost cells */
     int org_cols; /**< Number of columns in original domain without ghost cells */
     int num_of_src; /**< Number of flow locations in current subdomain */
@@ -82,8 +85,10 @@ namespace Triton
     int host_runoff_intensity_arr_size; /**< Runoff intensity container array size */
     int host_reduce_dt_arr_sz;  /**< Time step size per cell container array size */
     int host_halo_arr_size; /**< Halo cells container array size (water depth and discharges)*/
+    int host_obs_cells_size;	/**< Observation cells container array size */
     int nbytes; /**< Subdomain size in bytes */
     int nbytes_halo;  /**< Halo cells bundle size in bytes */
+    int nbytes_obs;	/**< Observation cells bundle size in bytes */
     
     std::vector<int> relative_obs_index;  /**< Relative index position of observation cells per subdomain wrt to the global domain*/
 
@@ -134,6 +139,7 @@ namespace Triton
     int* host_bc_start_index; /**< Separate boundary condition start indexes */
     int* host_bc_nrows_vars;  /**< Boundary condition variable of every rows */
     int* host_runoff_id_arr;  /**< Array that contains runoff ids */
+    int* host_relative_obs_index;	/**< Observation data relative positions in current subdomain */
     
     T* host_hyg_time_arr; /**< Hydrograph time values container array */
     T* host_hyg_val_arr;  /**< Hydrograph flow values container array */
@@ -149,6 +155,9 @@ namespace Triton
     T* host_rhsqx1; /**< Intermediate raster array to hold partial flux X */
     T* host_rhsqy0; /**< Intermediate raster array to hold partial flux Y */
     T* host_rhsqy1; /**< Intermediate raster array to hold partial flux Y */
+    T* host_obs_h;	/**< Observation point water depth values */
+    T* host_obs_qx;	/**< Observation point flux X values */
+    T* host_obs_qy;	/**< Observation point flux Y values */
 
     std::vector<T*> host_vec; /**< Vector that contains all floating point array to use in simulation. */
     std::vector<int*> host_vec_int; /**< Vector that contains all integer array to use in simulation. */
@@ -183,6 +192,11 @@ namespace Triton
 *
 */    
     void compute_new_state();
+
+/** @brief This function is used to get observation data to host. 
+*
+*/		
+		void get_observation_data_to_host();
     
     
 /** @brief It calculates a cell's column index.
@@ -322,14 +336,6 @@ namespace Triton
       cfg_dir = std::string(argv[1]);
     }
     
-// #ifdef ACTIVE_OMP
-//    int threads = 1;
-//    if(argc > 2)
-//    {
-//      threads = atoi(argv[2]);
-//    }
-//    omp_set_num_threads(threads);
-// #endif
     
     checkpoint_id = 0;
     if(argc > 3)
@@ -362,7 +368,7 @@ namespace Triton
     if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0){
       int *dyn_rows = new int[size];
       if(rank==0){
-        ConfigUtils::read_and_parse_checkpoint_partition(project_dir, dyn_rows, arglist.checkpoint_id);
+		ConfigUtils::read_and_parse_checkpoint_partition(project_dir, arglist.output_folder, dyn_rows, arglist.checkpoint_id);
       }
       MPI_Bcast(dyn_rows, size, MPI_INT, 0, MPI_COMM_WORLD); 
       for(int i=0;i<pd.size;i++){
@@ -399,7 +405,7 @@ namespace Triton
       std::cerr << IN "Reading configuration file" << std::endl;
     }
 
-    std::string cfg_path = project_dir + "/" + INPUT_DIR + "/" + CFG_DIR + "/" + DEFAULT_CFG;
+		std::string cfg_path = project_dir + "/" + arglist.input_folder + "/" + CFG_DIR + "/" + DEFAULT_CFG;
     
     if(!(cfg_dir.empty()) && !(StringUtils::is_numeric(cfg_dir)))
     {
@@ -408,7 +414,7 @@ namespace Triton
 
     if (checkpoint_id > 0)
     {
-      cfg_path = project_dir + "/" + OUTPUT_DIR + "/" + CFG_DIR + "/config_" + to_string(checkpoint_id) + ".cfg";
+			cfg_path = project_dir + "/" + arglist.output_folder + "/" + CFG_DIR + "/config_" + to_string(checkpoint_id) + ".cfg";
     }
 
     cfg_content = ConfigUtils::file_content_to_string(cfg_path);
@@ -622,14 +628,14 @@ namespace Triton
           temp_num = "0" + temp_num;
         }
 
-        string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_00.out");
+				string filedirH(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/H_" + temp_num + "_00.out");
         hot_hin.load_from_binary_file(org_rows, org_cols, filedirH);
         hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         if(arglist.open_boundaries){        
           hot_hin.copy_value_into_ghost_cells();
         }
 
-        string filedirQX(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_00.out");
+				string filedirQX(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/QX_" + temp_num + "_00.out");
         hot_qxin.load_from_binary_file(org_rows, org_cols, filedirQX);
         hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         if(arglist.open_boundaries){        
@@ -637,7 +643,7 @@ namespace Triton
         }
 
 
-        string filedirQY(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_00.out");
+				string filedirQY(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/QY_" + temp_num + "_00.out");
         hot_qyin.load_from_binary_file(org_rows, org_cols, filedirQY);
         hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         
@@ -648,7 +654,7 @@ namespace Triton
         
         if (arglist.max_value_print_option.size() > 0)  
         {
-          string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_00.out");
+					string filedirMaxH(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/MH_" + temp_num + "_00.out");
           hot_max_value_h.load_from_binary_file(org_rows, org_cols, filedirMaxH);
           hot_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
           if(arglist.open_boundaries){        
@@ -698,7 +704,11 @@ namespace Triton
     if (arglist.checkpoint_id > 0 && size > 1 && strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC)==0){
       //we need to call out.init to have all the information in the struct out that is used afterwards. we need (lrows1,lcols1) plus the ghost cells as arguments 
       //since the subroutine workis with the full subdomain (including ghost cells)
-      out.init(lrows1+2 * GHOST_CELL_PADDING, lcols1+2 * GHOST_CELL_PADDING, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+			T xll = sub_dem.get_xll_corner();
+			T yll = sub_dem.get_yll_corner();
+			T cellsize = sub_dem.get_cell_size();
+			
+			out.init(lrows1+2 * GHOST_CELL_PADDING, lcols1+2 * GHOST_CELL_PADDING, xll, yll, cellsize, rank, size, project_dir, arglist.output_folder, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
       if (rank == 0)
       {
         MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
@@ -730,37 +740,6 @@ namespace Triton
 
     MpiUtils::exchange(sub_dem.begin(), rows, cols, rank, size, USE_MATRIX);
     MPI_Barrier(MPI_COMM_WORLD);
-    
-    //modify ghost values that contains any sort of external boundary condition
-    if (num_of_extbc > 0 && num_extbc_cells > 0){
-      for(int i=0;i<num_extbc_cells;i++){
-        int ii = host_relative_bc_index[i];
-        int ix = (ii / cols); //row id
-        int iy = (ii % cols); //col id
-        bool
-        is_top = (ix == 1),
-        is_btm = (ix == rows - 2),
-        is_lt = (iy == 1),
-        is_rt = (iy == cols - 2);
-
-        if(is_lt){ //west
-          sub_dem.set_value(ii-1, sub_dem.get_value(ii));
-        }
-        if(is_rt){ //east
-          sub_dem.set_value(ii+1, sub_dem.get_value(ii));
-        }
-        if (rank == 0 && is_top){ //north
-          sub_dem.set_value(ii-cols, sub_dem.get_value(ii));
-        }
-        if (rank == size - 1 && is_btm) //south
-        {
-          sub_dem.set_value(ii+cols, sub_dem.get_value(ii));
-        }
-      
-      }
-      
-    }
-
 
     if(!arglist.n_infile.empty())
     {
@@ -907,11 +886,10 @@ namespace Triton
 
       sub_rin.copy_value_into_ghost_cells();
 
-      //not neccesary to exchange. Otherwise a new function should be done because MpiUtils::exchange works with doubles
+	//not neccesary to exchange. Otherwise a new function should be done because MpiUtils::exchange works with real numbers
       //MpiUtils::exchange(sub_rin.begin(), rows, cols, rank, size, USE_MATRIX);
       //MPI_Barrier(MPI_COMM_WORLD);
     }
-    
 
     if (arglist.checkpoint_id > 0)
     {
@@ -924,14 +902,14 @@ namespace Triton
         temp_num = "0" + temp_num;
       }
 
-      string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_rank + ".out");
+			string filedirH(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_rank + ".out");
       sub_hot_hin.load_from_binary_file(lrows, lcols, filedirH);
       sub_hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
       if(arglist.open_boundaries){        
         sub_hot_hin.copy_value_into_ghost_cells();
       }
 
-      string filedirQX(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_rank + ".out");
+			string filedirQX(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_rank + ".out");
       sub_hot_qxin.load_from_binary_file(lrows, lcols, filedirQX);
       sub_hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
       if(arglist.open_boundaries){        
@@ -939,7 +917,7 @@ namespace Triton
       }
 
 
-      string filedirQY(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
+			string filedirQY(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
       sub_hot_qyin.load_from_binary_file(lrows, lcols, filedirQY);
       sub_hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
       
@@ -957,7 +935,7 @@ namespace Triton
       
       if (arglist.max_value_print_option.size() > 0)  
       {
-        string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_rank + ".out");
+				string filedirMaxH(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_rank + ".out");
         sub_max_value_h.load_from_binary_file(lrows, lcols, filedirMaxH);
         sub_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         if(arglist.open_boundaries){        
@@ -1004,6 +982,49 @@ namespace Triton
       
       sub_max_value_h = sub_hin;
     }
+
+		//modify ghost values that contains any sort of external boundary condition
+		if (num_of_extbc > 0 && num_extbc_cells > 0){
+			for(int i=0;i<num_extbc_cells;i++){
+				int ii = host_relative_bc_index[i];
+				int ix = (ii / cols);	//row id
+				int iy = (ii % cols);	//col id
+				bool
+				is_top = (ix == 1),
+				is_btm = (ix == rows - 2),
+				is_lt = (iy == 1),
+				is_rt = (iy == cols - 2);
+
+				if(is_lt){ //west
+					sub_dem.set_value(ii-1, sub_dem.get_value(ii));
+					sub_hin.set_value(ii-1, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii-1, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii-1, sub_qyin.get_value(ii));
+				}
+				if(is_rt){ //east
+					sub_dem.set_value(ii+1, sub_dem.get_value(ii));
+					sub_hin.set_value(ii+1, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii+1, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii+1, sub_qyin.get_value(ii));
+				}
+				if (rank == 0 && is_top){ //north
+					sub_dem.set_value(ii-cols, sub_dem.get_value(ii));
+					sub_hin.set_value(ii-cols, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii-cols, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii-cols, sub_qyin.get_value(ii));
+				}
+				if (rank == size - 1 && is_btm) //south
+				{
+					sub_dem.set_value(ii+cols, sub_dem.get_value(ii));
+					sub_hin.set_value(ii+cols, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii+cols, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii+cols, sub_qyin.get_value(ii));
+				}
+			
+			}	
+		}
+
+
 
     if (rank == 0){
       std::cerr << OK "Data read in parallel" << std::endl;
@@ -1189,7 +1210,18 @@ namespace Triton
           num_of_obs_points++;
         }
       }
+			host_obs_cells_size = num_of_obs_points;
+			//copy to host_relative_obs_index
+			host_relative_obs_index = new int[num_of_obs_points];
+			for (int i = 0; i < num_of_obs_points; i++) {
+   	 			host_relative_obs_index[i] = observation_cells[i].first * (org_cols + 2 * GHOST_CELL_PADDING) + observation_cells[i].second;
+			}
 
+		}else{
+			//just for the prupose of allocating the memory
+			host_obs_cells_size = 1;
+			host_relative_obs_index = new int[1];
+			host_relative_obs_index[0] = 0; //the only observation cell is the first one
     }
 
   }
@@ -1234,7 +1266,7 @@ namespace Triton
         extbc[i].create_involved_cells(extbc[i].extreme_cols,extbc[i].extreme_rows,org_cols,org_rows,arglist.extbc_bctype[i]);
         if(strcmp(arglist.input_option.c_str(), "SEQ")==0){
           if(rank==0){
-            dem.copy_elevation_into_ghost_cells(extbc[i].i_rows,extbc[i].i_cols,extbc[i].ncells, extbc[i].location);
+		dem.copy_value_into_ghost_cells_location(extbc[i].i_rows,extbc[i].i_cols,extbc[i].ncells, extbc[i].location);
           }
         }else{
           //in parallel input mode, we cannot copy the elevation into ghost cells because the sub_dem files haven't been loaded yet. It's done after while reading in parallel        
@@ -1463,19 +1495,19 @@ namespace Triton
         int host_dem_original_row = rows - 2 * GHOST_CELL_PADDING;
         int host_dem_original_col = cols - 2 * GHOST_CELL_PADDING;
 
-        string filedirH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_rank + ".out");
+				string filedirH(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/H_" + temp_num + "_" + temp_rank + ".out");
         sub_hot_hin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirH);
         sub_hot_hin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         if(arglist.open_boundaries){        
           sub_hot_hin.copy_value_into_ghost_cells();
         }
-        string filedirU(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_rank + ".out");
+				string filedirU(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/QX_" + temp_num + "_" + temp_rank + ".out");
         sub_hot_qxin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirU);
         sub_hot_qxin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         if(arglist.open_boundaries){        
           sub_hot_qxin.copy_value_into_ghost_cells();
         }
-        string filedirV(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
+				string filedirV(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/QY_" + temp_num + "_" + temp_rank + ".out");
         sub_hot_qyin.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirV);
         sub_hot_qyin.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
         if(arglist.open_boundaries){        
@@ -1490,7 +1522,7 @@ namespace Triton
         
         if (arglist.max_value_print_option.size() > 0)  
         {
-          string filedirMaxH(project_dir + "/" + OUTPUT_DIR + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_rank + ".out");
+					string filedirMaxH(project_dir + "/" + arglist.output_folder + "/" + BIN_DIR + "/MH_" + temp_num + "_" + temp_rank + ".out");
           sub_max_value_h.load_from_binary_file(host_dem_original_row, host_dem_original_col, filedirMaxH);
           sub_max_value_h.add_ghost_cells(GHOST_CELL_PADDING, GHOST_CELL_PADDING, 0.0);
           if(arglist.open_boundaries){        
@@ -1532,6 +1564,48 @@ namespace Triton
       
       sub_max_value_h = sub_hin;
     }
+
+		//modify ghost values that contains any sort of external boundary condition
+		if (num_of_extbc > 0 && num_extbc_cells > 0){
+			for(int i=0;i<num_extbc_cells;i++){
+				int ii = host_relative_bc_index[i];
+				int ix = (ii / cols);	//row id
+				int iy = (ii % cols);	//col id
+				bool
+				is_top = (ix == 1),
+				is_btm = (ix == rows - 2),
+				is_lt = (iy == 1),
+				is_rt = (iy == cols - 2);
+
+				if(is_lt){ //west
+					sub_dem.set_value(ii-1, sub_dem.get_value(ii));
+					sub_hin.set_value(ii-1, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii-1, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii-1, sub_qyin.get_value(ii));
+				}
+				if(is_rt){ //east
+					sub_dem.set_value(ii+1, sub_dem.get_value(ii));
+					sub_hin.set_value(ii+1, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii+1, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii+1, sub_qyin.get_value(ii));
+				}
+				if (rank == 0 && is_top){ //north
+					sub_dem.set_value(ii-cols, sub_dem.get_value(ii));
+					sub_hin.set_value(ii-cols, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii-cols, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii-cols, sub_qyin.get_value(ii));
+				}
+				if (rank == size - 1 && is_btm) //south
+				{
+					sub_dem.set_value(ii+cols, sub_dem.get_value(ii));
+					sub_hin.set_value(ii+cols, sub_hin.get_value(ii));
+					sub_qxin.set_value(ii+cols, sub_qxin.get_value(ii));
+					sub_qyin.set_value(ii+cols, sub_qyin.get_value(ii));
+				}
+			
+			}	
+		}
+
     if(size > 1 && rank == 0){
       std::cerr << OK "Data has been partitioned: " << arglist.domain_decomposition << " domain decomposition" <<std::endl;
     }
@@ -1642,6 +1716,10 @@ namespace Triton
       host_rhsqy0[i] = 0.0;
       host_rhsqy1[i] = 0.0;
     }
+	//in case there are not observation points, it should be at least 1 to allocate the memory
+	host_obs_h = new T[max(num_of_obs_points,1)];
+	host_obs_qx = new T[max(num_of_obs_points,1)];
+	host_obs_qy = new T[max(num_of_obs_points,1)];
   }
 
 
@@ -1673,6 +1751,10 @@ namespace Triton
     host_vec.push_back(host_runoff_intensity_arr);
     host_vec.push_back(host_extbc_var1_arr);
     host_vec.push_back(host_extbc_var2_arr);
+    host_vec.push_back(host_obs_h);
+    host_vec.push_back(host_obs_qx);
+    host_vec.push_back(host_obs_qy);
+
 
     host_vec_int.push_back(host_src_pos_arr);
     host_vec_int.push_back(host_runoff_id_arr);
@@ -1680,6 +1762,7 @@ namespace Triton
     host_vec_int.push_back(host_bc_type);
     host_vec_int.push_back(host_bc_start_index);
     host_vec_int.push_back(host_bc_nrows_vars);
+    host_vec_int.push_back(host_relative_obs_index);
   }
 
 
@@ -1688,32 +1771,9 @@ namespace Triton
   {
     nbytes = (sizeof(T) * rows * cols);
     nbytes_halo = (sizeof(T) * host_halo_arr_size);
+    nbytes_obs = (sizeof(T) * num_of_obs_points);
 
-    // int deviceId = 0;
-    // gpuError_t err = gpuGetDevice(&deviceId);
-    // if (err != gpuSuccess) 
-    // {
-    //  std::cerr << gpuGetErrorString(err) << std::endl;
-    //  exit(EXIT_FAILURE);
-    // }
-    // 
-    // int deviceCount = 0;
-    // err = gpuGetDeviceCount(&deviceCount);
-    // if (err != gpuSuccess) 
-    // {
-    //  std::cerr << gpuGetErrorString(err) << std::endl;
-    //  exit(EXIT_FAILURE);
-    // }
-    // 
-    // if(deviceId != rank % deviceCount)
-    // {
-    //  err = gpuSetDevice(rank % deviceCount);
-    //  if (err != gpuSuccess) 
-    //  {
-    //    std::cerr << gpuGetErrorString(err) << std::endl;
-    //    exit(EXIT_FAILURE);
-    //  }
-    // }
+
 
     gpuStreamCreate(&streams);
 
@@ -1728,6 +1788,7 @@ namespace Triton
     int nbytes_runoff_id = (sizeof(int) * rows * cols);
     int nbytes_bc_cell_size = (sizeof(int) * max(host_bc_cells_size,1));
     int nbytes_bc_vars = (sizeof(T) * host_bc_vars_arr_size);
+    int nbytes_obs_cell_size = (sizeof(int) * max(host_obs_cells_size,1));
 
 
     T *device_h, *device_qx, *device_qy,
@@ -1735,10 +1796,10 @@ namespace Triton
     *device_rhsh0, *device_rhsh1, *device_rhsqx0, *device_rhsqx1, *device_rhsqy0, *device_rhsqy1,
     *device_hyg_time_arr, *device_hyg_val_arr,
     *device_runoff_intensity_arr,
-    *device_bc_var1_arr, *device_bc_var2_arr, *device_max_value_h;
+    *device_bc_var1_arr, *device_bc_var2_arr, *device_max_value_h, *device_obs_h, *device_obs_qx, *device_obs_qy;
 
     int *device_src_pos_arr, *device_runoff_id_arr, *device_relative_bc_index, *device_bc_type,
-    *device_bc_start_index, *device_bc_nrows_vars;
+    *device_bc_start_index, *device_bc_nrows_vars, *device_relative_obs_index; 
     
     gpuMalloc((void**)&device_h, nbytes);
     gpuMalloc((void**)&device_qx, nbytes);
@@ -1762,6 +1823,9 @@ namespace Triton
     gpuMalloc((void**)&device_runoff_intensity_arr, nbytes_runoff_intensity);
     gpuMalloc((void**)&device_bc_var1_arr, nbytes_bc_vars);
     gpuMalloc((void**)&device_bc_var2_arr, nbytes_bc_vars);
+    gpuMalloc((void**)&device_obs_h, nbytes_obs);
+    gpuMalloc((void**)&device_obs_qx, nbytes_obs);
+    gpuMalloc((void**)&device_obs_qy, nbytes_obs);
 
 
     gpuMalloc((void**)&device_src_pos_arr, nbytes_src_pos);
@@ -1770,6 +1834,7 @@ namespace Triton
     gpuMalloc((void**)&device_bc_type, nbytes_bc_cell_size);
     gpuMalloc((void**)&device_bc_start_index, nbytes_bc_cell_size);
     gpuMalloc((void**)&device_bc_nrows_vars, nbytes_bc_cell_size);
+    gpuMalloc((void**)&device_relative_obs_index, nbytes_obs_cell_size);
 
     device_vec.push_back(device_h);
     device_vec.push_back(device_qx);
@@ -1793,6 +1858,9 @@ namespace Triton
     device_vec.push_back(device_runoff_intensity_arr);
     device_vec.push_back(device_bc_var1_arr);
     device_vec.push_back(device_bc_var2_arr);
+    device_vec.push_back(device_obs_h);
+    device_vec.push_back(device_obs_qx);
+    device_vec.push_back(device_obs_qy);
 
     device_vec_int.push_back(device_src_pos_arr);
     device_vec_int.push_back(device_runoff_id_arr);
@@ -1800,6 +1868,7 @@ namespace Triton
     device_vec_int.push_back(device_bc_type);
     device_vec_int.push_back(device_bc_start_index);
     device_vec_int.push_back(device_bc_nrows_vars);
+    device_vec_int.push_back(device_relative_obs_index);
 
 
     gpuMemcpyAsync(device_vec[H], host_vec[H], nbytes, gpuMemcpyHostToDevice, streams);
@@ -1824,6 +1893,9 @@ namespace Triton
     gpuMemcpyAsync(device_vec[RUNIN], host_vec[RUNIN], nbytes_runoff_intensity, gpuMemcpyHostToDevice, streams);
     gpuMemcpyAsync(device_vec[EXTBCV1], host_vec[EXTBCV1], nbytes_bc_vars, gpuMemcpyHostToDevice, streams);
     gpuMemcpyAsync(device_vec[EXTBCV2], host_vec[EXTBCV2], nbytes_bc_vars, gpuMemcpyHostToDevice, streams);
+    gpuMemcpyAsync(device_vec[OBSH], host_vec[OBSH], nbytes_obs, gpuMemcpyHostToDevice, streams);
+    gpuMemcpyAsync(device_vec[OBSQX], host_vec[OBSQX], nbytes_obs, gpuMemcpyHostToDevice, streams);
+    gpuMemcpyAsync(device_vec[OBSQY], host_vec[OBSQY], nbytes_obs, gpuMemcpyHostToDevice, streams);
 
 
     gpuMemcpyAsync(device_vec_int[SRCP], host_vec_int[SRCP], nbytes_src_pos, gpuMemcpyHostToDevice, streams);
@@ -1832,6 +1904,7 @@ namespace Triton
     gpuMemcpyAsync(device_vec_int[BCTYPE], host_vec_int[BCTYPE], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
     gpuMemcpyAsync(device_vec_int[BCINDEXSTART], host_vec_int[BCINDEXSTART], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
     gpuMemcpyAsync(device_vec_int[BCNROWSVARS], host_vec_int[BCNROWSVARS], nbytes_bc_cell_size, gpuMemcpyHostToDevice, streams);
+    gpuMemcpyAsync(device_vec_int[OBSRELATIVEINDEX], host_vec_int[OBSRELATIVEINDEX], nbytes_obs_cell_size, gpuMemcpyHostToDevice, streams);
     gpuStreamSynchronize(streams);
   }
 
@@ -1854,6 +1927,9 @@ namespace Triton
   triton<T>::~triton()
   {   
     //dont delete matrix object
+    delete[] host_vec[OBSQY];
+    delete[] host_vec[OBSQX];
+    delete[] host_vec[OBSH];
     delete[] host_vec[EXTBCV2];
     delete[] host_vec[EXTBCV1];
     delete[] host_vec[RUNIN];
@@ -1869,6 +1945,7 @@ namespace Triton
     delete[] host_vec[RHSH1];
     delete[] host_vec[RHSH0];
 
+    delete[] host_vec_int[OBSRELATIVEINDEX];
     delete[] host_vec_int[BCNROWSVARS];
     delete[] host_vec_int[BCINDEXSTART];
     delete[] host_vec_int[BCTYPE];
@@ -1904,11 +1981,19 @@ namespace Triton
 
     st.start(SIMULATION_TIME);
 
-    out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+		
+    T xll = dem.get_xll_corner();
+    T yll = dem.get_yll_corner();
+    T cellsize = dem.get_cell_size();
+
+    out.init(rows, cols, xll, yll, cellsize, rank, size, project_dir, arglist.output_folder, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 
     if (arglist.time_series_flag)
     {
-      out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global);
+	out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global, arglist.print_option, arglist.checkpoint_id);
+	//first data written at the beginning of the simulation
+	get_observation_data_to_host();
+	out.write_observation_data(host_obs_h, host_obs_qx, host_obs_qy, simtime, arglist.print_option);
     }
 
 
@@ -1918,6 +2003,7 @@ namespace Triton
     int it_count = arglist.it_count;
     int it_count_average = 0;
     int print_id = arglist.checkpoint_id;
+    T last_print_obs_time = simtime; //in case there is no hotstart, simtime is zero
     
     //this is to allow simtime different from zero without checkpointing
     if(print_id==0 && simtime>0.0){
@@ -1938,6 +2024,29 @@ namespace Triton
 
       simtime += global_dt;
       average_dt+=global_dt;
+	
+	if(it_count%arglist.it_print == 0){
+		if(rank==0){
+			std::cerr << INFO " Time: " << simtime << "\tdt: " << average_dt/it_count_average << "\tit: " << it_count << std::endl;
+			it_count_average=0;
+			average_dt=0.0;
+		}
+	}
+
+
+	if (arglist.time_series_flag && simtime - last_print_obs_time >= arglist.print_observation) {  
+    	// variable to print observation data files  
+    	last_print_obs_time += arglist.print_observation;
+		//transfer only the observation data points to the host
+		st.start(COMPUTE_TIME);
+		get_observation_data_to_host();
+		st.stop(COMPUTE_TIME);
+
+		st.start(IO_TIME);
+		out.write_observation_data(host_obs_h, host_obs_qx, host_obs_qy, simtime, arglist.print_option);
+		//out.write_observation_data(host_vec[OBSH], host_vec[OBSQX], host_vec[OBSQY], simtime, arglist.print_option);
+		st.stop(IO_TIME);
+	}  
 
       if (simtime >= arglist.print_interval * (print_id + 1))
       {
@@ -1955,9 +2064,7 @@ namespace Triton
         st.stop(COMPUTE_TIME);
 
         st.start(IO_TIME);
-        out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.print_option, print_id, it_count, simtime, average_dt/it_count_average,sub_max_value_h, arglist.max_value_print_option);
-        it_count_average=0;
-        average_dt=0.0;
+	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
         st.stop(IO_TIME);
 
         #if WRITE_PERFORMANCE
@@ -1984,11 +2091,26 @@ namespace Triton
       }
 
     }
+    //write the last state in the observation data files
+    if (arglist.time_series_flag) {  
+	//transfer only the observation data points to the host
+	st.start(COMPUTE_TIME);
+	get_observation_data_to_host();
+	st.stop(COMPUTE_TIME);
+
+	st.start(IO_TIME);
+	out.write_observation_data(host_obs_h, host_obs_qx, host_obs_qy, simtime, arglist.print_option);
+	st.stop(IO_TIME);
+    }  
+
+
     st.stop(SIMULATION_TIME);
     st.stop(TOTAL_TIME);
     
     out.write_times(st, -1);
+    
     if(rank==0){
+      std::cerr << INFO " Time: " << simtime << "\tdt: " << average_dt/it_count_average << "\tit: " << it_count << std::endl;
       std::cerr << OK "Simulation ends" << std::endl;
     }
 
@@ -1999,7 +2121,7 @@ namespace Triton
   template<typename T>
   void triton<T>::compute_init_dt()
   {
-    init_dt=arglist.print_interval;
+    init_dt=FMIN(arglist.print_observation,arglist.print_interval);
     if (arglist.num_runoffs > 0){
       init_dt=fmin(init_dt,roff.get_time_at(1)-roff.get_time_at(0));
     }
@@ -2169,6 +2291,29 @@ namespace Triton
     st.stop(COMPUTE_TIME);
   }
 
+	template<typename T>
+	void triton<T>::get_observation_data_to_host()
+	{
+		if (arglist.print_option.find("h") != std::string::npos)
+		{
+			Kernels::copy_observation_points (num_of_obs_points, device_vec[H], device_vec[OBSH], device_vec_int[OBSRELATIVEINDEX]);
+			gpuMemcpyAsync(host_vec[OBSH], device_vec[OBSH], nbytes_obs, cudaMemcpyDeviceToHost, streams);
+			gpuStreamSynchronize(streams);
+		}
+		if (arglist.print_option.find("u") != std::string::npos)
+		{
+			Kernels::copy_observation_points (num_of_obs_points, device_vec[QX], device_vec[OBSQX], device_vec_int[OBSRELATIVEINDEX]);
+			gpuMemcpyAsync(host_vec[OBSQX], device_vec[OBSQX], nbytes_obs, cudaMemcpyDeviceToHost, streams);
+			gpuStreamSynchronize(streams);
+		}
+		if (arglist.print_option.find("v") != std::string::npos)
+		{
+			Kernels::copy_observation_points(num_of_obs_points, device_vec[QY], device_vec[OBSQY], device_vec_int[OBSRELATIVEINDEX]);
+			gpuMemcpyAsync(host_vec[OBSQY], device_vec[OBSQY], nbytes_obs, cudaMemcpyDeviceToHost, streams);
+			gpuStreamSynchronize(streams);
+		}
+	}
+
 
   template<typename T>
   void triton<T>::new_domain_decomposition()
@@ -2193,11 +2338,14 @@ namespace Triton
       create_device_vectors();
 
       //a call to out.init is again neccessary to set the output configuration
-      out.init(rows, cols, rank, size, project_dir, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
+	T xll = dem.get_xll_corner();
+	T yll = dem.get_yll_corner();
+	T cellsize = dem.get_cell_size();
+	out.init(rows, cols, xll, yll, cellsize, rank, size, project_dir, arglist.output_folder, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
 
       if (arglist.time_series_flag)
       {
-        out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global);
+	out.init_time_series(num_of_obs_points, arglist.observation_x_loc.size(), relative_obs_index, observation_cells, observation_cells_global, arglist.print_option, arglist.checkpoint_id);
 
       }
       
@@ -2211,9 +2359,9 @@ namespace Triton
   int triton<T>::MPI_time_based_domain_decomposition()
   {
     int *dyn_rows = new int[size];
-    double *mpi_time_all = new double[size];
-    double sumMPI;
-    double mpi_time = st.get_custom_time(BALANCING_MPI_TIME);
+    T *mpi_time_all = new T[size];
+    T sumMPI;
+    T mpi_time = st.get_custom_time(BALANCING_MPI_TIME);
     int sum_rows;
     int flag=0;
 
@@ -2228,7 +2376,7 @@ namespace Triton
       
       sum_rows=0;
       for(int j=0;j<size;j++){
-        double factor = mpi_time_all[j]*size/sumMPI - 1.0;
+	T factor = mpi_time_all[j]*size/sumMPI - 1.0;
         if(fabs(factor)>0.05){ //greater than 5%
           flag=1;
         }
