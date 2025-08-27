@@ -1,2 +1,0 @@
-%X-Location,Y-Location
-692662.97,4156787.11

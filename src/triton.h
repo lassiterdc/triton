@@ -2121,8 +2121,12 @@ namespace Triton
   template<typename T>
   void triton<T>::compute_init_dt()
   {
-    init_dt=FMIN(arglist.print_observation,arglist.print_interval);
-    if (arglist.num_runoffs > 0){
+  	 if(arglist.time_series_flag){
+    	init_dt=FMIN(arglist.print_observation,arglist.print_interval);
+    }else{
+		init_dt=arglist.print_interval;
+	 }
+	 if (arglist.num_runoffs > 0){
       init_dt=fmin(init_dt,roff.get_time_at(1)-roff.get_time_at(0));
     }
     if(num_of_src>0){
@@ -2297,19 +2301,19 @@ namespace Triton
 		if (arglist.print_option.find("h") != std::string::npos)
 		{
 			Kernels::copy_observation_points (num_of_obs_points, device_vec[H], device_vec[OBSH], device_vec_int[OBSRELATIVEINDEX]);
-			gpuMemcpyAsync(host_vec[OBSH], device_vec[OBSH], nbytes_obs, cudaMemcpyDeviceToHost, streams);
+			gpuMemcpyAsync(host_vec[OBSH], device_vec[OBSH], nbytes_obs, gpuMemcpyDeviceToHost, streams);
 			gpuStreamSynchronize(streams);
 		}
 		if (arglist.print_option.find("u") != std::string::npos)
 		{
 			Kernels::copy_observation_points (num_of_obs_points, device_vec[QX], device_vec[OBSQX], device_vec_int[OBSRELATIVEINDEX]);
-			gpuMemcpyAsync(host_vec[OBSQX], device_vec[OBSQX], nbytes_obs, cudaMemcpyDeviceToHost, streams);
+			gpuMemcpyAsync(host_vec[OBSQX], device_vec[OBSQX], nbytes_obs, gpuMemcpyDeviceToHost, streams);
 			gpuStreamSynchronize(streams);
 		}
 		if (arglist.print_option.find("v") != std::string::npos)
 		{
 			Kernels::copy_observation_points(num_of_obs_points, device_vec[QY], device_vec[OBSQY], device_vec_int[OBSRELATIVEINDEX]);
-			gpuMemcpyAsync(host_vec[OBSQY], device_vec[OBSQY], nbytes_obs, cudaMemcpyDeviceToHost, streams);
+			gpuMemcpyAsync(host_vec[OBSQY], device_vec[OBSQY], nbytes_obs, gpuMemcpyDeviceToHost, streams);
 			gpuStreamSynchronize(streams);
 		}
 	}

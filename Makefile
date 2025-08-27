@@ -11,7 +11,7 @@ SPHINX_BUILD_DIR = $(DOCS_DIR)/_build/html
 
 # Python executable for Sphinx (assuming virtual environment in .venv_triton)
 # Adjust if your Python setup is different
-PYTHON = $(shell which python)
+PYTHON = $(shell command -v python3 || command -v python)  
 VENV_PYTHON = $(CURDIR)/.venv_triton/bin/python
 
 # Ensure the virtual environment's python is used if it exists
