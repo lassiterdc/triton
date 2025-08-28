@@ -26,6 +26,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'breathe', # Add breathe here
     'exhale',  # Add exhale here
+    'sphinx_design',
 ]
 
 templates_path = ['_templates']
