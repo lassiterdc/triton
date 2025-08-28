@@ -48,7 +48,7 @@ if (DEBUG)
 endif()
 
 if(NOT EXISTS "${machinefile_path}")
-  message(FATAL_ERROR "No maching machine file: ${machinefile_path}")
+  message(FATAL_ERROR "No matching machine file: ${machinefile_path}")
 else()
   get_filename_component(FILE_EXT "${machinefile_path}" EXT)
   set(ENVFILE "triton_env${FILE_EXT}")

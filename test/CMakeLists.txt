@@ -34,3 +34,16 @@ add_test(
                 --ref ${CMAKE_SOURCE_DIR}/test/reference/circular
                 --test ${CMAKE_BINARY_DIR}/output_circular_dambreak/asc
 )
+
+add_triton_test(
+    ALLATOONA
+    allatoona.cfg
+)
+
+add_test(
+    NAME BIT4BIT-ALLATOONA
+    COMMAND ${Python3_EXECUTABLE} 
+                ${CMAKE_BINARY_DIR}/compare_runs_simple.py
+                --ref ${CMAKE_SOURCE_DIR}/test/reference/allatoona
+                --test ${CMAKE_BINARY_DIR}/output_allatoona/asc
+)
