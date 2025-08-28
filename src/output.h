@@ -21,11 +21,13 @@
 #include "constants.h"
 #include "matrix.h"
 
+#ifdef TRITON_GDAL
 #include <gdal.h>  
 #include <gdal_priv.h>  
 #include <ogr_spatialref.h>  
 #include <ogr_geometry.h>  
 #include <cpl_conv.h> // For geotiff output
+#endif
 
 namespace Output
 {
@@ -129,6 +131,7 @@ namespace Output
 		void write_output_binary_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id);
 
 
+#ifdef TRITON_GDAL
 /** @brief It outputs a specific data array's full domain in a single GeoTIFF file. 
 *
 *  @param arr Subdomain data
@@ -145,6 +148,7 @@ namespace Output
 *  @param print_id Current checkpoint id
 */			
 		void write_output_geotiff_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, std::string projection);
+#endif
 		
 		
 /** @brief It calculates output file name.
@@ -596,6 +600,7 @@ namespace Output
 				}
 			}
 		}
+#ifdef TRITON_GDAL
 		if (strcmp(output_format.c_str(), "GTIFF") == 0)
 		{
 			if (print_option.find("h") != std::string::npos)
@@ -649,7 +654,7 @@ namespace Output
 				}
 			}
 		}
-
+#endif
 		if (rank_ == 0)
 		{
 
@@ -954,6 +959,7 @@ namespace Output
 	}
 
 
+#ifdef TRITON_GDAL
 	template<typename T>
 	void output<T>::write_output_geotiff_sequential(Matrix::matrix<T>& arr, std::string what_mat, int print_id, std::string projection)
 	{
@@ -1196,7 +1202,7 @@ namespace Output
 		
 		GDALClose(poDataset);
 	}
-
+#endif
 
 	template<typename T>
 	std::string output<T>::get_mat_path(std::string what, std::string root_dir, std::string subdir, int print_id, std::string extension)

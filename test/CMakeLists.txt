@@ -11,31 +11,26 @@ function(add_triton_test test_name cfg_name)
 endfunction()
 
 add_triton_test(
-    CASE01
-    case01.cfg
+    PARABOLOID
+    paraboloid.cfg
 )
 
+add_test(
+    NAME BIT4BIT-PARABOLOID
+    COMMAND ${Python3_EXECUTABLE} 
+                ${CMAKE_BINARY_DIR}/compare_runs_simple.py
+                --ref ${CMAKE_SOURCE_DIR}/test/reference/paraboloid
+                --test ${CMAKE_BINARY_DIR}/output_paraboloid/asc
+)
 add_triton_test(
-    CASE02-A
-    case02a.cfg
+    CIRCULAR-DAMBREAK
+    circular_dambreak.cfg
 )
 
-add_triton_test(
-    CASE02-B
-    case02b.cfg
-)
-
-add_triton_test(
-    CASE02-C
-    case02c.cfg
-)
-
-add_triton_test(
-    CASE02-D
-    case02d.cfg
-)
-
-add_triton_test(
-    CASE03
-    case03.cfg
+add_test(
+    NAME BIT4BIT-CIRCULAR-DAMBREAK
+    COMMAND ${Python3_EXECUTABLE} 
+                ${CMAKE_BINARY_DIR}/compare_runs_simple.py
+                --ref ${CMAKE_SOURCE_DIR}/test/reference/circular
+                --test ${CMAKE_BINARY_DIR}/output_circular_dambreak/asc
 )

@@ -3,7 +3,7 @@
 Welcome to TRITON Documentation!
 =========================================
 
-This documentation provides an overview of the project, guidance on getting started, instructions for configuring and running simulations, details about tools and build options, and a comprehensive API reference.
+This documentation provides an overview of the project, guidance on getting started, instructions for configuring and running simulations, details about build options, and a comprehensive API reference.
 
 .. toctree::
    :maxdepth: 2
@@ -13,7 +13,6 @@ This documentation provides an overview of the project, guidance on getting star
    introduction
    simulation_file
    cmake_arguments
-   tools
    casestudy
    makefile
    docker

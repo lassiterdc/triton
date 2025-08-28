@@ -1,10 +1,1 @@
-#!/bin/bash
-
-export TRITON_BACKEND=SERIAL
-export TRITON_ARCH="NATIVE"
-
-export TRITON_COMPILER=mpic++
-export TRITON_COMPILER_FLAGS=
-export TRITON_LINKER_FLAGS=
-export TRITON_DEBUG=OFF
-export TRITON_RUN_COMMAND="mpirun -n 8"
+default_SERIAL.sh

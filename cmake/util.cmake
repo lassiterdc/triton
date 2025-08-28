@@ -38,7 +38,7 @@ macro(add_build_and_run_scripts)
   set(_RunScript ${CMAKE_BINARY_DIR}/triton_run.sh)
   file(WRITE ${_RunScript}  "#!/usr/bin/env bash\n\n")
   file(APPEND ${_RunScript} "source ./${ENVFILE}\n\n")
-  file(APPEND ${_RunScript} "${RUN_COMMAND} ./triton.exe ./input/cfg/case01.cfg\n\n")
+  file(APPEND ${_RunScript} "${RUN_COMMAND} ./triton.exe ./input/allatoona/allatoona.cfg\n\n")
   execute_process(COMMAND chmod +x ${_RunScript})
 
   execute_process(
@@ -56,6 +56,9 @@ macro(add_test_script)
   file(APPEND ${_CtestScript} "source ./${ENVFILE}\n\n")
   file(APPEND ${_CtestScript} "ctest $*\n\n")
   execute_process(COMMAND chmod +x ${_CtestScript})
+
+  configure_file(${CMAKE_SOURCE_DIR}/test/reference/compare_runs_simple.py
+      ${CMAKE_BINARY_DIR}/compare_runs_simple.py COPYONLY)
 
 endmacro()
 

@@ -18,7 +18,6 @@ TRITON is an open-source, high-performance software framework for 2D flood simul
 triton/
 ├── doc/           # User guides, API references, and technical documentation
 ├── src/           # Core simulation source code
-├── tools/         # Tools for TRITON
 ├── external/      # Kokkos Git submodule
 ├── input/         # Sample simulation input data files
 ├── test/          # Regression test suite based on CTest
@@ -33,7 +32,7 @@ TRITON can be built from source or run using a pre-built container.
 
 ### **Prerequisites**
 - CMake ≥ 3.16
-- C++17 or later compiler (GCC, Clang, or Intel)  
+- C++17 or later compiler
 - [MPI](https://www.mpi-forum.org/) (for distributed runs)  
 - Optional: CUDA, HIP, or SYCL for GPU acceleration  
 
