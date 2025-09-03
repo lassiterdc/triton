@@ -20,7 +20,7 @@ add_test(
     COMMAND ${Python3_EXECUTABLE} 
                 ${CMAKE_BINARY_DIR}/compare_runs_simple.py
                 --ref ${CMAKE_SOURCE_DIR}/test/reference/paraboloid
-                --test ${CMAKE_BINARY_DIR}/output_paraboloid/asc
+                --test ${CMAKE_BINARY_DIR}/test/output_paraboloid/asc
 )
 add_triton_test(
     CIRCULAR-DAMBREAK
@@ -32,7 +32,7 @@ add_test(
     COMMAND ${Python3_EXECUTABLE} 
                 ${CMAKE_BINARY_DIR}/compare_runs_simple.py
                 --ref ${CMAKE_SOURCE_DIR}/test/reference/circular
-                --test ${CMAKE_BINARY_DIR}/output_circular_dambreak/asc
+                --test ${CMAKE_BINARY_DIR}/test/output_circular_dambreak/asc
 )
 
 add_triton_test(
@@ -45,5 +45,5 @@ add_test(
     COMMAND ${Python3_EXECUTABLE} 
                 ${CMAKE_BINARY_DIR}/compare_runs_simple.py
                 --ref ${CMAKE_SOURCE_DIR}/test/reference/allatoona
-                --test ${CMAKE_BINARY_DIR}/output_allatoona/asc
+                --test ${CMAKE_BINARY_DIR}/test/output_allatoona/asc
 )
