@@ -41,6 +41,14 @@ def main():
     ref_dir = Path(args.ref)
     test_dir = Path(args.test)
     
+    if not ref_dir.exists():
+        print(f"{ref_dir}: does not exist")  
+        sys.exit(1)
+
+    if not test_dir.exists():
+        print(f"{test_dir}: does not exist")  
+        sys.exit(1)
+
     test_fields = ["H", "QX", "QY"]
     stats_test = {}
     stats_ref = {}
