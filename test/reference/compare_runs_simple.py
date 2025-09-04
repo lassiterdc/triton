@@ -2,19 +2,41 @@
 import argparse
 import sys
 from pathlib import Path
-import numpy as np
+import math
 
 
 def field_stats(data):
     """Compute field statistics: Mean, Min/Max, L1/L2 norms"""
+    # Flatten the data if it's a list of lists
+    flat_data = []
+    for row in data:
+        if isinstance(row, list):
+            flat_data.extend(row)
+        else:
+            flat_data.append(row)
+    
+    # Filter out NaN values (represented as strings or actual NaN)
+    valid_data = []
+    for val in flat_data:
+        try:
+            num_val = float(val)
+            if not math.isnan(num_val):
+                valid_data.append(num_val)
+        except (ValueError, TypeError):
+            continue
+    
+    if not valid_data:
+        return {"mean": 0, "min": 0, "max": 0, "L1": 0, "L2": 0, "size": 0}
+    
     stats = {}
-    stats["mean"] = np.nanmean(data)
-    stats["min"] = np.nanmin(data)
-    stats["max"] = np.nanmax(data)
-    stats["L1"] = np.sum(np.abs(data))
-    stats["L2"] = np.sqrt(np.sum(data**2))
-    stats["size"] = np.prod(data.shape)
+    stats["mean"] = sum(valid_data) / len(valid_data)
+    stats["min"] = min(valid_data)
+    stats["max"] = max(valid_data)
+    stats["L1"] = sum(abs(x) for x in valid_data)
+    stats["L2"] = math.sqrt(sum(x**2 for x in valid_data))
+    stats["size"] = len(flat_data)
     return stats
+
 
 def load_output(in_dir: Path, field: str, file_name=None):
     """Load TRITON data from asc format"""
@@ -26,8 +48,69 @@ def load_output(in_dir: Path, field: str, file_name=None):
     if not in_files:
         raise FileNotFoundError(f"No files found for field {field}")
     
-    data = np.genfromtxt(in_files[0])
+    # Read file manually instead of using np.genfromtxt
+    data = []
+    with open(in_files[0], 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#'):  # Skip empty lines and comments
+                try:
+                    # Split line and convert to floats
+                    row = [float(x) for x in line.split()]
+                    if len(row) == 1:
+                        data.append(row[0])  # Single column
+                    else:
+                        data.append(row)     # Multiple columns
+                except ValueError:
+                    continue  # Skip lines that can't be parsed
+    
     return data, in_files[0]
+
+
+def arrays_equal(data1, data2):
+    """Check if two data arrays are bit-for-bit identical"""
+    # Handle different structures
+    flat1 = []
+    flat2 = []
+    
+    for row in data1:
+        if isinstance(row, list):
+            flat1.extend(row)
+        else:
+            flat1.append(row)
+            
+    for row in data2:
+        if isinstance(row, list):
+            flat2.extend(row)
+        else:
+            flat2.append(row)
+    
+    if len(flat1) != len(flat2):
+        return False
+        
+    return all(abs(a - b) < 1e-15 for a, b in zip(flat1, flat2))
+
+
+def subtract_arrays(data1, data2):
+    """Subtract data2 from data1 element-wise"""
+    # Handle different structures
+    flat1 = []
+    flat2 = []
+    
+    for row in data1:
+        if isinstance(row, list):
+            flat1.extend(row)
+        else:
+            flat1.append(row)
+            
+    for row in data2:
+        if isinstance(row, list):
+            flat2.extend(row)
+        else:
+            flat2.append(row)
+    
+    return [a - b for a, b in zip(flat1, flat2)]
+
 
 def main():
     parser = argparse.ArgumentParser(description="Compare TRITON runs - simplified version")
@@ -68,10 +151,11 @@ def main():
         # Calculate statistics
         stats_test[field] = field_stats(test_data)
         stats_ref[field] = field_stats(ref_data)
-        stats_diff[field] = field_stats(ref_data - test_data)
+        diff_data = subtract_arrays(ref_data, test_data)
+        stats_diff[field] = field_stats(diff_data)
         
         # Check if bit-for-bit identical  
-        if np.all((ref_data - test_data) == 0):  
+        if arrays_equal(ref_data, test_data):  
             print(f"✅ {field}: BIT-FOR-BIT")  
         else:  
             print(f"❌ {field}: DIFFERENCES FOUND")  
