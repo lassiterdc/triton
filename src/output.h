@@ -1055,9 +1055,9 @@ namespace Output
 			};  
 		poDataset->SetGeoTransform(adfGeoTransform);
 
-			// Asign coordenate system
+			// Assign coordinate system
 			OGRSpatialReference oSRS;
-			oSRS.SetWellKnownGeogCS(projection.c_str()); // Pass projection string
+			oSRS.SetFromUserInput(projection.c_str()); // Pass projection string from user #edited SG 
 			char* pszSRSWKT = nullptr;
 			oSRS.exportToWkt(&pszSRSWKT);
 			poDataset->SetProjection(pszSRSWKT);
@@ -1174,9 +1174,9 @@ namespace Output
 
 		poDataset->SetGeoTransform(adfGeoTransform);
 
-		// Asign coordenate system
+		// Assign coordinate system
 		OGRSpatialReference oSRS;
-		oSRS.SetWellKnownGeogCS(projection.c_str()); // Pass projection string
+		oSRS.SetFromUserInput(projection.c_str()); // Pass projection string from user #edited SG 
 		char* pszSRSWKT = nullptr;
 		oSRS.exportToWkt(&pszSRSWKT);
 		poDataset->SetProjection(pszSRSWKT);

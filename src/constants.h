@@ -58,7 +58,7 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define BIN_DIR "bin"    /**< Default folder name containing binary files. */
 #define ASCII_DIR "asc"    /**< Deafult folder name containing ascii files. */
 #define GEO_DIR "gtiff"    /**< Deafult folder name containing geotiff files. */
-#define DEFAULT_PROJECTION "WGS84"    /**< Default projection system. */
+#define DEFAULT_PROJECTION ""    /**< No default projection, must be provided by user. example EPSG:32615 */
 #define TIME_SERIES_DIR "series"    /**< Deafult folder name containing time series outputs. */
 #define DEFAULT_CFG "case4.cfg"    /**< Deafult configuration (cfg) file name. */
 
@@ -151,6 +151,6 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define IN GRAY << "[..] " << RESET	        /**< Other Message 1 */
 #define DASH BLUE << "[--] " << RESET	    /**< Other Message 2 */
 
-#define WRITE_PERFORMANCE 0
+#define WRITE_PERFORMANCE 1
 
 #endif
