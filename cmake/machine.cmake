@@ -32,7 +32,7 @@ else()
     # Get the filename without the directory
     get_filename_component(fname "${f}" NAME_WLE)
   
-    # Check if osname starts with "Linux"
+    # Search for a machine file that matches fname
     if("${fname}" STREQUAL "${machinefile_name}")
       set(machinefile_path "${f}")
       #message(STATUS "fname : ${fname}")
