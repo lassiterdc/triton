@@ -6,9 +6,6 @@ module load cray-libsci/25.09.0
 module load nvidia/25.3
 module load cudatoolkit/25.3_12.8
 
-export CRAYPE_LINK_TYPE=dynamic
-export CRAY_CPU_TARGET=aarch64
-
 GDAL_DIR=/ccs/proj/nwp501/software/gdal/3.11.3
 PROJ_DIR=/ccs/proj/nwp501/software/PROJ/9.6.1
 TIFF_DIR=/ccs/proj/nwp501/software/libtiff/4.7.0
@@ -26,3 +23,7 @@ export TRITON_COMPILER_FLAGS=
 export TRITON_LINKER_FLAGS=
 export TRITON_DEBUG=OFF
 export TRITON_RUN_COMMAND="srun -n 4"
+
+export CRAYPE_LINK_TYPE=dynamic
+export CRAY_CPU_TARGET=aarch64
+

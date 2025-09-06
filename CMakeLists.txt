@@ -11,6 +11,8 @@ set_environment()
 project(triton CXX)
 set(CMAKE_CXX_STANDARD 17) # minimum C++ standard to support Kokkos
 
+message(STATUS "CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
+
 # check if MPI is available
 if(MACHINE STREQUAL Windows)
   find_package(MPI REQUIRED COMPONENTS CXX)
@@ -41,7 +43,6 @@ endif()
 
 add_clean_script()
 
-message(STATUS "CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
 message(STATUS "CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
 message(STATUS "CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
 

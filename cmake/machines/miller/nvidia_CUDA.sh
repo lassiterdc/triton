@@ -1,7 +1,8 @@
 #!/bin/bash
 
 module purge
-module load PrgEnv-cray
+module load PrgEnv-nvidia/8.6.0
+module load cudatoolkit
 
 GDAL_DIR=/autofs/nccs-svm1_proj/atm112/software/miller/gdal/gnu/13.3.0
 GEOTIFF_DIR=/autofs/nccs-svm1_proj/atm112/software/miller/libgeotiff/gnu/13.3.0
@@ -14,15 +15,14 @@ export LD_LIBRARY_PATH="$GDAL_DIR/lib64:$GEOTIFF_DIR/lib:$PROJ_DIR/lib64:$TIFF_D
 export PKG_CONFIG_PATH="$GDAL_DIR/lib64/pkgconfig:$GEOTIFF_DIR/lib/pkgconfig:$PROJ_DIR/lib64/pkgconfig:$TIFF_DIR/lib64/pkgconfig:$SQLITE3_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PATH="$GDAL_DIR/bin:$GEOTIFF_DIR/bin:$PROJ_DIR/bin:$TIFF_DIR/bin:$SQLITE3_DIR/bin:$PATH"
 
-export TRITON_BACKEND=OPENMP
-export TRITON_COMPILER=CC
-export TRITON_COMPILER_FLAGS="-fopenmp"
-export TRITON_LINKER_FLAGS="-fopenmp"
+export TRITON_BACKEND="CUDA"
+export TRITON_ARCH="AMPERE80"
+export TRITON_COMPILER="CC"
+export TRITON_COMPILER_FLAGS=
+export TRITON_LINK_FLAGS=
 export TRITON_DEBUG=OFF
-export TRITON_RUN_COMMAND="srun -n 2"
-
-export OMP_NUM_THREADS=2
-export OMP_PROC_BIND=true
+export TRITON_RUN_COMMAND="srun -n 4 --gpus-per-task=1"
 
 export CRAYPE_LINK_TYPE=dynamic
+export CUDA_DIR=${CUDA_HOME}
 export CRAY_CPU_TARGET=${CPU}

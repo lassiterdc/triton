@@ -19,7 +19,7 @@ export TRITON_COMPILER=CC
 export TRITON_COMPILER_FLAGS=
 export TRITON_LINKER_FLAGS=
 export TRITON_DEBUG=OFF
-export TRITON_RUN_COMMAND="srun -n 8"
+export TRITON_RUN_COMMAND="srun -n 2"
 
 export CRAYPE_LINK_TYPE=dynamic
 export CRAY_CPU_TARGET=aarch64
