@@ -608,10 +608,12 @@ namespace Output
 				if(strcmp(output_option_.c_str(), "SEQ") == 0)
 				{
 					write_output_geotiff_sequential(h_arr, "H", print_id, projection);
+					write_output_binary_sequential(h_arr, "H", print_id);      // write binary as well for hotstart 
 				}
 				else
 				{
 					write_output_geotiff_parallel(h_arr, "H", print_id, projection);
+					write_output_binary_parallel(h_arr, "H", print_id);  // write binary as well for hotstart 
 			}
 		}
 
@@ -620,10 +622,12 @@ namespace Output
 				if(strcmp(output_option_.c_str(), "SEQ") == 0)
 				{
 					write_output_geotiff_sequential(qx_arr, "QX", print_id, projection);
+					write_output_binary_sequential(h_arr, "QX", print_id);      // write binary as well for hotstart 
 				}
 				else
 				{
 					write_output_geotiff_parallel(qx_arr, "QX", print_id, projection);
+					write_output_binary_parallel(h_arr, "QX", print_id);  // write binary as well for hotstart 
 				}
 			}
 
@@ -632,10 +636,12 @@ namespace Output
 				if(strcmp(output_option_.c_str(), "SEQ") == 0)
 				{
 					write_output_geotiff_sequential(qy_arr, "QY", print_id, projection);
+					write_output_binary_sequential(h_arr, "QY", print_id);      // write binary as well for hotstart 
 				}
 				else
 				{
 					write_output_geotiff_parallel(qy_arr, "QY", print_id, projection);
+					write_output_binary_parallel(h_arr, "QY", print_id);  // write binary as well for hotstart 
 				}
 			}
 			
@@ -646,10 +652,12 @@ namespace Output
 					if(strcmp(output_option_.c_str(), "SEQ") == 0)
 					{
 						write_output_geotiff_sequential(max_value_h, "MH", print_id, projection);
+						write_output_binary_sequential(h_arr, "MH", print_id);      // write binary as well for hotstart 
 					}
 					else
 					{
 						write_output_geotiff_parallel(max_value_h, "MH", print_id, projection);
+						write_output_binary_parallel(h_arr, "MH", print_id);  // write binary as well for hotstart 
 					}
 				}
 			}
