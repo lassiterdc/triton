@@ -1,6 +1,6 @@
-.. _getting_started:
+.. _installation:
 
-Getting-started
+Download, Build, and Run
 ========================
 
 This section provides instructions on how to download, build, run, and test the TRITON project.
@@ -19,13 +19,11 @@ TRITON is a C++ project managed with Git. To obtain the source code, clone the `
 Building TRITON
 ---------------
 
-TRITON uses CMake as its build system. The project is designed to be built using a C++17 compliant compiler and requires MPI for C++ components. Optional tools and tests can also be built.
-
 **Prerequisites:**
 
 * **CMake:** Version 3.16 or higher.
-* **C++ Compiler:** A C++17 compatible compiler (e.g., GCC, Clang, MSVC).
-* **MPI:** MPI libraries with C++ bindings (e.g., Open MPI, MPICH).
+* **C++ Compiler:** A C++17 compatible compiler.
+* **MPI:** MPI libraries with C++ bindings.
 
 **Optional:**
 
@@ -41,17 +39,9 @@ TRITON uses CMake as its build system. The project is designed to be built using
         mkdir build
         cd build
 
-2.  **Configure CMake:**
+2.  **Run CMake:**
 
-Run CMake to configure the project. TRITON's build system selects machine-specific configurations using the `MACHINE`, `COMPILER`, and `BACKEND` arguments:
-
-* **MACHINE**: Target system nickname (e.g., `frontier`)
-* **COMPILER**: Compiler nickname (e.g., `cray`)
-* **BACKEND**: Kokkos backend name (e.g., `HIP`)
-
-If not specified, defaults are chosen automatically based on your host operating system.
-
-**Examples:**
+TRITON uses CMake as its build system. User can control TRITON build and execution through providing command-line arguments to `cmake`. Several examples are shown below:
 
 .. code-block:: bash
 
@@ -77,15 +67,15 @@ If not specified, defaults are chosen automatically based on your host operating
    # the Cray compiler and HIP backend are selected for the Frontier system
    cmake .. -DMACHINE=frontier -DCOMPILER=cray -DBACKEND=HIP
 
-Machine files are located in `<TRITON top directory>/cmake/machines/<MACHINE>` and use the naming format: ``COMPILER_BACKEND.<sh|bat>``.
+.. note::
+   In addition to the `MACHINE`, `COMPILER`, and `BACKEND` arguments, users can control
+   compilation and execution by adding more arguments such as `COMPILER_FLAGS`.
+   See the :ref:`CMake Command-line Arguments <cmake_arguments>` for more details.
 
-Common backends include: CUDA, HIP, SYCL, OPENMP, and SERIAL.
-
-3.  **Build the Project:**
+3.  **Build TRITON:**
  
-To ensure that the TRITON build and excution tasks uses the configurations that are defined in the TRITON machine file, TRITON's build system generates several shell scripts in the build directory.
-
-To build TRITON, run `triton_build.[sh|bat]`:
+After completing the CMake configuration phase, run **triton_build.sh** in build directory
+to compile TRITON:
 
 .. code-block:: bash
 
@@ -94,26 +84,31 @@ To build TRITON, run `triton_build.[sh|bat]`:
     cd build
     ./triton_build.sh
 
-Once the build task is successfuly done, `triton.exe` will be generated in the build directory.
+Once the compilation task is successfuly done, `triton.exe` will be generated in the build directory.
 
 Running TRITON
 --------------
 
-As explained in the section above, TRITON's build system generates a shell script to run `triton.exe`.
+To run TRITON, in addition to compiling the TRITON executable, several preparatory steps are required: `1) preparing input data`, `2) creating a simulation configuration file`, and `3) executing the TRITON executable` on your system. See the :ref:`TRITON Setup <configuration_reference>` for instructions on creating a simulation configuration file and the :ref:`Running TRITON <triton_run>` for details on running TRITON.
+
+The following example commands demonstrate how to use **triton_run.sh** script and to run several pre-configured simulation cases
 
 .. code-block:: bash
 
     # assuming a Linux system
-
     cd build
+
+    # runs an pre-selected example case, Allatoona
     ./triton_run.sh
 
-Note that `triton_run.sh` includes an MPI job launcher such as mpirun with preconfigured command-line arguments. You may need to modify these arguments to add or remove options to suit your environment.
+    # runs Circular Dambreak case 
+    ./triton_run.sh ./input/circular/circular_dambreak.cfg
 
-The first argument of `triton.exe` specifies the path to the TRITON simulation configuration file. `triton_run.sh` includes a preselected path, which you may need to modify to match your simulation setup.
+    # runs Paraboloid case
+    ./triton_run.sh ./input/paraboloid/paraboloid.cfg
 
-Testing TRITON
---------------
+Testing TRITON Installation
+-----------------------------
 
 If you enabled TRITON ctest during the CMake configuration by adding `-DBUILD_TESTS=ON` command-line argument , you can run the project's tests using CTest.
 
@@ -122,5 +117,5 @@ If you enabled TRITON ctest during the CMake configuration by adding `-DBUILD_TE
     cd build
     ./triton_ctest.sh
 
-See the :ref:`CMake Command-line Arguments <cmake_arguments>` section for more details on additional arguments and environment variable support.
+See the :ref:`CMake Command-line Arguments <cmake_arguments>` for more details on additional arguments and environment variable support.
 

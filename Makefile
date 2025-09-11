@@ -52,10 +52,13 @@ sphinx: $(SPHINX_BUILD_DIR)/index.html
 doxygen: $(DOXYGEN_XML_DIR)/index.xml
 
 docker_build:
-	docker build -t triton-mpich:v3 .
+	docker build -t triton-mpich:v4 .
 
 docker_run:
-	docker run --rm triton-mpich:v3 triton_run.sh
+	mkdir -p output && \
+	docker run --rm \
+		-v "${PWD}/output:/app/triton/build/output" \
+		triton-mpich:v4 triton_run.sh ./input/paraboloid/paraboloid.cfg
 
 setup_pyenv:
 	@echo ""
@@ -63,7 +66,7 @@ setup_pyenv:
 	@echo ""
 	@echo "python -m venv .venv_triton"
 	@echo "source .venv_triton/bin/activate"
-	@echo "pip install sphinx breathe exhale sphinx_rtd_theme"
+	@echo "pip install sphinx breathe exhale sphinx_rtd_theme sphinx_design"
 	@echo ""
 	@echo "You also need to install Doxygen, for example: sudo apt install doxygen"
 

@@ -38,7 +38,9 @@ macro(add_build_and_run_scripts)
   set(_RunScript ${CMAKE_BINARY_DIR}/triton_run.sh)
   file(WRITE ${_RunScript}  "#!/usr/bin/env bash\n\n")
   file(APPEND ${_RunScript} "source ./${ENVFILE}\n\n")
-  file(APPEND ${_RunScript} "${RUN_COMMAND} ./${TRITON_EXECUTABLE} ./input/allatoona/allatoona.cfg\n\n")
+  file(APPEND ${_RunScript} "CFG_FILE=\${1:-./input/paraboloid/paraboloid.cfg}\n")
+  file(APPEND ${_RunScript} "MPI_CMD=\${2:-${RUN_COMMAND}}\n")
+  file(APPEND ${_RunScript} "\${MPI_CMD} ./${TRITON_EXECUTABLE} \${CFG_FILE}\n\n")
   execute_process(COMMAND chmod +x ${_RunScript})
 
   execute_process(

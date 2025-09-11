@@ -1,14 +1,19 @@
-.. TRITON Documentation documentation main file
-
 Welcome to TRITON
 =================
 
-The Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON) is an open-source, computationally efficient 2D flood modeling toolkit that scales from a laptop to supercomputers. It solves the full shallow-water equations on CPUs and GPUs to produce rapid, reproducible inundation maps (see `Morales Hernández et al., 2021 <https://doi.org/10.1016/j.envsoft.2021.105034>`_ and :doc:`papers`).
+The **Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON)** is an open-source, computationally efficient two-dimensional flood modeling toolkit that scales from a laptop to supercomputers. It solves the full shallow-water equations on CPUs and GPUs to produce fast, reproducible flood-inundation maps.
+
+.. note::
+
+   Key reference: `Morales-Hernández et al., 2021 <https://doi.org/10.1016/j.envsoft.2021.105034>`_,  
+   *Environmental Modelling & Software*.  
+   See also :doc:`papers` for a full list of publications.
+
 
 Why TRITON
 ==========
 
-Use TRITON for accurate and quick simulation of flood wave propagation and surface inundation.
+Use TRITON for fast and accurate simulation of flood wave propagation and surface inundation.
 
 .. grid:: 2
    :gutter: 2
@@ -16,11 +21,11 @@ Use TRITON for accurate and quick simulation of flood wave propagation and surfa
    .. grid-item::
       :columns: 6
 
-      - **Open-source, Physics-based hydrodynamic flood model**  
-      - **Solves the full 2D shallow-water equations**   
-      - **Accelerated on modern CPUs and GPUs, including multi-GPU systems**  
-      - **Scales from a single laptop to leadership-class supercomputers**  
-      - **Captures backwater effects and both fluvial (riverine) and pluvial (flash flood) events**     
+      - **Open-source, Physics-based hydrodynamic flood model**
+      - **Solves the full 2D shallow-water equations**
+      - **Accelerated on modern CPUs and GPUs, including multi-GPU systems**
+      - **Scales from a single laptop to leadership-class supercomputers**
+      - **Captures backwater effects and both fluvial (riverine) and pluvial (flash flood) events**
 
    .. grid-item::
       :columns: 6
@@ -31,22 +36,17 @@ Use TRITON for accurate and quick simulation of flood wave propagation and surfa
 
             <video class="doc-anim" src="_static/trimmed.mp4"
                    autoplay loop muted playsinline controls
-                   style="max-width:100%; height:auto;"></video>
+                   style="max-width:100%; height:auto;" title="Example TRITON flood-inundation simulation"></video>
+            <p style="font-size: 0.9em; text-align: center; margin-top: 0.5em;">
+            Example simulation of flood-inundation dynamics.
+            </p>
 
       .. only:: latex
 
          .. image:: _static/triton_video_placeholder.png
             :alt: TRITON animation (see HTML version for video)
 
-.. note::
-
-   For details, see:
-
-   Morales-Hernández, M., et al. (2021).  
-   *TRITON: A Multi-GPU Open Source 2D Hydrodynamic Flood Model.*  
-   *Environmental Modelling & Software, 141*, 105034.  
-   https://doi.org/10.1016/j.envsoft.2021.105034
-
+         Example simulation of flood-inundation dynamics.
 
 
 Quick Links
@@ -56,39 +56,38 @@ Quick Links
    :gutter: 2
 
    .. grid-item-card:: Get Started
-      :link: getting_started
+      :link: introduction
       :link-type: doc
       :text-align: center
 
-      Learn more about TRITON 
+      Learn more about TRITON.
 
    .. grid-item-card:: Build & Install
-      :link: cmake_arguments
+      :link: installation
       :link-type: doc
       :text-align: center
 
-      Build from source or use containers.
+      Build from source or use prebuilt containers.
 
-   .. grid-item-card:: Case Studies
+   .. grid-item-card:: Examples & Case Studies
       :link: casestudy
       :link-type: doc
       :text-align: center
 
-      Explore test cases and real world flood simulation.
+      Explore test cases and real-world flood simulations.
 
-   .. grid-item-card:: FAQ
-      :link: faq
+   .. grid-item-card:: Publications
+      :link: papers
       :link-type: doc
       :text-align: center
 
-      Answers to common questions.
+      Read research studies and applications.
 
    .. grid-item-card:: Support
       :link: https://triton.ornl.gov/contact/
       :text-align: center
 
       Get help or report an issue.
-
 
 
 Showcase
@@ -106,7 +105,7 @@ TRITON supports a wide range of flood modeling applications. Below are a few rep
          :alt: Large-scale flood extent
          :class: doc-hero
 
-      Basin- and watershed-scale flood simulations on CPUs and GPUs.
+      Basin- and watershed-scale flood simulations.
 
    .. grid-item-card:: Forecasting
       :text-align: center
@@ -124,22 +123,17 @@ TRITON supports a wide range of flood modeling applications. Below are a few rep
          :alt: Probabilistic flood hazard mapping
          :class: doc-hero
 
-      Ensemble-based flood hazard and uncertainty maps.
+      Ensemble-based hazard and uncertainty maps.
 
    .. grid-item-card:: Dam-break scenarios
       :text-align: center
 
-      .. image:: _static/taum_sauk_anim.gif
+      .. image:: _static/taum_sauk.png
          :alt: Dam break flood wave
          :class: doc-hero
 
-      High-resolution dam-break and levee breach simulations.
+      High-resolution dam-break and levee-breach simulations.
 
-
-Relevant Papers & Studies
-=========================
-
-A curated list of publications related to TRITON and its applications is available at :doc:`papers`.
 
 Project Website
 ===============
@@ -153,37 +147,31 @@ Project Website
    :hidden:
 
    introduction
-   before_you_run_TRITON
-   
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Download and Build
-   :hidden:
-
    installation
    cmake_arguments
-   makefile
-   docker
-   machine_file
+   
+
 
 .. toctree::
    :maxdepth: 1
    :caption: Configure and Run
    :hidden:
 
-   simulation_file
+   simulation_setup
+   configuration_reference
+   configuration_variable_index
+   triton_run
+   docker_run
    casestudy
-   tools
 
 .. toctree::
    :maxdepth: 1
    :caption: Developer and API
    :hidden:
 
-   devguide
-   api
    docguide
+   docker_build
+   machine_file
 
 .. toctree::
    :maxdepth: 1
@@ -191,3 +179,4 @@ Project Website
    :hidden:
 
    papers
+   contact

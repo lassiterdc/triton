@@ -24,8 +24,8 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'breathe', # Add breathe here
-    'exhale',  # Add exhale here
+#    'breathe', # Add breathe here
+#    'exhale',  # Add exhale here
     'sphinx_design',
 ]
 
@@ -36,32 +36,32 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
-# --- Breathe Configuration ---
-# Point Breathe to the Doxygen XML output
-# This path is relative to the conf.py file (i.e., doc/doxygen_output/xml)
-breathe_projects = {
-    "TRITON": os.path.abspath(os.path.join(os.path.dirname(__file__), 'doxygen_output/xml'))
-}
-breathe_default_project = "TRITON"
-breathe_domain_by_extension = {
-    "h": "cpp",
-    "c": "c",
-    "cpp": "cpp",
-    "hpp": "cpp",
-}
-
-# --- Exhale Configuration ---
-exhale_args = {
-    "containmentFolder": "./api",
-    "rootFileName": "library_root.rst",
-    "doxygenStripFromPath": "../src", # Path to strip from Doxygen source files for cleaner paths (relative to doc/)
-    "createTreeView": True,
-    "exhaleExecutesDoxygen": False, # Important: Makefile runs Doxygen, not Exhale
-    "verboseBuild": False,
-    "unabridgedOrphanKinds": [],
-#    "unifiedSecondaryDirectives": True,
-#    "fullApiSubTree": True,
-}
+## --- Breathe Configuration ---
+## Point Breathe to the Doxygen XML output
+## This path is relative to the conf.py file (i.e., doc/doxygen_output/xml)
+#breathe_projects = {
+#    "TRITON": os.path.abspath(os.path.join(os.path.dirname(__file__), 'doxygen_output/xml'))
+#}
+#breathe_default_project = "TRITON"
+#breathe_domain_by_extension = {
+#    "h": "cpp",
+#    "c": "c",
+#    "cpp": "cpp",
+#    "hpp": "cpp",
+#}
+#
+## --- Exhale Configuration ---
+#exhale_args = {
+#    "containmentFolder": "./api",
+#    "rootFileName": "library_root.rst",
+#    "doxygenStripFromPath": "../src", # Path to strip from Doxygen source files for cleaner paths (relative to doc/)
+#    "createTreeView": True,
+#    "exhaleExecutesDoxygen": False, # Important: Makefile runs Doxygen, not Exhale
+#    "verboseBuild": False,
+#    "unabridgedOrphanKinds": [],
+##    "unifiedSecondaryDirectives": True,
+##    "fullApiSubTree": True,
+#}
 
 # Define the master document
 master_doc = 'index'

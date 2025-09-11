@@ -3,14 +3,119 @@
 CMake Command-line Arguments
 ==================================
 
-Getting machine-specific configurations
+Using CMake
 -----------------------------------------
 
-TRITON's build system retrieves machine-specific build configurations from a TRITON machine file based on the ``MACHINE``, ``COMPILER``, and ``BACKEND`` CMake command-line arguments.
+TRITON uses CMake as its build system. CMake is an open-source, cross-platform build system generator that manages the build process of software projects.
 
-If no argument is provided for ``COMPILER`` or ``BACKEND``, ``default`` is used instead. If ``MACHINE`` is not specified, it defaults to the host operating system name, such as `Linux`, `Windows`, or `Darwin`.
+Its command-line syntax is shown below:
 
-*TRITON machine files* are located in `<TRITON top directory>/cmake/machines/<MACHINE>` and follow the filename syntax: ``COMPILER_BACKEND.<sh|bat>``.  The ``MACHINE``, ``COMPILER``, and ``BACKEND`` parts correspond to the CMake command-line arguments. Please see :ref:`Machine Configuration File <machine_file>` section for details.
+.. code-block:: bash
+
+  cmake <path-to-source> [options] 
+
+Controlling TRITON Compilation and Execution
+--------------------------------------------
+
+To provide users with controls over TRITON build and execution process,
+TRITON accepts the following **OPTIONAL** CMake command-line arguments.
+
+
+``-DMACHINE=<predefined-machine-name|path-to-custom-machinefile>``
+   This argument sets the name of machine. The name of machine can be one pre-defined at `<TRITON_HOME>/cmake/machines` directory or the path to a customized machine configuration file. If this argument is omitted, the name is set to the name of OS such as Linux or Darwin.
+
+.. code-block:: bash
+
+  # for the current OS, default compiler, and default backend
+  cmake ${TRITON_HOME}
+
+  # for frontier machine, default compiler, and default backend
+  cmake ${TRITON_HOME} -DMACHINE=frontier
+   
+If a user needs to use a custom machine file, set **MACHINE** to the path of that file.
+In this case, the **COMPILER** and **BACKEND** command-line arguments will not be used
+for machine file search. See :ref:`Machine Configuration File <machine_file>` to learn
+how to create a custom machine file.
+
+.. code-block:: bash
+
+  # for custom machine file
+  cmake ${TRITON_HOME} -DMACHINE=/my/custom/machine/file
+
+``-DCOMPILER=<predefined-compiler-name>``
+   This argument sets the name of compiler. The name of compiler is pre-defined at `<TRITON_HOME>/cmake/machines/<MACHINE>` directory. If this argument is omitted, the name is set `default`, whose actual compiler is determined by TRITON.
+   
+.. code-block:: bash
+
+  # for gnu compiler and the current OS
+  cmake ${TRITON_HOME} -DCOMPILER=gnu
+
+``-DBACKEND=<predefined-backend-name>``
+   This argument sets the name of backend. The name of backend is pre-defined at `<TRITON_HOME>/cmake/machines/<MACHINE>` directory. If this argument is omitted, the name is set `default`, whose actual backend is determined by TRITON.
+
+.. code-block:: bash
+
+  # for CUDA backend and the current OS
+  cmake ${TRITON_HOME} -DBACKEND=CUDA
+
+The pre-defined names are derived from Kokkos-supported backends including:
+
+* CUDA
+* HIP
+* SYCL
+* OPENMP
+* OPENMPTARGET
+* THREADS
+* SERIAL
+
+.. note::
+    Not all compilers and backends are supported on pre-defined systems. See the machine-files in `<TRITON_HOME>/cmake/machines/<MACHINE>` directory to see what compilers and backends are supported..
+
+.. note::
+    The filename of the machine-files in `<TRITON_HOME>/cmake/machines/<MACHINE>` directory has the format of `<COMPILER>_<BACKEND>.sh`.
+   
+``-DARCH=<predefined-hardware-architecture-name>``
+   This argument sets the CPU and GPU architecture, following the names defined in Kokkos. For example, ORNL’s Frontier GPU system uses ``AMD_GFX90A``.
+
+``-DRUN_COMMAND="<job-lanuch-command>"``
+   This argument sets the MPI job launcher and additional arguments such as ``srun -n 4`` for specifying the number of compute processes.
+
+``-DCOMPILER_FLAGS="<cxx-compiler-flags>"``
+   This argument overwrites C++ compiler options.
+
+``-DCOMPILER_FLAGS_APPEND="<cxx-compiler-flags>"``
+   This argument appends additional C++ compiler options to those specified in ``COMPILER_FLAGS``.
+
+``-DLINKER_FLAGS="<linker-flags>"``
+   This argument overwrites linker options.
+
+``-DLINKER_FLAGS_APPEND="<linker-flags>"``
+   This argument appends additional linker options to those specified in ``LINKER_FLAGS``.
+
+``-DDEBUG=<ON|OFF>``
+   This argument enables TRITON debugging feature.
+
+``-DBUILD_TESTS=<ON|OFF>``
+   This argument enables TRITON ctest feature. See the following ``Building TRITON CTest Cases`` section for details.
+
+Using Environmental Variables
+-----------------------------------------
+
+User can override the CMake variables defined in the selected machine file using environmetal variables.
+This feature could be convinient to change some CMake variables defined in a machine file temporarly.
+For example, user may turn on debugging feature temporary by running the command before running TRITON:
+
+.. code-block:: bash
+
+    export TRITON_DEBUG=ON
+
+Note that **TRITON_** is prepended to **DEBUG** CMake command-line option. This rule applies to
+all CMake command-line options explained above.
+
+There are three methods for users to control TRITON compilation and execution: 1) machine files, 2) environment variables, and 3) CMake command-line options. The latter overrides the previous methods, giving CMake command-line settings the highest priority.
+
+CMake Command-line Examples
+-----------------------------------------
 
 The following examples illustrate how to invoke CMake with different options:
 
@@ -46,54 +151,11 @@ The following examples illustrate how to invoke CMake with different options:
    # search for frontier/cray_HIP.sh
    cmake .. -DMACHINE=frontier -DCOMPILER=cray -DBACKEND=HIP
 
-The following list shows the backends supported by TRITON through Kokkos:
 
-* CUDA
-* HIP
-* SYCL
-* OPENMP
-* OPENMPTARGET
-* THREADS
-* SERIAL
-
-Controlling TRITON Compilation and Execution
+Building TRITON CTest Cases
 --------------------------------------------
 
-The following CMake arguments control how TRITON is compiled and executed:
-
-``ARCH``
-   This argument sets the CPU and GPU architecture, following the names defined in Kokkos. For example, ORNL’s Frontier GPU system uses ``AMD_GFX90A``.
-
-``RUN_COMMAND``
-   This argument sets the MPI job launcher, followed by additional arguments such as ``-N`` for specifying the number of compute nodes.
-
-``COMPILER_FLAGS``
-   This argument sets C++ compiler options.
-
-``COMPILER_FLAGS_APPEND``
-   This argument appends additional C++ compiler options to those specified in ``COMPILER_FLAGS``.
-
-``LINKER_FLAGS``
-   This argument sets linker options.
-
-``LINKER_FLAGS_APPEND``
-   This argument appends additional linker options to those specified in ``LINKER_FLAGS``.
-
-
-Building TRITON Tools and CTest Cases
---------------------------------------------
-
-You can enable optional components such as the TRITON tools and test cases by specifying additional CMake arguments during configuration.
-
-`-DBUILD_TOOLS=ON`
-
-When this argument is set, TRITON will build all tools located in the `tools` subdirectory. This is useful if you need utilities for preparing input data, analyzing results, or performing other auxiliary tasks.
-
-Example:
-
-.. code-block:: bash
-
-   cmake .. -DBUILD_TOOLS=ON
+You can enable optional components such as the TRITON test cases by specifying additional CMake arguments during configuration.
 
 `-DBUILD_TESTS=ON`
 
@@ -105,8 +167,32 @@ Example:
 
    cmake .. -DBUILD_TESTS=ON
 
-After configuring with `-DBUILD_TESTS=ON` and building `triton.exe` using `triton_build.[sh|bat]`, you can run all tests in the build directory with:
+After configuring with `-DBUILD_TESTS=ON` and building `triton.exe` using `triton_build.sh`, you can run all tests in the build directory with:
 
 .. code-block:: bash
 
    ./triton_ctest.sh
+
+The following is an example of the test summary output displayed on the screen when running `triton_ctest.sh`.
+
+.. code-block:: bash
+
+    Test project /home/triton/build
+        Start 1: PARABOLOID
+    1/6 Test #1: PARABOLOID .......................   Passed    5.58 sec
+        Start 2: BIT4BIT-PARABOLOID
+    2/6 Test #2: BIT4BIT-PARABOLOID ...............   Passed    0.37 sec
+        Start 3: CIRCULAR-DAMBREAK
+    3/6 Test #3: CIRCULAR-DAMBREAK ................   Passed    1.95 sec
+        Start 4: BIT4BIT-CIRCULAR-DAMBREAK
+    4/6 Test #4: BIT4BIT-CIRCULAR-DAMBREAK ........   Passed    0.54 sec
+        Start 5: ALLATOONA
+    5/6 Test #5: ALLATOONA ........................   Passed    2.48 sec
+        Start 6: BIT4BIT-ALLATOONA
+    6/6 Test #6: BIT4BIT-ALLATOONA ................   Passed    1.33 sec
+
+    100% tests passed, 0 tests failed out of 6
+
+    Total Test time (real) =  12.29 sec
+
+If any tests fail, please check ``Testing/Temporary/LastTest.log`` in the build directory for detailed output.
