@@ -127,6 +127,7 @@ namespace Output
 *  @param arr Subdomain data
 *  @param what_mat Data type
 *  @param print_id Current checkpoint id
+*  @param projection Spatial reference system projection string  
 */			
 		void write_output_binary_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id);
 
@@ -137,6 +138,7 @@ namespace Output
 *  @param arr Subdomain data
 *  @param what_mat Data type
 *  @param print_id Current checkpoint id
+*  @param projection Spatial reference system projection string  
 */		
 		void write_output_geotiff_sequential(Matrix::matrix<T>& arr, std::string what_mat, int print_id, std::string projection);
 		
@@ -148,6 +150,25 @@ namespace Output
 *  @param print_id Current checkpoint id
 */			
 		void write_output_geotiff_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id, std::string projection);
+
+/** @brief Writes a Virtual Raster Table (VRT) file for combining multiple raster outputs
+*
+*  @param what_mat Data type identifier
+*  @param print_id Current checkpoint id
+*  @param all_rows Vector containing row information for each subdomain
+*  @param raster_cols Number of columns in the raster
+*  @param xll Lower left X coordinate
+*  @param yll Lower left Y coordinate
+*  @param cellsize Cell size/resolution
+*  @param projection Spatial reference system projection string
+*  @param file_dir Output directory path
+*/
+		void write_output_vrt(const std::string &what_mat, int print_id,
+				const std::vector<int> &all_rows, int raster_cols,
+				double xll, double yll, double cellsize,
+				const std::string &projection,
+				const std::string &file_dir);
+
 #endif
 		
 		
@@ -1035,14 +1056,14 @@ namespace Output
 			GDALDriver* poDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
 			if (poDriver == nullptr)
 			{
-				std::cerr << "No se pudo obtener el driver GeoTIFF" << std::endl;
+				std::cerr << "Unable to obtain GeoTIFF driver" << std::endl;
 				return;
 			}
 
 			GDALDataset* poDataset = poDriver->Create(filepath.c_str(), raster_cols, raster_rows, 1, GDT_Float32, nullptr);
 			if (poDataset == nullptr)
 			{
-				std::cerr << "Error al crear el archivo GeoTIFF en " << filepath << std::endl;
+				std::cerr << "Error creating the GeoTIFF file in " << filepath << std::endl;
 				return;
 			}
 
@@ -1083,7 +1104,7 @@ namespace Output
 				CPLErr err = poBand->RasterIO(GF_Write, 0, i, raster_cols, 1, pafWriteline, raster_cols, 1, GDT_Float32, 0, 0);
 				if (err != CE_None) 
 				{
-					std::cerr << "Error al escribir en el raster en la fila " << i << std::endl;
+					std::cerr << "Error writing to raster in row " << i << std::endl;
 				}
 				CPLFree(pafWriteline);
 			}
@@ -1144,20 +1165,28 @@ namespace Output
 		GDALAllRegister();
 
 		int off = GHOST_CELL_PADDING;
-		int raster_rows = rows_ - 2 * off;
+		int raster_rows = rows_ - 2 * off; // number of local rows without ghost cells for each subdomain
 		int raster_cols = cols_ - 2 * off;
+
+		// Gather number of rows from all processes to calculate y_ul correctly
+		std::vector<int> all_rows(size_);
+		MPI_Allgather(&raster_rows, 1, MPI_INT, all_rows.data(), 1, MPI_INT, MPI_COMM_WORLD);
+		int rows_below = 0;
+		for (int r = rank_; r < size_; ++r) {
+			rows_below += all_rows[r];
+		}
 		
 		GDALDriver* poDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
 		if (poDriver == nullptr)
 		{
-			std::cerr << "No se pudo obtener el driver GeoTIFF" << std::endl;
+			std::cerr << "Unable to obtain GeoTIFF driver" << std::endl;
 			return;
 		}
 
 		GDALDataset* poDataset = poDriver->Create(filepath.c_str(), raster_cols, raster_rows, 1, GDT_Float32, nullptr);
 		if (poDataset == nullptr)
 		{
-			std::cerr << "Error al crear el archivo GeoTIFF en " << filepath << std::endl;
+			std::cerr << "Error creating GeoTIFF file in" << filepath << std::endl;
 			return;
 		}
 
@@ -1167,7 +1196,7 @@ namespace Output
 		T yll = yll_; 
 		T xll = xll_;
 		T pixel_size = cellsize_;
-		T y_ul = yll + (size_-rank_) * raster_rows * pixel_size; // Upper left corner y coordinate, which now depends also on the rank_ 
+		T y_ul = yll + rows_below * pixel_size; // Upper left corner y coordinate
 		//T adfGeoTransform[6] = { xll, pixel_size, 0.0, y_ul, 0.0, -pixel_size };
 
 		// Convert to double for GDAL  
@@ -1184,7 +1213,7 @@ namespace Output
 
 		// Assign coordinate system
 		OGRSpatialReference oSRS;
-		oSRS.SetFromUserInput(projection.c_str()); // Pass projection string from user #edited SG 
+		oSRS.SetFromUserInput(projection.c_str()); // Pass projection string from user
 		char* pszSRSWKT = nullptr;
 		oSRS.exportToWkt(&pszSRSWKT);
 		poDataset->SetProjection(pszSRSWKT);
@@ -1209,7 +1238,75 @@ namespace Output
 		}
 		
 		GDALClose(poDataset);
+		
+		// Ensure all processes have finished writing before creating VRT
+		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank_ == 0) {
+			write_output_vrt(what_mat, print_id, all_rows, raster_cols, xll_, yll_, cellsize_, projection, file_dir);
+		}
 	}
+
+	template <typename T>
+	void output<T>::write_output_vrt(const std::string &what_mat, int print_id,
+				const std::vector<int> &all_rows, int raster_cols,
+				double xll, double yll, double cellsize,
+				const std::string &projection,
+				const std::string &file_dir)
+	{
+		// Total number of rows in the full domain
+		int total_rows = 0;
+		for (int r : all_rows) total_rows += r;
+
+		// VRT file name
+		std::ostringstream vrt_name;
+		vrt_name << file_dir << what_mat << "_" << std::setw(2) << std::setfill('0') << print_id << ".vrt";
+
+		std::ofstream vrt(vrt_name.str());
+		vrt << "<VRTDataset rasterXSize=\"" << raster_cols
+			<< "\" rasterYSize=\"" << total_rows << "\">\n";
+
+		// GeoTransform
+		double y_ul = yll + total_rows * cellsize;
+		vrt << "  <GeoTransform> "
+			<< xll << ", " << cellsize << ", 0.0, "
+			<< y_ul << ", 0.0, " << -cellsize
+			<< " </GeoTransform>\n";
+
+		// Spatial Reference
+		vrt << "  <SRS>" << projection << "</SRS>\n";
+
+		vrt << "  <VRTRasterBand dataType=\"Float32\" band=\"1\">\n";
+		vrt << "    <ColorInterp>Gray</ColorInterp>\n";
+
+		int offset = 0;
+		for (size_t r = 0; r < all_rows.size(); ++r) {
+			std::ostringstream tif_name;
+			tif_name << what_mat << "_" << std::setw(2) << std::setfill('0') << print_id
+					<< "_" << std::setw(2) << r << ".tif";
+
+			vrt << "    <SimpleSource>\n";
+			vrt << "      <SourceFilename relativeToVRT=\"1\">" << tif_name.str() << "</SourceFilename>\n";
+			vrt << "      <SourceBand>1</SourceBand>\n";
+			vrt << "      <SourceProperties RasterXSize=\"" << raster_cols
+				<< "\" RasterYSize=\"" << all_rows[r]
+				<< "\" DataType=\"Float32\" BlockXSize=\"" << raster_cols
+				<< "\" BlockYSize=\"1\" />\n";
+			vrt << "      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"" << raster_cols
+				<< "\" ySize=\"" << all_rows[r] << "\" />\n";
+			vrt << "      <DstRect xOff=\"0\" yOff=\"" << offset
+				<< "\" xSize=\"" << raster_cols
+				<< "\" ySize=\"" << all_rows[r] << "\" />\n";
+			vrt << "    </SimpleSource>\n";
+
+			offset += all_rows[r];
+		}
+
+		vrt << "  </VRTRasterBand>\n";
+		vrt << "</VRTDataset>\n";
+		vrt.close();
+	}
+
+
 #endif
 
 	template<typename T>
