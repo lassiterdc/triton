@@ -52,13 +52,13 @@ sphinx: $(SPHINX_BUILD_DIR)/index.html
 doxygen: $(DOXYGEN_XML_DIR)/index.xml
 
 docker_build:
-	docker build -t triton-mpich:v4 .
+	docker build -t triton:v1 .
 
 docker_run:
 	mkdir -p output && \
 	docker run --rm \
 		-v "${PWD}/output:/app/triton/build/output" \
-		triton-mpich:v4 triton_run.sh ./input/paraboloid/paraboloid.cfg
+		triton:v1 triton_run.sh ./input/paraboloid/paraboloid.cfg
 
 setup_pyenv:
 	@echo ""
