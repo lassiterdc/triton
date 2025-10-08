@@ -78,6 +78,9 @@ The table below summarizes supported input files and their purpose:
    as the DEM. Any mismatch will cause TRITON to fail at startup.
 
 .. note::
+   The DEM (.asc) file requires the six header lines (refer to Topography section for more detail), while MANN and RMAP file should not include the header. 
+   
+.. note::
    TRITON can write outputs in **GeoTIFF (``.tif``)** format for easy GIS visualization,  
    but GeoTIFF is **not accepted as input**.
 

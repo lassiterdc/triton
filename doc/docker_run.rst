@@ -3,6 +3,8 @@
 Running TRITON using Docker
 ==================================
 
+Docker images can be run on most systems, including Linux, macOS, and Windows. To do so, the host machine must have Docker Engine (Docker) installed. This section provides step-by-step instructions on running TRITON using Docker for all supported operating systems. 
+
 TRITON Docker image can be downloaded from Docker Hub using the following command:
 
 .. code-block:: bash

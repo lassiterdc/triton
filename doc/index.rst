@@ -107,7 +107,7 @@ TRITON supports a wide range of flood modeling applications. Below are a few rep
 
       Basin- and watershed-scale flood simulations.
 
-   .. grid-item-card:: Forecasting
+   .. grid-item-card:: Inundation forecasting
       :text-align: center
 
       .. image:: _static/triton_5.png
@@ -116,23 +116,23 @@ TRITON supports a wide range of flood modeling applications. Below are a few rep
 
       Short-term flood forecasts for emergency response.
 
-   .. grid-item-card:: Probabilistic mapping
+   .. grid-item-card:: Probabilistic inundation mapping
       :text-align: center
 
       .. image:: _static/probabilistic.png
          :alt: Probabilistic flood hazard mapping
          :class: doc-hero
 
-      Ensemble-based hazard and uncertainty maps.
+      Ensemble-based hazard maps.
 
-   .. grid-item-card:: Dam-break scenarios
+   .. grid-item-card:: Dam-break simulations
       :text-align: center
 
       .. image:: _static/taum_sauk.png
          :alt: Dam break flood wave
          :class: doc-hero
 
-      High-resolution dam-break and levee-breach simulations.
+      High-resolution dam-break simulations.
 
 
 Project Website
@@ -154,7 +154,7 @@ Project Website
 
 .. toctree::
    :maxdepth: 1
-   :caption: Configure and Run
+   :caption: Configure
    :hidden:
 
    simulation_setup

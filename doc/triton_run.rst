@@ -1,56 +1,46 @@
 .. _triton_run:
 
-Running TRITON
-==================================
+Advanced User Configuration: Parallel Input
+-------------------------------------------
 
-Before proceeding, make sure that `triton.exe` has been generated in the build directory.
-See :ref:`CMake Command-line Arguments <cmake_arguments>` and
-:ref:`Download, Build, and Run <installation>` for instructions on generating
-the TRITON executable (`triton.exe`).
+For very large domains (> 5 billion grid cells), inputs must be **split** for 
+parallel use. TRITON provides the ``scriptSplitASCII`` tool for preprocessing.
 
-Running "triton_run.sh"
-----------------------------------
+**Step 1. Configure ``scriptSplitASCII``**
 
-**triton_run.sh** launches TRITON simulation. The syntax to use **triton_run.sh** is shown below:
+Open the script and set the following parameters:
 
-.. code-block:: bash
+- **TRITON_DIR**: TRITON installation directory  
+- **NFILES**: number of splits (**must equal MPI ranks**)  
+- **INPUT_DEM**: DEM input file  
+- **IS_MANN**: ``YES`` or ``NO`` (whether a Manning file is provided)  
+- **INPUT_MANN**: Manning input file (required if ``IS_MANN=YES``)  
+- **IS_RMAP**: ``YES`` or ``NO`` (whether a runoff map is provided)  
+- **INPUT_RMAP**: runoff map input (required if ``IS_RMAP=YES``)  
+- **OUTPUT_FORMAT**: ``ASC`` or ``BIN``  
+- **ASCII2BIN_FOLDER**: folder for ``ascii2bin`` output (if ``BIN``)  
+- **ASCII2BIN_RMAP_FOLDER**: folder for ``ascii2bin_rmap`` output (if ``BIN`` + RMAP)  
 
-   # in build directory
-   ./triton_run.sh <path-to-simulation-configuration-file>
+**Step 2. Run the script.**
 
-**triton_run.sh** sets the environment variables used during TRITON compilation and runs the MPI job launch command specified by the RUN_COMMAND argument. Modify the script as needed to match your system.
+**Step 3. Update the configuration file**
 
-See the :ref:`TRITON Setup <configuration_reference>` for instructions on creating a simulation configuration file.
+Example:
 
-Instructions for Parallel Input
-----------------------------------
+.. code-block:: text
 
-For very large cases (>5 billion grid cells), preprocessing splits input files for parallel use.
+   dem_filename="input/dem/bin/par/case03"
+   header_filename="input/dem/bin/par/case03.header"
+   n_infile="input/mann/bin/par/case03"
+   runoff_map="input/runoff/bin/par/case03_runoff"
+   input_format=BIN
+   input_option=PAR
 
-1. Open ``scriptSplitASCII`` and configure parameters:
+**Step 4. Run TRITON**
 
-   - ``TRITON_DIR``: TRITON directory
-   - ``NFILES``: number of splits (equals MPI ranks)
-   - ``INPUT_DEM``: DEM input file
-   - ``IS_MANN``: YES/NO flag for Manning file
-   - ``INPUT_MANN``: Manning input (if YES)
-   - ``IS_RMAP``: YES/NO flag for runoff map
-   - ``INPUT_RMAP``: runoff map input (if YES)
-   - ``OUTPUT_FORMAT``: ASC or BIN
-   - ``ASCII2BIN_FOLDER``: for BIN, ascii2bin directory
-   - ``ASCII2BIN_RMAP_FOLDER``: for BIN+RMAP, ascii2bin_rmap directory
+Use the same number of MPI ranks as ``NFILES`` when launching TRITON.  
 
-2. Run the script.
-
-3. Update ``cfg`` file:
-
-   .. code-block:: text
-
-      dem_filename="input/dem/bin/par/case03"
-      header_filename="input/dem/bin/par/case03.header"
-      n_infile="input/mann/bin/par/case03"
-      runoff_map="input/runoff/bin/par/case03_runoff"
-      input_format=BIN
-      input_option=PAR
-
-4. Run TRITON with the same MPI ranks as ``NFILES``.
+.. important::
+   Splitting input files is only required for **very large cases** that cannot 
+   be handled as single rasters. For typical domains, standard (non-split) inputs 
+   are sufficient.
