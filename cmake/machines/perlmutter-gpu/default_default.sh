@@ -1,2 +1,1 @@
-
-source perlmutter-gpu_default_CUDA.sh
+nvidia_CUDA.sh

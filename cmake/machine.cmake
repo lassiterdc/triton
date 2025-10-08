@@ -3,14 +3,17 @@ set(TRITON_BUILD_DIR ${CMAKE_BINARY_DIR})
 
 if(NOT DEFINED MACHINE)
   if(DEFINED ENV{TRITON_MACHINE})
-    set(MACHINE "$ENV{TRITON_MACHINE}")
+    set(MACHINE $ENV{TRITON_MACHINE})
   else()
-    set(MACHINE "${CMAKE_HOST_SYSTEM_NAME}")
+    set(MACHINE ${CMAKE_HOST_SYSTEM_NAME})
   endif()
 endif()
 
-if(NOT DEFINED COMPILER)
-  set(COMPILER "default")
+if(DEFINED COMPILER)
+  set(COMPILER_NICKNAME ${COMPILER})
+  unset(COMPILER CACHE)
+else()
+  set(COMPILER_NICKNAME "default")
 endif()
 
 if(NOT DEFINED BACKEND)
@@ -26,13 +29,13 @@ if(EXISTS "${MACHINE}")
 
 else()
   file(GLOB_RECURSE ALL_FILES "${TRITON_SOURCE_DIR}/cmake/machines/${MACHINE}/*")
-  set(machinefile_name "${COMPILER}_${BACKEND}")
+  set(machinefile_name "${COMPILER_NICKNAME}_${BACKEND}")
   
   foreach(f ${ALL_FILES})
     # Get the filename without the directory
     get_filename_component(fname "${f}" NAME_WLE)
   
-    # Check if osname starts with "Linux"
+    # Search for a machine file that matches fname
     if("${fname}" STREQUAL "${machinefile_name}")
       set(machinefile_path "${f}")
       #message(STATUS "fname : ${fname}")
@@ -41,14 +44,8 @@ else()
   endforeach()
 endif()
 
-if (DEBUG)
-  message(STATUS "MACHINE = '${MACHINE}'")
-  message(STATUS "COMPILER = '${COMPILER}'")
-  message(STATUS "BACKEND = '${BACKEND}'")
-endif()
-
 if(NOT EXISTS "${machinefile_path}")
-  message(FATAL_ERROR "No maching machine file: ${machinefile_path}")
+  message(FATAL_ERROR "No matching machine file: ${machinefile_path}")
 else()
   get_filename_component(FILE_EXT "${machinefile_path}" EXT)
   set(ENVFILE "triton_env${FILE_EXT}")
@@ -91,15 +88,17 @@ foreach(line ${lines})
     string(REGEX MATCH "^TRITON_(.*)" _matched "${ENV_VAR}")
 	if(_matched)
       set(SUFFIX "${CMAKE_MATCH_1}")
-      if(NOT DEFINED ${SUFFIX} OR ${SUFFIX} STREQUAL "default" OR ${SUFFIX} STREQUAL "COMPILER")
+      if(NOT DEFINED "${SUFFIX}"
+        OR ("${SUFFIX}" STREQUAL "BACKEND" AND "${BACKEND}" STREQUAL "default")
+      )
         if(DEFINED ENV{TRITON_${SUFFIX}})
-          set(${SUFFIX} "$ENV{TRITON_${SUFFIX}}")
+          set(${SUFFIX} $ENV{TRITON_${SUFFIX}})
         else()
-          set(${SUFFIX} "${ENV_VAL}")
+          set(${SUFFIX} ${ENV_VAL})
         endif()
       endif()
     else()
-      set(ENV{${ENV_VAR}} "${ENV_VAL}")
+      set(ENV{${ENV_VAR}} ${ENV_VAL})
     endif()
   endif()
 
@@ -126,6 +125,7 @@ if (DEBUG)
 endif()
 
 message(STATUS "TRITON_MACHINE=${MACHINE}")
+message(STATUS "TRITON_COMPILER=${COMPILER}")
 
 list(FIND _TRITON_BACKENDS "${BACKEND}" VAR_INDEX)
 if(VAR_INDEX EQUAL -1)
@@ -148,9 +148,5 @@ if (ARCH)
 endif()
 
 message(STATUS "TRITON_RUN_COMMAND=${RUN_COMMAND}")
-
-message(STATUS "CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
-message(STATUS "CMAKE_CXX_FLAGS = ${CMAKE_CXX_FLAGS}")
-message(STATUS "CMAKE_EXE_LINKER_FLAGS = ${CMAKE_EXE_LINKER_FLAGS}")
 
 endmacro()

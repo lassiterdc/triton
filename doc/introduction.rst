@@ -1,15 +1,49 @@
 .. _introduction:
 
 Introduction to TRITON
-==================================
+======================
 
-The Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON*) is a 2D open source flood simulation tool designed for modern high performance computing (HPC). The core of the tool is a computationally efficient, physics-based hydraulic model that operates on a regular/structured grid and solves the full 2D shallow water equations. The key features of TRITON are:
+The **Two-dimensional Runoff Inundation Toolkit for Operational Needs (TRITON)** is an open-source,
+flood simulation tool designed for modern high-performance computing (HPC). It is a computationally
+efficient, physics-based hydraulic model that operates on a structured grid and solves the full
+2D shallow-water equations.
 
-* It can operate on multiple computer platforms and utilize modern HPC environments.
-* The users can take advantage of:
-   * Implementation with a single central processing unit (CPU) or multiple CPUs (using OpenMP+MPI)
-   * Implementation with a single graphics processing unit (GPU) or multiple GPUs (using CUDA+MPI)
-Highest TRITON computational efficiency can be achieved by using GPU implementation.
-* TRITON utilizes topographical data (e.g., digital elevation model [DEM], light detection and ranging [LIDAR]), as its base input, in a uniform (Cartesian) grid structure. The model can be driven by streamflow hydrographs at specified locations or gridded runoff hydrographs, or both which serves as the model’s hydrological forcing. The primary TRITON output includes water depth and 2D unit discharge maps at user defined time intervals. Other variables such as unit discharge values can be outputted. TRITON can also output timeseries of simulated results as user-defined point locations. An example is shown below:
+Key Features
+------------
+
+* **Cross-platform and HPC ready** – Performance-portable via Kokkos.
+  Runs on single or multiple CPUs (OpenMP + MPI) and supports GPU acceleration with Kokkos and MPI.
+* **Flexible Forcing & Inputs** – Uses topographical data (e.g., DEM, LIDAR) on a uniform Cartesian grid
+  and supports streamflow hydrographs, gridded runoff, or both as hydrological forcing.
+* **Rich Output Options** – Produces water depth maps, 2D velocity maps, and unit discharge data,
+  plus time series outputs at user-defined points and intervals.
+* **Linux/Unix Native** – Built for Linux/Unix systems with input/output in ASCII, binary, and GeoTIFF format.
+* **SI Units Standard** – Operates using the International System of Units (SI).
+
+Example Output
+--------------
 
 .. image:: _static/TRITON_output_example.jpg
+   :alt: Example TRITON output
+   :width: 100%
+
+What You Need
+-------------
+
+To set up and run TRITON, you will need:
+
+* **DEM** – topographic grid of the domain (projected, e.g., UTM).
+* **Hydrologic Forcing** – inflow hydrographs, gridded runoff, or both.
+* **Manning’s n** – constant roughness or a spatially varying map.
+* **Boundary Conditions** – optional, applied at the edges of the domain.
+* **Configuration File (.cfg)** – defines paths, timing, and solver parameters.
+* **System** – Linux or container environment with CPU or GPU resources.
+
+See :doc:`simulation_setup` for details on supported file types, formats, and directory layout.
+
+Input Overview
+--------------
+
+.. image:: _static/input_overview.gif
+   :alt: TRITON input overview
+   :width: 100%

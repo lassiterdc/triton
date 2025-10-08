@@ -283,7 +283,7 @@ namespace Matrix
 *  @param ncells Number of cells
 *  @param location Position of the boundary
 */		
-		void copy_elevation_into_ghost_cells(std::vector<int> irows, std::vector<int> icols, int ncells, int location);
+		void copy_value_into_ghost_cells_location(std::vector<int> irows, std::vector<int> icols, int ncells, int location);
 		
 		
 /** @brief Put infinite walls in boundary cells.
@@ -842,10 +842,10 @@ namespace Matrix
 
 
 	template<typename T>
-	void matrix<T>::copy_elevation_into_ghost_cells(std::vector<int> irows, std::vector<int> icols, int ncells, int location)
+	void matrix<T>::copy_value_into_ghost_cells_location(std::vector<int> irows, std::vector<int> icols, int ncells, int location)
 	{
 
-		//int nrows=this->rows_;
+		int nrows=this->rows_;
 		int ncols=this->cols_;
 
 		for (int i = 0; i < ncells; i++)
@@ -872,6 +872,30 @@ namespace Matrix
 				for(int k=0;k<GHOST_CELL_PADDING;k++){
 					this->data_[(ix+k+1)*(long long)ncols + iy] = this->data_[ix*(long long)ncols + iy];
 				}
+			}
+			//upper left corner
+			if(irows[i]==0 && icols[i]==0){
+				this->data_[0] = this->data_[ix*(long long)ncols + iy];
+				this->data_[1] = this->data_[ix*(long long)ncols + iy];
+				this->data_[(long long)ncols] = this->data_[ix*(long long)ncols + iy];
+			}
+			//upper right corner
+			if(irows[i]==0 && icols[i]==ncols-2*GHOST_CELL_PADDING-1){
+				this->data_[(long long)ncols-2] = this->data_[ix*(long long)ncols + iy];
+				this->data_[(long long)ncols-1] = this->data_[ix*(long long)ncols + iy];
+				this->data_[2*(long long)ncols-1] = this->data_[ix*(long long)ncols + iy];
+			}
+			//lower left corner
+			if(irows[i]==nrows-2*GHOST_CELL_PADDING-1 && icols[i]==0){
+				this->data_[((long long)nrows-GHOST_CELL_PADDING-1)*ncols] = this->data_[ix*(long long)ncols + iy];
+				this->data_[((long long)nrows-1)*(long long)ncols] = this->data_[ix*(long long)ncols + iy];
+				this->data_[((long long)nrows-1)*(long long)ncols+1] = this->data_[ix*(long long)ncols + iy];
+			}
+			//lower right corner
+			if(irows[i]==nrows-2*GHOST_CELL_PADDING-1 && icols[i]==ncols-2*GHOST_CELL_PADDING-1){
+				this->data_[((long long)nrows-GHOST_CELL_PADDING-1)*(long long)ncols + (long long)ncols-1] = this->data_[ix*(long long)ncols + iy];
+				this->data_[((long long)nrows-1)*(long long)ncols+(long long)ncols-2] = this->data_[ix*(long long)ncols + iy];
+				this->data_[((long long)nrows-1)*(long long)ncols+(long long)ncols-1] = this->data_[ix*(long long)ncols + iy];
 			}
 		}
 	}

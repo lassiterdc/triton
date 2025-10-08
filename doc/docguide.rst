@@ -20,7 +20,7 @@ development:
 
     python -m venv .venv_triton
     source .venv_triton/bin/activate
-    pip install sphinx breathe exhale sphinx_rtd_theme
+    pip install sphinx breathe exhale sphinx_rtd_theme sphinx_design
 
     # Install Doxygen (example for Linux)
     sudo apt install doxygen

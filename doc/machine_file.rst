@@ -5,57 +5,52 @@ Machine Configuration File
 
 A machine configuration file includes machine-specific settings used during TRITON build and execution.
 
-TRITON’s build system generates the name of the machine configuration file based on the ``MACHINE``, ``COMPILER``, and ``BACKEND`` CMake command-line arguments.
+TRITON’s build system searches the machine configuration file based on the ``MACHINE``, ``COMPILER``, and ``BACKEND`` CMake command-line arguments. If one or more of the arguments are omitted, TRITON uses default settings.
 
-*TRITON machine configuration files* are located in ``<TRITON top directory>/cmake/machines/<MACHINE>`` and follow the filename syntax:
-``COMPILER_BACKEND.<sh|bat>``
-The ``MACHINE``, ``COMPILER``, and ``BACKEND`` parts correspond to the CMake command-line arguments.
+TRITON machine configuration files are located in ``<TRITON top directory>/cmake/machines/<MACHINE>`` and follow the filename syntax:
+``COMPILER_BACKEND.sh``
 
 Machine Configuration Variables
 ----------------------------------
 
-The following variables control how TRITON is compiled and executed:
+All machine configuration variables are derived from the :ref:`CMake Command-line Arguments <cmake_arguments>`.
 
-``TRITON_BACKEND``
-   Sets the name of the backend. The supported backends are CUDA, HIP, SYCL, OPENMP, OPENMPTARGET, THREADS, and SERIAL.
+The only difference is that all machine configuration variables are prefixed with **TRITON_**, and their values have lower priority than the CMake command-line arguments.
 
-``TRITON_ARCH``
-   Sets the CPU and GPU architecture, following the names defined in Kokkos. For example, ORNL’s Frontier GPU system uses ``AMD_GFX90A``.
+For example, if **TRITON_COMPILER_FLAGS** in the machine configuration file is set to **-O2** and the corresponding **COMPILER_FLAGS** in the CMake command-line arguments is set to **-O3**, then the final value used for C++ compilation will be **-O3**.
 
-``TRITON_RUN_COMMAND``
-   Sets the MPI job launcher, followed by additional arguments such as ``-N`` to specify the number of compute nodes.
+The following list shows the available machine configuration variables. See :ref:`CMake Command-line Arguments <cmake_arguments>` for details.
 
-``TRITON_COMPILER``
-   Sets the executable path of the C++ compiler. Because TRITON uses MPI, it is common to specify an MPI compiler wrapper such as ``mpic++`` or ``CC`` on Cray systems.
+* ``TRITON_COMPILER``
+* ``TRITON_BACKEND``
+* ``TRITON_ARCH``
+* ``TRITON_RUN_COMMAND``
+* ``TRITON_COMPILER``
+* ``TRITON_COMPILER_FLAGS``
+* ``TRITON_COMPILER_FLAGS_APPEND``
+* ``TRITON_LINKER_FLAGS``
+* ``TRITON_LINKER_FLAGS_APPEND``
+* ``TRITON_DEBUG``
 
-``TRITON_COMPILER_FLAGS``
-   Sets C++ compiler options.
+**Example Machine Configuration File**
 
-``TRITON_COMPILER_FLAGS_APPEND``
-   Appends additional C++ compiler options to those specified in ``TRITON_COMPILER_FLAGS``.
+.. code-block:: bash
+   
+   #!/bin/bash
+   
+   export TRITON_BACKEND=SERIAL
+   export TRITON_COMPILER=mpic++
+   export TRITON_RUN_COMMAND="mpirun -n 8"
 
-``TRITON_LINKER_FLAGS``
-   Sets linker options.
+.. note::
+   use **export** in bash or similar in other shell to elevate a local variable
+   to an environment variable
 
-``TRITON_LINKER_FLAGS_APPEND``
-   Appends additional linker options to those specified in ``TRITON_LINKER_FLAGS``.
-
-**Note:** These configuration names match the corresponding CMake command-line arguments, except they are prefixed with ``TRITON_``.
 
 Using Environment Variables and Configuration Hierarchy
 ---------------------------------------------------------
 
-All CMake arguments explained in the *CMake Command-line Arguments* section have corresponding variables in TRITON machine files, prefixed with ``TRITON_``. For example, the ``COMPILER_FLAGS`` CMake command-line argument can be set in a machine file as ``TRITON_COMPILER_FLAGS``.
-
-For example, assuming you have a Linux machine file:
-
-.. code-block:: bash
-
-   export TRITON_COMPILER_FLAGS="-O3"
-
-> **Note:** You must use ``export`` on Linux to ensure the variables are available to CMake.
-
-You can also set these variables directly in your environment without using a machine file. For example, to specify ``COMPILER_FLAGS`` via an environment variable:
+User can set these variables directly in  environment and overrides the values specified in a machine file. For example, to specify ``COMPILER_FLAGS`` via an environment variable:
 
 .. code-block:: bash
 
@@ -70,14 +65,17 @@ TRITON applies configuration settings using the following priority order (from h
 
 This hierarchy ensures that explicit user input overrides environment settings and defaults.
 
-Example Machine File
---------------------
 
-.. code-block:: bash
-   
-   #!/bin/bash
-   
-   export TRITON_BACKEND=SERIAL
-   export TRITON_ARCH="NATIVE"
-   export TRITON_COMPILER=mpic++
-   export TRITON_RUN_COMMAND="mpirun -n 8"
+Creating Custom Machine Configuration File
+---------------------------------------------------------
+
+Users may need to create their own machine configuration files if the pre-configured files do not support their system.
+
+A TRITON machine configuration file is a shell script, where you can include any valid shell commands along with TRITON variables. See other sections of this page and the :ref:`CMake Command-line Arguments <cmake_arguments>` for using TRITON variables.
+
+One way to simplify creating a machine file is to copy an existing file to your system and modify it according to your needs.
+
+Once created, you can provide the TRITON build system with the path to the machine file using the CMake command-line argument:
+**`-DMACHINE="/path/to/machinefile"`**
+
+If the machine file is placed in `<TRITON_DIR>/cmake/machines/<MACHINE>` with the filename format explained on this page, it can be used with the CMake command-line arguments **MACHINE**, **COMPILER**, and **BACKEND**.

@@ -64,8 +64,8 @@ namespace Kernels
     /**************************************
      *  RHS sketch
      *       _____ _____
-     *      |   |     |
-     *      |   0|1    |
+     *      |     |     |
+     *      |    0|1    |
      *      |_____|_____|
      *
      * ************************************/
@@ -138,7 +138,7 @@ namespace Kernels
 
         T h12 = 0.5*(h1 + h2);
         T dh = h2 - h1;
-        T c12 = sqrt(G*h12);
+	T c12 = sqrt(_G_*h12);
 
         T u12 = (u1*sqh1 + u2 * sqh2) / (sqh1 + sqh2);
         T v12 = (v1*sqh1 + v2 * sqh2) / (sqh1 + sqh2);
@@ -206,14 +206,14 @@ namespace Kernels
         }
 
 
-        beta[0] = 0.5*G*(hp - 0.5*fabs(dzp))*dzp / c12;
+        beta[0] = 0.5*_G_*(hp - 0.5*fabs(dzp))*dzp / c12;
 
         //wet-wet correction
         hp = h1 + alpha[0];
         if (eigen[0] * eigen[2]<0.0 && hp>0.0 && h1 > 0.0 && h2 > 0.0)  //subcritical
         {
-          beta[0] = fmax(beta[0], eigen[0]/(eigen[0]+eigenE[2])*(alpha[0] * eigen[0] - h1 * dx*0.5 / dt + eigenE[2]*h2));
-          beta[0] = fmin(beta[0], eigen[2]/(eigen[2]+eigenE[0])*(-alpha[2] * eigen[2] + h2 * dx*0.5 / dt + eigenE[0]*h1));
+          beta[0] = FMAX(beta[0], eigen[0]/(eigen[0]+eigenE[2])*(alpha[0] * eigen[0] - h1 * dx*0.5 / dt + eigenE[2]*h2));
+          beta[0] = FMIN(beta[0], eigen[2]/(eigen[2]+eigenE[0])*(-alpha[2] * eigen[2] + h2 * dx*0.5 / dt + eigenE[0]*h1));
         }
 
         beta[1] = 0.0;
@@ -341,11 +341,11 @@ namespace Kernels
     /**************************************
      *  RHS sketch
      *       _____
-     *      |   |
-     *      |    |
+     *      |     |
+     *      |     |
      *      |__1__|
-     *      | 0 |
-     *      |    |
+     *      |  0  |
+     *      |     |
      *      |_____|
      *
      * ************************************/
@@ -421,7 +421,7 @@ namespace Kernels
 
         T h12 = 0.5*(h1 + h2);
         T dh = h2 - h1;
-        T c12 = sqrt(G*h12);
+        T c12 = sqrt(_G_*h12);
         T u12 = (u1*sqh1 + u2 * sqh2) / (sqh1 + sqh2);
         T v12 = (v1*sqh1 + v2 * sqh2) / (sqh1 + sqh2);
         T un = u12 * nx + v12 * ny;
@@ -486,15 +486,15 @@ namespace Kernels
           }
         }
 
-        beta[0] = 0.5*G*(hp - 0.5*fabs(dzp))*dzp / c12;
+        beta[0] = 0.5*_G_*(hp - 0.5*fabs(dzp))*dzp / c12;
 
 
         //wet-wet correction
         hp = h1 + alpha[0];
         if (eigen[0] * eigen[2]<0.0 && hp>0.0 && h1 > 0.0 && h2 > 0.0)  //subcritical
         {
-          beta[0] = fmax(beta[0], eigen[0]/(eigen[0]+eigenE[2])*(alpha[0] * eigen[0] - h1 * dx*0.5 / dt + eigenE[2]*h2));
-          beta[0] = fmin(beta[0], eigen[2]/(eigen[2]+eigenE[0])*(-alpha[2] * eigen[2] + h2 * dx*0.5 / dt + eigenE[0]*h1));
+          beta[0] = FMAX(beta[0], eigen[0]/(eigen[0]+eigenE[2])*(alpha[0] * eigen[0] - h1 * dx*0.5 / dt + eigenE[2]*h2));
+          beta[0] = FMIN(beta[0], eigen[2]/(eigen[2]+eigenE[0])*(-alpha[2] * eigen[2] + h2 * dx*0.5 / dt + eigenE[0]*h1));
         }
 
         beta[1] = 0.0;
@@ -653,7 +653,7 @@ namespace Kernels
         T modM = sqrt(mx*mx + my * my);
         if (n_arr[id] > EPS12 && hn >= hextra && modM > EPS12)
         {
-          T tt = dt * G*n_arr[id] * modM / (hn*hn*cbrt(hn));
+          T tt = dt * _G_*n_arr[id] * modM / (hn*hn*cbrt(hn));
           qxij = -0.5*(mx - mx * sqrt(1.0 + 4.0*tt)) / tt;
           qyij = -0.5*(my - my * sqrt(1.0 + 4.0*tt)) / tt;
         }
@@ -755,12 +755,9 @@ namespace Kernels
 *  @param nrows Number of rows in that domain/subdomain
 *  @param ncols Number of columns in that domain/subdomain
 *  @param h_arr Water depth array
-*  @param qx_arr Discharge in x direction array
 *  @param qy_arr Discharge in y direction array
 *  @param dem DEM array in that domain/subdomain (elevation)
-*  @param max_h_arr Max water depth array
 *  @param hextra Minimum depth (tolerance below water is at rest)
-*  @param mpi_tasks Number of MPI tasks (domain decomposition)
 */
   template<typename T>
   void wet_dry_qy_halo(int size, int nrows, int ncols,
@@ -809,7 +806,7 @@ namespace Kernels
 *  @param h_arr Water depth array
 *  @param qx_arr Discharge in x direction array
 *  @param qy_arr Discharge in y direction array
-*  @param halo_qxqy Bundle array that contains only halo discharge cells
+*  @param halo Bundle array that contains only halo discharge cells
 */
   template<typename T>
   void halo_copy_to_gpu(int size, int nrows, int ncols,
@@ -848,7 +845,7 @@ namespace Kernels
 *  @param h_arr Water depth array
 *  @param qx_arr Discharge in x direction array
 *  @param qy_arr Discharge in y direction array
-*  @param halo_qxqy Bundle array that contains only halo discharge cells
+*  @param halo Bundle array that contains only halo discharge cells
 */
   template<typename T>
   void halo_copy_from_gpu(int size, int nrows, int ncols,
@@ -1019,12 +1016,12 @@ namespace Kernels
     triton::parallel_for( AUTO_LABEL() , size , KOKKOS_LAMBDA (int id) {
       output[id] = MAX_VALUE;
       T hij = input_h[id];
-      T sqrthij = fmax(sqrt(hij),0.0);
+      T sqrthij = FMAX(sqrt(hij),0.0);
       input_sqrth[id] = sqrthij;
 
       if (hij > hextra)
       {       
-        T maxu=fmax(fabs(input_qx[id]),fabs(input_qy[id]))/hij;
+        T maxu=FMAX(fabs(input_qx[id]),fabs(input_qy[id]))/hij;
         output[id]=cn*dx/(maxu+ SQRTG*sqrthij);
       }
     });
@@ -1091,12 +1088,19 @@ namespace Kernels
                             T   const * KOKKOS_RESTRICT extbcvar1,
                             T   const * KOKKOS_RESTRICT extbcvar2,
                             T simtime, int rank, int total_process)
+  
   {
-    triton::parallel_for( AUTO_LABEL() , size , KOKKOS_LAMBDA (int id) {
+    
+
+	 triton::parallel_for( AUTO_LABEL() , size , KOKKOS_LAMBDA (int id) {
       int ii=relative_index[id];
       int bctype=extbctype[id];
       int start_index2=start_index[id];
-
+		bool corner = false;
+		int ib; //index for the boundary ghost cell (just an alias for the north, south, west and east ghost indexes respectively)
+		int ibcorner; //index for the corner ghost cell (just an alias for the north, south, west and east ghost indexes respectively)
+		T factor[3]; //this is just to encapsulate the boundary conditions. Factors are 1, -1, 0 depending on the orientation. 
+			//The vector positions represents the multiplicative factors for h, qx and qy respectively.
       
       int ix = (ii / ncols);  //row id
       int iy = (ii % ncols);  //col id
@@ -1106,9 +1110,73 @@ namespace Kernels
       is_btm = (ix == nrows - 2),
       is_lt = (iy == 1),
       is_rt = (iy == ncols - 2);
+			
+			//if (!(rank == 0 && is_top) || !is_lt || !is_rt || !(rank == total_process - 1 && is_btm))
+		if (!((rank == 0 && is_top) || is_lt || is_rt || (rank == total_process - 1 && is_btm)))
+		{
+				return;
+		}
+
+		factor[0] = 1.0; //always for water depth
+		if(is_lt){ //west
+			ib=ii-1;
+			factor[1]=-1.0;
+			factor[2]=0.0;
+		}
+		if(is_rt){ //east
+			ib=ii+1;
+			factor[1]=1.0;
+			factor[2]=0.0;
+		}
+			if (rank == 0 && is_top){ //north
+				ib=ii-ncols;
+				factor[1]=0.0;
+				factor[2]=1.0;
+				if(is_lt){
+					corner=true;
+					ibcorner = ii-1; //add the left
+					factor[2]=0.0;
+				}
+				if(is_rt){
+					corner=true;
+					ibcorner = ii+1; //add the right
+					factor[2]=0.0;
+				}
+			}
+			if (rank == total_process - 1 && is_btm) //south
+			{
+				ib=ii+ncols;
+				factor[1]=0.0;
+				factor[2]=-1.0;
+				if(is_lt){
+					corner=true;
+					ibcorner = ii-1; //add the left
+					factor[2]=0.0;
+				}
+				if(is_rt){
+					corner=true;
+					ibcorner = ii+1; //add the right
+					factor[2]=0.0;
+				}
+			}
+
       
       T hij,qxij,qyij;
 
+			hij=h_arr[ii];
+			qxij=qx_arr[ii];
+			qyij=qy_arr[ii];
+
+			if(bctype==0){ //just propagate to the ghost cells the inner information. This is to reconcile with open_boundaries option
+				h_arr[ib] = hij;
+				qx_arr[ib] = qxij;
+				qy_arr[ib] = qyij;
+				if(corner){
+					h_arr[ibcorner] = hij;
+					qx_arr[ibcorner] = qxij;
+					qy_arr[ibcorner] = qyij;
+				}
+			}else{
       //get interpolated value
       T auxvalue;
       T lvar;
@@ -1158,62 +1226,38 @@ namespace Kernels
           T time_diff_2 = var1_at_idx_high - var1_at_idx_low;
           auxvalue = var2_at_idx_low + (((var2_at_idx_high - var2_at_idx_low) * time_diff) / time_diff_2);
         }
-      }
+					hij=FMAX(auxvalue-dem[ii],0.0);
 
-      if(bctype==2 || bctype==3){ //normal slope or Froude, only one value--> position 0
+				}else{
         auxvalue=extbcvar1[0+start_index2];
-      }
-
-      hij=h_arr[ii];
-      qxij=qx_arr[ii];
-      qyij=qy_arr[ii];
-
-      if(bctype==1){ //h+z(t)
-        hij=fmax(auxvalue-dem[ii],0.0);
-      }
+					T vel;
       if(bctype==2){ //normal slope
-        T vel=sqrt(auxvalue*hij*cbrt(hij)/fmax(n_arr[ii],1e-6));
-        qxij=hij*vel;
-        qyij=hij*vel;
+					vel=sqrt(auxvalue*hij*cbrt(hij)/FMAX(n_arr[ii],1e-6));
       }
       if(bctype==3){ //Froude
-        T vel=auxvalue*sqrt(G*hij);
+					vel=auxvalue*sqrt(_G_*hij);
+				}
         qxij=hij*vel;
         qyij=hij*vel;
       }
 
-      if(is_lt){ //west
-        h_arr[ii-1] = hij;
-        qx_arr[ii-1] = -qxij;
-        qy_arr[ii-1] = 0.0;
-        h_arr[ii] = hij;
-        qx_arr[ii] = -qxij;
-        qy_arr[ii] = 0.0;
+			//ghost cells
+			h_arr[ib] = hij*factor[0];
+			qx_arr[ib] = qxij*factor[1];
+			qy_arr[ib] = qyij*factor[2];
+				
+			//inner cells
+			h_arr[ii] = hij*factor[0];
+			qx_arr[ii] = qxij*factor[1];
+			qy_arr[ii] = qyij*factor[2];
+				
+			//corner cells
+			if(corner){
+				h_arr[ibcorner] = hij*factor[0];
+				qx_arr[ibcorner] = qxij*factor[1];
+				qy_arr[ibcorner] = qyij*factor[2];
       }
-      if(is_rt){ //east
-        h_arr[ii+1] = hij;
-        qx_arr[ii+1] = qxij;
-        qy_arr[ii+1] = 0.0;
-        h_arr[ii] = hij;
-        qx_arr[ii] = qxij;
-        qy_arr[ii] = 0.0;
-      }
-      if (rank == 0 && is_top){ //north
-        h_arr[ii-ncols] = hij;
-        qx_arr[ii-ncols] = 0.0;
-        qy_arr[ii-ncols] = qyij;
-        h_arr[ii] = hij;
-        qx_arr[ii] = 0.0;
-        qy_arr[ii] = qyij;
-      }
-      if (rank == total_process - 1 && is_btm) //south
-      {
-        h_arr[ii+ncols] = hij;
-        qx_arr[ii+ncols] = 0.0;
-        qy_arr[ii+ncols] = -qyij;
-        h_arr[ii] = hij;
-        qx_arr[ii] = 0.0;
-        qy_arr[ii] = -qyij;
+
       }
 
     });
@@ -1308,6 +1352,28 @@ namespace Kernels
     });
   }
 
+/** @brief It calculates flux in x direction.
+*
+*  @param size Observation array size
+*  @param arr Whole array
+*  @param obs_arr Observation point array
+*  @param relative_index Index of observation cells in that subdomain
+*/
+	template<typename T>
+  void copy_observation_points(int size,                                                     				
+  												T const * KOKKOS_RESTRICT arr ,
+                                    T * KOKKOS_RESTRICT obs_arr,
+                                    int const * KOKKOS_RESTRICT relative_index)
+  {
+    triton::parallel_for( AUTO_LABEL() , size , KOKKOS_LAMBDA (int id) {
+
+			int index = relative_index[id];
+			obs_arr[id] = arr[index];
+
+
+	});
+
+  }
 
 
 }

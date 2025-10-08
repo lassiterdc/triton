@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     python3-gdal
 
 RUN rm -rf /app/triton/build && mkdir /app/triton/build
-RUN cd /app/triton/build && cmake .. -DMACHINE=Linux -DBUILD_TESTS=ON -DBUILD_TOOLS=ON -DHAVE_GDAL=ON
+RUN cd /app/triton/build && cmake .. -DMACHINE=Linux
 RUN cd /app/triton/build && ./triton_build.sh
 RUN for script in run build clean ctest; do \
       echo '#!/bin/bash' > /project/triton_${script}.sh && \

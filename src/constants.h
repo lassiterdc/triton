@@ -23,7 +23,7 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_StdAlgorithms.hpp>
 #include <libgen.h> // to fix "use of undeclared basename" error
-#define AUTO_LABEL() (std::string(basename(__FILE__)) + std::string(":") + std::to_string(__LINE__)).c_str()
+#define AUTO_LABEL() const_cast<char*>((std::string(__FILE__) + ":" + std::to_string(__LINE__)).c_str())
 
 #define DEBUG() {Kokkos::fence(); MPI_Barrier(MPI_COMM_WORLD); std::cout << __FILE__ << " , " << __LINE__ << std::endl;}
 
@@ -35,17 +35,30 @@ namespace Constants
 	typedef std::vector<std::pair<int, int>> sources_list_t;	/**< Custom vector type that contains each cell's index pair. The first number is the row index and the second number is the column index. */
 	typedef unsigned long long ull;    /**< Custom data type to hold large number. */
 }
-
+#ifdef USE_SINGLE_PRECISION
+	typedef float value_t;    /**< Data type to represent floating-point number. It can be double or float. */
+    #define FMAX fmaxf
+    #define FMIN fminf
+	#define MPI_DATA_TYPE MPI_FLOAT    /**< Represents MPI floating-point number. It can be MPI_DOUBLE or MPI_FLOAT. */
+	#define MAX_VALUE FLT_MAX    /**< Maximum value of a floating-point number. It can be DBL_MAX or FLT_MAX. */
+	#define EPS12 1e-6    /**< Tolerance e-12. */
+#else
 typedef double value_t;    /**< Data type to represent floating-point number. It can be double or float. */
-
+    #define FMAX fmax
+    #define FMIN fmin
 #define MPI_DATA_TYPE MPI_DOUBLE    /**< Represents MPI floating-point number. It can be MPI_DOUBLE or MPI_FLOAT. */
 #define MAX_VALUE DBL_MAX    /**< Maximum value of a floating-point number. It can be DBL_MAX or FLT_MAX. */
+	#define EPS12 1e-12    /**< Tolerance e-12. */
+#endif
+
 
 #define INPUT_DIR "input"    /**< Deafult folder name containing all input files. */
 #define OUTPUT_DIR "output"    /**< Deafult folder name containing all output files. */
 #define CFG_DIR "cfg"    /**< Default folder name containing all configuration (cfg) files. */
 #define BIN_DIR "bin"    /**< Default folder name containing binary files. */
 #define ASCII_DIR "asc"    /**< Deafult folder name containing ascii files. */
+#define GEO_DIR "gtiff"    /**< Deafult folder name containing geotiff files. */
+#define DEFAULT_PROJECTION ""    /**< No default projection, must be provided by user. example EPSG:32615 */
 #define TIME_SERIES_DIR "series"    /**< Deafult folder name containing time series outputs. */
 #define DEFAULT_CFG "case4.cfg"    /**< Deafult configuration (cfg) file name. */
 
@@ -87,6 +100,9 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define RUNIN 17    /**< Runoff intensity array position in vector. */
 #define EXTBCV1 18    /**< External boundary condition's first variable array position in vector. */
 #define EXTBCV2 19    /**< External boundary condition's second variable array position in vector. */
+#define OBSH 20    /**< Water depth for observation point array position in vector. */
+#define OBSQX 21    /**< Flux X for observation point array position in vector. */
+#define OBSQY 22    /**< Flux Y for observation point array position in vector. */
 
 #define SRCP 0    /**< Flow locations index array position in vector. */
 #define RUNID 1    /**< Runoff id array position in vector. */
@@ -94,13 +110,13 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define BCTYPE 3    /**< Boundary condition cells type array position in vector. */
 #define BCINDEXSTART 4    /**< Boundary condition's start index array position in vector. */
 #define BCNROWSVARS 5    /**< Boundary condition's number of rows variable array position in vector. */
+#define OBSRELATIVEINDEX 6    /**< Observation point index array after domain decomposition position in vector. */
 
 #define TIMER_NSECS 0    /**< To use nano second in Timer. */
 #define TIMER_SECS 1    /**< To use second in Timer. */
 
-#define G 9.81    /**< Gravitational acceleration. */
+#define _G_ 9.81    /**< Gravitational acceleration. */
 #define SQRTG 3.132091953    /**< Square root of Gravitational acceleration. */
-#define EPS12 1e-12    /**< Tolerance e-12. */
 #define FT3_TO_M3_FACTOR 0.028316847    /**< Factor to convert feet cube to meter cube. */
 #define FT_TO_M_FACTOR 0.3048    /**< Factor to convert feet to meter. */
 #define SEC_TO_HOUR_FACTOR 0.000277778    /**< Factor to convert second to hour. */
@@ -129,11 +145,12 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define GRAY "\033[90m"	    /**< Gray Color */
 
 #define OK GREEN << "[OK] " << RESET	    /**< Success Message */
+#define INFO GRAY << "[INFO] " << RESET	    /**< Info Message */
 #define WARN YELLOW << "[!!] " << RESET	    /**< Warning Message */
 #define ERROR  RED << "[ERROR] " << RESET	/**< Error Message */
 #define IN GRAY << "[..] " << RESET	        /**< Other Message 1 */
 #define DASH BLUE << "[--] " << RESET	    /**< Other Message 2 */
 
-#define WRITE_PERFORMANCE 0
+#define WRITE_PERFORMANCE 1
 
 #endif

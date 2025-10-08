@@ -37,6 +37,7 @@ namespace ConfigUtils
 		num_runoffs,	/**< The total number of Runoffs. */
 		num_extbc,	/**< The total number of External boundary cells group. Each group can contain one or multiple cells. */
 		it_count,	/**< The total number of iterations up to a specific point. 0 in case of a clean start, greater than 0 otherwise. */
+		it_print,	/**< The number of iterations how often the simulation values are printed on the screen. */
 		factor_interval_domain_decomposition;	/**< Factor applied to the print interval time to check for domain decomposition. */
 
 		T
@@ -44,6 +45,7 @@ namespace ConfigUtils
 		sim_start_time,	/**< Starting time point of a simulation. Usually 0 for a new simulation. */
 		sim_duration,	/**< Finishing time point of a simulation. Regardless of the starting point, simulation always ends at this point. */
 		print_interval,	/**< Use for outputting files. After every defined print interval time, the program will save outputs in an external file. */
+		print_observation,	/**< Use for outputting files. After every defined print interval time, the program will save outputs in an external file. */
 		courant,	/**< Represents Courant number. */
 		const_mann,	/**< Constant manning value to use in every cell in case of no external manning file is provided. */
 		hextra;	/**< Represents a the minimum water depth tolerance */
@@ -56,8 +58,9 @@ namespace ConfigUtils
 		max_value_print_option,	/**< Use to determine maximum value of each cells output types. h to output just the h (depth). */
 		input_format,	/**< Expected input file format. BIN for binary file or ASC for ascii file. */
 		input_option,	/**< Strategy to use for input files. PAR for parallel input or SEQ for sequential inp. PAR reads each MPI partitions subdomain in separate files and SEQ reads the whole domain from one file. Applied to all raster formats. By default, SEQ is considered.*/
-		output_format,	/**< Expected output file format. BIN for binary file or ASC for ascii file. */
+		output_format,	/**< Expected output file format. BIN for binary file or ASC for ascii file or GTIFF for GeoTIFF file. */
 		output_option,	/**< Strategy to use for outputting into files. PAR for parallel outputs or SEQ for sequential outputs. PAR saves each MPI partitions subdomain in separate files and SEQ saves the whole domain into one file. */
+		projection,	    /**< Projection system to use. */
 		dem_filename,	/**< Directory of the DEM file to use. */
 		header_filename,	/**< Directory of the header file to use (in case of parallel reading). */
 		src_loc_file,	/**< Directory of the file that contains the information of all flow locations. */
@@ -69,7 +72,10 @@ namespace ConfigUtils
 		qx_infile,	/**< Initial flux in x direction file directory. */
 		qy_infile,	/**< Initial flux in y direction file directory. */
 		n_infile,	/**< Directory of the manning file to use. */
-		domain_decomposition;	/**< Domain decomposition. Options are static or dynamic. Static by default*/
+		input_folder,	/**< Directory of the input folder. */
+		output_folder,	/**< Directory of the output folder. */
+		domain_decomposition,	/**< Domain decomposition. Options are static or dynamic. Static by default*/
+		print_interval_string;	/**< Print interval as a string. Used to assign default value to print_observation. */
 
 
 		std::vector<T>
@@ -163,7 +169,7 @@ namespace ConfigUtils
 *  @param dyn_rows Array of size "number of ranks" that will contain the number of rows
 *  @param checkpoint_id Checkpoint id
 */
-	void read_and_parse_checkpoint_partition(std::string project_dir, int *dyn_rows, int checkpoint_id);
+	void read_and_parse_checkpoint_partition(std::string project_dir, std::string output_folder, int *dyn_rows, int checkpoint_id);
 
 
 	std::string argsd(std::string x, std::map<std::string, std::string> y, std::string d)
@@ -449,12 +455,14 @@ namespace ConfigUtils
 		arglist.num_extbc = atoi((args("num_extbc", argmap)).c_str());
 		arglist.checkpoint_id = atoi((argsd("checkpoint_id", argmap, "0")).c_str());
 		arglist.it_count = atoi((argsd("it_count", argmap, "0")).c_str());
+		arglist.it_print = atoi((argsd("it_print", argmap, "10000")).c_str());
 		arglist.print_option = StringUtils::tolower(args("print_option", argmap));
 		arglist.max_value_print_option = argsd("max_value_print_option", argmap, "");
 		arglist.input_format = args("input_format", argmap);
 		arglist.input_option = args("input_option", argmap);
 		arglist.output_format = args("output_format", argmap);
 		arglist.output_option = args("output_option", argmap);
+		arglist.projection = argsd("projection", argmap, DEFAULT_PROJECTION);
 
 		arglist.h_infile = argsd("h_infile", argmap, "");
 		arglist.qx_infile = argsd("qx_infile", argmap, "");
@@ -466,7 +474,12 @@ namespace ConfigUtils
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
 		arglist.sim_duration = atof((args("sim_duration", argmap)).c_str());
-		arglist.print_interval = atof((args("print_interval", argmap)).c_str());
+		arglist.print_interval_string = args("print_interval", argmap);
+		arglist.print_observation = atof((argsd("print_observation", argmap, arglist.print_interval_string)).c_str()); // in case print_observation is not in the cfg file, it will be set to print_interval value
+		arglist.print_interval = atof(arglist.print_interval_string.c_str());
+
+		arglist.input_folder = argsd("input_folder", argmap, "input");
+		arglist.output_folder = argsd("output_folder", argmap, "output");
 
 		if(arglist.num_sources > 0)
 		{
@@ -537,10 +550,10 @@ namespace ConfigUtils
 		return spath.substr(0, (spath.find_last_of("/\\")));
 	}
 
-	void read_and_parse_checkpoint_partition(std::string project_dir, int *dyn_rows, int checkpoint_id)
+	void read_and_parse_checkpoint_partition(std::string project_dir, std::string output_folder, int *dyn_rows, int checkpoint_id)
 	{
 		
-		std::string outdir = project_dir + "/" + OUTPUT_DIR + "/domain_decomposition/";
+		std::string outdir = project_dir + "/" + output_folder + "/domain_decomposition/";
 		std::string filename = outdir + "domain_decomposition" + std::to_string(checkpoint_id) + ".txt";
 		
 		std::ifstream ifs(filename.c_str());
