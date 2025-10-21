@@ -19,6 +19,7 @@
 #define CONFIG_UTILS_H
 
 #include "string_utils.h"
+#include <filesystem>
 
 namespace ConfigUtils
 {
@@ -541,14 +542,35 @@ namespace ConfigUtils
 	}
 
 
-	std::string get_root_dir(const char* path)
-	{
-		std::string spath(path);
-		int found = spath.find_last_of("/\\");
-		spath = spath.substr(0, found);
+    std::string get_root_dir(const char* input_path)
+    {
+        namespace fs = std::filesystem;
 
-		return spath.substr(0, (spath.find_last_of("/\\")));
-	}
+        if (input_path == nullptr || *input_path == '\0') {
+            std::cerr << "[get_root_dir] Empty or null path input.\n";
+            return fs::current_path().string();
+        }
+
+
+        try {
+            // Convert input to an absolute, canonicalized path
+            fs::path p = fs::absolute(fs::path(input_path));
+
+            // Go up two levels (if possible)
+            if (p.has_parent_path())
+                p = p.parent_path();
+            if (p.has_parent_path())
+                p = p.parent_path();
+
+            // Convert to string
+            return p.string();
+        }
+        catch (const fs::filesystem_error& e) {
+            std::cerr << "[get_root_dir] Filesystem error: " << e.what() << "\n";
+            return fs::current_path().string();
+        }
+    }
+
 
 	void read_and_parse_checkpoint_partition(std::string project_dir, std::string output_folder, int *dyn_rows, int checkpoint_id)
 	{
