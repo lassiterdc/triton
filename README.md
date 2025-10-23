@@ -80,10 +80,7 @@ Simulation results will be stored in `output/`.
 
 ## Documentation
 
-- [User Guide:T.B.D.]
-- [API ReferenceT.B.D.]
-
-Full documentation is also available at: [TRITON Documentation](https://triton.ornl.gov/documentation)
+Full documentation is also available at: [TRITON Documentation](https://triton-ornl.readthedocs.io)
 
 ## Testing
 
