@@ -29,6 +29,10 @@
 #include <cpl_conv.h> // For geotiff output
 #endif
 
+#ifdef ENSEMBLE_BUILD
+#include "Ensify.h"
+#endif
+
 namespace Output
 {
 	template<class T>
@@ -341,7 +345,7 @@ namespace Output
 
 		if (rank_ == 0)
 		recvcounts = new int[size];
-		MPI_Gather(&cur_proc_data_size, 1, MPI_INT, recvcounts, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Gather(&cur_proc_data_size, 1, MPI_INT, recvcounts, 1, MPI_INT, 0, ENSIFY_COMM_WORLD);
 
 		if (rank_ == 0)
 		{
@@ -359,7 +363,7 @@ namespace Output
 			total_data_arr_int = new int[total_data_size];
 		}
 
-		MPI_Bcast(&total_data_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(&total_data_size, 1, MPI_INT, 0, ENSIFY_COMM_WORLD);
 	}
 
 
@@ -381,7 +385,7 @@ namespace Output
 		if(rank_==0){
 			obs_points_per_subdomain= new int[size_];
 		}
-		MPI_Gather(&num_of_obs_points_, 1, MPI_INT, obs_points_per_subdomain, 1, MPI_INT, 0, MPI_COMM_WORLD);
+		MPI_Gather(&num_of_obs_points_, 1, MPI_INT, obs_points_per_subdomain, 1, MPI_INT, 0, ENSIFY_COMM_WORLD);
 		
 		if (rank_ == 0)
 		{
@@ -404,7 +408,7 @@ namespace Output
 			relative_obs_index_global_ = (int*)malloc(num_of_obs_points_global_ * sizeof(int));
 		}
 
-    	MPI_Gatherv(relative_local_array, num_of_obs_points_, MPI_INT, relative_obs_index_global_, obs_points_per_subdomain, displs_time_series, MPI_INT, 0, MPI_COMM_WORLD);
+    	MPI_Gatherv(relative_local_array, num_of_obs_points_, MPI_INT, relative_obs_index_global_, obs_points_per_subdomain, displs_time_series, MPI_INT, 0, ENSIFY_COMM_WORLD);
 
 		if(rank_ == 0){
 			for (int i = 0; i < num_of_obs_points_global_; i++){
@@ -497,7 +501,7 @@ namespace Output
 
 		if (size_ > 1)
 		{
-			MPI_Barrier(MPI_COMM_WORLD);
+			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
 
 	}
@@ -768,7 +772,7 @@ namespace Output
 		}
 		if (size_ > 1)
 		{
-			MPI_Barrier(MPI_COMM_WORLD);
+			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
 	}
 
@@ -854,11 +858,11 @@ namespace Output
 	{
 		if (rank_ == 0)
 		{
-			MPI_Gatherv(arr.get_address_at(0, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			MPI_Gatherv(arr.get_address_at(0, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		}
 		else
 		{
-			MPI_Gatherv(arr.get_address_at(GHOST_CELL_PADDING, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			MPI_Gatherv(arr.get_address_at(GHOST_CELL_PADDING, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		}
 
 		if (rank_ == 0)
@@ -923,7 +927,7 @@ namespace Output
 		}
 		if (size_ > 1)
 		{
-			MPI_Barrier(MPI_COMM_WORLD);
+			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
 	}
 
@@ -994,11 +998,11 @@ namespace Output
 	{
 		if (rank_ == 0)
 		{
-			MPI_Gatherv(arr.get_address_at(0, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			MPI_Gatherv(arr.get_address_at(0, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		}
 		else
 		{
-			MPI_Gatherv(arr.get_address_at(GHOST_CELL_PADDING, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+			MPI_Gatherv(arr.get_address_at(GHOST_CELL_PADDING, 0), cur_proc_data_size, MPI_DATA_TYPE, total_data_arr, recvcounts, displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		}
 
 		if (rank_ == 0)
@@ -1114,7 +1118,7 @@ namespace Output
 
 		if (size_ > 1)
 		{
-			MPI_Barrier(MPI_COMM_WORLD);
+			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
 	}
 
@@ -1170,7 +1174,7 @@ namespace Output
 
 		// Gather number of rows from all processes to calculate y_ul correctly
 		std::vector<int> all_rows(size_);
-		MPI_Allgather(&raster_rows, 1, MPI_INT, all_rows.data(), 1, MPI_INT, MPI_COMM_WORLD);
+		MPI_Allgather(&raster_rows, 1, MPI_INT, all_rows.data(), 1, MPI_INT, ENSIFY_COMM_WORLD);
 		int rows_below = 0;
 		for (int r = rank_; r < size_; ++r) {
 			rows_below += all_rows[r];
@@ -1240,7 +1244,7 @@ namespace Output
 		GDALClose(poDataset);
 		
 		// Ensure all processes have finished writing before creating VRT
-		MPI_Barrier(MPI_COMM_WORLD);
+		MPI_Barrier(ENSIFY_COMM_WORLD);
 		if (rank_ == 0) {
 			write_output_vrt(what_mat, print_id, all_rows, raster_cols, xll_, yll_, cellsize_, projection, file_dir);
 		}
@@ -1339,7 +1343,7 @@ namespace Output
 			value_obs_global = (T*)malloc(num_of_obs_points_global_ * sizeof(T));
 		}
 
-    	MPI_Gatherv(value_obs, num_of_obs_points_, MPI_DATA_TYPE, value_obs_global, obs_points_per_subdomain, displs_time_series, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+    	MPI_Gatherv(value_obs, num_of_obs_points_, MPI_DATA_TYPE, value_obs_global, obs_points_per_subdomain, displs_time_series, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 
 		if(rank_ == 0){
 			std::string str = std::to_string(simtime);
@@ -1359,7 +1363,7 @@ namespace Output
 
 		if (size_ > 1)
 		{
-			MPI_Barrier(MPI_COMM_WORLD);
+			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
 
 	}
@@ -1478,18 +1482,18 @@ namespace Output
 		T *resize_time_all = new T[size_];
 
 
-		MPI_Gather(&compute_time, 1, MPI_DATA_TYPE, &compute_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&mpi_time, 1, MPI_DATA_TYPE, &mpi_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&io_time, 1, MPI_DATA_TYPE, &io_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&simulation_time, 1, MPI_DATA_TYPE, &simulation_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&total_time, 1, MPI_DATA_TYPE, &total_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&other_time, 1, MPI_DATA_TYPE, &other_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&init_time, 1, MPI_DATA_TYPE, &init_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
-		MPI_Gather(&resize_time, 1, MPI_DATA_TYPE, &resize_time_all[rank_], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+		MPI_Gather(&compute_time, 1, MPI_DATA_TYPE, &compute_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&mpi_time, 1, MPI_DATA_TYPE, &mpi_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&io_time, 1, MPI_DATA_TYPE, &io_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&simulation_time, 1, MPI_DATA_TYPE, &simulation_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&total_time, 1, MPI_DATA_TYPE, &total_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&other_time, 1, MPI_DATA_TYPE, &other_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&init_time, 1, MPI_DATA_TYPE, &init_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&resize_time, 1, MPI_DATA_TYPE, &resize_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		
 		if (size_ > 1)
 		{
-			MPI_Barrier(MPI_COMM_WORLD);
+			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
 
 		if(rank_ == 0)
@@ -1583,7 +1587,7 @@ namespace Output
 		
 		 if (size_ > 1)
 		 {
-					MPI_Barrier(MPI_COMM_WORLD);
+					MPI_Barrier(ENSIFY_COMM_WORLD);
 		 }
 
 

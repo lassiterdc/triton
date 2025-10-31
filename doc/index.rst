@@ -162,6 +162,7 @@ Project Website
    configuration_variable_index
    triton_run
    docker_run
+   ensemble_run
    casestudy
 
 .. toctree::

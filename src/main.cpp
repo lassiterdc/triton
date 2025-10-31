@@ -40,6 +40,10 @@
 
 #include "mpi.h"
 
+#ifdef ENSEMBLE_BUILD
+#include "Ensify.h"
+#endif
+
 using namespace std;
 
 #include "constants.h"
@@ -62,21 +66,37 @@ using namespace std;
 *  @param argv Pointer array which points to each argument passed to the program. The program runs with cfg filename and number of threads (only for OpenMP version)
 *  @return 0
 */
+
 int main(int argc, char* argv[])
 {
 	int rank, size;
 	MPI_Init(&argc, &argv);
+
+#ifdef ENSEMBLE_BUILD
+    ensify::init(argc, argv);
+    std::cerr << IN "Running TRITON in ensemble mode" << std::endl;
+#endif
+
   Kokkos::initialize();
   {
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(ENSIFY_COMM_WORLD, &size);
+    MPI_Comm_rank(ENSIFY_COMM_WORLD, &rank);
+
+#ifdef ENSEMBLE_BUILD
+    Triton::triton<value_t> model(ensify::argc(), ensify::argv());
+#else
     Triton::triton<value_t> model(argc, argv);
+#endif
+
     //initialize
     model.initialize(rank, size);
     //simulate
     model.simulate();
   }
   Kokkos::finalize();
+#ifdef ENSEMBLE_BUILD
+  ensify::finalize();
+#endif
 	MPI_Finalize();
 	return 0;
 }

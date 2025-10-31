@@ -22,10 +22,15 @@ endif()
 add_subdirectory(${TRITON_SOURCE_DIR}/external)
 
 # build triton
-process_target(${TRITON_EXECUTABLE} ./src/main.cpp)
-target_include_directories(${TRITON_EXECUTABLE} PUBLIC ${Kokkos_INCLUDE_DIRS_RET})
+add_executable(${TRITON_EXECUTABLE} ./src/main.cpp)
+target_link_libraries(${TRITON_EXECUTABLE} PUBLIC kokkos)
 
-if (TRITON_ENABLE_GDAL)
+if (ENSEMBLE_BUILD)
+  target_link_libraries(${TRITON_EXECUTABLE} PUBLIC yaml-cpp)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENSEMBLE_BUILD")
+endif()
+
+if (ENABLE_GDAL)
   target_include_directories(${TRITON_EXECUTABLE} PUBLIC ${GDAL_INCLUDE_DIR})
   target_link_libraries(${TRITON_EXECUTABLE} PUBLIC ${GDAL_LIBRARY})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_GDAL")
