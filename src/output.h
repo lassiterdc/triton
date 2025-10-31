@@ -1,19 +1,20 @@
 /** @file output.h
  *  @brief Header containing the Output class
  *
- *  This contains the subroutines and eventually any 
+ *  This contains the subroutines and eventually any
  *  macros, constants, etc. needed for Output class
- *
+ *  
  *  @author Mario Morales Hernandez
- *  @author Md Bulbul Sharif
- *  @author Tigstu T. Dullo
  *  @author Sudershan Gangrade
- *  @author Alfred Kalyanapu
- *  @author Sheikh Ghafoor
  *  @author Shih-Chieh Kao
- *  @author Katherine J. Evans
+ *  @author Michael Kelleher
+ *  @author Matthew R. Norman
+ *  @author Youngsung Kim
+ *  @author Juan Manuel Perez Garcia de Carellan
+ *  @author Ganesh Ghimire
  *  @bug No known bugs.
  */
+
 
 #ifndef OUTPUT_H
 #define OUTPUT_H

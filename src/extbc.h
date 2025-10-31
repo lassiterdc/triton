@@ -5,16 +5,15 @@
  *  macros, constants, etc. needed for ExtBC class
  *
  *  @author Mario Morales Hernandez
- *  @author Md Bulbul Sharif
- *  @author Tigstu T. Dullo
  *  @author Sudershan Gangrade
- *  @author Alfred Kalyanapu
- *  @author Sheikh Ghafoor
  *  @author Shih-Chieh Kao
- *  @author Katherine J. Evans
+ *  @author Michael Kelleher
+ *  @author Matthew R. Norman
+ *  @author Youngsung Kim
+ *  @author Juan Manuel Perez Garcia de Carellan
+ *  @author Ganesh Ghimire
  *  @bug No known bugs.
  */
-
 
 
 #ifndef EXTBC_H

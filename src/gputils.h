@@ -1,17 +1,17 @@
 /** @file gputils.h
  *  @brief Header containing map of generic "gpu" to hip or cuda calls/constants/types
  *
- *  @author Michael Kelleher
  *  @author Mario Morales Hernandez
- *  @author Md Bulbul Sharif
- *  @author Tigstu T. Dullo
  *  @author Sudershan Gangrade
- *  @author Alfred Kalyanapu
- *  @author Sheikh Ghafoor
  *  @author Shih-Chieh Kao
- *  @author Katherine J. Evans
+ *  @author Michael Kelleher
+ *  @author Matthew R. Norman
+ *  @author Youngsung Kim
+ *  @author Juan Manuel Perez Garcia de Carellan
+ *  @author Ganesh Ghimire
  *  @bug No known bugs.
- */
+ */ 
+
 
 #ifdef AMDGPU
 #include "hip/hip_runtime.h"
