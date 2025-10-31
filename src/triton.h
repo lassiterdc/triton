@@ -24,6 +24,10 @@
 #include "output.h"
 #include "mpi_utils.h"
 
+#ifdef ENSEMBLE_BUILD
+#include "Ensify.h"
+#endif
+
 namespace Triton
 {
   template<class T>
@@ -370,7 +374,7 @@ namespace Triton
       if(rank==0){
 		ConfigUtils::read_and_parse_checkpoint_partition(project_dir, arglist.output_folder, dyn_rows, arglist.checkpoint_id);
       }
-      MPI_Bcast(dyn_rows, size, MPI_INT, 0, MPI_COMM_WORLD); 
+      MPI_Bcast(dyn_rows, size, MPI_INT, 0, ENSIFY_COMM_WORLD); 
       for(int i=0;i<pd.size;i++){
         pd.part_dims[i].first=dyn_rows[i]+2*GHOST_CELL_PADDING;
       }
@@ -711,11 +715,11 @@ namespace Triton
 			out.init(lrows1+2 * GHOST_CELL_PADDING, lcols1+2 * GHOST_CELL_PADDING, xll, yll, cellsize, rank, size, project_dir, arglist.output_folder, arglist.outfile_pattern, arglist.time_series_flag, cfg_content, arglist.output_option);
       if (rank == 0)
       {
-        MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       else
       {
-        MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       //now in out.total_data_arr we have the full dem that we have to partition according to the last state in the dynamic decomposition
       sub_dem.resize(1,1);
@@ -739,7 +743,7 @@ namespace Triton
     }
 
     MpiUtils::exchange(sub_dem.begin(), rows, cols, rank, size, USE_MATRIX);
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(ENSIFY_COMM_WORLD);
 
     if(!arglist.n_infile.empty())
     {
@@ -767,11 +771,11 @@ namespace Triton
       //note that we do this just in the case of the user provided with a mann file. If it is a constant number we don't have to do it since we assigned correctly the size using lrows,lcols
       if (rank == 0)
       {
-        MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       else
       {
-        MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       //now in out.total_data_arr we have the full nin that we have to partition according to the last state in the dynamic decomposition
       sub_nin.resize(1,1);
@@ -783,7 +787,7 @@ namespace Triton
     sub_nin.square();
 
     MpiUtils::exchange(sub_nin.begin(), rows, cols, rank, size, USE_MATRIX);
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(ENSIFY_COMM_WORLD);
 
 
     if (arglist.h_infile.size() > 0)
@@ -806,7 +810,7 @@ namespace Triton
       }
       
       MpiUtils::exchange(sub_hin.begin(), rows, cols, rank, size, USE_MATRIX);
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(ENSIFY_COMM_WORLD);
     
     }
 
@@ -828,7 +832,7 @@ namespace Triton
         sub_qxin.copy_value_into_ghost_cells();
       }
       MpiUtils::exchange(sub_qxin.begin(), rows, cols, rank, size, USE_MATRIX);
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(ENSIFY_COMM_WORLD);
 
 
     }
@@ -851,7 +855,7 @@ namespace Triton
         sub_qyin.copy_value_into_ghost_cells();
       }
       MpiUtils::exchange(sub_qyin.begin(), rows, cols, rank, size, USE_MATRIX);
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(ENSIFY_COMM_WORLD);
 
     }
 
@@ -873,11 +877,11 @@ namespace Triton
         
         if (rank == 0)
         {
-          MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+          MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, ENSIFY_COMM_WORLD);
         }
         else
         {
-          MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+          MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, ENSIFY_COMM_WORLD);
         }
         sub_rin.resize(1,1);
         sub_rin = MpiUtils::scatter_exchange_int(out.total_data_arr_int, pd, rank);
@@ -888,7 +892,7 @@ namespace Triton
 
 	//not neccesary to exchange. Otherwise a new function should be done because MpiUtils::exchange works with real numbers
       //MpiUtils::exchange(sub_rin.begin(), rows, cols, rank, size, USE_MATRIX);
-      //MPI_Barrier(MPI_COMM_WORLD);
+      //MPI_Barrier(ENSIFY_COMM_WORLD);
     }
 
     if (arglist.checkpoint_id > 0)
@@ -926,11 +930,11 @@ namespace Triton
       }
 
       MpiUtils::exchange(sub_hot_hin.begin(), rows, cols, rank, size, USE_MATRIX);
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(ENSIFY_COMM_WORLD);
       MpiUtils::exchange(sub_hot_qxin.begin(), rows, cols, rank, size, USE_MATRIX);
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(ENSIFY_COMM_WORLD);
       MpiUtils::exchange(sub_hot_qyin.begin(), rows, cols, rank, size, USE_MATRIX);
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(ENSIFY_COMM_WORLD);
 
       
       if (arglist.max_value_print_option.size() > 0)  
@@ -1514,11 +1518,11 @@ namespace Triton
           sub_hot_qyin.copy_value_into_ghost_cells();
         }
         MpiUtils::exchange(sub_hot_hin.begin(), rows, cols, rank, size, USE_MATRIX);
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(ENSIFY_COMM_WORLD);
         MpiUtils::exchange(sub_hot_qxin.begin(), rows, cols, rank, size, USE_MATRIX);
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(ENSIFY_COMM_WORLD);
         MpiUtils::exchange(sub_hot_qyin.begin(), rows, cols, rank, size, USE_MATRIX);
-        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(ENSIFY_COMM_WORLD);
         
         if (arglist.max_value_print_option.size() > 0)  
         {
@@ -1976,7 +1980,7 @@ namespace Triton
       std::cerr << OK "Simulation starts" << std::endl;
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(ENSIFY_COMM_WORLD);
 
 
     st.start(SIMULATION_TIME);
@@ -2155,7 +2159,7 @@ namespace Triton
     {
       st.start(BALANCING_MPI_TIME);
       st.start(MPI_TIME);
-      MPI_Allreduce(&local_dt, &global_dt, 1, MPI_DATA_TYPE, MPI_MIN, MPI_COMM_WORLD);
+      MPI_Allreduce(&local_dt, &global_dt, 1, MPI_DATA_TYPE, MPI_MIN, ENSIFY_COMM_WORLD);
       st.stop(MPI_TIME);
       st.stop(BALANCING_MPI_TIME);
     }
@@ -2370,7 +2374,7 @@ namespace Triton
     int flag=0;
 
 
-    MPI_Gather(&mpi_time, 1, MPI_DATA_TYPE, &mpi_time_all[rank], 1, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+    MPI_Gather(&mpi_time, 1, MPI_DATA_TYPE, &mpi_time_all[rank], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 
     if(rank==0){
       sumMPI=0.0;
@@ -2403,16 +2407,16 @@ namespace Triton
         exit(EXIT_FAILURE); 
       }
     }
-    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(ENSIFY_COMM_WORLD);
     
-    MPI_Bcast(&flag, 1, MPI_INT, 0, MPI_COMM_WORLD); 
+    MPI_Bcast(&flag, 1, MPI_INT, 0, ENSIFY_COMM_WORLD); 
     
     if(flag==0){
       st.restart(BALANCING_MPI_TIME);
       return 0; 
     }
 
-    MPI_Bcast(dyn_rows, size, MPI_INT, 0, MPI_COMM_WORLD); 
+    MPI_Bcast(dyn_rows, size, MPI_INT, 0, ENSIFY_COMM_WORLD); 
 
 
     for(int i=0;i<pd.size;i++){
@@ -2500,11 +2504,11 @@ namespace Triton
       //gather dem
       if (rank == 0)
       {
-        MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_dem.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       else
       {
-        MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_dem.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       sub_dem.resize(1,1);
       sub_dem = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
@@ -2512,11 +2516,11 @@ namespace Triton
       //gather nin
       if (rank == 0)
       {
-        MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_nin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       else
       {
-        MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv(sub_nin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       }
       sub_nin.resize(1,1);
       sub_nin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
@@ -2526,11 +2530,11 @@ namespace Triton
         //gather rmap
         if (rank == 0)
         {
-          MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+          MPI_Gatherv(sub_rin.get_address_at(0, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, ENSIFY_COMM_WORLD);
         }
         else
         {
-          MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, MPI_COMM_WORLD);
+          MPI_Gatherv(sub_rin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_INTEGER, out.total_data_arr_int, out.recvcounts, out.displs, MPI_INTEGER, 0, ENSIFY_COMM_WORLD);
         }
         sub_rin.resize(1,1);
         sub_rin = MpiUtils::scatter_exchange_int(out.total_data_arr_int, pd, rank);
@@ -2553,11 +2557,11 @@ namespace Triton
     //gather H
     if (rank == 0)
     {
-      MPI_Gatherv(sub_hin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_hin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     else
     {
-      MPI_Gatherv(sub_hin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_hin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
 
     sub_hin.resize(1,1);
@@ -2567,11 +2571,11 @@ namespace Triton
     //gather QX
     if (rank == 0)
     {
-      MPI_Gatherv(sub_qxin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_qxin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     else
     {
-      MPI_Gatherv(sub_qxin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_qxin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     sub_qxin.resize(1,1);
     sub_qxin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
@@ -2579,11 +2583,11 @@ namespace Triton
     //gather QY
     if (rank == 0)
     {
-      MPI_Gatherv(sub_qyin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_qyin.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     else
     {
-      MPI_Gatherv(sub_qyin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_qyin.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     sub_qyin.resize(1,1);
     sub_qyin = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);
@@ -2592,11 +2596,11 @@ namespace Triton
     //gather MAXH
     if (rank == 0)
     {
-      MPI_Gatherv(sub_max_value_h.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_max_value_h.get_address_at(0, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     else
     {
-      MPI_Gatherv(sub_max_value_h.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, MPI_COMM_WORLD);
+      MPI_Gatherv(sub_max_value_h.get_address_at(GHOST_CELL_PADDING, 0), out.cur_proc_data_size, MPI_DATA_TYPE, out.total_data_arr, out.recvcounts, out.displs, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
     sub_max_value_h.resize(1,1);
     sub_max_value_h = MpiUtils::scatter_exchange(out.total_data_arr, pd, rank);

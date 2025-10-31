@@ -1,11 +1,3 @@
-
-macro(process_target tname src)
-  add_executable(${tname} ${src})
-  target_compile_options(${tname} PUBLIC $<$<COMPILE_LANGUAGE:CXX>:${TRITON_CXX_FLAGS}>)
-  target_link_libraries(${tname} PUBLIC ${TRITON_LINK_FLAGS})
-  target_link_libraries(${tname} PUBLIC kokkos)
-endmacro()
-
 macro(run_bash_command command outvar)
   execute_process(
     COMMAND bash -c "${command}"
@@ -34,14 +26,34 @@ macro(add_build_and_run_scripts)
   file(APPEND ${_BuildScript} "cmake --build . -j ${N_PHYSICAL_CORES}\n\n")
   execute_process(COMMAND chmod +x ${_BuildScript})
 
-  # create a run script           
-  set(_RunScript ${CMAKE_BINARY_DIR}/triton_run.sh)
-  file(WRITE ${_RunScript}  "#!/usr/bin/env bash\n\n")
-  file(APPEND ${_RunScript} "source ./${ENVFILE}\n\n")
-  file(APPEND ${_RunScript} "CFG_FILE=\${1:-./input/paraboloid/paraboloid.cfg}\n")
-  file(APPEND ${_RunScript} "MPI_CMD=\${2:-${RUN_COMMAND}}\n")
-  file(APPEND ${_RunScript} "\${MPI_CMD} ./${TRITON_EXECUTABLE} \${CFG_FILE}\n\n")
-  execute_process(COMMAND chmod +x ${_RunScript})
+  if (ENSEMBLE_BUILD)
+    # create an ensemble run script           
+    set(_RunScript ${CMAKE_BINARY_DIR}/triton_ensrun.sh)
+    file(WRITE ${_RunScript}  "#!/usr/bin/env bash\n\n")
+    file(APPEND ${_RunScript} "source ./${ENVFILE}\n\n")
+    file(APPEND ${_RunScript} "ENSCFG_FILE=\${1:-./ensembles_ensify.yaml}\n")
+    file(APPEND ${_RunScript} "MPI_CMD=\${2:-${RUN_COMMAND}}\n")
+    file(APPEND ${_RunScript} "\${MPI_CMD} ./${TRITON_EXECUTABLE} \${ENSCFG_FILE}\n\n")
+    execute_process(COMMAND chmod +x ${_RunScript})
+
+    configure_file(${CMAKE_SOURCE_DIR}/test/ensembles_ensify.yaml
+      ${CMAKE_BINARY_DIR}/ensembles_ensify.yaml COPYONLY)
+    configure_file(${CMAKE_SOURCE_DIR}/test/paraboloid_ens1.cfg
+      ${CMAKE_BINARY_DIR}/paraboloid_ens1.cfg COPYONLY)
+    configure_file(${CMAKE_SOURCE_DIR}/test/paraboloid_ens2.cfg
+      ${CMAKE_BINARY_DIR}/paraboloid_ens2.cfg COPYONLY)
+
+  else()
+
+    # create a run script           
+    set(_RunScript ${CMAKE_BINARY_DIR}/triton_run.sh)
+    file(WRITE ${_RunScript}  "#!/usr/bin/env bash\n\n")
+    file(APPEND ${_RunScript} "source ./${ENVFILE}\n\n")
+    file(APPEND ${_RunScript} "CFG_FILE=\${1:-./input/paraboloid/paraboloid.cfg}\n")
+    file(APPEND ${_RunScript} "MPI_CMD=\${2:-${RUN_COMMAND}}\n")
+    file(APPEND ${_RunScript} "\${MPI_CMD} ./${TRITON_EXECUTABLE} \${CFG_FILE}\n\n")
+    execute_process(COMMAND chmod +x ${_RunScript})
+  endif()
 
   execute_process(
     COMMAND ${CMAKE_COMMAND} -E create_symlink
@@ -85,6 +97,16 @@ macro(add_clean_script)
   file(APPEND ${_CleanScript} "    output_allatoona \\\n")
   file(APPEND ${_CleanScript} "    output_circular_dambreak \\\n")
   file(APPEND ${_CleanScript} "    output_paraboloid \\\n")
+  file(APPEND ${_CleanScript} "    triton_ensrun.sh \\\n")
+  file(APPEND ${_CleanScript} "    ensembles_ensify.yaml \\\n")
+  file(APPEND ${_CleanScript} "    paraboloid_ens1.cfg \\\n")
+  file(APPEND ${_CleanScript} "    paraboloid_ens2.cfg \\\n")
+  file(APPEND ${_CleanScript} "    output_ens1 \\\n")
+  file(APPEND ${_CleanScript} "    output_ens2 \\\n")
+  file(APPEND ${_CleanScript} "    ens1.err \\\n")
+  file(APPEND ${_CleanScript} "    ens1.out \\\n")
+  file(APPEND ${_CleanScript} "    ens2.err \\\n")
+  file(APPEND ${_CleanScript} "    ens2.out \\\n")
   file(APPEND ${_CleanScript} "    external \\\n")
   file(APPEND ${_CleanScript} "    input \\\n")
   file(APPEND ${_CleanScript} "    output")

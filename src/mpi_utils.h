@@ -23,6 +23,10 @@
 #include "matrix.h"
 #include "constants.h"
 
+#ifdef ENSEMBLE_BUILD
+#include "Ensify.h"
+#endif
+
 namespace MpiUtils
 {
 	
@@ -143,12 +147,12 @@ namespace MpiUtils
 
 		if (rank < size - 1)
 		{
-			MPI_Isend(&(local[pr]), data_size, MPI_DATA_TYPE, (rank + 1), 0, MPI_COMM_WORLD, &send_request);
+			MPI_Isend(&(local[pr]), data_size, MPI_DATA_TYPE, (rank + 1), 0, ENSIFY_COMM_WORLD, &send_request);
 		}
 
 		if (rank > 0)
 		{
-			MPI_Irecv(&(local[0]), data_size, MPI_DATA_TYPE, (rank - 1), 0, MPI_COMM_WORLD, &recv_request);
+			MPI_Irecv(&(local[0]), data_size, MPI_DATA_TYPE, (rank - 1), 0, ENSIFY_COMM_WORLD, &recv_request);
 		}
 
 		if (rank < size - 1)
@@ -163,12 +167,12 @@ namespace MpiUtils
 		
 		if (rank > 0)
 		{
-			MPI_Isend(&(local[sr]), data_size, MPI_DATA_TYPE, (rank - 1), 0, MPI_COMM_WORLD, &send_request);
+			MPI_Isend(&(local[sr]), data_size, MPI_DATA_TYPE, (rank - 1), 0, ENSIFY_COMM_WORLD, &send_request);
 		}
 
 		if (rank < size - 1)
 		{
-			MPI_Irecv(&(local[lr]), data_size, MPI_DATA_TYPE, (rank + 1), 0, MPI_COMM_WORLD, &recv_request);
+			MPI_Irecv(&(local[lr]), data_size, MPI_DATA_TYPE, (rank + 1), 0, ENSIFY_COMM_WORLD, &recv_request);
 		}
 
 		if (rank > 0)
@@ -210,13 +214,13 @@ namespace MpiUtils
 				lcols2 = pd.part_dims[p].second,
 				subsize2 = lrows2 * lcols2;
 
-				MPI_Isend(&global[row_pos*(long long)lcols2], subsize2, MPI_DATA_TYPE, p, 0, MPI_COMM_WORLD,&send_request[p-1]);
+				MPI_Isend(&global[row_pos*(long long)lcols2], subsize2, MPI_DATA_TYPE, p, 0, ENSIFY_COMM_WORLD,&send_request[p-1]);
 				row_pos += lrows2 - 2*GHOST_CELL_PADDING;
 			}
 		}
 		else
 		{
-			MPI_Irecv(sub_grid.get_address_at(0, 0), subsize, MPI_DATA_TYPE, 0, 0, MPI_COMM_WORLD, &recv_request);
+			MPI_Irecv(sub_grid.get_address_at(0, 0), subsize, MPI_DATA_TYPE, 0, 0, ENSIFY_COMM_WORLD, &recv_request);
 		}
 
 		if (rank == 0)
@@ -255,13 +259,13 @@ namespace MpiUtils
 				lcols2 = pd.part_dims[p].second,
 				subsize2 = lrows2 * lcols2;
 
-				MPI_Isend(&global[row_pos*(long long)lcols2], subsize2, MPI_INTEGER, p, 0, MPI_COMM_WORLD,&send_request[p-1]);
+				MPI_Isend(&global[row_pos*(long long)lcols2], subsize2, MPI_INTEGER, p, 0, ENSIFY_COMM_WORLD,&send_request[p-1]);
 				row_pos += lrows2 - 2*GHOST_CELL_PADDING;
 			}
 		}
 		else
 		{
-			MPI_Irecv(sub_grid.get_address_at(0, 0), subsize, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, &recv_request);
+			MPI_Irecv(sub_grid.get_address_at(0, 0), subsize, MPI_INTEGER, 0, 0, ENSIFY_COMM_WORLD, &recv_request);
 		}
 
 		if (rank == 0)
