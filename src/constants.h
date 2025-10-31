@@ -39,14 +39,14 @@ namespace Constants
     #define FMAX fmaxf
     #define FMIN fminf
 	#define MPI_DATA_TYPE MPI_FLOAT    /**< Represents MPI floating-point number. It can be MPI_DOUBLE or MPI_FLOAT. */
-	#define MAX_VALUE FLT_MAX    /**< Maximum value of a floating-point number. It can be DBL_MAX or FLT_MAX. */
+	#define MAX_VALUE 1e10    /**< Maximum value of a floating-point number. It can be DBL_MAX or FLT_MAX. */
 	#define EPS12 1e-6    /**< Tolerance e-12. */
 #else
 typedef double value_t;    /**< Data type to represent floating-point number. It can be double or float. */
     #define FMAX fmax
     #define FMIN fmin
 #define MPI_DATA_TYPE MPI_DOUBLE    /**< Represents MPI floating-point number. It can be MPI_DOUBLE or MPI_FLOAT. */
-#define MAX_VALUE DBL_MAX    /**< Maximum value of a floating-point number. It can be DBL_MAX or FLT_MAX. */
+	#define MAX_VALUE 1e10    /**< Maximum value of a floating-point number. It can be DBL_MAX or FLT_MAX. */
 	#define EPS12 1e-12    /**< Tolerance e-12. */
 #endif
 
