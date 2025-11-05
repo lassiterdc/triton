@@ -23,9 +23,7 @@
 #include "output.h"
 #include "mpi_utils.h"
 
-#ifdef ENSEMBLE_BUILD
 #include "Ensify.h"
-#endif
 
 namespace Triton
 {

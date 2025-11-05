@@ -1,6 +1,8 @@
 
 #pragma once
 
+#ifdef ENSEMBLE_BUILD
+
 #include "yaml-cpp/yaml.h"
 #include <fstream>
 
@@ -112,3 +114,9 @@ namespace ensify {
 }
 
 #define ENSIFY_COMM_WORLD ensify::comm()
+
+#else
+
+#define ENSIFY_COMM_WORLD MPI_COMM_WORLD
+
+#endif

@@ -21,10 +21,7 @@
 
 #include "matrix.h"
 #include "constants.h"
-
-#ifdef ENSEMBLE_BUILD
 #include "Ensify.h"
-#endif
 
 namespace MpiUtils
 {
