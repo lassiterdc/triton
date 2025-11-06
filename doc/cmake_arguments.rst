@@ -22,11 +22,11 @@ TRITON accepts the following **OPTIONAL** CMake command-line arguments.
 
 
 ``-DMACHINE=<predefined-machine-name|path-to-custom-machinefile>``
-   This argument sets the name of machine. The name of machine can be one pre-defined at `<TRITON_HOME>/cmake/machines` directory or the path to a customized machine configuration file. If this argument is omitted, the name is set to the name of OS such as Linux or Darwin.
+   This argument specifies the name of the machine. The machine name can be either one of the predefined configurations located in the <TRITON_HOME>/cmake/machines directory or the path to a custom machine configuration file. If this argument is omitted, the build system automatically attempts to detect the machine name and use it if found. If no match is found, the name defaults to the operating system name, such as Linux or Darwin.
 
 .. code-block:: bash
 
-  # for the current OS, default compiler, and default backend
+  # for the machine detected or the current OS, default compiler, and default backend
   cmake ${TRITON_HOME}
 
   # for frontier machine, default compiler, and default backend
@@ -47,7 +47,7 @@ how to create a custom machine file.
    
 .. code-block:: bash
 
-  # for gnu compiler and the current OS
+  # for gnu compiler and the machine detected or the current OS
   cmake ${TRITON_HOME} -DCOMPILER=gnu
 
 ``-DBACKEND=<predefined-backend-name>``
@@ -55,7 +55,7 @@ how to create a custom machine file.
 
 .. code-block:: bash
 
-  # for CUDA backend and the current OS
+  # for CUDA backend and the machine detected or the current OS
   cmake ${TRITON_HOME} -DBACKEND=CUDA
 
 The pre-defined names are derived from Kokkos-supported backends including:
@@ -98,6 +98,9 @@ The pre-defined names are derived from Kokkos-supported backends including:
 ``-DBUILD_TESTS=<ON|OFF>``
    This argument enables TRITON ctest feature. See the following ``Building TRITON CTest Cases`` section for details.
 
+``-DENSEMBLE_BUILD<ON|OFF>``
+   This argument enables TRITON ensemble build. See the :ref:`Running TRITON in Ensemble Mode <ensemble_run>` for more details.
+
 Using Environmental Variables
 -----------------------------------------
 
@@ -127,20 +130,20 @@ The following examples illustrate how to invoke CMake with different options:
    mkdir build
    cd build
    
-   # the default compiler and backend are selected for the host OS
-   # search for Linux/default_default.sh
+   # the default compiler and backend are selected for the host OS or the detected machine
+   # search for Linux/default_default.sh if no machine is detected
    cmake ..
    
    # the default compiler and backend are selected for the Frontier system
    # search for frontier/default_default.sh
    cmake .. -DMACHINE=frontier
    
-   # the Cray compiler and default backend are selected for the host OS
-   # search for Linux/cray_default.sh
+   # the Cray compiler and default backend are selected for the host OS or the detected machine
+   # search for Linux/cray_default.sh if no machine is detected
    cmake .. -DCOMPILER=cray
    
-   # the default compiler and HIP backend are selected for the host OS
-   # search for Linux/default_HIP.sh
+   # the default compiler and HIP backend are selected for the host OS or the detected machine
+   # search for Linux/default_HIP.sh if no machine is detected
    cmake .. -DBACKEND=HIP
    
    # the default compiler and HIP backend are selected for the Frontier system

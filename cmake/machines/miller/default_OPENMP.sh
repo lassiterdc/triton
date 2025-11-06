@@ -1,1 +1,1 @@
-cray_OPENMP.sh
+nvidia_OPENMP.sh

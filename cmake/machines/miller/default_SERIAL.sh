@@ -1,1 +1,1 @@
-cray_SERIAL.sh
+nvidia_SERIAL.sh

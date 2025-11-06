@@ -31,6 +31,8 @@ The following list shows the available machine configuration variables. See :ref
 * ``TRITON_LINKER_FLAGS``
 * ``TRITON_LINKER_FLAGS_APPEND``
 * ``TRITON_DEBUG``
+* ``TRITON_BUILD_TESTS``
+* ``TRITON_ENSEMBLE_BUILD``
 
 **Example Machine Configuration File**
 

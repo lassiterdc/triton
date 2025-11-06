@@ -14,6 +14,12 @@ macro(run_win_command command outvar)
   )
 endmacro()
 
+function(DEBUG_MESSAGE msg)
+  if(DEBUG)
+    message(STATUS "${msg}")
+  endif()
+endfunction()
+
 macro(add_build_and_run_scripts)
 
   cmake_host_system_information(RESULT N_PHYSICAL_CORES QUERY NUMBER_OF_PHYSICAL_CORES)

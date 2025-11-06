@@ -24,14 +24,16 @@ export LD_LIBRARY_PATH="$GDAL_DIR/lib64:$PROJ_DIR/lib64:$TIFF_DIR/lib64:$SQLITE3
 export PKG_CONFIG_PATH="$GDAL_DIR/lib64/pkgconfig:$PROJ_DIR/lib64/pkgconfig:$TIFF_DIR/lib64/pkgconfig:$SQLITE3_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PATH="$GDAL_DIR/bin:$PROJ_DIR/bin:$TIFF_DIR/bin:$SQLITE3_DIR/bin:$PATH"
 
-export TRITON_BACKEND=CUDA
-export TRITON_ARCH=HOPPER90
+export TRITON_BACKEND=OPENMP
 export TRITON_COMPILER=CC
-export TRITON_COMPILER_FLAGS=
-export TRITON_LINKER_FLAGS=
+export TRITON_COMPILER_FLAGS="-fopenmp"
+export TRITON_LINKER_FLAGS="-fopenmp"
 export TRITON_DEBUG=OFF
-export TRITON_RUN_COMMAND="srun -n 4"
+export TRITON_RUN_COMMAND="srun -n 2"
 
 export CRAYPE_LINK_TYPE=dynamic
 export CRAY_CPU_TARGET=aarch64
 
+export OMP_NUM_THREADS=2
+export OMP_PROC_BIND=true
+export OMP_WAIT_POLICY=PASSIVE

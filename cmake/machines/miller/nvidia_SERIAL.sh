@@ -23,14 +23,12 @@ export LD_LIBRARY_PATH="$GDAL_DIR/lib64:$GEOTIFF_DIR/lib:$PROJ_DIR/lib64:$TIFF_D
 export PKG_CONFIG_PATH="$GDAL_DIR/lib64/pkgconfig:$GEOTIFF_DIR/lib/pkgconfig:$PROJ_DIR/lib64/pkgconfig:$TIFF_DIR/lib64/pkgconfig:$SQLITE3_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PATH="$GDAL_DIR/bin:$GEOTIFF_DIR/bin:$PROJ_DIR/bin:$TIFF_DIR/bin:$SQLITE3_DIR/bin:$PATH"
 
-export TRITON_BACKEND="CUDA"
-export TRITON_ARCH="AMPERE80"
-export TRITON_COMPILER="CC"
+export TRITON_BACKEND=SERIAL
+export TRITON_COMPILER=CC
 export TRITON_COMPILER_FLAGS=
-export TRITON_LINK_FLAGS=
+export TRITON_LINKER_FLAGS=
 export TRITON_DEBUG=OFF
-export TRITON_RUN_COMMAND="srun -n 4 --gpus-per-task=1"
+export TRITON_RUN_COMMAND="srun -n 2"
 
 export CRAYPE_LINK_TYPE=dynamic
-export CUDA_DIR=${CUDA_HOME}
-export CRAY_CPU_TARGET=${CPU}
+export CRAY_CPU_TARGET=x86-64

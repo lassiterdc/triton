@@ -20,7 +20,6 @@
 #define CONFIG_UTILS_H
 
 #include "string_utils.h"
-#include <filesystem>
 
 namespace ConfigUtils
 {
@@ -545,31 +544,42 @@ namespace ConfigUtils
 
     std::string get_root_dir(const char* input_path)
     {
-        namespace fs = std::filesystem;
-
-        if (input_path == nullptr || *input_path == '\0') {
-            std::cerr << "[get_root_dir] Empty or null path input.\n";
-            return fs::current_path().string();
+        // Handle empty or null path
+        if (input_path == NULL || *input_path == '\0') {
+            char cwd[PATH_MAX];
+            if (getcwd(cwd, sizeof(cwd)) != NULL)
+                return std::string(cwd);
+            else
+                return ".";
         }
 
+        // Start from input
+        std::string path(input_path);
 
-        try {
-            // Convert input to an absolute, canonicalized path
-            fs::path p = fs::absolute(fs::path(input_path));
-
-            // Go up two levels (if possible)
-            if (p.has_parent_path())
-                p = p.parent_path();
-            if (p.has_parent_path())
-                p = p.parent_path();
-
-            // Convert to string
-            return p.string();
+        // If not absolute, prepend current working directory
+        if (path[0] != '/') {
+            char cwd[PATH_MAX];
+            if (getcwd(cwd, sizeof(cwd)) != NULL)
+                path = std::string(cwd) + "/" + path;
         }
-        catch (const fs::filesystem_error& e) {
-            std::cerr << "[get_root_dir] Filesystem error: " << e.what() << "\n";
-            return fs::current_path().string();
+
+        // Normalize path manually: remove trailing '/'
+        while (path.size() > 1 && path[path.size() - 1] == '/')
+            path.erase(path.size() - 1);
+
+        // Go up two levels
+        for (int i = 0; i < 2; ++i) {
+            size_t pos = path.find_last_of('/');
+            if (pos == std::string::npos || pos == 0)
+                break;
+            path = path.substr(0, pos);
         }
+
+        // If resulting path is empty, use "."
+        if (path.empty())
+            path = ".";
+
+        return path;
     }
 
 
