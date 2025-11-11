@@ -23,9 +23,7 @@
 #include "output.h"
 #include "mpi_utils.h"
 
-#ifdef ENSEMBLE_BUILD
 #include "Ensify.h"
-#endif
 
 namespace Triton
 {
@@ -2124,6 +2122,8 @@ namespace Triton
   template<typename T>
   void triton<T>::compute_init_dt()
   {
+    T global_init_dt;
+
   	 if(arglist.time_series_flag){
     	init_dt=FMIN(arglist.print_observation,arglist.print_interval);
     }else{
@@ -2136,6 +2136,13 @@ namespace Triton
       init_dt=fmin(init_dt,hyg.get_time_at(1)-hyg.get_time_at(0));
     }
     init_dt*=0.01;
+
+    if(size > 1){
+      st.start(MPI_TIME);
+      MPI_Allreduce(&init_dt, &global_init_dt, 1, MPI_DATA_TYPE, MPI_MIN, MPI_COMM_WORLD);
+      st.stop(MPI_TIME);
+      init_dt=global_init_dt;
+    }
 
   }
 

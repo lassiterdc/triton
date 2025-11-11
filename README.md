@@ -102,7 +102,9 @@ We welcome contributions!
 
 ## License
 
-TRITON is released under the **3-Clause BSD License**. See [LICENSE](LICENSE) for more details.
+TRITON is released under the **3-Clause BSD License**. See the [LICENSE](LICENSE) file for full terms and conditions.
+
+External third-party libraries included or referenced by TRITON retain their own respective licenses, which are provided in the **licenses** subdirectory.
 
 ## Acknowledgments
 

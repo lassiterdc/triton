@@ -2,7 +2,7 @@
 
 source ${MODULESHOME}/init/bash
 module reset
-module load PrgEnv-cray
+module load PrgEnv-cray cmake cray-python
 
 export CRAYPE_LINK_TYPE=dynamic
 

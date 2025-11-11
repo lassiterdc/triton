@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16 FATAL_ERROR) # minimum CMake version to supp
 
 set(TRITON_EXECUTABLE "triton.exe")
 
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
 # put these before project(...)
 include(cmake/util.cmake)
 include(cmake/machine.cmake)
@@ -10,6 +12,8 @@ set_environment()
 
 project(triton CXX)
 set(CMAKE_CXX_STANDARD 17) # minimum C++ standard to support Kokkos
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 message(STATUS "CMAKE_CXX_COMPILER = ${CMAKE_CXX_COMPILER}")
 
@@ -40,7 +44,6 @@ add_build_and_run_scripts()
 
 # add tests
 if(${BUILD_TESTS})
-  find_package(Python3 COMPONENTS Interpreter REQUIRED)
   enable_testing()
   add_subdirectory(${TRITON_SOURCE_DIR}/test)
   add_test_script()

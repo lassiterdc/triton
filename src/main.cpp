@@ -38,10 +38,7 @@
 #endif
 
 #include "mpi.h"
-
-#ifdef ENSEMBLE_BUILD
 #include "Ensify.h"
-#endif
 
 using namespace std;
 

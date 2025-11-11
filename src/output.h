@@ -30,9 +30,7 @@
 #include <cpl_conv.h> // For geotiff output
 #endif
 
-#ifdef ENSEMBLE_BUILD
 #include "Ensify.h"
-#endif
 
 namespace Output
 {
