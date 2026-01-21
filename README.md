@@ -59,6 +59,76 @@ make docker_run
 docker pull grnydawn/triton-mpich
 ```
 
+### **SWMM Coupling (Optional)**
+
+TRITON can be coupled with EPA's Stormwater Management Model (SWMM) for integrated surface-subsurface urban drainage simulation.
+
+#### Prerequisites for SWMM Coupling
+
+1. **SWMM Library**: Build SWMM 5.2+ from source:
+   ```bash
+   # Clone SWMM (if not already available)
+   git clone https://github.com/USEPA/Stormwater-Management-Model.git swmm
+   cd swmm
+   mkdir build && cd build
+   cmake ..
+   cmake --build .
+   ```
+
+2. **Set SWMM_ROOT_DIR** (or CMake will find SWMM in the default location):
+   ```bash
+   export SWMM_ROOT_DIR=/path/to/swmm
+   ```
+
+#### Build with SWMM Coupling
+
+```bash
+cd triton
+mkdir build && cd build
+cmake -DTRITON_ENABLE_SWMM=ON ..
+./triton_build.sh
+```
+
+Or specify SWMM paths explicitly:
+```bash
+cmake -DTRITON_ENABLE_SWMM=ON \
+      -DSWMM_INCLUDE_DIR=/path/to/swmm/src/solver/include \
+      -DSWMM_LIBRARY_DIR=/path/to/swmm/build/bin \
+      ..
+./triton_build.sh
+```
+
+#### SWMM Configuration
+
+Add the following parameters to your TRITON configuration (.cfg) file:
+
+```cfg
+# SWMM coupling parameters
+inp_filename = "path/to/swmm_network.inp"     # SWMM input file
+manhole_diameter = 1.2                         # Manhole diameter (m)
+manhole_loss = 0.7                             # Manhole loss coefficient
+```
+
+The SWMM .inp file should define:
+- **COORDINATES**: X, Y locations of SWMM nodes
+- **JUNCTIONS**: Junction elevation and max depth
+- **INFLOWS**: Nodes that exchange flow with the surface (TRITON)
+
+#### Output
+
+When SWMM coupling is enabled:
+- A `swmm/` subdirectory is created in the output folder
+- SWMM results are written as:
+  - `*.rpt` - ASCII report file
+  - `*.out` - Binary output file
+
+#### Notes
+
+- The SWMM model should preferably use the DYNWAVE flow routing solver
+- Ensure manhole diameter is smaller than grid resolution to avoid numerical instabilities
+- Multiple SWMM nodes can connect to the same TRITON cell (will cause an error)
+- SWMM runs only on rank 0; exchange flow is computed on all ranks
+
 ## Running a Simulation
 
 Run a sample case from the build directory using:
