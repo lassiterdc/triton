@@ -18,7 +18,7 @@ TRITON is an open-source, high-performance software framework for 2D flood simul
 triton/
 ├── doc/           # User guides, API references, and technical documentation
 ├── src/           # Core simulation source code
-├── external/      # Kokkos Git submodule
+├── external/      # Kokkos and yaml-cpp Git submodules, bundled SWMM
 ├── input/         # Sample simulation input data files
 ├── test/          # Regression test suite based on CTest
 ├── cmake/         # CMake configuration modules and machine files
@@ -39,17 +39,23 @@ Optional: GDAL for GeoTIFF support
 Kokkos is included as a Git submodule. No system install is required.
 
 ### **Build Instructions**
+
 ```bash
+# Clone TRITON
 git clone --recursive https://code.ornl.gov/hydro/triton.git
 cd triton
+
+# Create build directory
 mkdir build && cd build
+
+# Configure
 cmake ..
-./triton_build.sh
 
-
+# Build (use -jN for parallel compilation, e.g., -j4)
+make -j4
 ```
-On success, triton.exe is created in the build directory.
-For more details on cmake configurationa and compiler flags, please see the documentation. 
+
+**On success**, `triton.exe` is created in the build directory. 
 
 ### **Using Docker (Optional)**
 ```bash
@@ -63,22 +69,7 @@ docker pull grnydawn/triton-mpich
 
 TRITON can be coupled with EPA's Stormwater Management Model (SWMM) for integrated surface-subsurface urban drainage simulation.
 
-#### Prerequisites for SWMM Coupling
-
-1. **SWMM Library**: Build SWMM 5.2+ from source:
-   ```bash
-   # Clone SWMM (if not already available)
-   git clone https://github.com/USEPA/Stormwater-Management-Model.git swmm
-   cd swmm
-   mkdir build && cd build
-   cmake ..
-   cmake --build .
-   ```
-
-2. **Set SWMM_ROOT_DIR** (or CMake will find SWMM in the default location):
-   ```bash
-   export SWMM_ROOT_DIR=/path/to/swmm
-   ```
+**SWMM is included with TRITON** - no separate download or compilation needed!
 
 #### Build with SWMM Coupling
 
@@ -86,17 +77,10 @@ TRITON can be coupled with EPA's Stormwater Management Model (SWMM) for integrat
 cd triton
 mkdir build && cd build
 cmake -DTRITON_ENABLE_SWMM=ON ..
-./triton_build.sh
+make -j4
 ```
 
-Or specify SWMM paths explicitly:
-```bash
-cmake -DTRITON_ENABLE_SWMM=ON \
-      -DSWMM_INCLUDE_DIR=/path/to/swmm/src/solver/include \
-      -DSWMM_LIBRARY_DIR=/path/to/swmm/build/bin \
-      ..
-./triton_build.sh
-```
+That's it! The bundled SWMM library is compiled automatically as part of the TRITON build process.
 
 #### SWMM Configuration
 
@@ -128,6 +112,7 @@ When SWMM coupling is enabled:
 - Ensure manhole diameter is smaller than grid resolution to avoid numerical instabilities
 - Multiple SWMM nodes can connect to the same TRITON cell (will cause an error)
 - SWMM runs only on rank 0; exchange flow is computed on all ranks
+- **Important**: When running with multiple MPI ranks, use 1 or 2 ranks for SWMM coupling (4+ ranks may timeout)
 
 ## Running a Simulation
 

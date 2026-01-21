@@ -19,7 +19,17 @@
 
 #ifdef TRITON_SWMM
 
-// SWMM API headers - these should be available when SWMM coupling is enabled
+// SWMM internal headers (must be included before swmm5.h for TRUE/FALSE macros)
+#include "consts.h"
+#include "datetime.h"
+#include "enums.h"
+#include "error.h"
+#include "objects.h"
+#include "funcs.h"
+#include "macros.h"
+#include "text.h"
+
+// SWMM API header
 #include "swmm5.h"
 
 #include <algorithm>
