@@ -23,6 +23,10 @@
 #include "output.h"
 #include "mpi_utils.h"
 
+#ifdef TRITON_SWMM
+#include "swmm_triton.h"
+#endif
+
 #include "Ensify.h"
 
 namespace Triton
@@ -163,7 +167,12 @@ namespace Triton
     std::vector<T*> host_vec; /**< Vector that contains all floating point array to use in simulation. */
     std::vector<int*> host_vec_int; /**< Vector that contains all integer array to use in simulation. */
 
-    Output::output<T> out; /**Object to manage output files. */ 
+    Output::output<T> out; /**Object to manage output files. */
+
+#ifdef TRITON_SWMM
+    SWMM_triton::swmm_triton swmm_model; /**< SWMM coupling model object */
+    T swmm_local_elapsedTime; /**< Local elapsed time for SWMM */
+#endif
 
     gpuStream_t streams;  /**< Cuda stream */
     std::vector<T*> device_vec; /**< Device vector that contains all floating point array to use in simulation. */
@@ -392,10 +401,60 @@ namespace Triton
 
     process_runoff();
 
+#ifdef TRITON_SWMM
+    // Initialize SWMM coupling
+    swmm_local_elapsedTime = 0.0;
+    swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, dem.get_xll_corner(),
+                          dem.get_yll_corner(), cellsize, org_rows, org_cols, pd,
+                          arglist.manhole_diameter, arglist.manhole_loss);
+#endif
+
     create_host_aux_vectors();
-    
+
     create_host_vectors();
     create_device_vectors();
+
+#ifdef TRITON_SWMM
+    // Add SWMM data to host vectors after SWMM initialization
+    if (swmm_model.num_of_swmm_links > 0) {
+      host_vec.push_back(swmm_model.loss.data());
+      host_vec.push_back(swmm_model.diameter.data());
+      host_vec.push_back(swmm_model.max_depth.data());
+      host_vec.push_back(swmm_model.new_depth.data());
+      host_vec.push_back(swmm_model.exchange_q.data());
+
+      host_vec_int.push_back(swmm_model.swmm_pos_arr.data());
+
+      // Allocate device memory for SWMM data
+      int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
+      int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
+
+      T *device_loss, *device_diameter, *device_max_depth, *device_new_depth, *device_exchange_q;
+      int *device_swmm_pos;
+
+      gpuMalloc((void**)&device_loss, nbytes_swmm);
+      gpuMalloc((void**)&device_diameter, nbytes_swmm);
+      gpuMalloc((void**)&device_max_depth, nbytes_swmm);
+      gpuMalloc((void**)&device_new_depth, nbytes_swmm);
+      gpuMalloc((void**)&device_exchange_q, nbytes_swmm);
+      gpuMalloc((void**)&device_swmm_pos, nbytes_swmm_int);
+
+      device_vec.push_back(device_loss);
+      device_vec.push_back(device_diameter);
+      device_vec.push_back(device_max_depth);
+      device_vec.push_back(device_new_depth);
+      device_vec.push_back(device_exchange_q);
+      device_vec_int.push_back(device_swmm_pos);
+
+      // Initialize SWMM device data
+      gpuMemcpyAsync(device_vec[SWMM_LOSS], host_vec[SWMM_LOSS], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[SWMM_DIAMETER], host_vec[SWMM_DIAMETER], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[SWMM_MAXD], host_vec[SWMM_MAXD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[SWMM_Q], host_vec[SWMM_Q], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec_int[SWMMP], host_vec_int[SWMMP], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
+    }
+#endif
   }
   
   
@@ -2107,13 +2166,21 @@ namespace Triton
 
     st.stop(SIMULATION_TIME);
     st.stop(TOTAL_TIME);
-    
+
     out.write_times(st, -1);
-    
+
     if(rank==0){
       std::cerr << INFO " Time: " << simtime << "\tdt: " << average_dt/it_count_average << "\tit: " << it_count << std::endl;
       std::cerr << OK "Simulation ends" << std::endl;
     }
+
+#ifdef TRITON_SWMM
+    // Finalize SWMM coupling
+    if (swmm_model.num_of_swmm_links > 0) {
+      std::string output_dir_swmm = project_dir + "/" + OUTPUT_DIR + "/swmm/";
+      swmm_model.end_swmm(output_dir_swmm);
+    }
+#endif
 
 
   }
@@ -2260,6 +2327,47 @@ namespace Triton
 
     Kernels::wet_dry(rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
 
+#ifdef TRITON_SWMM
+    // SWMM-TRITON coupling
+    if (swmm_model.num_of_swmm_links > 0) {
+      int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
+      int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
+
+      // Copy new_depth from host to device (updated from previous SWMM step)
+      gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+      gpuStreamSynchronize(streams);
+
+      // Compute SWMM-TRITON exchange on device
+      SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_links, cell_size, global_dt,
+                                                  device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
+                                                  device_vec_int[SWMMP], device_vec[SWMM_LOSS],
+                                                  device_vec[SWMM_DIAMETER], device_vec[SWMM_MAXD],
+                                                  device_vec[SWMM_NEWD], device_vec[SWMM_Q]);
+
+      // Copy exchange_q from device to host
+      gpuMemcpyAsync(host_vec[SWMM_Q], device_vec[SWMM_Q], nbytes_swmm, gpuMemcpyDeviceToHost, streams);
+      gpuStreamSynchronize(streams);
+
+      // Gather exchange_q from all ranks to rank 0
+      MPI_Gatherv(host_vec[SWMM_Q], swmm_model.num_of_swmm_links, MPI_DATA_TYPE,
+                  swmm_model.aux_global_exchange_q, swmm_model.counts, swmm_model.displs,
+                  MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+
+      // Step SWMM forward on rank 0
+      if (rank == 0) {
+        swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
+                                    swmm_model.node_to_rank_dict);
+        swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
+        swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
+                                    swmm_model.node_to_rank_dict);
+      }
+
+      // Scatter new_depth from rank 0 to all ranks
+      MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
+                   MPI_DATA_TYPE, host_vec[SWMM_NEWD], swmm_model.num_of_swmm_links,
+                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+    }
+#endif
 
 
     if (size > 1)

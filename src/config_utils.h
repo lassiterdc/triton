@@ -51,6 +51,12 @@ namespace ConfigUtils
 		const_mann,	/**< Constant manning value to use in every cell in case of no external manning file is provided. */
 		hextra;	/**< Represents a the minimum water depth tolerance */
 
+#ifdef TRITON_SWMM
+		T
+		manhole_diameter,	/**< A constant characteristic length for manholes in SWMM (either diameter or width) */
+		manhole_loss;	/**< Loss coefficient for manholes in SWMM links */
+#endif
+
 		std::string
 		outfile_pattern,	/**< Output file directory and name pattern. */
 		hydrograph_filename,	/**< Directory of the Hygrograph file to use. */
@@ -77,6 +83,10 @@ namespace ConfigUtils
 		output_folder,	/**< Directory of the output folder. */
 		domain_decomposition,	/**< Domain decomposition. Options are static or dynamic. Static by default*/
 		print_interval_string;	/**< Print interval as a string. Used to assign default value to print_observation. */
+
+#ifdef TRITON_SWMM
+		std::string inp_filename;	/**< inp filename for SWMM model*/
+#endif
 
 
 		std::vector<T>
@@ -472,6 +482,12 @@ namespace ConfigUtils
 
 		arglist.domain_decomposition = args("domain_decomposition", argmap);
 		arglist.factor_interval_domain_decomposition = atoi((args("factor_interval_domain_decomposition", argmap)).c_str());
+
+#ifdef TRITON_SWMM
+		arglist.inp_filename = args("inp_filename", argmap);
+		arglist.manhole_diameter = atof((args("manhole_diameter", argmap)).c_str());
+		arglist.manhole_loss = atof((args("manhole_loss", argmap)).c_str());
+#endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
 		arglist.sim_duration = atof((args("sim_duration", argmap)).c_str());
