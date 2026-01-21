@@ -103,6 +103,14 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define OBSQX 21    /**< Flux X for observation point array position in vector. */
 #define OBSQY 22    /**< Flux Y for observation point array position in vector. */
 
+#ifdef TRITON_SWMM
+#define SWMM_LOSS 23    /**< SWMM loss coefficient array position in vector. */
+#define SWMM_DIAMETER 24    /**< SWMM diameter array position in vector. */
+#define SWMM_MAXD 25    /**< SWMM max depth array position in vector. */
+#define SWMM_NEWD 26    /**< SWMM new depth array position in vector. */
+#define SWMM_Q 27    /**< SWMM exchange flow array position in vector. */
+#endif
+
 #define SRCP 0    /**< Flow locations index array position in vector. */
 #define RUNID 1    /**< Runoff id array position in vector. */
 #define BCRELATIVEINDEX 2    /**< Boundary cells index array after domain decomposition position in vector. */
@@ -110,6 +118,11 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define BCINDEXSTART 4    /**< Boundary condition's start index array position in vector. */
 #define BCNROWSVARS 5    /**< Boundary condition's number of rows variable array position in vector. */
 #define OBSRELATIVEINDEX 6    /**< Observation point index array after domain decomposition position in vector. */
+
+#ifdef TRITON_SWMM
+#define SWMMP 7    /**< SWMM position index array after domain decomposition position in vector. */
+#define PI_ 3.1415926536    /**< Pi (only for SWMM coupling). */
+#endif
 
 #define TIMER_NSECS 0    /**< To use nano second in Timer. */
 #define TIMER_SECS 1    /**< To use second in Timer. */
