@@ -22,6 +22,49 @@ if(MACHINE STREQUAL Windows)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
+# SWMM coupling option
+option(TRITON_ENABLE_SWMM "Enable SWMM coupling for urban drainage" OFF)
+
+if(TRITON_ENABLE_SWMM)
+  # Find SWMM library
+  set(SWMM_ROOT_DIR "$ENV{SWMM_ROOT_DIR}" CACHE PATH "SWMM installation directory")
+  set(SWMM_INCLUDE_DIR "${SWMM_ROOT_DIR}/include" CACHE PATH "SWMM include directory")
+  set(SWMM_LIBRARY_DIR "${SWMM_ROOT_DIR}/lib" CACHE PATH "SWMM library directory")
+
+  # Try to find SWMM headers
+  find_path(SWMM_INCLUDE_PATH
+    NAMES swmm5.h
+    PATHS
+      ${SWMM_INCLUDE_DIR}
+      ${CMAKE_SOURCE_DIR}/external/swmm/include
+      /usr/local/include/swmm
+      /usr/include/swmm
+      ${PROJECT_SOURCE_DIR}/../Stormwater-Management-Model/src/solver/include
+    DOC "SWMM include directory"
+  )
+
+  # Try to find SWMM library
+  find_library(SWMM_LIBRARY
+    NAMES swmm5 swmm
+    PATHS
+      ${SWMM_LIBRARY_DIR}
+      ${CMAKE_SOURCE_DIR}/external/swmm/lib
+      /usr/local/lib
+      /usr/lib
+      ${PROJECT_SOURCE_DIR}/../Stormwater-Management-Model/build/bin
+    DOC "SWMM library"
+  )
+
+  if(SWMM_INCLUDE_PATH AND SWMM_LIBRARY)
+    message(STATUS "SWMM include directory: ${SWMM_INCLUDE_PATH}")
+    message(STATUS "SWMM library: ${SWMM_LIBRARY}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_SWMM")
+  else()
+    message(FATAL_ERROR "SWMM coupling requested but SWMM library/headers not found. "
+                       "Please set SWMM_ROOT_DIR or SWMM_INCLUDE_DIR and SWMM_LIBRARY_DIR")
+  endif()
+endif()
+
 # add external packages
 add_subdirectory(${TRITON_SOURCE_DIR}/external)
 
@@ -38,6 +81,11 @@ if (ENABLE_GDAL)
   target_include_directories(${TRITON_EXECUTABLE} PUBLIC ${GDAL_INCLUDE_DIR})
   target_link_libraries(${TRITON_EXECUTABLE} PUBLIC ${GDAL_LIBRARY})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_GDAL")
+endif()
+
+if(TRITON_ENABLE_SWMM)
+  target_include_directories(${TRITON_EXECUTABLE} PUBLIC ${SWMM_INCLUDE_PATH})
+  target_link_libraries(${TRITON_EXECUTABLE} PUBLIC ${SWMM_LIBRARY})
 endif()
 
 add_build_and_run_scripts()
