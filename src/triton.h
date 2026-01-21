@@ -405,7 +405,7 @@ namespace Triton
     // Initialize SWMM coupling
     swmm_local_elapsedTime = 0.0;
     swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, dem.get_xll_corner(),
-                          dem.get_yll_corner(), cellsize, org_rows, org_cols, pd,
+                          dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                           arglist.manhole_diameter, arglist.manhole_loss);
 #endif
 
