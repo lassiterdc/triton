@@ -144,6 +144,7 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define IO_TIME "io_time"    /**< Timer to get time needed for outputting in file. */
 #define RESIZE_TIME "resize_time"    /**< Timer to get time needed for resizing and re-balancing */
 #define BALANCING_MPI_TIME "balancing_mpi_time"    /**< Timer to get time needed for resizing and re-balancing */
+#define SWMM_TIME "swmm_time"    /**< Timer to get time needed for TRITON-SWMM coupling operations */
 
 
 #define TYPE_STATIC "static"    /**< Domain decomposition type: static*/

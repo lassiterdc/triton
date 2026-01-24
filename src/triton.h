@@ -2330,6 +2330,8 @@ namespace Triton
 #ifdef TRITON_SWMM
     // SWMM-TRITON coupling
     if (swmm_model.num_of_swmm_links > 0) {
+      st.stop(COMPUTE_TIME);
+      st.start(SWMM_TIME);
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
 
@@ -2366,6 +2368,8 @@ namespace Triton
       MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
                    MPI_DATA_TYPE, host_vec[SWMM_NEWD], swmm_model.num_of_swmm_links,
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+      st.stop(SWMM_TIME);
+      st.start(COMPUTE_TIME);
     }
 #endif
 

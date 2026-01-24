@@ -1466,9 +1466,10 @@ namespace Output
 		T mpi_time = st.get_custom_time(MPI_TIME);
 		T io_time = st.get_custom_time(IO_TIME);
 		T resize_time = st.get_custom_time(RESIZE_TIME);
+		T swmm_time = st.get_custom_time(SWMM_TIME);
 		T simulation_time = st.get_custom_time(SIMULATION_TIME);
 		T total_time = st.get_custom_time(TOTAL_TIME);
-		T other_time = simulation_time - compute_time - mpi_time - io_time - resize_time;
+		T other_time = simulation_time - compute_time - mpi_time - io_time - resize_time - swmm_time;
 		T init_time = total_time - simulation_time;
 
 		T *compute_time_all = new T[size_];
@@ -1479,6 +1480,7 @@ namespace Output
 		T *other_time_all = new T[size_];
 		T *init_time_all = new T[size_];
 		T *resize_time_all = new T[size_];
+		T *swmm_time_all = new T[size_];
 
 
 		MPI_Gather(&compute_time, 1, MPI_DATA_TYPE, &compute_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
@@ -1489,7 +1491,8 @@ namespace Output
 		MPI_Gather(&other_time, 1, MPI_DATA_TYPE, &other_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		MPI_Gather(&init_time, 1, MPI_DATA_TYPE, &init_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		MPI_Gather(&resize_time, 1, MPI_DATA_TYPE, &resize_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
-		
+		MPI_Gather(&swmm_time, 1, MPI_DATA_TYPE, &swmm_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+
 		if (size_ > 1)
 		{
 			MPI_Barrier(ENSIFY_COMM_WORLD);
@@ -1527,13 +1530,13 @@ namespace Output
 				filedir = outdir + "performance.txt";	
 			}
 			std::ofstream output(filedir);
-			output << "%Rank, Compute, MPI, IO, Resize, Other, Simulation, Init, Total" << std::endl;
+			output << "%Rank, Compute, MPI, IO, Resize, SWMM, Other, Simulation, Init, Total" << std::endl;
 			
 			for(int j=0;j<size_;j++){
-				output << std::setprecision(4) << j << ", " << compute_time_all[j] << ", " <<  mpi_time_all[j] << ", " <<	io_time_all[j] << ", " <<	resize_time_all[j] << ", " << other_time_all[j] << ", " 
+				output << std::setprecision(4) << j << ", " << compute_time_all[j] << ", " <<  mpi_time_all[j] << ", " <<	io_time_all[j] << ", " <<	resize_time_all[j] << ", " << swmm_time_all[j] << ", " << other_time_all[j] << ", "
 				<< simulation_time_all[j] << ", " << init_time_all[j] <<  ", " << total_time_all[j] << std::endl;
 			}
-			output << std::setprecision(4) << "Average" << ", " << average(compute_time_all,size_) << ", " <<  average(mpi_time_all,size_) << ", " <<	 average(io_time_all,size_) << ", " << average(resize_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " <<  average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
+			output << std::setprecision(4) << "Average" << ", " << average(compute_time_all,size_) << ", " <<  average(mpi_time_all,size_) << ", " <<	 average(io_time_all,size_) << ", " << average(resize_time_all,size_) << ", " << average(swmm_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " <<  average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
 
 			output.close();
 		}
