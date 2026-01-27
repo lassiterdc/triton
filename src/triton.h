@@ -2128,6 +2128,11 @@ namespace Triton
         st.stop(IO_TIME);
 
         #if WRITE_PERFORMANCE
+          // Synchronize before stopping timers to ensure all async operations complete
+          gpuStreamSynchronize(streams);
+          if (size > 1) {
+            MPI_Barrier(ENSIFY_COMM_WORLD);
+          }
           st.stop(SIMULATION_TIME);
           st.stop(TOTAL_TIME);
           out.write_times(st, print_id);
@@ -2161,9 +2166,14 @@ namespace Triton
 	st.start(IO_TIME);
 	out.write_observation_data(host_obs_h, host_obs_qx, host_obs_qy, simtime, arglist.print_option);
 	st.stop(IO_TIME);
-    }  
+    }
 
 
+    // Synchronize before stopping timers to ensure all async operations complete
+    gpuStreamSynchronize(streams);
+    if (size > 1) {
+      MPI_Barrier(ENSIFY_COMM_WORLD);
+    }
     st.stop(SIMULATION_TIME);
     st.stop(TOTAL_TIME);
 
