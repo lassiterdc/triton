@@ -2030,18 +2030,18 @@ namespace Triton
   template<typename T>
   void triton<T>::simulate()
   {
-    compute_init_dt();
     
     if(rank==0){
       std::cerr << OK "Simulation starts" << std::endl;
     }
 
+    st.start(SIMULATION_TIME);
+    
+	 compute_init_dt();
+
     MPI_Barrier(ENSIFY_COMM_WORLD);
 
 
-    st.start(SIMULATION_TIME);
-
-		
     T xll = dem.get_xll_corner();
     T yll = dem.get_yll_corner();
     T cellsize = dem.get_cell_size();
