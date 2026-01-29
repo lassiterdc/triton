@@ -1307,26 +1307,32 @@ void report_Nodes()
 
 void report_Nodes_TRITON(const char *f1) // NEW
 //
-//  Input:   none
+//  Input:   f1 = prefix for output file names
 //  Output:  none
-//  Purpose: writes results for selected nodes to report file with an ASCII format.
+//  Purpose: writes results for selected nodes to individual ASCII files.
+//           TRITON-SWMM coupling function.
 //
 {
     int      j, p, k;
     int      period;
     DateTime currentTime;
-	 char     theDate[DATE_STR_SIZE];
+    char     theDate[DATE_STR_SIZE];
     char     theTime[TIME_STR_SIZE];
     int      month, day, hour;
     int      min, sec;
     double   t;
     char     filename[1024];
-	 TExtInflow* inflow;
+    TExtInflow* inflow;
     FILE *outfile;
+    const char* flowUnits;
+    const char* lenUnits;
 
     if ( Nobjects[NODE] == 0 ) return;
 
-    k = 0;
+    // Get the correct unit labels from SWMM's unit system
+    flowUnits = FlowUnitWords[FlowUnits];  // CFS, CMS, etc.
+    lenUnits = (UnitSystem == US) ? "FT" : "M";
+
     for (j = 0; j < Nobjects[NODE]; j++)
     {
         inflow = Node[j].extInflow;
@@ -1334,36 +1340,44 @@ void report_Nodes_TRITON(const char *f1) // NEW
         {
             if ( inflow->type == FLOW_INFLOW )
             {
-					sprintf(filename,"%snode%d.out",f1,j+1);	// Write the numbering in the file name with the corresponding extension.
-					outfile=fopen(filename,"w");
-					if ( Node[j].rptFlag != FALSE )
-					{
-						 fprintf(outfile, "NODE %s\n", Node[j].ID);
-						 if (UnitSystem == US){
-						 	fprintf(outfile, "Time (s) INFLOW (M3/S) OVERFLOW (M3/S) DEPTH (M), HEAD(M) DATE TIME\n");
-						 }else{
-						 	fprintf(outfile, "Time (s) INFLOW (FT3/S) OVERFLOW (FT3/S) DEPTH (FT), HEAD(FT) DATE TIME\n");	
-						 }
-						 for ( period = 1; period <= Nperiods; period++ )
-						 {
-							  output_readDateTime(period, &currentTime);
-							  datetime_dateToStr(currentTime, theDate);
-							  datetime_timeToStr(currentTime, theTime);
-							  output_readNodeResults(period, k);
+                // Only create output file if this node's report flag is set
+                if ( Node[j].rptFlag != FALSE )
+                {
+                    // Get the correct output index for this node
+                    // (rptFlag is 1-based, so subtract 1 to get 0-based index)
+                    k = Node[j].rptFlag - 1;
 
-							  datetime_decodeTime(currentTime, &hour, &min, &sec);
-							  t = sec + min*60.0 + hour*3600.0; //time in seconds
+                    sprintf(filename,"%snode%d.out",f1,j+1);	// File naming: node1.out, node2.out, etc.
+                    outfile = fopen(filename,"w");
+                    if (outfile != NULL)
+                    {
+                        // Write header with correct unit labels
+                        fprintf(outfile, "NODE %s\n", Node[j].ID);
+                        fprintf(outfile, "Time (s) Inflow (%s) Overflow (%s) Depth (%s) Head (%s) Date Time\n",
+                            flowUnits, flowUnits, lenUnits, lenUnits);
 
-							  fprintf(outfile, "%9.3f %9.3f %9.3f %9.3f %9.3f  %11s %8s\n",
-									t, NodeResults[NODE_INFLOW],
-									NodeResults[NODE_OVERFLOW], NodeResults[NODE_DEPTH],
-									NodeResults[NODE_HEAD], theDate, theTime);
-						 }
-						 fprintf(outfile, "\n");
-						 k++;
-					}
-					fclose(outfile);
-					break;
+                        // Write time series data
+                        for ( period = 1; period <= Nperiods; period++ )
+                        {
+                            output_readDateTime(period, &currentTime);
+                            datetime_dateToStr(currentTime, theDate);
+                            datetime_timeToStr(currentTime, theTime);
+                            // Read results using the correct node index
+                            output_readNodeResults(period, k);
+
+                            datetime_decodeTime(currentTime, &hour, &min, &sec);
+                            t = sec + min*60.0 + hour*3600.0; //time in seconds
+
+                            fprintf(outfile, "%9.3f %9.3f %9.3f %9.3f %9.3f  %11s %8s\n",
+                                t, NodeResults[NODE_INFLOW],
+                                NodeResults[NODE_OVERFLOW], NodeResults[NODE_DEPTH],
+                                NodeResults[NODE_HEAD], theDate, theTime);
+                        }
+                        fprintf(outfile, "\n");
+                        fclose(outfile);
+                    }
+                }
+                break;
 
             }
             else inflow = inflow->next;
