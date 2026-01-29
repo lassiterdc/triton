@@ -273,6 +273,7 @@ void    massbal_addToFinalStorage(int pollut, double mass);
 double  massbal_getStepFlowError(void);
 double  massbal_getRunoffError(void);
 double  massbal_getFlowError(void);
+void    massbal_checkFloodingConsistency(void);  // TRITON-SWMM debug
 
 //-----------------------------------------------------------------------------
 //   Simulation Statistics Methods

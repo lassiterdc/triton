@@ -301,13 +301,17 @@ void massbal_report()
         if ( massbal_getFlowError() > MAX_FLOW_BALANCE_ERR ||
              RptFlags.continuity == TRUE
            ) report_writeFlowError(&FlowTotals);
-    
+
         if ( Nobjects[POLLUT] > 0 && !IgnoreQuality )
         {
             if ( massbal_getQualError() > MAX_FLOW_BALANCE_ERR ||
                  RptFlags.continuity == TRUE
                ) report_writeQualError(QualTotals);
         }
+
+#ifdef SWMM_FLOODING_DEBUG
+        massbal_checkFloodingConsistency();
+#endif
     }
 }
 
@@ -1044,3 +1048,143 @@ double massbal_getStoredMass(int p)
     }
     return storedMass;
 }
+
+//=============================================================================
+//  TRITON-SWMM: Flooding Consistency Check
+//-----------------------------------------------------------------------------
+
+#ifdef SWMM_FLOODING_DEBUG
+void massbal_checkFloodingConsistency()
+//
+//  Input:   none
+//  Output:  none
+//  Purpose: Compare node-level flooding totals with system-level flooding
+//           totals to detect internal accounting discrepancies.
+//
+//  In TRITON-SWMM coupling with the "tallnode" workaround (canPond=1 in
+//  dynwave.c), nodes can store water above their fullVolume. When this
+//  occurs, node overflow is computed and accumulated in NodeStats[j].volFlooded,
+//  but node_getSystemOutflow() only returns overflow as system flooding when
+//  Node[j].newVolume <= Node[j].fullVolume (node.c:488).
+//
+//  This creates a discrepancy where:
+//  - Node Flooding Summary shows nonzero flooding volumes
+//  - Flow Routing Continuity shows zero Flooding Loss
+//
+//  This diagnostic check writes a detailed report to the SWMM output directory
+//  when the discrepancy exceeds a specified tolerance.
+//
+{
+    extern TNodeStats* NodeStats;
+    char debugPath[MAXFNAME];
+    char* lastSlash;
+    int j;
+    int hasFloodingNodes;
+    double sumNodeFlooding = 0.0;
+    double systemFlooding = FlowTotals.flooding;
+    double relativeError;
+    double tolerance = 1e-3;
+    FILE* debugFile = NULL;
+
+    for (j = 0; j < Nobjects[NODE]; j++)
+    {
+        sumNodeFlooding += NodeStats[j].volFlooded;
+    }
+
+    if (fabs(systemFlooding) > 1e-10)
+    {
+        relativeError = fabs(sumNodeFlooding - systemFlooding) / systemFlooding;
+    }
+    else if (fabs(sumNodeFlooding) > 1e-10)
+    {
+        relativeError = 1.0;
+    }
+    else
+    {
+        relativeError = 0.0;
+    }
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "==================== SWMM FLOODING CONSISTENCY ====================\n");
+    fprintf(stderr, "  Sum of Node Flooding Volumes: %12.6f ft3\n", sumNodeFlooding);
+    fprintf(stderr, "  System Flooding Loss:         %12.6f ft3\n", systemFlooding);
+    fprintf(stderr, "  Difference:                   %12.6f ft3\n", sumNodeFlooding - systemFlooding);
+    fprintf(stderr, "  Relative Error:                %12.6f%%\n", relativeError * 100.0);
+
+    if (relativeError > tolerance)
+    {
+        fprintf(stderr, "  WARNING: Flooding totals differ by more than %.1f%%\n", tolerance * 100.0);
+        fprintf(stderr, "  This is expected with TRITON tallnode workaround (canPond=1)\n");
+
+        if (Frpt.name[0] != '\0')
+        {
+            sstrncpy(debugPath, Frpt.name, MAXFNAME);
+            lastSlash = strrchr(debugPath, '/');
+            if (lastSlash != NULL)
+            {
+                *(lastSlash + 1) = '\0';
+                strcat(debugPath, "swmm_flooding_debug.txt");
+            }
+            else
+            {
+                sstrncpy(debugPath, "output/swmm/swmm_flooding_debug.txt", MAXFNAME);
+            }
+
+            debugFile = fopen(debugPath, "w");
+            if (debugFile != NULL)
+            {
+                fprintf(debugFile, "SWMM Flooding Consistency Report\n");
+                fprintf(debugFile, "================================\n\n");
+                fprintf(debugFile, "This report compares node-level flooding statistics with system-level\n");
+                fprintf(debugFile, "flooding totals. A discrepancy is expected in TRITON-SWMM coupling\n");
+                fprintf(debugFile, "with the tallnode workaround (dynwave.c: canPond=1).\n\n");
+                fprintf(debugFile, "Explanation:\n");
+                fprintf(debugFile, "  - NodeStats[j].volFlooded accumulates all overflow from each node\n");
+                fprintf(debugFile, "  - FlowTotals.flooding only counts overflow when node volume <= fullVolume\n");
+                fprintf(debugFile, "  - With canPond=1, nodes store water above fullVolume, creating the gap\n\n");
+                fprintf(debugFile, "Summary:\n");
+                fprintf(debugFile, "  Sum of Node Flooding: %15.6f ft3\n", sumNodeFlooding);
+                fprintf(debugFile, "  System Flooding Loss:  %15.6f ft3\n", systemFlooding);
+                fprintf(debugFile, "  Difference:           %15.6f ft3\n", sumNodeFlooding - systemFlooding);
+                fprintf(debugFile, "  Relative Error:       %15.6f%%\n\n", relativeError * 100.0);
+
+                hasFloodingNodes = 0;
+                for (j = 0; j < Nobjects[NODE]; j++)
+                {
+                    if (NodeStats[j].volFlooded > 1e-10)
+                    {
+                        hasFloodingNodes = 1;
+                        break;
+                    }
+                }
+
+                if (hasFloodingNodes)
+                {
+                    fprintf(debugFile, "Per-Node Flooding Volumes:\n");
+                    for (j = 0; j < Nobjects[NODE]; j++)
+                    {
+                        if (NodeStats[j].volFlooded > 1e-10)
+                        {
+                            fprintf(debugFile, "  %-20s  %15.6f ft3\n", Node[j].ID, NodeStats[j].volFlooded);
+                        }
+                    }
+                }
+                fclose(debugFile);
+                fprintf(stderr, "  Detailed report written to: %s\n", debugPath);
+            }
+            else
+            {
+                fprintf(stderr, "  Note: Could not write debug report to: %s\n", debugPath);
+            }
+        }
+    }
+    else
+    {
+        fprintf(stderr, "  OK: Flooding totals consistent (within %.1f%% tolerance)\n", tolerance * 100.0);
+    }
+    fprintf(stderr, "======================================================================\n");
+    fprintf(stderr, "\n");
+    fflush(stderr);
+}
+#endif
+

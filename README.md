@@ -114,6 +114,25 @@ When SWMM coupling is enabled:
 - SWMM runs only on rank 0; exchange flow is computed on all ranks
 - **Important**: When running with multiple MPI ranks, use 1 or 2 ranks for SWMM coupling (4+ ranks may timeout)
 
+#### Flooding Consistency Debug Check (Optional)
+
+For TRITON-SWMM coupled simulations, a diagnostic tool is available to check consistency between node-level and system-level flooding statistics. This helps identify mass balance discrepancies caused by the "tallnode" workaround.
+
+**Build with flooding debug enabled:**
+```bash
+cd build
+cmake -DTRITON_ENABLE_SWMM=ON -DTRITON_SWMM_FLOODING_DEBUG=ON ..
+make -j4
+```
+
+**When enabled:**
+- A summary is printed to stderr at simulation end
+- A detailed report is written to `output/swmm/swmm_flooding_debug.txt`
+- The report compares node flooding volumes with system flooding loss
+- A discrepancy is expected when the tallnode workaround is active (`canPond=1` in dynwave.c)
+
+**Note:** This is a diagnostic-only feature and does not change the physics or mass balance calculations.
+
 ## Running a Simulation
 
 Run a sample case from the build directory using:

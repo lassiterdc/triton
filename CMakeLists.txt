@@ -24,6 +24,7 @@ endif()
 
 # SWMM coupling option
 option(TRITON_ENABLE_SWMM "Enable SWMM coupling for urban drainage" OFF)
+option(TRITON_SWMM_FLOODING_DEBUG "Enable SWMM flooding consistency debug check" OFF)
 
 if(TRITON_ENABLE_SWMM)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_SWMM")
@@ -52,6 +53,11 @@ if(TRITON_ENABLE_SWMM)
   target_include_directories(${TRITON_EXECUTABLE} PUBLIC ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include)
   target_include_directories(${TRITON_EXECUTABLE} PUBLIC ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
   target_link_libraries(${TRITON_EXECUTABLE} PUBLIC swmm5)
+
+  if(TRITON_SWMM_FLOODING_DEBUG)
+    target_compile_definitions(swmm5 PRIVATE SWMM_FLOODING_DEBUG)
+    message(STATUS "SWMM flooding debug check enabled")
+  endif()
 endif()
 
 add_build_and_run_scripts()
