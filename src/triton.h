@@ -60,8 +60,22 @@ namespace Triton
     
 /** @brief It starts the simulation. It is the main simulation fuction.
 *
-*/    
+*/
     void simulate();
+
+
+/** @brief Gets the project directory path.
+*
+*  @return The project directory path
+*/
+    std::string get_project_dir() const { return project_dir; }
+
+
+/** @brief Gets the simulation time from the timer.
+*
+*  @return The simulation time in seconds
+*/
+    double get_simulation_time() { return st.get_custom_time(SIMULATION_TIME); }
 
 
   private:

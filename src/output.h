@@ -32,6 +32,17 @@
 
 #include "Ensify.h"
 
+// Additional includes for run log functions
+#include <fstream>
+#include <iomanip>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace Output
 {
 	template<class T>
@@ -1595,6 +1606,176 @@ namespace Output
 
 
 	}
+
+
+/** @brief Writes the TRITON run header to output/log.out
+*
+*  This function writes run configuration information including machine,
+*  CPU, MPI tasks, OpenMP threads, GPU configuration, and git version.
+*  Only MPI rank 0 writes to the file.
+*
+*  @param project_dir The project directory path
+*  @param rank Current MPI rank
+*  @param size Total number of MPI ranks
+*/
+inline void triton_log_run_header(std::string project_dir, int rank, int size)
+{
+	// Only rank 0 writes the log header
+	if (rank != 0) return;
+
+	// Create output directory if it doesn't exist
+	std::string outdir = project_dir + "/" + OUTPUT_DIR;
+	DIR* dir = opendir(outdir.c_str());
+	if (!dir)
+	{
+		mkdir(outdir.c_str(), S_IRWXU);
+	}
+	else
+	{
+		closedir(dir);
+	}
+
+	// Open log file
+	std::string logfile = outdir + "/log.out";
+	std::ofstream log(logfile);
+
+	// Get machine name (hostname)
+	char hostname[256];
+	if (gethostname(hostname, sizeof(hostname)) == 0)
+	{
+		log << "---- TRITON RUN INFO ----" << std::endl;
+		log << "Machine : " << hostname << std::endl;
+	}
+	else
+	{
+		log << "---- TRITON RUN INFO ----" << std::endl;
+		log << "Machine : unknown" << std::endl;
+	}
+
+	// Get CPU model (Linux specific)
+	#ifdef __linux__
+	std::ifstream cpuinfo("/proc/cpuinfo");
+	if (cpuinfo.is_open())
+	{
+		std::string line;
+		while (std::getline(cpuinfo, line))
+		{
+			if (line.find("model name") != std::string::npos)
+			{
+				size_t pos = line.find(":");
+				if (pos != std::string::npos)
+				{
+					log << "CPU : " << line.substr(pos + 2) << std::endl;
+					break;
+				}
+			}
+		}
+		cpuinfo.close();
+	}
+	else
+	{
+		log << "CPU : unknown" << std::endl;
+	}
+	#else
+	log << "CPU : unknown" << std::endl;
+	#endif
+
+	// MPI tasks
+	log << "nTasks : " << size << std::endl;
+
+	// OpenMP threads
+	#ifdef _OPENMP
+	int omp_threads = omp_get_max_threads();
+	log << "OMP threads per task : " << omp_threads << std::endl;
+	#else
+	log << "OMP threads per task : 1 (OpenMP disabled)" << std::endl;
+	#endif
+
+	// GPU configuration
+	#if defined(TRITON_HIP_LAUNCHER)
+		log << "GPUs per task : 1 (HIP backend)" << std::endl;
+		log << "GPU backend : HIP" << std::endl;
+	#elif defined(TRITON_CUDA_LAUNCHER)
+		log << "GPUs per task : 1 (CUDA backend)" << std::endl;
+		log << "GPU backend : CUDA" << std::endl;
+	#elif defined(KOKKOS_ENABLE_CUDA)
+		log << "GPUs per task : 1 (Kokkos CUDA)" << std::endl;
+		log << "GPU backend : CUDA (Kokkos)" << std::endl;
+	#elif defined(KOKKOS_ENABLE_HIP)
+		log << "GPUs per task : 1 (Kokkos HIP)" << std::endl;
+		log << "GPU backend : HIP (Kokkos)" << std::endl;
+	#elif defined(KOKKOS_ENABLE_SYCL)
+		log << "GPUs per task : 1 (Kokkos SYCL)" << std::endl;
+		log << "GPU backend : SYCL (Kokkos)" << std::endl;
+	#else
+		log << "GPUs per task : 0 (CPU-only)" << std::endl;
+		log << "GPU backend : none" << std::endl;
+	#endif
+
+	// Total GPUs (assuming 1 GPU per task for GPU builds)
+	#if defined(TRITON_HIP_LAUNCHER) || defined(TRITON_CUDA_LAUNCHER) || defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
+		log << "Total GPUs : " << size << std::endl;
+	#else
+		log << "Total GPUs : 0" << std::endl;
+	#endif
+
+	// Git version
+	#ifdef TRITON_GIT_VERSION
+		log << "TRITON_GIT_VERSION : " << TRITON_GIT_VERSION << std::endl;
+	#else
+		log << "TRITON_GIT_VERSION : unknown" << std::endl;
+	#endif
+
+	// Build type
+	std::string build_type = "CPU";
+	#if defined(TRITON_HIP_LAUNCHER)
+		build_type = "GPU+HIP";
+	#elif defined(TRITON_CUDA_LAUNCHER)
+		build_type = "GPU+CUDA";
+	#elif defined(KOKKOS_ENABLE_CUDA)
+		build_type = "GPU+CUDA(Kokkos)";
+	#elif defined(KOKKOS_ENABLE_HIP)
+		build_type = "GPU+HIP(Kokkos)";
+	#elif defined(KOKKOS_ENABLE_SYCL)
+		build_type = "GPU+SYCL(Kokkos)";
+	#elif defined(KOKKOS_ENABLE_OPENMP)
+		build_type = "CPU+OMP";
+	#endif
+	log << "Build type : " << build_type << std::endl;
+
+	log << "----------------------------" << std::endl;
+	log.close();
 }
+
+
+/** @brief Appends the total wall time to output/log.out
+*
+*  This function appends the total simulation wall time to the log file.
+*  Only MPI rank 0 writes to the file.
+*
+*  @param project_dir The project directory path
+*  @param total_time_sec Total wall time in seconds
+*  @param rank Current MPI rank
+*/
+inline void triton_log_total_time(std::string project_dir, double total_time_sec, int rank)
+{
+	// Only rank 0 writes the log
+	if (rank != 0) return;
+
+	// Append to log file
+	std::string logfile = project_dir + "/" + OUTPUT_DIR + "/log.out";
+	std::ofstream log(logfile, std::ios::app);
+
+	if (log.is_open())
+	{
+		log << std::fixed << std::setprecision(3);
+		log << "TRITON total wall time [s] : " << total_time_sec << std::endl;
+		log.close();
+	}
+}
+
+
+}
+
 
 #endif

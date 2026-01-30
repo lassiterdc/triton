@@ -22,6 +22,39 @@ if(MACHINE STREQUAL Windows)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
+# Get TRITON git version info
+find_package(Git)
+if(GIT_FOUND)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE TRITON_GIT_BRANCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} log -1 --format=%h
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE TRITON_GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} diff-index --quiet HEAD --
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    RESULT_VARIABLE TRITON_GIT_DIRTY
+    ERROR_QUIET
+  )
+  if(TRITON_GIT_DIRTY)
+    set(TRITON_GIT_VERSION "${TRITON_GIT_BRANCH}-${TRITON_GIT_COMMIT_HASH}-dirty")
+  else()
+    set(TRITON_GIT_VERSION "${TRITON_GIT_BRANCH}-${TRITON_GIT_COMMIT_HASH}")
+  endif()
+else()
+  set(TRITON_GIT_VERSION "unknown")
+endif()
+message(STATUS "TRITON_GIT_VERSION = ${TRITON_GIT_VERSION}")
+
 # SWMM coupling option
 option(TRITON_ENABLE_SWMM "Enable SWMM coupling for urban drainage" OFF)
 option(TRITON_SWMM_FLOODING_DEBUG "Enable SWMM flooding consistency debug check" OFF)
@@ -37,6 +70,7 @@ add_subdirectory(${TRITON_SOURCE_DIR}/external)
 # build triton
 add_executable(${TRITON_EXECUTABLE} ./src/main.cpp)
 target_link_libraries(${TRITON_EXECUTABLE} PUBLIC kokkos)
+target_compile_definitions(${TRITON_EXECUTABLE} PRIVATE TRITON_GIT_VERSION="${TRITON_GIT_VERSION}")
 
 if (ENSEMBLE_BUILD)
   target_link_libraries(${TRITON_EXECUTABLE} PUBLIC yaml-cpp)
