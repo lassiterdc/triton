@@ -4,6 +4,9 @@ set(TRITON_EXECUTABLE "triton.exe")
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+# Option to ignore Machine files and use manual configuration only
+option(TRITON_IGNORE_MACHINE_FILES "Ignore Machine files and use manual CMake/environment configuration only" OFF)
+
 # put these before project(...)
 include(cmake/util.cmake)
 include(cmake/machine.cmake)

@@ -22,6 +22,74 @@ endif()
 
 macro (set_environment)
 
+# Check if Machine files should be ignored
+if(TRITON_IGNORE_MACHINE_FILES)
+  message(STATUS "TRITON: Ignoring Machine files. Using user-specified CMake options and environment only.")
+
+  # Set required defaults when Machine files are ignored
+  if(NOT DEFINED COMPILER)
+    set(COMPILER "mpic++" CACHE STRING "MPI compiler" FORCE)
+  endif()
+
+  # Handle BACKEND: convert "default" to "SERIAL" when machine files are ignored
+  if(NOT DEFINED BACKEND OR "${BACKEND}" STREQUAL "default")
+    set(BACKEND "SERIAL" CACHE STRING "Compute backend" FORCE)
+  endif()
+
+  if(NOT DEFINED RUN_COMMAND)
+    set(RUN_COMMAND "mpirun -n 4" CACHE STRING "MPI run command" FORCE)
+  endif()
+  if(NOT DEFINED ARCH)
+    set(ARCH "" CACHE STRING "Target architecture" FORCE)
+  endif()
+
+  # Use user-provided flags if available, otherwise set defaults
+  if(NOT DEFINED COMPILER_FLAGS)
+    set(COMPILER_FLAGS "" CACHE STRING "Compiler flags" FORCE)
+  endif()
+  if(NOT DEFINED LINKER_FLAGS)
+    set(LINKER_FLAGS "" CACHE STRING "Linker flags" FORCE)
+  endif()
+  if(NOT DEFINED COMPILER_FLAGS_APPEND)
+    set(COMPILER_FLAGS_APPEND "" CACHE STRING "Additional compiler flags" FORCE)
+  endif()
+  if(NOT DEFINED LINKER_FLAGS_APPEND)
+    set(LINKER_FLAGS_APPEND "" CACHE STRING "Additional linker flags" FORCE)
+  endif()
+
+  # Apply the settings
+  find_program(CMAKE_CXX_COMPILER "${COMPILER}")
+  set(CMAKE_CXX_FLAGS "${COMPILER_FLAGS} ${COMPILER_FLAGS_APPEND}")
+  set(CMAKE_EXE_LINKER_FLAGS "${LINKER_FLAGS} ${LINKER_FLAGS_APPEND}")
+
+  if(DEBUG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_DEBUG")
+  endif()
+
+  # Print status messages
+  message(STATUS "TRITON_MACHINE=user")
+  message(STATUS "TRITON_COMPILER=${COMPILER}")
+  message(STATUS "TRITON_BACKEND=${BACKEND}")
+  message(STATUS "TRITON_RUN_COMMAND=${RUN_COMMAND}")
+
+  # Set Kokkos backend
+  set(_Kokkos_Enable_Var "Kokkos_ENABLE_${BACKEND}")
+  set(${_Kokkos_Enable_Var} ON CACHE BOOL "Enable Kokkos backend: ${BACKEND}")
+
+  if("${BACKEND}" STREQUAL "CUDA")
+    set(Kokkos_ENABLE_CUDA_CONSTEXPR ON CACHE BOOL "Enable CUDA CONSTEXPR")
+  endif()
+
+  if(ARCH)
+    set(_Kokkos_Arch_Var "Kokkos_ARCH_${ARCH}")
+    set(${_Kokkos_Arch_Var} ON CACHE BOOL "Set Kokkos architecture: ${ARCH}")
+    message(STATUS "TRITON_ARCH=${ARCH}")
+  endif()
+
+else()
+  # Normal Machine file processing
+  message(STATUS "TRITON: Using Machine file configuration")
+
 set(machinefile_path "")
 
 if(EXISTS "${MACHINE}")
@@ -244,5 +312,7 @@ if (ARCH)
 endif()
 
 message(STATUS "TRITON_RUN_COMMAND=${RUN_COMMAND}")
+
+endif()  # End of TRITON_IGNORE_MACHINE_FILES check
 
 endmacro()

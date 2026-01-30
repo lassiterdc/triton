@@ -55,7 +55,34 @@ cmake ..
 make -j4
 ```
 
-**On success**, `triton.exe` is created in the build directory. 
+**On success**, `triton.exe` is created in the build directory.
+
+### **Ignoring Machine Files (Advanced)**
+
+TRITON uses Machine files to automatically configure builds for specific HPC systems (e.g., Frontier, Perlmutter, Aurora). These files detect the system and set appropriate compiler flags, module loads, and backend options.
+
+If you need **full manual control** over the build configuration (e.g., for custom GPU+OpenMP builds or troubleshooting), you can ignore Machine files:
+
+```bash
+cmake -DTRITON_IGNORE_MACHINE_FILES=ON \
+      -DBACKEND=HIP \
+      -DKokkos_ENABLE_HIP=ON \
+      -DKokkos_ARCH_AMD_GFX90A=ON \
+      -DCMAKE_CXX_COMPILER=CC \
+      -DCMAKE_CXX_FLAGS="-O3 -fopenmp -DTRITON_HIP_LAUNCHER" \
+      ..
+```
+
+**When to use this option:**
+- Building with GPU+OpenMP (not covered by standard Machine files)
+- Debugging build configuration issues on HPC systems
+- Testing custom compiler flags or backends
+- Replicating exact build configurations across different systems
+
+**Note:** When ignoring Machine files, you must manually specify all required settings including:
+- `-DBACKEND` (SERIAL, OPENMP, CUDA, HIP, SYCL, etc.)
+- `-DCMAKE_CXX_COMPILER` (MPI compiler)
+- Compiler and linker flags as needed
 
 ### **Using Docker (Optional)**
 ```bash
