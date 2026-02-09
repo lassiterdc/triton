@@ -88,13 +88,13 @@ int main(int argc, char* argv[])
     model.initialize(rank, size);
 
     // Write run log header
-    Output::triton_log_run_header(model.get_project_dir(), rank, size);
+    Output::triton_log_run_header(model.get_project_dir(), model.get_output_folder(), rank, size);
 
     //simulate
     model.simulate();
 
     // Write simulation time from timer
-    Output::triton_log_total_time(model.get_project_dir(), model.get_simulation_time(), rank);
+    Output::triton_log_total_time(model.get_project_dir(), model.get_output_folder(), model.get_simulation_time(), rank);
   }
   Kokkos::finalize();
 #ifdef ENSEMBLE_BUILD

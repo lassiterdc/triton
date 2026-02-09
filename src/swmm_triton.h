@@ -57,13 +57,15 @@ namespace SWMM_triton
 *  @param rank_ Subdomain id
 *  @param size_ Number of subdomain
 */
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss);
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss);
 
 
 		void end_swmm(std::string output_dir);
 
 		void local_to_global(value_t*  local, value_t*  global, int* dict);
 		void global_to_local(value_t*  global, value_t*  local, int* dict);
+
+		std::string get_output_folder() const { return output_folder; }
 
 		int num_of_swmm_links; /**< Number of SWMM nodes connected to the surface per subdomain */
 		int num_of_swmm_nodes; /**< Number of SWMM total nodes */
@@ -94,6 +96,7 @@ namespace SWMM_triton
 		int* node_to_rank_dict = NULL;
 
 	private:
+		std::string output_folder; /**< Output folder path from config */
 
 		int calc_swmm_node_col(value_t  node_x, value_t  xllc, value_t  cell_size_);
 
@@ -126,11 +129,12 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss)
 	{
 		rank_=rank;
 		size_=size;
 		units=0;
+		this->output_folder = output_folder;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
@@ -440,8 +444,8 @@ namespace SWMM_triton
     		std::string filenameWithoutPath = inp_filename.substr(inp_filename.find_last_of("/\\") + 1);
 			std::string filenameWithoutExtension = filenameWithoutPath.substr(0, filenameWithoutPath.rfind("."));
 
-			std::string root_dir(project_dir + "/" + OUTPUT_DIR + "/");
-			std::string output_dir_swmm = project_dir + "/" + OUTPUT_DIR + "/swmm/";
+			std::string root_dir(project_dir + "/" + output_folder + "/");
+			std::string output_dir_swmm = project_dir + "/" + output_folder + "/swmm/";
 
 
 			DIR* dir;

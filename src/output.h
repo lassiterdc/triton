@@ -1608,6 +1608,92 @@ namespace Output
 	}
 
 
+/** @brief Normalize a path by removing trailing slashes and handling empty paths.
+*
+*  @param path The input path to normalize
+*  @return Normalized path without trailing slash (or empty string if input is empty)
+*/
+inline std::string normalize_path(std::string path)
+{
+	if (path.empty()) return path;
+
+	// Remove trailing slashes
+	size_t end = path.find_last_not_of("/");
+	if (end != std::string::npos)
+	{
+		path = path.substr(0, end + 1);
+	}
+
+	return path;
+}
+
+
+/** @brief Build output directory path by joining project_dir and output_folder.
+*
+*  This function handles absolute paths correctly - if output_folder is absolute,
+*  it is used as-is. If relative, it is joined with project_dir.
+*
+*  @param project_dir The project directory path
+*  @param output_folder The output folder from config (may be absolute or relative)
+*  @return Normalized output directory path
+*/
+inline std::string build_output_path(std::string project_dir, std::string output_folder)
+{
+	project_dir = normalize_path(project_dir);
+	output_folder = normalize_path(output_folder);
+
+	if (output_folder.empty()) return project_dir;
+
+	// Check if output_folder is an absolute path
+	if (output_folder[0] == '/')
+	{
+		return output_folder;
+	}
+
+	// Relative path - join with project_dir
+	return project_dir + "/" + output_folder;
+}
+
+
+/** @brief Recursively create directories for a given path.
+*
+*  This function creates all parent directories if they don't exist.
+*
+*  @param path The full directory path to create
+*  @return true if successful or directory already exists, false on failure
+*/
+inline bool create_directories_recursive(const std::string& path)
+{
+	if (path.empty()) return false;
+
+	// Check if directory already exists
+	DIR* dir = opendir(path.c_str());
+	if (dir)
+	{
+		closedir(dir);
+		return true;
+	}
+
+	// Find the last separator and recursively create parent directories
+	size_t pos = path.find_last_of("/");
+	if (pos == 0 || pos == std::string::npos)
+	{
+		// Root directory or no more parents - try direct mkdir
+		return (mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST);
+	}
+
+	// Recursively create parent directory
+	std::string parent = path.substr(0, pos);
+	if (!create_directories_recursive(parent))
+	{
+		return false;
+	}
+
+	// Create the final directory
+	return (mkdir(path.c_str(), S_IRWXU) == 0 || errno == EEXIST);
+}
+
+
 /** @brief Writes the TRITON run header to output/log.out
 *
 *  This function writes run configuration information including machine,
@@ -1615,25 +1701,20 @@ namespace Output
 *  Only MPI rank 0 writes to the file.
 *
 *  @param project_dir The project directory path
+*  @param output_folder The output folder from config (may be empty for default)
 *  @param rank Current MPI rank
 *  @param size Total number of MPI ranks
 */
-inline void triton_log_run_header(std::string project_dir, int rank, int size)
+inline void triton_log_run_header(std::string project_dir, std::string output_folder, int rank, int size)
 {
 	// Only rank 0 writes the log header
 	if (rank != 0) return;
 
-	// Create output directory if it doesn't exist
-	std::string outdir = project_dir + "/" + OUTPUT_DIR;
-	DIR* dir = opendir(outdir.c_str());
-	if (!dir)
-	{
-		mkdir(outdir.c_str(), S_IRWXU);
-	}
-	else
-	{
-		closedir(dir);
-	}
+	// Build output path using helper function
+	std::string outdir = build_output_path(project_dir, output_folder);
+
+	// Create output directory recursively if it doesn't exist
+	create_directories_recursive(outdir);
 
 	// Open log file
 	std::string logfile = outdir + "/log.out";
@@ -1754,16 +1835,20 @@ inline void triton_log_run_header(std::string project_dir, int rank, int size)
 *  Only MPI rank 0 writes to the file.
 *
 *  @param project_dir The project directory path
+*  @param output_folder The output folder from config (may be empty for default)
 *  @param total_time_sec Total wall time in seconds
 *  @param rank Current MPI rank
 */
-inline void triton_log_total_time(std::string project_dir, double total_time_sec, int rank)
+inline void triton_log_total_time(std::string project_dir, std::string output_folder, double total_time_sec, int rank)
 {
 	// Only rank 0 writes the log
 	if (rank != 0) return;
 
+	// Build output path using helper function
+	std::string outdir = build_output_path(project_dir, output_folder);
+
 	// Append to log file
-	std::string logfile = project_dir + "/" + OUTPUT_DIR + "/log.out";
+	std::string logfile = outdir + "/log.out";
 	std::ofstream log(logfile, std::ios::app);
 
 	if (log.is_open())

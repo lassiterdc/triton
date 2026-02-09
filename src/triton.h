@@ -78,6 +78,13 @@ namespace Triton
     double get_simulation_time() { return st.get_custom_time(SIMULATION_TIME); }
 
 
+/** @brief Gets the output folder path from config.
+*
+*  @return The output folder path
+*/
+    std::string get_output_folder() const { return arglist.output_folder; }
+
+
   private:
     int rank; /**< Current subdomain id */
     int size; /**< Total sumber of subdomains */
@@ -418,7 +425,7 @@ namespace Triton
 #ifdef TRITON_SWMM
     // Initialize SWMM coupling
     swmm_local_elapsedTime = 0.0;
-    swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, dem.get_xll_corner(),
+    swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
                           dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                           arglist.manhole_diameter, arglist.manhole_loss);
 #endif
@@ -2201,7 +2208,7 @@ namespace Triton
 #ifdef TRITON_SWMM
     // Finalize SWMM coupling
     if (swmm_model.num_of_swmm_links > 0) {
-      std::string output_dir_swmm = project_dir + "/" + OUTPUT_DIR + "/swmm/";
+      std::string output_dir_swmm = project_dir + "/" + swmm_model.get_output_folder() + "/swmm/";
       swmm_model.end_swmm(output_dir_swmm);
     }
 #endif
