@@ -37,6 +37,9 @@
 #include <sstream>
 #include <cstring>
 #include <cmath>
+#include <vector>
+#include <cstdint>
+#include <filesystem>
 
 #include "constants.h"
 #include "string_utils.h"
@@ -46,6 +49,9 @@
 
 namespace SWMM_triton
 {
+
+	// Magic header for the exchange-replay side-file (ASCII "SWMM").
+	static constexpr int32_t EXCHANGE_LOG_MAGIC = 0x53574D4D;
 
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
@@ -61,6 +67,16 @@ namespace SWMM_triton
 
 
 		void end_swmm(std::string output_dir);
+
+		// --- TRITON->SWMM exchange-series persist/replay (hotstart-resume support) ---
+		// The SWMM trajectory is a deterministic function of its per-step inputs
+		// (global exchange flux + dt). We durably log them every step and, on resume,
+		// fast-replay 0..t_k so SWMM's .out/stats rebuild the full window.
+		void open_exchange_log_truncate();                       ///< clean start: fresh side-file + header
+		void replay_exchange_history(value_t up_to_time);        ///< resume: replay 0..t_k, truncate, reopen for append
+		void log_exchange_step(value_t dt, const value_t* gq);   ///< append one step's (dt, exchange_q) record
+		void flush_exchange_log();                               ///< flush (called at each checkpoint write)
+		void close_exchange_log();                               ///< close (called at end_swmm)
 
 		void local_to_global(value_t*  local, value_t*  global, int* dict);
 		void global_to_local(value_t*  global, value_t*  local, int* dict);
@@ -97,6 +113,11 @@ namespace SWMM_triton
 
 	private:
 		std::string output_folder; /**< Output folder path from config */
+
+		// --- exchange-series side-file (rank 0 only) for hotstart-resume replay ---
+		std::string exchange_log_path;   /**< path to the durable exchange-replay side-file */
+		std::ofstream exchange_log;      /**< append stream for live exchange records (rank 0) */
+		int exchange_num_nodes = 0;      /**< number of global SWMM surface nodes per record */
 
 		int calc_swmm_node_col(value_t  node_x, value_t  xllc, value_t  cell_size_);
 
@@ -480,6 +501,12 @@ namespace SWMM_triton
 			std::string report_filename = output_dir_swmm + filenameWithoutExtension + ".rpt";
 			std::string binary_filename = output_dir_swmm + filenameWithoutExtension + ".out";
 
+			// Durable side-file logging the per-step TRITON->SWMM exchange series, so that a
+			// hotstart-resumed allocation can fast-replay 0..t_k and rebuild a full-window
+			// hydraulics.rpt/.out instead of a truncated post-checkpoint segment.
+			exchange_log_path = output_dir_swmm + filenameWithoutExtension + "_exchange_replay.bin";
+			exchange_num_nodes = global_num_of_swmm_links;
+
 			swmm_open(inp_filename.c_str(), report_filename.c_str(), binary_filename.c_str());
 			swmm_start(TRUE);
 
@@ -491,10 +518,159 @@ namespace SWMM_triton
 	void swmm_triton::end_swmm(std::string output_dir)
 	{
 		if(rank_==0){
+			close_exchange_log();
 			swmm_end();
 			swmm_report(output_dir.c_str());
 			swmm_close();
 		}
+	}
+
+
+	// ---------------------------------------------------------------------------
+	// Exchange-series side-file (hotstart-resume replay support). Rank 0 only.
+	//
+	// File layout:
+	//   header : int32 magic (= EXCHANGE_LOG_MAGIC) ; int32 num_nodes
+	//   record : value_t dt ; value_t exchange_q[0..num_nodes-1]   (one per TRITON step)
+	//
+	// Clean start: truncate the file and write a fresh header.
+	// Resume: replay records 0..t_k through swmm_step (rebuilding SWMM's .out/stats
+	// for the full window), truncate any stale/partial tail, then reopen for append
+	// so the live segment t_k..end continues the series.
+	// ---------------------------------------------------------------------------
+
+	void swmm_triton::open_exchange_log_truncate()
+	{
+		if (rank_ != 0) return;
+		exchange_log.close();
+		exchange_log.open(exchange_log_path, std::ios::binary | std::ios::trunc);
+		if (!exchange_log.is_open())
+		{
+			std::cerr << ERROR "Could not open SWMM exchange-replay side-file for writing: "
+			          << exchange_log_path << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		int32_t magic = EXCHANGE_LOG_MAGIC;
+		int32_t n = static_cast<int32_t>(exchange_num_nodes);
+		exchange_log.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+		exchange_log.write(reinterpret_cast<const char*>(&n), sizeof(n));
+		exchange_log.flush();
+	}
+
+
+	void swmm_triton::log_exchange_step(value_t dt, const value_t* gq)
+	{
+		if (rank_ != 0) return;
+		if (!exchange_log.is_open()) return;   // no SWMM surface nodes / not initialized
+		exchange_log.write(reinterpret_cast<const char*>(&dt), sizeof(value_t));
+		exchange_log.write(reinterpret_cast<const char*>(gq), sizeof(value_t) * exchange_num_nodes);
+	}
+
+
+	void swmm_triton::flush_exchange_log()
+	{
+		if (rank_ != 0) return;
+		if (exchange_log.is_open()) exchange_log.flush();
+	}
+
+
+	void swmm_triton::close_exchange_log()
+	{
+		if (rank_ != 0) return;
+		if (exchange_log.is_open()) { exchange_log.flush(); exchange_log.close(); }
+	}
+
+
+	void swmm_triton::replay_exchange_history(value_t up_to_time)
+	{
+		if (rank_ != 0) return;
+
+		const std::size_t header_bytes = 2 * sizeof(int32_t);
+		const std::size_t record_bytes = sizeof(value_t) * (1 + exchange_num_nodes);
+		const value_t EPS = (value_t)1e-6;
+
+		std::ifstream in(exchange_log_path, std::ios::binary);
+		if (!in.is_open())
+		{
+			std::cerr << ERROR "Coupled TRITON-SWMM resume requires the exchange-replay side-file,\n"
+			          << "         but it was not found: " << exchange_log_path << "\n"
+			          << "         This checkpoint predates the resume fix (no side-file was written).\n"
+			          << "         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
+			          << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		// --- validate header ---
+		int32_t magic = 0, n = 0;
+		in.read(reinterpret_cast<char*>(&magic), sizeof(int32_t));
+		if (in.gcount() == (std::streamsize)sizeof(int32_t))
+			in.read(reinterpret_cast<char*>(&n), sizeof(int32_t));
+		if (magic != EXCHANGE_LOG_MAGIC)
+		{
+			std::cerr << ERROR "Exchange-replay side-file has a bad/missing header: "
+			          << exchange_log_path << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		if (n != exchange_num_nodes)
+		{
+			std::cerr << ERROR "Exchange-replay side-file node count (" << n
+			          << ") does not match this run (" << exchange_num_nodes
+			          << "). The .inp / coupling changed between runs." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		// --- fast-replay records 0..up_to_time through swmm_step (SWMM-only, rank 0) ---
+		std::vector<value_t> q(exchange_num_nodes);
+		value_t dt;
+		double elapsed = 0.0;          // swmm_step writes elapsed days here; not used by TRITON
+		value_t cum = (value_t)0.0;
+		long rec_count = 0;
+
+		while (true)
+		{
+			in.read(reinterpret_cast<char*>(&dt), sizeof(value_t));
+			if (in.gcount() != (std::streamsize)sizeof(value_t)) break;                       // EOF/partial
+			in.read(reinterpret_cast<char*>(q.data()), sizeof(value_t) * exchange_num_nodes);
+			if (in.gcount() != (std::streamsize)(sizeof(value_t) * exchange_num_nodes)) break; // partial -> stop
+			if (cum >= up_to_time - EPS) break;                                               // reached t_k
+			swmm_step(&elapsed, q.data(), global_new_depth, dt);
+			cum += dt;
+			rec_count++;
+		}
+		in.close();
+
+		if (cum < up_to_time - EPS)
+		{
+			std::cerr << ERROR "Exchange-replay side-file is incomplete for this checkpoint: replayed\n"
+			          << "         up to " << cum << " s but checkpoint_id requires " << up_to_time
+			          << " s (side-file/checkpoint mismatch, e.g. truncated by a hard kill).\n"
+			          << "         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
+			          << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		// --- drop any stale tail (a previous longer allocation) and any partial kill-record,
+		//     so appending the live segment yields a clean 0..end series ---
+		std::error_code ec;
+		std::filesystem::resize_file(exchange_log_path, header_bytes + (std::size_t)rec_count * record_bytes, ec);
+		if (ec)
+		{
+			std::cerr << ERROR "Could not resize exchange-replay side-file: " << ec.message() << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		// --- reopen for append: the live segment continues the series after the replayed records ---
+		exchange_log.close();
+		exchange_log.open(exchange_log_path, std::ios::binary | std::ios::app);
+		if (!exchange_log.is_open())
+		{
+			std::cerr << ERROR "Could not reopen exchange-replay side-file for append: "
+			          << exchange_log_path << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		std::cerr << IN "SWMM exchange history replayed to t=" << cum
+		          << " s (" << rec_count << " steps); resuming live segment" << std::endl;
 	}
 
 

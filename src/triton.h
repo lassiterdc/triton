@@ -428,6 +428,14 @@ namespace Triton
     swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
                           dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                           arglist.manhole_diameter, arglist.manhole_loss);
+
+    // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
+    // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its
+    // .out/stats cover the full window before the live segment runs.
+    if (rank == 0 && swmm_model.num_of_swmm_links > 0) {
+      if (arglist.checkpoint_id > 0) swmm_model.replay_exchange_history(arglist.sim_start_time);
+      else                            swmm_model.open_exchange_log_truncate();
+    }
 #endif
 
     create_host_aux_vectors();
@@ -2148,6 +2156,12 @@ namespace Triton
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
         st.stop(IO_TIME);
 
+#ifdef TRITON_SWMM
+        // Tie exchange-replay side-file durability to each checkpoint write so a future
+        // resume from this checkpoint always has a complete 0..t_k series on disk.
+        if (rank == 0 && swmm_model.num_of_swmm_links > 0) swmm_model.flush_exchange_log();
+#endif
+
         #if WRITE_PERFORMANCE
           // Synchronize before stopping timers to ensure all async operations complete
           gpuStreamSynchronize(streams);
@@ -2390,6 +2404,8 @@ namespace Triton
       if (rank == 0) {
         swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
                                     swmm_model.node_to_rank_dict);
+        // Durably log this step's (dt, exchange_q) so a future resume can replay 0..t_k.
+        swmm_model.log_exchange_step(global_dt, swmm_model.global_exchange_q);
         swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
