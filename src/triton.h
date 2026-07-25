@@ -2370,8 +2370,13 @@ namespace Triton
 
     }
 
-    Kernels::wet_dry(rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
-
+    // SWMM exchange must run BEFORE wet_dry. The exchange kernel rewrites manhole depths, and the
+    // wet/dry enforcement (wet_dry below + wet_dry_qy_halo after the halo) must act on the final,
+    // post-exchange state -- as it does in standalone TRITON, where wet/dry is the last step of the
+    // hydro update. Reversing the order leaves the exchange-written depth un-enforced for one step;
+    // and for a manhole lying on an MPI partition seam it splits the seam check across the exchange
+    // (wet_dry sees pre-exchange depth, wet_dry_qy_halo sees post-exchange depth), which breaks
+    // serial/parallel byte-for-byte reproducibility.
 #ifdef TRITON_SWMM
     // SWMM-TRITON coupling
     if (swmm_model.num_of_swmm_links > 0) {
@@ -2419,6 +2424,8 @@ namespace Triton
       st.start(COMPUTE_TIME);
     }
 #endif
+
+    Kernels::wet_dry(rows*cols, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[MAXH], arglist.hextra,size);
 
 
     if (size > 1)
