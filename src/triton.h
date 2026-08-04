@@ -432,9 +432,30 @@ namespace Triton
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its
     // .out/stats cover the full window before the live segment runs.
-    if (rank == 0 && swmm_model.num_of_swmm_links > 0) {
+    // Guard on the GLOBAL node count: num_of_swmm_links is rank 0's *local* (subdomain) count, so
+    // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
+    // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
+    // resume with a truncated .rpt/.out whose header still shows the full window).
+    if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
       if (arglist.checkpoint_id > 0) swmm_model.replay_exchange_history(arglist.sim_start_time);
       else                            swmm_model.open_exchange_log_truncate();
+    }
+
+    // replay_exchange_history() rebuilds SWMM's state and leaves rank 0's global_new_depth[] at the
+    // node depths for t_k -- but the per-rank new_depth[] that compute_swmm_triton_exchange() reads
+    // is still the zero-fill from init_swmm(). Without this distribution the first post-resume
+    // exchange evaluates every manhole at new_depth = 0, which forces the Case 1 (surface-to-sewer
+    // weir) branch even when the sewer is surcharged, inverting the exchange for one step and
+    // writing a permanent perturbation into h/MH. Mirrors the global_to_local + MPI_Scatterv that
+    // the coupled block in compute_new_state() runs after every swmm_step(); collective, so every
+    // rank must enter it. Skipped on a clean start (new_depth = 0 is correct before SWMM steps).
+    if (arglist.checkpoint_id > 0 && swmm_model.global_num_of_swmm_links > 0) {
+      if (rank == 0)
+        swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
+                                   swmm_model.node_to_rank_dict);
+      MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
+                   MPI_DATA_TYPE, swmm_model.new_depth.data(), swmm_model.num_of_swmm_links,
+                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
     }
 #endif
 
