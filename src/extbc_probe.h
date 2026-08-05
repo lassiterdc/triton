@@ -59,8 +59,8 @@
  *  VOLUME
  *    One record is 2*4 + 2*sizeof(value_t) + (3*rows_padded*cols_padded + 2*num_extbc_cells)
  *    * sizeof(value_t) bytes. For the 64x120 case (padded 66x122 = 8052 cells, 61 BC cells)
- *    that is ~194 KB per record, two records per step, so ~3.8 MB for the default 10-step
- *    window. Rank 0 writes only; the probe is a no-op on every other rank.
+ *    that is ~194 KB per record. Up to three records per step (phase 2 is emitted only when
+ *    open_boundaries is on), so ~5.8 MB for the default 10-step window. Rank 0 writes only; the probe is a no-op on every other rank.
  *
  *  @author added for the hotstart-resume external-BC investigation, 2026-08-05
  */
@@ -165,7 +165,9 @@ namespace ExtbcProbe
           << " num_extbc_cells=" << n_bc << " sizeof_value_t=" << sizeof(T) << "\n";
       txt << "# arm_at_simtime=" << std::setprecision(17) << t0
           << " steps=" << steps_left << "\n";
-      txt << "# phase 0 = top of compute_new_state (pre-flux); phase 1 = after compute_extbc_values\n";
+      txt << "# phase 0 = top of compute_new_state (pre-flux); phase 2 = after the open-boundary\n";
+      txt << "# mirror and before compute_extbc_values; phase 1 = after compute_extbc_values.\n";
+      txt << "# Chronological order within a step is 0, 2, 1.\n";
       txt << "record,phase,it_count,simtime,dt,aux0,lvar0\n";
       txt.flush();
 

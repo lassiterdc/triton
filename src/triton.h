@@ -2425,6 +2425,20 @@ namespace Triton
 
     }
 
+#ifdef TRITON_EXTBC_PROBE
+    // Phase 2 -- between the open-boundary ghost mirroring and compute_extbc_values. These two
+    // kernels write OVERLAPPING ghost cells in this order, and the non-reproduction requires both
+    // an external BC and open_boundaries to be active, so the state BETWEEN them is the point the
+    // measurement has to resolve. Without this record, phase 1 minus phase 0 conflates the mirror
+    // with the boundary kernel and cannot attribute the difference to either.
+    if (extbc_probe.should_record(simtime))
+    {
+      extbc_probe.record(2, extbc_probe_it, simtime, global_dt,
+                         device_vec[H], device_vec[QX], device_vec[QY],
+                         extbc_probe_auxvalue, extbc_probe_lvar, streams);
+    }
+#endif
+
     if (num_of_extbc > 0 && num_extbc_cells > 0)
     {
       Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size
