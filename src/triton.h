@@ -524,38 +524,6 @@ namespace Triton
     }
     extbc_probe.open(project_dir + "/" + arglist.output_folder, rank, rows, cols, num_extbc_cells);
 #endif
-
-    // Hotstart resume: repopulate the ENTIRE perimeter ghost ring from the restored interior.
-    //
-    // The checkpoint rasters are interior-only. read_matrix_files_parallel() re-derives ghost values
-    // after a checkpoint read, but its fixup loop iterates over num_extbc_cells -- the external-BC
-    // cells ONLY -- so the ghosts it restores are exactly the BC-adjacent ones, on whichever edge the
-    // BC happens to sit. Every other perimeter ghost is left at the zero fill from add_ghost_cells(),
-    // even though in an uninterrupted run it holds the value copy_info_to_exterior_boundaries_*
-    // mirrored there at the END of the previous step. On a resume there is no previous step, so the
-    // first flux evaluation reads that zero fill.
-    //
-    // Measured on a case whose BC runs east-west along the south row: at the top of the first
-    // post-resume step, qy differs at exactly two cells, both in the WEST and EAST ghost columns,
-    // resumed = 0.0 against -6.24775835738616e-05 and +4.92253404158710e-05 -- while the SOUTH ghost
-    // row, the one the BC fixup loop covers, is bit-identical. The axis that survives is the axis the
-    // BC occupies, so the defect follows the BC orientation and both axes must be restored.
-    //
-    // Re-mirroring is exact rather than approximate: the mirror copies interior -> ghost and the
-    // interior is restored byte-for-byte. It is also safe on the BC-adjacent ghosts, which the fixup
-    // loop has already set: compute_extbc_values assigns h_arr[ib] and h_arr[ii] the same expression
-    // (likewise qx and qy), so after that kernel a BC ghost EQUALS its interior cell -- which is what
-    // a mirror produces. Mirror, fixup and boundary kernel all agree on those cells.
-    //
-    // Guarded on checkpoint_id > 0, so no clean-start run is affected.
-    if (arglist.checkpoint_id > 0 && arglist.open_boundaries)
-    {
-      Kernels::copy_info_to_exterior_boundaries_west_east(2*rows*GHOST_CELL_PADDING, rows, cols,
-                                                          device_vec[H], device_vec[QX], device_vec[QY]);
-      Kernels::copy_info_to_exterior_boundaries_north_south(cols*GHOST_CELL_PADDING, rows, cols,
-                                                            device_vec[H], device_vec[QX], device_vec[QY],
-                                                            rank, size);
-    }
   }
   
   
