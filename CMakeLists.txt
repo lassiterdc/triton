@@ -62,6 +62,27 @@ message(STATUS "TRITON_GIT_VERSION = ${TRITON_GIT_VERSION}")
 option(TRITON_ENABLE_SWMM "Enable SWMM coupling for urban drainage" OFF)
 option(TRITON_SWMM_FLOODING_DEBUG "Enable SWMM flooding consistency debug check" OFF)
 
+# Diagnostic probe for the hotstart-resume external-boundary-condition investigation.
+# DEFAULTS OFF: with it off, every instrumented line is inside #ifdef TRITON_EXTBC_PROBE and the
+# preprocessed sources are identical to the un-instrumented tree, so this branch cannot silently
+# become a production build. Turn it on either explicitly
+#     cmake -DTRITON_EXTBC_PROBE=ON ...
+# or, for build drivers that hard-code their cmake line and cannot inject a flag, by exporting
+#     TRITON_EXTBC_PROBE=ON
+# in the environment of the configure step. Runtime behaviour is then controlled by
+# TRITON_EXTBC_PROBE_T0 / _STEPS / _DIR -- see src/extbc_probe.h.
+if(DEFINED ENV{TRITON_EXTBC_PROBE})
+  set(_TRITON_EXTBC_PROBE_DEFAULT $ENV{TRITON_EXTBC_PROBE})
+else()
+  set(_TRITON_EXTBC_PROBE_DEFAULT OFF)
+endif()
+option(TRITON_EXTBC_PROBE "Enable the external-BC / hotstart-resume diagnostic probe" ${_TRITON_EXTBC_PROBE_DEFAULT})
+
+if(TRITON_EXTBC_PROBE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_EXTBC_PROBE")
+  message(STATUS "TRITON_EXTBC_PROBE enabled -- diagnostic build, NOT for production runs")
+endif()
+
 if(TRITON_ENABLE_SWMM)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTRITON_SWMM")
   message(STATUS "SWMM coupling enabled - SWMM will be built from bundled source")

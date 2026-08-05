@@ -28,6 +28,7 @@
 #endif
 
 #include "Ensify.h"
+#include "extbc_probe.h"
 
 namespace Triton
 {
@@ -196,6 +197,12 @@ namespace Triton
 #endif
 
     gpuStream_t streams;  /**< Cuda stream */
+#ifdef TRITON_EXTBC_PROBE
+    ExtbcProbe::probe<T> extbc_probe;      /**< diagnostic probe; see src/extbc_probe.h */
+    T *extbc_probe_auxvalue = NULL;        /**< device buffer: per-BC-cell interpolated value */
+    T *extbc_probe_lvar     = NULL;        /**< device buffer: per-BC-cell evaluation instant */
+    int extbc_probe_it      = 0;           /**< it_count mirrored from simulate() for the record */
+#endif
     std::vector<T*> device_vec; /**< Device vector that contains all floating point array to use in simulation. */
     std::vector<int*> device_vec_int; /**< Device vector that contains all integer array to use in simulation. */
 
@@ -504,6 +511,18 @@ namespace Triton
       gpuMemcpyAsync(device_vec[SWMM_Q], host_vec[SWMM_Q], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuMemcpyAsync(device_vec_int[SWMMP], host_vec_int[SWMMP], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
     }
+#endif
+
+#ifdef TRITON_EXTBC_PROBE
+    // Diagnostic probe for the hotstart-resume external-BC investigation. Allocated on the
+    // device alongside the solver arrays so compute_extbc_values can write into it from the
+    // kernel; staged back to the host by the probe when a record is taken.
+    if (num_extbc_cells > 0)
+    {
+      gpuMalloc((void**)&extbc_probe_auxvalue, sizeof(T) * num_extbc_cells);
+      gpuMalloc((void**)&extbc_probe_lvar,     sizeof(T) * num_extbc_cells);
+    }
+    extbc_probe.open(project_dir + "/" + arglist.output_folder, rank, rows, cols, num_extbc_cells);
 #endif
   }
   
@@ -2036,6 +2055,11 @@ namespace Triton
   template<class T>
   triton<T>::~triton()
   {   
+#ifdef TRITON_EXTBC_PROBE
+    extbc_probe.close();
+    if (extbc_probe_auxvalue != NULL) { gpuFree(extbc_probe_auxvalue); extbc_probe_auxvalue = NULL; }
+    if (extbc_probe_lvar     != NULL) { gpuFree(extbc_probe_lvar);     extbc_probe_lvar     = NULL; }
+#endif
     //dont delete matrix object
     delete[] host_vec[OBSQY];
     delete[] host_vec[OBSQX];
@@ -2130,6 +2154,9 @@ namespace Triton
         compute_local_dt();
         compute_global_dt(print_id);
       }
+#ifdef TRITON_EXTBC_PROBE
+      extbc_probe_it = it_count;
+#endif
       compute_new_state();
 
       simtime += global_dt;
@@ -2324,6 +2351,19 @@ namespace Triton
   {
     st.start(COMPUTE_TIME);
 
+#ifdef TRITON_EXTBC_PROBE
+    // Phase 0 -- the state the first flux evaluation of this step actually reads, INCLUDING the
+    // ghost ring. The checkpoint rasters are interior-only, so this is the only place the ghost
+    // state is observable, and it is the state a hotstart must reproduce but does not checkpoint.
+    extbc_probe.arm_if_due(simtime);
+    if (extbc_probe.should_record(simtime))
+    {
+      extbc_probe.record(0, extbc_probe_it, simtime, global_dt,
+                         device_vec[H], device_vec[QX], device_vec[QY],
+                         extbc_probe_auxvalue, extbc_probe_lvar, streams);
+    }
+#endif
+
     Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
     device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
     device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
@@ -2387,9 +2427,27 @@ namespace Triton
 
     if (num_of_extbc > 0 && num_extbc_cells > 0)
     {
-      Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
+      Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size
+#ifdef TRITON_EXTBC_PROBE
+      , extbc_probe_auxvalue, extbc_probe_lvar
+#endif
+      );
 
     }
+
+#ifdef TRITON_EXTBC_PROBE
+    // Phase 1 -- immediately after the boundary kernel, so its own writes are separable from
+    // whatever preceded them: h pinned to FMAX(auxvalue-dem,0), qx pinned to zero by factor[1],
+    // qy carried through negated by factor[2]. auxvalue/lvar are exported by the kernel itself
+    // rather than recomputed here, so the two runs are compared on the value the kernel used.
+    if (extbc_probe.should_record(simtime))
+    {
+      extbc_probe.record(1, extbc_probe_it, simtime, global_dt,
+                         device_vec[H], device_vec[QX], device_vec[QY],
+                         extbc_probe_auxvalue, extbc_probe_lvar, streams);
+    }
+    extbc_probe.step_consumed();
+#endif
 
     // SWMM exchange must run BEFORE wet_dry. The exchange kernel rewrites manhole depths, and the
     // wet/dry enforcement (wet_dry below + wet_dry_qy_halo after the halo) must act on the final,

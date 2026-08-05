@@ -1086,7 +1086,17 @@ namespace Kernels
                             int const * KOKKOS_RESTRICT nrows_vars,
                             T   const * KOKKOS_RESTRICT extbcvar1,
                             T   const * KOKKOS_RESTRICT extbcvar2,
-                            T simtime, int rank, int total_process)
+                            T simtime, int rank, int total_process
+#ifdef TRITON_EXTBC_PROBE
+                            // Diagnostic-only outputs for the hotstart-resume external-BC
+                            // investigation. The parameters are #ifdef'd rather than defaulted so
+                            // that the un-instrumented build stays textually identical to the
+                            // un-instrumented source: the measurement is about bit-exactness, so
+                            // the OFF build must not differ at all.
+                            , T * KOKKOS_RESTRICT probe_auxvalue
+                            , T * KOKKOS_RESTRICT probe_lvar
+#endif
+                            )
   
   {
     
@@ -1225,6 +1235,13 @@ namespace Kernels
           T time_diff_2 = var1_at_idx_high - var1_at_idx_low;
           auxvalue = var2_at_idx_low + (((var2_at_idx_high - var2_at_idx_low) * time_diff) / time_diff_2);
         }
+#ifdef TRITON_EXTBC_PROBE
+        // Export the interpolated boundary value and the instant it was evaluated at, so the
+        // reference and resumed runs are compared on the SAME quantity the kernel used rather
+        // than on a host-side reimplementation of this interpolation, which could drift.
+        probe_auxvalue[id] = auxvalue;
+        probe_lvar[id]     = lvar;
+#endif
 					hij=FMAX(auxvalue-dem[ii],0.0);
 
 				}else{
