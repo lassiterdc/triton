@@ -28,6 +28,7 @@
 #endif
 
 #include "Ensify.h"
+#include "ghost_ring.h"
 
 namespace Triton
 {
@@ -196,6 +197,7 @@ namespace Triton
 #endif
 
     gpuStream_t streams;  /**< Cuda stream */
+    bool ghost_ring_write_announced = false; /**< one-shot log marker for the ghost-ring side-file */
     std::vector<T*> device_vec; /**< Device vector that contains all floating point array to use in simulation. */
     std::vector<int*> device_vec_int; /**< Device vector that contains all integer array to use in simulation. */
 
@@ -505,6 +507,33 @@ namespace Triton
       gpuMemcpyAsync(device_vec_int[SWMMP], host_vec_int[SWMMP], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
     }
 #endif
+
+
+    // Hotstart resume: restore the perimeter ghost ring from its side-file. The checkpoint rasters
+    // are interior-only and the ring is NOT derivable from them -- the mirror captures the interior
+    // mid-step and wet_dry then modifies it, so the ring preserves momentum the interior no longer
+    // carries. Measured on a resume without this restore: qy at the west and east ghost columns is
+    // 0.0 where the uninterrupted run holds -6.24775835738616e-05 and +4.92253404158710e-05, and
+    // the first flux evaluation reads that difference into the domain. Fatal if the file is absent,
+    // because proceeding without it is the defect.
+    if (arglist.checkpoint_id > 0)
+    {
+      char ring_num[8];
+      snprintf(ring_num, sizeof(ring_num), "%02d", arglist.checkpoint_id);
+      char ring_rank[8];
+      snprintf(ring_rank, sizeof(ring_rank), "%02d", rank);
+      std::string ring_path = project_dir + "/" + arglist.output_folder + "/" + BIN_DIR
+                            + "/GR_" + ring_num + "_" + ring_rank + ".out";
+      GhostRing::read<T>(ring_path, rows, cols, host_vec[H], host_vec[QX], host_vec[QY]);
+
+      gpuMemcpyAsync(device_vec[H],  host_vec[H],  nbytes, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[QX], host_vec[QX], nbytes, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, gpuMemcpyHostToDevice, streams);
+      gpuStreamSynchronize(streams);
+
+      if (rank == 0)
+        std::cerr << IN "Ghost ring restored from " << ring_path << std::endl;
+    }
   }
   
   
@@ -2171,6 +2200,26 @@ namespace Triton
           gpuMemcpyAsync(host_vec[MAXH], device_vec[MAXH], nbytes, gpuMemcpyDeviceToHost, streams);
         }
         gpuStreamSynchronize(streams);
+
+        // Persist the perimeter ghost ring beside this checkpoint. The rasters below store the
+        // interior only, and the ring is not a function of the interior -- copy_info_to_exterior_
+        // boundaries_* and compute_extbc_values write it mid-step and wet_dry then modifies the
+        // interior, so at the top of the next step the ring holds values the interior no longer
+        // carries. Without this file a resume cannot reproduce the uninterrupted run.
+        {
+          char ring_num[8];
+          snprintf(ring_num, sizeof(ring_num), "%02d", print_id);
+          char ring_rank[8];
+          snprintf(ring_rank, sizeof(ring_rank), "%02d", rank);
+          std::string ring_path = project_dir + "/" + arglist.output_folder + "/" + BIN_DIR
+                                + "/GR_" + ring_num + "_" + ring_rank + ".out";
+          GhostRing::write<T>(ring_path, rows, cols, host_vec[H], host_vec[QX], host_vec[QY]);
+          if (rank == 0 && !ghost_ring_write_announced)
+          {
+            ghost_ring_write_announced = true;
+            std::cerr << IN "Ghost-ring side-files enabled; first written to " << ring_path << std::endl;
+          }
+        }
         st.stop(COMPUTE_TIME);
 
         st.start(IO_TIME);
