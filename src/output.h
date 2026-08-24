@@ -1760,6 +1760,20 @@ inline void triton_log_run_header(std::string project_dir, std::string output_fo
 	#else
 	log << "CPU : unknown" << std::endl;
 	#endif
+	// GPU model (device name of the Kokkos-selected device on this rank).
+	// Kokkos caches the device properties at Kokkos::initialize(); this header is
+	// reached from main.cpp INSIDE the initialize()/finalize() scope, so the
+	// accessors below are live. No new include: constants.h already pulls
+	// Kokkos_Core.hpp, which declares Kokkos::Cuda / Kokkos::HIP when the backend
+	// is enabled. Note the accessor asymmetry: cuda_device_prop() is a const
+	// member, hip_device_prop() is static.
+	#if defined(KOKKOS_ENABLE_CUDA)
+		log << "GPU : " << Kokkos::Cuda().cuda_device_prop().name << std::endl;
+	#elif defined(KOKKOS_ENABLE_HIP)
+		log << "GPU : " << Kokkos::HIP::hip_device_prop().name << std::endl;
+	#else
+		log << "GPU : none" << std::endl;
+	#endif
 
 	// MPI tasks
 	log << "nTasks : " << size << std::endl;
