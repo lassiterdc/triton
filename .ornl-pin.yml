@@ -1,0 +1,4 @@
+upstream_url: https://code.ornl.gov/hydro/triton.git
+upstream_branch: triton-swmm
+upstream_sha: 9db367ddc79f86c7f708686d1dd805dc992fb0a4
+synced_utc: 2026-08-24T21:31:58Z
