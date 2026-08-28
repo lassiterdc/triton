@@ -2106,6 +2106,26 @@ namespace Triton
 	out.write_observation_data(host_obs_h, host_obs_qx, host_obs_qy, simtime, arglist.print_option);
     }
 
+    // Hotstart resume: copy_value_into_ghost_cells() rebuilt the ring from the restored interior,
+    // but the ring the uninterrupted run carries at this point is the pre-wet_dry snapshot written
+    // by the boundary kernels (the interior is modified again by wet_dry afterwards, so the ring
+    // holds momentum that no longer exists in the checkpoint). Overwrite the reconstructed ring
+    // with the persisted one and push h/qx/qy back to the device before the first flux evaluation.
+    if (arglist.checkpoint_id > 0)
+    {
+      out.read_output_ghost_ring(sub_hin, sub_qxin, sub_qyin, arglist.checkpoint_id);
+
+      if (rank == 0)
+      {
+        std::cerr << IN "Ghost ring restored from checkpoint " << arglist.checkpoint_id << std::endl;
+      }
+
+      gpuMemcpyAsync(device_vec[H],  host_vec[H],  nbytes, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[QX], host_vec[QX], nbytes, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec[QY], host_vec[QY], nbytes, gpuMemcpyHostToDevice, streams);
+      gpuStreamSynchronize(streams);
+    }
+
 
     global_dt = arglist.time_step;
     average_dt = 0.0;

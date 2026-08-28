@@ -145,6 +145,9 @@ namespace Output
 */			
 		void write_output_binary_parallel(Matrix::matrix<T>& arr, std::string what_mat, int print_id);
 
+		void write_output_ghost_ring(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, int print_id);
+		void read_output_ghost_ring(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, int print_id);
+
 
 #ifdef TRITON_GDAL
 /** @brief It outputs a specific data array's full domain in a single GeoTIFF file. 
@@ -698,6 +701,8 @@ namespace Output
 			}
 		}
 #endif
+		write_output_ghost_ring(h_arr, qx_arr, qy_arr, print_id);
+
 		if (rank_ == 0)
 		{
 
@@ -784,6 +789,97 @@ namespace Output
 		{
 			MPI_Barrier(ENSIFY_COMM_WORLD);
 		}
+	}
+
+
+	template<typename T>
+	void output<T>::write_output_ghost_ring(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, int print_id)
+	{
+		std::string root_dir(project_dir_ + "/" + output_folder_ + "/");
+		root_dir.pop_back();
+
+		std::string filepath = get_mat_path("GR", root_dir, BIN_DIR, print_id, ".out");
+
+		std::ofstream ring((filepath).c_str(), std::ios::binary);
+		if (!ring.is_open())
+		{
+			std::cerr << WARN "Could not write ghost-ring side-file " << filepath
+			          << "; a resume from this checkpoint will fail." << std::endl;
+			return;
+		}
+
+		int off = GHOST_CELL_PADDING;
+		T put_rows_value = (T)rows_;
+		T put_cols_value = (T)cols_;
+
+		ring.write((char*)&put_rows_value, sizeof(T));
+		ring.write((char*)&put_cols_value, sizeof(T));
+
+		for (int i = 0; i < rows_; i++)
+		{
+			for (int j = 0; j < cols_; j++)
+			{
+				if (i < off || i >= rows_ - off || j < off || j >= cols_ - off)
+				{
+					ring.write((char*)h_arr.get_address_at(i, j),  sizeof(T));
+					ring.write((char*)qx_arr.get_address_at(i, j), sizeof(T));
+					ring.write((char*)qy_arr.get_address_at(i, j), sizeof(T));
+				}
+			}
+		}
+		ring.close();
+	}
+
+
+	template<typename T>
+	void output<T>::read_output_ghost_ring(Matrix::matrix<T>& h_arr, Matrix::matrix<T>& qx_arr, Matrix::matrix<T>& qy_arr, int print_id)
+	{
+		std::string root_dir(project_dir_ + "/" + output_folder_ + "/");
+		root_dir.pop_back();
+
+		std::string filepath = get_mat_path("GR", root_dir, BIN_DIR, print_id, ".out");
+
+		std::ifstream ring((filepath).c_str(), std::ios::binary);
+		if (!ring.is_open())
+		{
+			std::cerr << ERROR "Ghost-ring side-file not found: " << filepath << std::endl;
+			std::cerr << "      Checkpoints written before this fix do not carry it; re-run the clean leg." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		int off = GHOST_CELL_PADDING;
+		T get_rows_value = (T)0;
+		T get_cols_value = (T)0;
+
+		ring.read((char*)&get_rows_value, sizeof(T));
+		ring.read((char*)&get_cols_value, sizeof(T));
+
+		if ((int)get_rows_value != rows_ || (int)get_cols_value != cols_)
+		{
+			std::cerr << ERROR "Ghost-ring side-file dimensions (" << (int)get_rows_value << ", " << (int)get_cols_value
+			          << ") do not match the current subdomain (" << rows_ << ", " << cols_ << ")." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
+		for (int i = 0; i < rows_; i++)
+		{
+			for (int j = 0; j < cols_; j++)
+			{
+				if (i < off || i >= rows_ - off || j < off || j >= cols_ - off)
+				{
+					ring.read((char*)h_arr.get_address_at(i, j),  sizeof(T));
+					ring.read((char*)qx_arr.get_address_at(i, j), sizeof(T));
+					ring.read((char*)qy_arr.get_address_at(i, j), sizeof(T));
+				}
+			}
+		}
+
+		if (ring.gcount() != (std::streamsize)sizeof(T))
+		{
+			std::cerr << ERROR "Ghost-ring side-file is truncated: " << filepath << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		ring.close();
 	}
 
 
