@@ -57,6 +57,24 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
+# REVIEWER FINDING, registered RED against the tree as landed (WP-1A review).
+# SWMM_OTHER is DERIVED by subtraction, so XFER + MPI + STEP + OTHER == SWMM is
+# an algebraic tautology over the emitted row: it holds for ANY values the three
+# measured children hold, including values no correct bracket placement could
+# produce. What falsifies a bracket fault is the residual's SIGN -- a child that
+# escaped the parent, or two children that overlap, drive SWMM_OTHER NEGATIVE
+# while leaving the sum exact. test_perf_identity.cpp P4 does assert other >= 0,
+# but only against its own correctly-nested in-process harness; the two
+# artifacts that meet real data -- the operator-facing checker and the source
+# guard -- do not. This node id is EXPECTED TO FAIL until that is repaired; the
+# repair belongs to the package author, not to the reviewer.
+add_test(
+    NAME SOURCE-SWMM-COLUMN-SPLIT-RESIDUAL-SIGN
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_column_split_residual_sign.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 # Source-structural guards (WP-0B). Pure Python over src/triton.h: no build, no
 # GPU, no solver run and no SWMM, so they are registered UNCONDITIONALLY --
 # gating them on TRITON_ENABLE_SWMM would make the fence guard unreachable in
