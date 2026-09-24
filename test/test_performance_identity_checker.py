@@ -13,9 +13,16 @@ something.
 
 The BAD cases are the ones a real defect would produce, not arbitrary corruption:
 
-  B1  a child inflated past the print bound      -- a bracket double-counted
-  B2  a child deflated past the print bound      -- a bracket escaped the parent
+  B1  the four columns sum HIGH                  -- corruption, or a write_times
+  B2  the four columns sum LOW                      derivation edit; NOT a
+                                                    bracket fault, which leaves
+                                                    the sum exact
   B3  SWMM_STEP nonzero on a rank other than 0   -- the bracket left its guard
+  B7  a child LARGER than its whole parent       -- an escaped bracket: the sum
+  B8  two children overlapping                      still closes exactly, and
+                                                    only the residual's SIGN
+                                                    rejects either
+  B9  a negative measured child                  -- a parse or format fault
   B4  the Average row missing                    -- arity broken
   B5  a row with the wrong arity                 -- a column dropped
   B6  a missing child column                     -- the split half-landed
@@ -28,6 +35,17 @@ and the GOOD cases pin the boundary rather than only the middle:
                                                     as degenerate rather than
                                                     counted as meaningful
   G4  single-rank run, SWMM_STEP nonzero on rank 0 -- must PASS
+  G5  a child exactly EQUAL to its parent        -- legal, and the boundary the
+                                                    [0, parent] band must not
+                                                    false-fail
+  G6  a residual of exactly zero                 -- legal; the band is >= 0
+
+and three flag cases pin the option surface, because a silently-dropped
+``--require-ranks`` is a PASS without the check the operator asked for:
+
+  F1  the space-separated form is honoured
+  F2  a mistyped flag exits 2 rather than being ignored
+  F3  --require-ranks with no value exits 2
 
 USAGE
 -----
@@ -98,11 +116,45 @@ def _good_single_rank(p):
     write(p, [row(0, 10.0, 3.0, 2.0, 4.0, 1.0)])
 
 
-def _bad_child_inflated(p):
+def _bad_escaped_child(p):
+    """A child 40% LARGER than its whole parent. The four columns still sum to
+    the parent exactly, because SWMM_OTHER is derived by subtraction -- this is
+    the reviewer's row, and the identity alone passes it."""
+    write(p, [row(0, 10.0, 14.0, 1.0, 2.0, -7.0)])
+
+
+def _bad_overlapping_children(p):
+    """Two children overlapping, so the shared region is counted twice. NO single
+    child exceeds the parent (6, 6, 1 against 10), so the [0, parent] band does
+    not catch it either -- only the residual's SIGN does."""
+    write(p, [row(0, 10.0, 6.0, 6.0, 1.0, -3.0)])
+
+
+def _bad_negative_measured_child(p):
+    """A measured accumulator cannot go below zero: a parse or format fault."""
+    write(p, [row(0, 10.0, -2.0, 5.0, 4.0, 3.0)])
+
+
+def _good_child_equals_parent(p):
+    """The boundary the [0, parent] band must NOT false-fail: all the parent's
+    time in one child, with the child and the parent rounded independently."""
+    write(p, [row(0, 10.0, 10.0, 0, 0, 0)])
+
+
+def _good_zero_residual(p):
+    """SWMM_OTHER exactly 0 is legal -- the band is >= 0, not > 0."""
+    write(p, [row(0, 10.0, 5.0, 3.0, 2.0, 0)])
+
+
+def _bad_sum_broken_high(p):
+    """The four columns do NOT sum to the parent. Only a corrupted or mis-parsed
+    row, or an edit to write_times' derivation, can produce this -- a bracket
+    fault cannot, because the derivation makes the sum exact whatever the
+    brackets do. Named for what it is, not for what the old wording implied."""
     write(p, [row(0, 10.0, 3.5, 2.0, 4.0, 1.0)])
 
 
-def _bad_child_deflated(p):
+def _bad_sum_broken_low(p):
     write(p, [row(0, 10.0, 1.0, 2.0, 4.0, 1.0)])
 
 
@@ -137,13 +189,33 @@ CASES = (
     ("G3b_all_zero_rejected_when_nondegenerate_required",
      _good_all_zero, 1, ("--require-nondegenerate",), "degenerate"),
     ("G4_single_rank",                _good_single_rank,    0, (), None),
-    ("B1_child_inflated",             _bad_child_inflated,  1, (), "closure FAILS"),
-    ("B2_child_deflated",             _bad_child_deflated,  1, (), "closure FAILS"),
+    ("B1_sum_broken_high_is_not_a_bracket_fault",
+     _bad_sum_broken_high, 1, (), "does not close"),
+    ("B2_sum_broken_low_is_not_a_bracket_fault",
+     _bad_sum_broken_low,  1, (), "does not close"),
     ("B3_step_nonzero_off_rank0",     _bad_step_off_rank0,  1, (),
      "nonzero on rank"),
     ("B4_average_row_missing",        _bad_no_average,      1, (), "Average row"),
     ("B5_row_arity_wrong",            _bad_short_row,       1, (), "arity"),
     ("B6_child_column_missing",       _bad_missing_column,  1, (), "SWMM_OTHER"),
+    # The reviewer's two rows. Each PASSED the identity-only form of this
+    # checker, because SWMM_OTHER is derived by subtraction and the sum is a
+    # tautology over the emitted row. They are the reason (B) and (C) exist.
+    ("B7_escaped_child_negative_residual", _bad_escaped_child, 1, (), "NEGATIVE"),
+    ("B8_overlapping_children_negative_residual",
+     _bad_overlapping_children, 1, (), "NEGATIVE"),
+    ("B9_negative_measured_child",    _bad_negative_measured_child, 1, (),
+     "cannot go below zero"),
+    ("G5_child_equal_to_parent_is_legal", _good_child_equals_parent, 0, (), None),
+    ("G6_zero_residual_is_legal",     _good_zero_residual,  0, (), None),
+    # The flag surface: a mistyped option must not be silently dropped, because a
+    # dropped --require-ranks is a PASS without the check the operator asked for.
+    ("F1_space_separated_require_ranks_is_honoured",
+     _good_exact, 1, ("--require-ranks", "7"), "expected 7 per-rank row"),
+    ("F2_unrecognised_flag_is_rejected",
+     _good_exact, 2, ("--require-rank=2",), "unrecognised option"),
+    ("F3_require_ranks_without_a_value_is_rejected",
+     _good_exact, 2, ("--require-ranks",), "needs a value"),
 )
 
 
