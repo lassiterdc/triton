@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
-"""Reviewer test (WP-0B chunk 2): three conditional forms the strengthened
-guard still accepts, and which its docstring claims it catches.
+"""Characterization tripwire (WP-0B chunk 2): the three conditional forms the
+fence guard is DOCUMENTED not to catch, pinned in executable form.
 
-WHAT THIS FALSIFIES
--------------------
-``test/test_compute_timer_fence.py`` at c1ae36a is a genuine strengthening: a
-15-form reviewer battery moves it from 4 rejections to 12.  It closes every
-form the accompanying acceptance test enumerates, plus the two-line braceless
-form that test does not.
+AUTHORSHIP.  The three forms below, and their analysis, were constructed by the
+WP-0B reviewer and committed at 16ab5d1 as that review's failing-test finding.
+They are preserved here verbatim.  What changed at the review close is this
+test's POLARITY, not its content: the finding was dispositioned on the
+DISCLOSURE arm rather than the regex arm, so the assertion was inverted from
+"these should be caught" to "these are known-uncaught", and the test was
+registered in CTest.  The reviewer's closing line -- that fixing any of the
+three is a change to the guard, which is the coder's to make -- still stands,
+and is now the thing this test EXISTS to detect.
 
-What it does NOT close is its own CHECK 2b contract, stated in the docstring
-as::
-
-    CHECK 2b CONTROLLING HEADER.  The nearest preceding code-bearing line is
-             not a dangling control header (``if (...)``, ``else``, ``for``,
-             ``while``, ``switch``, ``do``, a ``case``/``default`` label) and
-             is not a preprocessor conditional (``#if``/``#ifdef``/...).
-             ... Catches the two-line braceless form and a compile-time-
-             conditional fence.
-
-2b is implemented as two regexes matched against the SINGLE nearest preceding
-code-bearing line.  A control header is not always one line, ``if (...)`` is
-not the only spelling of ``if``, and a preprocessor conditional does not have
-to be adjacent.  Each of the three forms below is a genuinely conditional
-fence that leaves the mis-attribution standing on every path its condition
-excludes -- the exact hazard CHECK 2 names -- and each is ACCEPTED.
+WHAT THIS PINS
+--------------
+``test/test_compute_timer_fence.py`` answers "is this fence conditional?" with
+CHECK 2b, two regexes matched against the SINGLE nearest preceding code-bearing
+line.  A control header is not always one line, ``if (...)`` is not the only
+spelling of ``if``, and a preprocessor conditional does not have to be
+adjacent.  Each form below is a genuinely conditional fence that CHECK 2b
+accepts:
 
     U1  multi-line condition, braceless body
             if (arglist.gpu_direct_flag &&
@@ -48,38 +43,62 @@ excludes -- the exact hazard CHECK 2 names -- and each is ACCEPTED.
             #endif
         PREPROC_COND is matched against the NEAREST code line only, so one
         statement between the `#ifdef` and the fence hides it.  The bare
-        adjacent form IS caught; this one is not, and the docstring's
-        "a compile-time-conditional fence" reads as covering both.
+        adjacent form IS caught; this one is not.
 
 THESE ARE NOT REGRESSIONS.  Measured against the pre-chunk guard at 87460ab,
-all three were accepted there too.  They are residual holes in the SAME class
-the chunk was dispatched to close, which is what distinguishes them from the
-five blind spots the docstring does disclose (macro expansion, an
-interprocedural fence, `goto`, string-literal lexing, two statements on the
-fence line) -- those are other classes, honestly named.  The gap this test
-reports is between what CHECK 2b claims and what CHECK 2b does.
+all three were accepted there too.  They are disclosed by name, with code
+samples, in the guard's own WHAT THIS INSTRUMENT IS BLIND TO list, because the
+accepted disposition was to state the limit honestly rather than to run a regex
+race against unbounded C++ spellings.
 
-WHAT THIS TEST DOES NOT CLAIM
------------------------------
-The fence in triton.h is unconditional and correct; the runtime behaviour is
-right.  The guard is materially better than what it replaced.  This test
-holds the narrower line that a regression guard should reject every member of
-the class it names, and reports the three members it does not.
+WHY THIS TEST EXISTS -- IT IS ABOUT LATER, NOT ABOUT NOW
+--------------------------------------------------------
+Today it passes, and passing is the point: it makes the documented gap
+EXECUTABLE rather than merely written down.
+
+Its value arrives the day someone tightens a CHECK 2b regex.  If a future edit
+closes any of these three forms, this test FAILS LOUDLY and names the form and
+the file to update.  That converts a one-time review finding into a PERMANENT
+BIDIRECTIONAL LOCK between the guard's contract sentence and the guard's
+behaviour:
+
+  * the guard's blind-spot list says these three are not caught;
+  * this test says the same thing in a form that runs;
+  * so the two can no longer drift apart silently in EITHER direction.
+
+The failure this prevents is the one that produced the original WP-0B finding:
+a docstring that names a class the implementation only samples.  A red here is
+not a defect -- it is the news that the guard got better and the prose did not
+keep up.
+
+TWO CONTROL ARMS, AND BOTH ARE LOAD-BEARING UNDER THE INVERTED POLARITY
+-----------------------------------------------------------------------
+Inverting the assertion inverts the vacuous-pass hazard, so the original
+control is no longer sufficient on its own.
+
+  POSITIVE control -- the guard must ACCEPT the unmodified source (exit 0).
+  NEGATIVE control -- the guard must still REJECT a form it is documented to
+  catch (`if (rank == 0) gpuStreamSynchronize(streams);`, the adjacent
+  single-line rank test).
+
+Without the negative arm, a guard gutted to accept EVERYTHING would satisfy
+"all three forms are accepted" and this test would report green on a guard that
+had stopped guarding.  The negative arm is what makes a green here mean "the
+guard still works AND these three remain its known gaps" rather than merely
+"nothing was rejected".
 
 METHOD
 ------
 Synthesize, from the LIVE source, one mutant per form by replacing the fence
-statement in place.  Run the landed guard on each; a conditional fence MUST
-be rejected (exit 1).  A control arm runs the guard on the unmodified source
-and requires exit 0, so a guard that rejects everything cannot pass this test
-vacuously.
+statement in place.  Run the landed guard on each.
 
 USAGE
 -----
     python3 test/test_compute_timer_fence_undetected_forms.py [path-to-triton.h]
 
-Exit 0 = the guard rejects all three forms.  Exit 1 = at least one is
-accepted.  No build, no GPU, no simulation.
+Exit 0 = the guard's behaviour matches its documented blind spots.
+Exit 1 = it diverged; the guard and its blind-spot list disagree.
+No build, no GPU, no simulation.
 """
 
 import os
@@ -96,7 +115,8 @@ STOP_COMPUTE = re.compile(r"\bst\.stop\s*\(\s*COMPUTE_TIME\s*\)")
 START_SWMM = re.compile(r"\bst\.start\s*\(\s*SWMM_TIME\s*\)")
 
 # Each form is (label, callable(indent) -> list-of-replacement-lines).
-# Every one is a CONDITIONAL fence and every one must be rejected.
+# Constructed by the WP-0B reviewer at 16ab5d1 and PRESERVED VERBATIM.
+# Every one is a CONDITIONAL fence that the guard is DOCUMENTED not to catch.
 FORMS = [
     ("multiline_condition", lambda ind: [
         "%sif (arglist.gpu_direct_flag &&" % ind,
@@ -114,6 +134,14 @@ FORMS = [
         "#endif",
     ]),
 ]
+
+
+# NEGATIVE control: a conditional form the guard IS documented to catch.  If this
+# stops being rejected, the guard has been weakened wholesale and a green result
+# below would be vacuous.
+CAUGHT_CONTROL = ("oneline_rank_test", lambda ind: [
+    "%sif (rank == 0) gpuStreamSynchronize(streams);" % ind,
+])
 
 
 def locate_coupled_fence(lines):
@@ -169,53 +197,77 @@ def main():
     print("fence located at  : line %d  %s" % (idx + 1, lines[idx].strip()))
     print("")
 
-    # CONTROL -- the guard must ACCEPT the unmodified, genuinely unconditional source.
-    rc, _ = run_guard(src)
-    print("control (unmodified source)          : guard exit %d  %s"
-          % (rc, "OK" if rc == 0 else "UNEXPECTED"))
-    if rc != 0:
-        print("")
-        print("FAIL: the guard rejects the unmodified source, so this test cannot")
-        print("      distinguish a real hole from a guard that rejects everything.")
-        return 1
-    print("")
-
-    holes = []
-    tmpdir = tempfile.mkdtemp(prefix="wp0b_undetected_")
-    for label, build in FORMS:
+    def mutate(build, label):
         mutant = lines[:idx] + build(indent) + lines[idx + 1:]
         mpath = os.path.join(tmpdir, "%s.h" % label)
         with open(mpath, "w") as fh:
             fh.write("\n".join(mutant))
-        rc, out = run_guard(mpath)
-        verdict = "REJECTED (correct)" if rc == 1 else "ACCEPTED -- HOLE"
-        print("conditional form %-20s : guard exit %d  %s" % (label, rc, verdict))
-        if rc != 1:
-            holes.append((label, build(indent), out))
+        return run_guard(mpath)
 
-    print("")
-    if holes:
-        print("FAIL: the fence guard accepts %d of %d conditional forms that CHECK 2b's"
-              % (len(holes), len(FORMS)))
-        print("      stated contract covers.")
+    tmpdir = tempfile.mkdtemp(prefix="wp0b_undetected_")
+
+    # POSITIVE control -- the guard must ACCEPT the unmodified source.
+    rc, _ = run_guard(src)
+    print("control + (unmodified source)        : guard exit %d  %s"
+          % (rc, "OK" if rc == 0 else "UNEXPECTED"))
+    if rc != 0:
         print("")
-        for label, body, out in holes:
-            print("  form %s -- accepted by the guard:" % label)
-            for b in body:
-                print("      %s" % b)
-            for ln in out.strip().split("\n"):
-                if ln.startswith("line above") or ln.startswith("PASS"):
-                    print("      guard said: %s" % ln.strip())
-            print("")
-        print("  CHECK 2b matches two regexes against the SINGLE nearest preceding")
-        print("  code-bearing line.  A control header spanning two lines, the spelling")
-        print("  `if constexpr (...)`, and a `#ifdef` separated from the fence by one")
-        print("  statement each defeat that shape while remaining a conditional fence.")
-        print("  Fixing any of the three is a change to the guard, which is the coder's")
-        print("  to make and not this reviewer's.")
+        print("FAIL: the guard rejects the unmodified source, so nothing below is")
+        print("      interpretable. Run the guard itself and re-ground it.")
         return 1
 
-    print("PASS: all three undetected conditional forms are rejected by the fence guard.")
+    # NEGATIVE control -- the guard must still REJECT a form it is documented to
+    # catch. Without this, a guard gutted to accept everything would satisfy the
+    # three assertions below and this test would report green on a dead guard.
+    nlabel, nbuild = CAUGHT_CONTROL
+    rc, _ = mutate(nbuild, nlabel)
+    print("control - (%-24s) : guard exit %d  %s"
+          % (nlabel, rc, "OK" if rc == 1 else "UNEXPECTED"))
+    if rc != 1:
+        print("")
+        print("FAIL: the guard ACCEPTED `%s`, a form it is documented to catch." % nlabel)
+        print("      The guard has been weakened wholesale, so a pass on the three")
+        print("      documented gaps below would be vacuous. Fix the guard first:")
+        print("      test/test_compute_timer_fence.py, CHECK 2a/2b/2c.")
+        return 1
+    print("")
+
+    # The pinned gaps. Each MUST still be accepted; a rejection means the guard
+    # improved and the blind-spot list did not keep up.
+    closed = []
+    for label, build in FORMS:
+        rc, out = mutate(build, label)
+        verdict = "accepted (documented gap)" if rc == 0 else "REJECTED -- NOW CAUGHT"
+        print("documented gap %-22s : guard exit %d  %s" % (label, rc, verdict))
+        if rc != 0:
+            closed.append((label, build(indent)))
+
+    print("")
+    if closed:
+        print("FAIL: %d of %d documented gaps are NO LONGER gaps -- the guard now catches"
+              % (len(closed), len(FORMS)))
+        print("      them, and its blind-spot list still says it does not.")
+        print("")
+        for label, body in closed:
+            print("  form %s -- now REJECTED by the guard:" % label)
+            for b in body:
+                print("      %s" % b)
+            print("")
+        print("  THIS IS GOOD NEWS WITH AN OBLIGATION, NOT A DEFECT. Someone tightened")
+        print("  CHECK 2b. Update BOTH of these so contract and behaviour agree again:")
+        print("")
+        print("    1. test/test_compute_timer_fence.py -- remove the now-closed form(s)")
+        print("       from the WHAT THIS INSTRUMENT IS BLIND TO list, and re-read the")
+        print("       CHECK 2b paragraph, which states the scope 2b actually samples.")
+        print("    2. this file -- drop the closed form(s) from FORMS.")
+        print("")
+        print("  If FORMS becomes empty, CHECK 2b no longer samples its class and the")
+        print("  scope caveat in the guard's docstring should go with it.")
+        return 1
+
+    print("PASS: all %d documented gaps are still gaps, and the guard still rejects"
+          % len(FORMS))
+    print("      the form it is documented to catch. Contract and behaviour agree.")
     return 0
 
 
