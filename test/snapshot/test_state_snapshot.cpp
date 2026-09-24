@@ -41,7 +41,32 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 #include <vector>
+
+// ---------------------------------------------------------------------------
+// The SWMM globals under test.
+//
+// swmm_triton.h pulls objects.h/funcs.h but NOT globals.h, and globals.h is not
+// independently includable here: it declares storage through an EXTERN macro
+// whose definition depends on which translation unit is compiling it. Declaring
+// exactly the handful this test touches is narrower than dragging globals.h in,
+// and it keeps the test honest about its own surface -- every name below is one
+// the snapshot serializes.
+// ---------------------------------------------------------------------------
+extern "C" {
+    extern int    Nobjects[];
+    extern long   ReportStepCount;
+    extern long   NonConvergeCount;
+    extern long   TotalStepCount;
+    extern double MaxOutfallFlow;
+    extern double MaxRunoffFlow;
+    extern double RoutingTimeSpan;
+    extern double TotalArea;
+    extern TRunoffTotals  RunoffTotals;
+    extern TGwaterTotals  GwaterTotals;
+    extern TRoutingTotals FlowTotals;
+}
 
 // ---------------------------------------------------------------------------
 // Minimal harness (same shape as the WP-0A tier-1 tests)
