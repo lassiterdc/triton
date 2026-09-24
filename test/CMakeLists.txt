@@ -3,6 +3,7 @@
 # conflict with it on a shared branch.
 if(TRITON_ENABLE_SWMM)
   add_subdirectory(unit)
+  add_subdirectory(snapshot)
 endif()
 
 # Slow-tier inventory-regeneration check (WP-1B). Registered unconditionally:
