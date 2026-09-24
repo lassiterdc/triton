@@ -151,6 +151,11 @@ void    runoff_close(void);
 int     routing_open(void);
 double  routing_getRoutingStep(int routingModel, double fixedStep);
 void    routing_execute(int routingModel, double routingStep, double *exchange_q, double *swmm_newDepth); //TRITON
+// The ONLY writer of swmm_newDepth[].  Factored out of routing_execute so the
+// coupled-resume snapshot path can reuse it rather than duplicating the loop
+// that DEFINES TRITON's inflow-node index space.  routing.c states why a second
+// enumeration is not an acceptable substitute.
+void    routing_exportInflowNodeDepths(double *swmm_newDepth); //TRITON
 void    routing_close(int routingModel);
 
 //-----------------------------------------------------------------------------
