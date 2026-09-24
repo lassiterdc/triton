@@ -167,7 +167,16 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 // a ci_less comparator.
 #define SWMM_XFER "swmm_xfer"    /**< Timer for the coupling's host-device transfers and the exchange kernel. */
 #define SWMM_MPI "swmm_mpi"    /**< Timer for the coupling's MPI_Gatherv and MPI_Scatterv. */
-#define SWMM_STEP "swmm_step"    /**< Timer for the rank-0 serial SWMM solve and its local/global remaps. */
+#define SWMM_STEP "swmm_step"    /**< Timer for the rank-0 serial SWMM solve, its local/global remaps, AND
+                                     the log_exchange_step append to the durable exchange-replay side-file.
+                                     That last item is FILE I/O inside a column named STEP, so SWMM_STEP is
+                                     NOT purely the solve: it carries one buffered write of
+                                     (dt, global_exchange_q) per timestep. Named here because the column
+                                     name does not say it and a reader comparing SWMM_STEP against a
+                                     standalone SWMM solve would otherwise attribute the difference to the
+                                     coupling. The cost is charged here rather than to IO_TIME deliberately:
+                                     the append is inseparable from the step it records, and moving it would
+                                     mean a bracket that is not a contiguous span. */
 
 
 #define TYPE_STATIC "static"    /**< Domain decomposition type: static*/
