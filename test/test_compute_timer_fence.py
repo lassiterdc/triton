@@ -57,13 +57,28 @@ the primary instrument.  The three conjuncts are:
            a ternary condition, or any other text is a fence whose execution
            some expression governs.  Catches every single-line form above.
 
-  CHECK 2b CONTROLLING HEADER.  The nearest preceding code-bearing line is
-           not a dangling control header (``if (...)``, ``else``, ``for``,
-           ``while``, ``switch``, ``do``, a ``case``/``default`` label) and
-           is not a preprocessor conditional (``#if``/``#ifdef``/``#ifndef``/
+  CHECK 2b CONTROLLING HEADER.  The NEAREST preceding code-bearing line does
+           not match one of two literal shapes: a SINGLE-LINE dangling control
+           header whose text ends at a closing ``)`` (``if (...)``, ``for``,
+           ``while``, ``switch``) or is a bare ``else``/``do``/``case:``; or a
+           preprocessor conditional directive (``#if``/``#ifdef``/``#ifndef``/
            ``#else``/``#elif``).  A dangling header makes the next statement
-           its controlled body with no brace anywhere.  Catches the two-line
-           braceless form and a compile-time-conditional fence.
+           its controlled body with no brace anywhere.
+
+           READ THE SCOPE OF THAT SENTENCE LITERALLY.  2b tests ONE line, and
+           it tests that line against two REGEXES.  It therefore catches the
+           ADJACENT, SINGLE-LINE spellings of those two shapes and nothing
+           else.  It is NOT a decision procedure for "is this statement
+           conditionally executed", and three ordinary C++ spellings defeat it
+           -- they are named individually in the blind-spot list below, and
+           they are named there rather than patched here on purpose.  A
+           nearest-line regex is the same CATEGORY of instrument as the brace
+           delta it was added beside: a cheap LOCAL proxy for a NON-LOCAL
+           property, silently defeated by ordinary code that breaks its
+           locality assumption.  The honest answer to "is this statement
+           conditionally executed" is a parse, which this guard deliberately
+           does not do, because its value is that it runs with no build and no
+           dependency on any host at review time.
 
   CHECK 2c BRACE BALANCE.  The net brace delta from fence to stop is zero AND
            the running depth never dips below zero.  A negative excursion
@@ -83,6 +98,42 @@ stated so a later reader does not have to rediscover them.
   * A fence moved INSIDE a callee, a lambda, or a helper invoked from here.
     Only the text between the located fence and the located stop is read.
   * ``goto`` or a label-based jump that skips the fence.
+  * A MULTI-LINE control header with a braceless body.  2b anchors on a header
+    whose text ENDS at a closing ``)``; when the condition wraps, the nearest
+    preceding line is the CONTINUATION rather than the header, and no regex
+    matches it::
+
+        if (arglist.gpu_direct_flag &&
+            swmm_model.num_of_swmm_links > 0)
+          gpuStreamSynchronize(streams);
+
+  * ``if constexpr (...)`` with a braceless body.  The dangling-header regex
+    requires ``if`` followed by whitespace and then ``(``; ``constexpr``
+    interposes and the match fails.  THIS IS THE SHARPEST OF THE THREE FOR
+    THIS FILE: triton.h is ``template <typename T>`` throughout, so a
+    precision- or backend-conditional fence is idiomatically written exactly
+    this way::
+
+        if constexpr (sizeof(T) == 8)
+          gpuStreamSynchronize(streams);
+
+  * A NON-ADJACENT preprocessor conditional.  The directive is tested only
+    against the nearest preceding code line, so an ``#ifdef`` separated from
+    the fence by even one statement is invisible.  The ADJACENT form IS
+    caught; this one is not::
+
+        #ifdef TRITON_FENCE_OPT
+              int nbytes_probe = 0;
+              gpuStreamSynchronize(streams);
+        #endif
+
+    All three were measured ACCEPTED at exit 0 against this guard, and all
+    three were ALSO accepted by the pre-fix guard at 87460ab -- so none is a
+    regression, and each is a documented limit rather than a defect.  They are
+    documented rather than regex-patched because C++ spellings are unbounded:
+    closing named forms one at a time leaves the CLASS open while making the
+    contract read as though it were closed, which is the exact failure this
+    guard was rewritten to repair.
   * A string literal containing a brace or a ``//``.  Line and block comments
     ARE stripped (length-preservingly, so line indices stay valid); string
     literals are not parsed.  The COMPUTE_TIME span in triton.h contains no
