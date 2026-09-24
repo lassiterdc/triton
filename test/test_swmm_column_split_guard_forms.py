@@ -32,6 +32,11 @@ obvious "simplification" of the landed form:
       on a bare literal                       -> S4/S5 (returns 0.0 silently)
   M7  drop SWMM_STEP's average(...) term      -> S4  (breaks Average arity)
   M8  drop a column from the header literal   -> S4
+  M9  overlap two child brackets so a region
+      is counted twice                        -> S6  (the general form of M3;
+                                                      added on review, and the
+                                                      one mutation no runtime
+                                                      instrument can see)
 
 USAGE
 -----
@@ -153,6 +158,32 @@ def M8_drop_a_header_column(root):
             r'SWMM_STEP, SWMM_OTHER, Other', r'SWMM_OTHER, Other')
 
 
+def M9_overlap_two_child_brackets(root):
+    """Move st.stop(SWMM_XFER) after st.start(SWMM_MPI) so the Gatherv region
+    falls inside BOTH children and is counted twice.
+
+    This is the GENERAL form of the defect M3 covers in one special case, and it
+    is the reviewer's own mutation. Every predicate S2 evaluates still holds --
+    both brackets are inside the parent and SWMM_MPI keeps its two pairs -- so
+    only S6's pairwise-disjointness check rejects it. The runtime instruments
+    cannot: the derived residual keeps the emitted sum exact and goes NEGATIVE.
+    """
+    p = os.path.join(root, "src", "triton.h")
+    with open(p, "r", encoding="utf-8") as fh:
+        text = fh.read()
+    stop_xfer = "      st.stop(SWMM_XFER);\n"
+    anchor = "      st.start(SWMM_MPI);\n      // Gather exchange_q"
+    if text.count(stop_xfer) != 1 or text.count(anchor) != 1:
+        raise RuntimeError("overlap mutation could not be anchored "
+                           "(stop_xfer=%d anchor=%d)"
+                           % (text.count(stop_xfer), text.count(anchor)))
+    text = text.replace(stop_xfer, "", 1)
+    text = text.replace(
+        anchor, "      st.start(SWMM_MPI);\n" + stop_xfer + "      // Gather exchange_q", 1)
+    with open(p, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
 MUTATIONS = (
     ("M1_declare_swmm_other_macro", M1_declare_swmm_other_macro,
      "S1_three_child_macros_and_no_swmm_other"),
@@ -170,6 +201,8 @@ MUTATIONS = (
      "S4_write_times_derivation_and_columns"),
     ("M8_drop_a_header_column", M8_drop_a_header_column,
      "S4_write_times_derivation_and_columns"),
+    ("M9_overlap_two_child_brackets", M9_overlap_two_child_brackets,
+     "S6_child_spans_are_pairwise_disjoint"),
 )
 
 

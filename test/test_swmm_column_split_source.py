@@ -32,6 +32,11 @@ that a passing runtime test cannot distinguish from their violations:
   S4  ``write_times`` derives ``SWMM_OTHER`` by subtraction, leaves the
       pre-existing ``other_time`` residual untouched, and emits all four columns
       in the header, in every per-rank row, and in the Average row.
+  S6  The three child spans are pairwise DISJOINT. S2 tests containment in the
+      parent and never tests the children against each other, so an overlap
+      passes it — and an overlap is invisible to every instrument that reads the
+      emitted sum, because the derived residual keeps that sum exact and goes
+      negative instead. Added on review.
   S5  No timer API call takes a bare string literal.  This is the residual hole
       S1 cannot close: ``start``/``stop``/``get_custom_time`` take
       ``std::string``, so ``get_custom_time("swmm_other")`` compiles even with no
@@ -467,6 +472,88 @@ def S5_no_bare_timer_string_literals(root, failures, report):
 
 
 # ---------------------------------------------------------------------------
+# S6 -- the child spans are pairwise DISJOINT
+# ---------------------------------------------------------------------------
+
+def S6_child_spans_are_pairwise_disjoint(root, failures, report):
+    """No two child timers may be open at the same line.
+
+    S2 tests each child for CONTAINMENT in the parent and never tests the
+    children against EACH OTHER, so two children that OVERLAP pass it: both
+    brackets are inside the parent, and SWMM_MPI keeps its required two pairs.
+    The region between them is then inside BOTH children and counted twice.
+
+    That defect is invisible to every runtime instrument that reads the emitted
+    sum, because SWMM_OTHER is DERIVED by subtraction: an overlap leaves
+    XFER + MPI + STEP + OTHER == SWMM exact and drives the residual NEGATIVE.
+    check_performance_identity.py now rejects the negative residual, but only
+    once a run has happened; this rejects the source that would produce it.
+
+    The guard-forms M3 mutation covers ONE instance of this -- SWMM_MPI
+    collapsing to a single pair, which swallows SWMM_STEP. The general predicate
+    is pairwise disjointness, and M9 exercises it directly.
+    """
+    path, code, idx = _locate_brackets(root, failures)
+    ps, pe = idx["parent_start"], idx["parent_stop"]
+    if ps is None or pe is None:
+        return
+
+    # (line, kind, child) events for every child bracket inside the parent.
+    events = []
+    for child in CHILD_MACROS:
+        for i in range(ps, pe + 1):
+            if re.search(r'\bst\.start\(\s*%s\s*\)' % child, code[i]):
+                events.append((i, "start", child))
+            if re.search(r'\bst\.stop\(\s*%s\s*\)' % child, code[i]):
+                events.append((i, "stop", child))
+    events.sort()
+
+    open_now = []
+    spans = []
+    span_start = {}
+    for line, kind, child in events:
+        if kind == "start":
+            if child in open_now:
+                failures.append(
+                    "%s is started again at :%d while already open — a "
+                    "re-entrant start loses the first interval, because "
+                    "super_timer::start overwrites the stored timeval."
+                    % (child, line + 1))
+                continue
+            if open_now:
+                failures.append(
+                    "%s opens at :%d while %s is still open (opened at :%d). "
+                    "Two child timers may not be open at once: the overlapping "
+                    "region is counted in BOTH and the parent is over-"
+                    "subscribed. This is INVISIBLE to the emitted sum — "
+                    "SWMM_OTHER is derived by subtraction, so the identity "
+                    "stays exact and the residual goes NEGATIVE instead."
+                    % (child, line + 1, open_now[-1],
+                       span_start[open_now[-1]] + 1))
+            open_now.append(child)
+            span_start[child] = line
+        else:
+            if child not in open_now:
+                failures.append(
+                    "%s is stopped at :%d without an open start — the "
+                    "accumulated delta is measured from a stale timeval."
+                    % (child, line + 1))
+                continue
+            open_now.remove(child)
+            spans.append((span_start.pop(child), line, child))
+
+    for child in open_now:
+        failures.append("%s is still open at the parent's stop (:%d) — its "
+                        "bracket never closes inside the parent."
+                        % (child, pe + 1))
+
+    report.append("child spans       : %s"
+                  % sorted([(a + 1, b + 1, c) for a, b, c in spans]))
+    report.append("max concurrently open: %d (1 required)"
+                  % (1 if spans else 0))
+
+
+# ---------------------------------------------------------------------------
 # driver
 # ---------------------------------------------------------------------------
 
@@ -476,6 +563,7 @@ TESTS = (
     ("S3_swmm_step_inside_rank0_guard", S3_swmm_step_inside_rank0_guard),
     ("S4_write_times_derivation_and_columns", S4_write_times_derivation_and_columns),
     ("S5_no_bare_timer_string_literals", S5_no_bare_timer_string_literals),
+    ("S6_child_spans_are_pairwise_disjoint", S6_child_spans_are_pairwise_disjoint),
 )
 
 
