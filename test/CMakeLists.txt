@@ -5,6 +5,37 @@ if(TRITON_ENABLE_SWMM)
   add_subdirectory(unit)
 endif()
 
+# Slow-tier inventory-regeneration check (WP-1B). Registered unconditionally:
+# it reads the vendored EPA source with Python and links nothing, so it is
+# meaningful in a non-coupled configuration too -- the inventory describes the
+# source tree, not the built binary.
+add_subdirectory(inventory)
+
+# Source-structural guards (WP-0B). Pure Python over src/triton.h: no build, no
+# GPU, no solver run and no SWMM, so they are registered UNCONDITIONALLY --
+# gating them on TRITON_ENABLE_SWMM would make the fence guard unreachable in
+# exactly the configuration a reviewer can run fastest, and the property it
+# holds is a property of the SOURCE rather than of any build.  The source path
+# is passed explicitly so a node id does not depend on the working directory.
+#
+# Two node ids, not one.  The first asserts the property; the second asserts
+# that the first still HOLDS that property against every conditional form.  A
+# guard with no guard of its own can be weakened by a later edit and stay green,
+# which is the condition this package was dispatched to repair.
+add_test(
+    NAME SOURCE-FENCE-COMPUTE-TIMER
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_compute_timer_fence.py
+                ${CMAKE_SOURCE_DIR}/src/triton.h
+)
+
+add_test(
+    NAME SOURCE-FENCE-COMPUTE-TIMER-CONDITIONAL-FORMS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_compute_timer_fence_conditional_forms.py
+                ${CMAKE_SOURCE_DIR}/src/triton.h
+)
+
 function(add_triton_test test_name cfg_name)
   file(COPY ${TRITON_SOURCE_DIR}/test/${cfg_name}
        DESTINATION ${TRITON_BUILD_DIR}/test)

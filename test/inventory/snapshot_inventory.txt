@@ -1,0 +1,128 @@
+# SWMM state-snapshot field inventory -- GENERATED, do not hand-edit.
+# Regenerate with test/inventory/regenerate_snapshot_inventory.py
+# Criterion: a quantity is IN the snapshot iff some report-writing path reads it.
+# Seed roots: stats_report, statsrpt_writeReport, massbal_report
+# Report-bearing units walked: stats.c, statsrpt.c, massbal.c, report.c
+# Functions reached by transitive closure: 40
+#
+# closure boundary -- report-reaching calls into units NOT walked:
+#   gwater_getVolume
+#   inlet_writeStatsReport
+#   lid_writeWaterBalance
+#   snow_getSnowCover
+#   subcatch_getStorage
+#
+# object<TAB>field<TAB>declared<TAB>read_by_report_path
+#
+# LinkStats : TLinkStats -- 16 field(s) declared in the struct body
+LinkStats	maxFlow	TLinkStats	yes
+LinkStats	maxFlowDate	TLinkStats	yes
+LinkStats	maxVeloc	TLinkStats	yes
+LinkStats	maxDepth	TLinkStats	yes
+LinkStats	maxStreetFilled	TLinkStats	no
+LinkStats	timeNormalFlow	TLinkStats	yes
+LinkStats	timeInletControl	TLinkStats	yes
+LinkStats	timeSurcharged	TLinkStats	yes
+LinkStats	timeFullUpstream	TLinkStats	yes
+LinkStats	timeFullDnstream	TLinkStats	yes
+LinkStats	timeFullFlow	TLinkStats	yes
+LinkStats	timeCapacityLimited	TLinkStats	yes
+LinkStats	timeInFlowClass	TLinkStats	yes
+LinkStats	timeCourantCritical	TLinkStats	yes
+LinkStats	flowTurns	TLinkStats	yes
+LinkStats	flowTurnSign	TLinkStats	no
+#
+# MaxCourantCrit : TMaxStats -- 3 field(s) declared in the struct body
+MaxCourantCrit	objType	TMaxStats	no
+MaxCourantCrit	index	TMaxStats	yes
+MaxCourantCrit	value	TMaxStats	yes
+#
+# MaxFlowTurns : TMaxStats -- 3 field(s) declared in the struct body
+MaxFlowTurns	objType	TMaxStats	no
+MaxFlowTurns	index	TMaxStats	yes
+MaxFlowTurns	value	TMaxStats	yes
+#
+# MaxMassBalErrs : TMaxStats -- 3 field(s) declared in the struct body
+MaxMassBalErrs	objType	TMaxStats	yes
+MaxMassBalErrs	index	TMaxStats	yes
+MaxMassBalErrs	value	TMaxStats	yes
+#
+# MaxNonConverged : TMaxStats -- 3 field(s) declared in the struct body
+MaxNonConverged	objType	TMaxStats	no
+MaxNonConverged	index	TMaxStats	yes
+MaxNonConverged	value	TMaxStats	yes
+#
+# NodeStats : TNodeStats -- 16 field(s) declared in the struct body
+NodeStats	avgDepth	TNodeStats	yes
+NodeStats	maxDepth	TNodeStats	yes
+NodeStats	maxDepthDate	TNodeStats	yes
+NodeStats	maxRptDepth	TNodeStats	yes
+NodeStats	volFlooded	TNodeStats	yes
+NodeStats	timeFlooded	TNodeStats	yes
+NodeStats	timeSurcharged	TNodeStats	yes
+NodeStats	timeCourantCritical	TNodeStats	yes
+NodeStats	totLatFlow	TNodeStats	yes
+NodeStats	maxLatFlow	TNodeStats	yes
+NodeStats	maxInflow	TNodeStats	yes
+NodeStats	maxOverflow	TNodeStats	yes
+NodeStats	maxPondedVol	TNodeStats	yes
+NodeStats	nonConvergedCount	TNodeStats	yes
+NodeStats	maxInflowDate	TNodeStats	yes
+NodeStats	maxOverflowDate	TNodeStats	yes
+#
+# OutfallStats : TOutfallStats -- 4 field(s) declared in the struct body
+OutfallStats	avgFlow	TOutfallStats	yes
+OutfallStats	maxFlow	TOutfallStats	yes
+OutfallStats	totalLoad	TOutfallStats	yes
+OutfallStats	totalPeriods	TOutfallStats	yes
+#
+# PumpStats : TPumpStats -- 10 field(s) declared in the struct body
+PumpStats	utilized	TPumpStats	yes
+PumpStats	minFlow	TPumpStats	yes
+PumpStats	avgFlow	TPumpStats	yes
+PumpStats	maxFlow	TPumpStats	yes
+PumpStats	volume	TPumpStats	yes
+PumpStats	energy	TPumpStats	yes
+PumpStats	offCurveLow	TPumpStats	yes
+PumpStats	offCurveHigh	TPumpStats	yes
+PumpStats	startUps	TPumpStats	yes
+PumpStats	totalPeriods	TPumpStats	yes
+#
+# StorageStats : TStorageStats -- 7 field(s) declared in the struct body
+StorageStats	initVol	TStorageStats	no
+StorageStats	avgVol	TStorageStats	yes
+StorageStats	maxVol	TStorageStats	yes
+StorageStats	maxFlow	TStorageStats	yes
+StorageStats	evapLosses	TStorageStats	yes
+StorageStats	exfilLosses	TStorageStats	yes
+StorageStats	maxVolDate	TStorageStats	yes
+#
+# SubcatchStats : TSubcatchStats -- 8 field(s) declared in the struct body
+SubcatchStats	precip	TSubcatchStats	yes
+SubcatchStats	runon	TSubcatchStats	yes
+SubcatchStats	evap	TSubcatchStats	yes
+SubcatchStats	infil	TSubcatchStats	yes
+SubcatchStats	runoff	TSubcatchStats	yes
+SubcatchStats	maxFlow	TSubcatchStats	yes
+SubcatchStats	impervRunoff	TSubcatchStats	yes
+SubcatchStats	pervRunoff	TSubcatchStats	yes
+#
+# TimeStepStats : TTimeStepStats -- 8 field(s) declared in the struct body
+TimeStepStats	minTimeStep	TTimeStepStats	yes
+TimeStepStats	maxTimeStep	TTimeStepStats	yes
+TimeStepStats	routingTime	TTimeStepStats	yes
+TimeStepStats	timeStepCount	TTimeStepStats	yes
+TimeStepStats	trialsCount	TTimeStepStats	yes
+TimeStepStats	steadyStateTime	TTimeStepStats	yes
+TimeStepStats	timeStepIntervals	TTimeStepStats	yes
+TimeStepStats	timeStepCounts	TTimeStepStats	yes
+#
+# scalar accumulators (no struct body; extent check does not apply)
+MaxOutfallFlow	-	double	yes	stats.c	extern
+MaxRunoffFlow	-	double	no	stats.c	extern
+RoutingTimeSpan	-	double	yes	stats.c	extern
+SysOutfallFlow	-	double	no	stats.c	static
+TotalArea	-	double	yes	massbal.c	extern
+ReportStepCount	-	long	yes	globals.h	extern
+#
+# TOTAL PAIRS: 87
