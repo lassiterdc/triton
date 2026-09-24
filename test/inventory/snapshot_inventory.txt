@@ -5,6 +5,25 @@
 # Report-bearing units walked: stats.c, statsrpt.c, massbal.c, report.c
 # Functions reached by transitive closure: 40
 #
+# discovery pass -- globals.h scalars read by the report path:
+#   none untriaged
+#
+# deliberately excluded, with reason:
+#   CourantFactor: config: re-read from the .inp at swmm_open
+#   FlowError: derived at report time from FlowTotals
+#   FlowUnits: config: re-read from the .inp at swmm_open
+#   GwaterError: derived at report time from GwaterTotals
+#   IgnoreGwater: config: re-read from the .inp at swmm_open
+#   IgnoreQuality: config: re-read from the .inp at swmm_open
+#   IgnoreRainfall: config: re-read from the .inp at swmm_open
+#   IgnoreRouting: config: re-read from the .inp at swmm_open
+#   IgnoreSnowmelt: config: re-read from the .inp at swmm_open
+#   NewRunoffTime: runoff clock; re-initialized by swmm_start on resume
+#   QualError: derived at report time from QualTotals
+#   RouteModel: config: re-read from the .inp at swmm_open
+#   RunoffError: derived at report time from RunoffTotals
+#   UnitSystem: config: re-read from the .inp at swmm_open
+#
 # closure boundary -- report-reaching calls into units NOT walked:
 #   gwater_getVolume
 #   inlet_writeStatsReport
@@ -221,5 +240,7 @@ TotalArea	-	double	yes	massbal.c	extern
 NodeInflow	-	double*	yes	massbal.c	extern
 NodeOutflow	-	double*	yes	massbal.c	extern
 ReportStepCount	-	long	yes	globals.h	extern
+NonConvergeCount	-	long	yes	globals.h	extern
+TotalStepCount	-	long	no	globals.h	extern
 #
-# TOTAL PAIRS: 170
+# TOTAL PAIRS: 172

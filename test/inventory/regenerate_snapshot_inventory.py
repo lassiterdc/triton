@@ -94,7 +94,39 @@ SERIALIZED_SCALARS = [
     ("NodeInflow", "double*", "massbal.c", "extern"),
     ("NodeOutflow", "double*", "massbal.c", "extern"),
     ("ReportStepCount", "long", "globals.h", "extern"),
+    ("NonConvergeCount", "long", "globals.h", "extern"),
+    ("TotalStepCount", "long", "globals.h", "extern"),
 ]
+
+# Scalars the report path reads that are DELIBERATELY not snapshotted, each with
+# the reason.  The discovery pass reports any globals.h scalar a report path
+# reads that appears in neither this map nor SERIALIZED_SCALARS, so a name can
+# only leave the report by being triaged -- never by being overlooked.
+EXCLUDED_SCALARS = {
+    # Configuration re-derived from the .inp at every swmm_open().  Snapshotting
+    # these would let a stale snapshot silently override the .inp the operator
+    # is actually running, which is worse than not restoring them at all.
+    "CourantFactor": "config: re-read from the .inp at swmm_open",
+    "FlowUnits": "config: re-read from the .inp at swmm_open",
+    "UnitSystem": "config: re-read from the .inp at swmm_open",
+    "RouteModel": "config: re-read from the .inp at swmm_open",
+    "IgnoreGwater": "config: re-read from the .inp at swmm_open",
+    "IgnoreQuality": "config: re-read from the .inp at swmm_open",
+    "IgnoreRainfall": "config: re-read from the .inp at swmm_open",
+    "IgnoreRouting": "config: re-read from the .inp at swmm_open",
+    "IgnoreSnowmelt": "config: re-read from the .inp at swmm_open",
+    # Derived at report time by massbal_get*Error() from the totals this
+    # snapshot DOES restore.  Storing them too would be a second copy of a
+    # derived quantity, free to disagree with the totals it came from.
+    "FlowError": "derived at report time from FlowTotals",
+    "RunoffError": "derived at report time from RunoffTotals",
+    "GwaterError": "derived at report time from GwaterTotals",
+    "QualError": "derived at report time from QualTotals",
+    # Runoff clock.  The coupled TRITON-SWMM configuration drives SWMM as
+    # hydraulics-only with inflows supplied externally, so the runoff clock is
+    # not advanced; it is re-initialized by swmm_start(TRUE) on resume.
+    "NewRunoffTime": "runoff clock; re-initialized by swmm_start on resume",
+}
 
 # Translation units the closure may walk.  A function reached outside this set
 # terminates the walk: its fields are not admitted, and the call is reported.
@@ -154,6 +186,35 @@ def _looks_like_swmm_api(name: str) -> bool:
     and the one entry that matters is unreadable inside it.
     """
     return bool(_SWMM_MODULE.match(name))
+
+
+def _globals_scalars(globals_h: str) -> set[str]:
+    """Names declared in globals.h under an EXTERN scalar block.
+
+    Array declarations are skipped -- they are per-object state the struct pass
+    already covers -- as are the file handles and string buffers.
+    """
+    out: set[str] = set()
+    cur: str | None = None
+    for raw in globals_h.splitlines():
+        line = raw.split("//")[0].rstrip()
+        if not line.strip():
+            continue
+        m = re.match(r"^EXTERN\s+(\w+)", line)
+        if m:
+            cur = m.group(1)
+            line = line[m.end() :]
+        if cur not in ("double", "long", "int"):
+            continue
+        for tok in re.split(r"[,;]", line):
+            tok = tok.strip()
+            if not tok or "[" in tok or "*" in tok:
+                continue
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tok):
+                out.add(tok)
+        if ";" in raw:
+            cur = None
+    return out
 
 
 _SIG_CACHE: dict[str, list[str]] = {}
@@ -312,6 +373,32 @@ def main() -> int:
         for callee in _CALL.findall(bodies[fn]):
             if callee not in bodies and _looks_like_swmm_api(callee):
                 boundary.add(callee)
+    # DISCOVERY PASS.  SERIALIZED_SCALARS is the one part of this operation that
+    # is a list, and a list cannot tell you about the entry you forgot.  So scan
+    # globals.h for scalar EXTERN declarations, ask which of them the reached
+    # report path actually reads, and name any that are not in the list.  This
+    # found NonConvergeCount -- read at report.c:1076 inside the time-step
+    # frequency table, declared nowhere near a stats struct, and therefore
+    # invisible to an inventory seeded on the structs or on stats.c's statics.
+    declared = _globals_scalars((solver / "globals.h").read_text(errors="replace"))
+    listed = {n for n, _, _, _ in SERIALIZED_SCALARS}
+    unlisted = sorted(
+        n for n in declared
+        if n not in listed and n not in EXCLUDED_SCALARS
+        and re.search(rf"\b{re.escape(n)}\b", reached_src)
+    )
+    lines.append("# discovery pass -- globals.h scalars read by the report path:")
+    if unlisted:
+        for n in unlisted:
+            lines.append(f"#   UNTRIAGED: {n}  <-- add to SERIALIZED_SCALARS or to EXCLUDED_SCALARS")
+    else:
+        lines.append("#   none untriaged")
+    lines.append("#")
+    lines.append("# deliberately excluded, with reason:")
+    for n in sorted(EXCLUDED_SCALARS):
+        if re.search(rf"\b{re.escape(n)}\b", reached_src):
+            lines.append(f"#   {n}: {EXCLUDED_SCALARS[n]}")
+    lines.append("#")
     lines.append("# closure boundary -- report-reaching calls into units NOT walked:")
     for c in sorted(boundary):
         lines.append(f"#   {c}")
