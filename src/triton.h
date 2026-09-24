@@ -436,8 +436,25 @@ namespace Triton
     // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
     // resume with a truncated .rpt/.out whose header still shows the full window).
+    //
+    // On a resume the FULL-PRECISION STATE SNAPSHOT is tried first, with the
+    // replay as the fallback. That ordering is the point of the snapshot: the
+    // replay is exact but its cost grows with t_k, and because the device
+    // vectors are not created until create_device_vectors() below, the GPU is
+    // idle for its whole duration. Two production members exceeded a measured
+    // 11,107 s replay floor and were cancelled still replaying, on a cluster
+    // that kills GPU jobs idle at 0% utilisation; each resume replays a longer
+    // prefix, so the sequence does not converge.
+    //
+    // The fallback is RETAINED rather than replaced: a checkpoint written
+    // before snapshots existed has none to load, and a resume from one must
+    // still work. try_restore_state_snapshot() never aborts -- every refusal
+    // returns false and lands here, because the replay is correct, only slow.
     if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
-      if (arglist.checkpoint_id > 0) swmm_model.replay_exchange_history(arglist.sim_start_time);
+      if (arglist.checkpoint_id > 0) {
+        if (!swmm_model.try_restore_state_snapshot(arglist.checkpoint_id, arglist.sim_start_time))
+          swmm_model.replay_exchange_history(arglist.sim_start_time);
+      }
       else                            swmm_model.open_exchange_log_truncate();
     }
 
@@ -2195,11 +2212,30 @@ namespace Triton
 
         st.start(IO_TIME);
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
+#ifdef TRITON_SWMM
+        // Full-precision SWMM state snapshot for THIS checkpoint, so a resume
+        // from it restores in constant time instead of replaying 0..t_k.
+        //
+        // CHARGED TO IO_TIME, deliberately and INSIDE the existing bracket.
+        // It is a file write and belongs with the other file writes; leaving it
+        // outside would drop its cost into the `Other` residual, which is where
+        // flush_exchange_log's cost already falls (that is a separate, known
+        // miscount -- see the note below -- and adding a second one to keep it
+        // company is not a reason).
+        if (rank == 0 && swmm_model.num_of_swmm_links > 0)
+          swmm_model.write_state_snapshot(print_id);
+#endif
         st.stop(IO_TIME);
 
 #ifdef TRITON_SWMM
         // Tie exchange-replay side-file durability to each checkpoint write so a future
         // resume from this checkpoint always has a complete 0..t_k series on disk.
+        //
+        // NOTE, and do not "tidy" it: this call sits between st.stop(IO_TIME)
+        // and #if WRITE_PERFORMANCE, so its cost lands in the `Other` residual
+        // rather than in IO_TIME. That is a pre-existing miscount, it is known,
+        // and moving it is a separate commit -- not a drive-by inside the
+        // package that happens to be editing the neighbouring lines.
         if (rank == 0 && swmm_model.num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
 
