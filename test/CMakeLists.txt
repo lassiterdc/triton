@@ -12,6 +12,14 @@ endif()
 # source tree, not the built binary.
 add_subdirectory(inventory)
 
+# Tier-1 runtime tests for the SWMM timer column split (WP-1A). Registered
+# UNCONDITIONALLY: they include only supertimer.h and output.h, and the four new
+# columns are emitted in EVERY configuration -- get_custom_time REGISTERS an
+# absent category and returns 0.0, so the identity must close in a non-coupled
+# build too. Gating them on TRITON_ENABLE_SWMM would make them unreachable in
+# the configuration a reviewer can run fastest.
+add_subdirectory(perf)
+
 # Source-structural guards for the same split, plus the guard-of-the-guard.
 # Pure Python over src/: no build, no GPU, no solver run, so registered
 # unconditionally like the fence guards below. Two node ids, not one, and each
@@ -33,6 +41,19 @@ add_test(
     NAME SOURCE-SWMM-COLUMN-SPLIT-GUARD-FORMS
     COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_SOURCE_DIR}/test/test_swmm_column_split_guard_forms.py
+                ${CMAKE_SOURCE_DIR}
+)
+
+# check_performance_identity.py is the artifact an operator points at a REAL
+# coupled run's performance.txt -- the §8.3 smoke test's, or any member's. It is
+# not exercised by any other node id, so it gets one: this feeds it four
+# known-good and seven known-bad files and asserts it separates them AND reaches
+# each verdict for the stated reason. Without it, "the checker passed" is
+# indistinguishable from "the checker never reached its comparison".
+add_test(
+    NAME SOURCE-PERF-IDENTITY-CHECKER
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_performance_identity_checker.py
                 ${CMAKE_SOURCE_DIR}
 )
 
