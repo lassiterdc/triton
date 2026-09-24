@@ -12,6 +12,30 @@ endif()
 # source tree, not the built binary.
 add_subdirectory(inventory)
 
+# Source-structural guards for the same split, plus the guard-of-the-guard.
+# Pure Python over src/: no build, no GPU, no solver run, so registered
+# unconditionally like the fence guards below. Two node ids, not one, and each
+# holds a different line. The first asserts the five source properties the
+# RUNTIME tests cannot distinguish from their violations -- a child bracket that
+# escaped its parent still emits a plausible number, and a SWMM_OTHER macro
+# still compiles and still returns 0.0. The second applies eight named mutations
+# to a throwaway copy of the tree and asserts the first goes RED on each,
+# because a guard that cannot go red is indistinguishable from one that can and
+# only the mutation run tells them apart.
+add_test(
+    NAME SOURCE-SWMM-COLUMN-SPLIT
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_column_split_source.py
+                ${CMAKE_SOURCE_DIR}
+)
+
+add_test(
+    NAME SOURCE-SWMM-COLUMN-SPLIT-GUARD-FORMS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_column_split_guard_forms.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 # Source-structural guards (WP-0B). Pure Python over src/triton.h: no build, no
 # GPU, no solver run and no SWMM, so they are registered UNCONDITIONALLY --
 # gating them on TRITON_ENABLE_SWMM would make the fence guard unreachable in
