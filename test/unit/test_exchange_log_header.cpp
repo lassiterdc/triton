@@ -38,7 +38,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <sstream>
+#include <unistd.h>
 #include <string>
 #include <vector>
 
@@ -291,6 +293,163 @@ static void T14_validation_order_magic_then_nodes_then_width()
 }
 
 // ---------------------------------------------------------------------------
+// Legacy (V1) fixtures.
+//
+// A V1 side-file is exactly what open_exchange_log_truncate() wrote before the
+// bump: a two-field header {magic, num_nodes} followed by records. It has NO third
+// header field, which is the whole reason the magic had to move.
+// ---------------------------------------------------------------------------
+
+/** Bytes of a V1 side-file: the two-field header plus `n_records` records. The
+ *  first record's leading value_t is `first_dt`, so a caller can control exactly
+ *  what a three-field reader would mistake for the stored width. */
+static std::string v1_side_file_bytes(int32_t num_nodes, int n_records, value_t first_dt)
+{
+    std::ostringstream os(std::ios::binary);
+    const int32_t magic = EXCHANGE_LOG_MAGIC;
+    os.write(reinterpret_cast<const char*>(&magic),     sizeof(int32_t));
+    os.write(reinterpret_cast<const char*>(&num_nodes), sizeof(int32_t));
+
+    for (int r = 0; r < n_records; ++r) {
+        const value_t dt = (r == 0) ? first_dt : (value_t)1.0;
+        os.write(reinterpret_cast<const char*>(&dt), sizeof(value_t));
+        const std::vector<value_t> q((std::size_t)num_nodes, (value_t)0.5);
+        os.write(reinterpret_cast<const char*>(q.data()), sizeof(value_t) * (std::size_t)num_nodes);
+    }
+    return os.str();
+}
+
+/** A per-process temp path, so a concurrent build on the same filesystem cannot
+ *  collide with this one. */
+static std::filesystem::path tmp_path(const char* stem)
+{
+    return std::filesystem::temp_directory_path() /
+           (std::string("triton_wp0a_") + stem + "_" +
+            std::to_string((long long)::getpid()) + ".bin");
+}
+
+// ---------------------------------------------------------------------------
+// T2 -- design section 5 properties 2 and 3, and WP-0A chunk 3's whole claim:
+//       a legacy file lands on the BAD-MAGIC path.
+//
+// Exercised through a real file on disk and a real std::ifstream, the same way
+// replay_exchange_history() reaches the header -- not only through a stringstream.
+//
+// This test FAILS if the legacy path ever silently accepted a V1 header: `ok`,
+// `node_count_mismatch` and `value_width_mismatch` are each a distinct failure
+// here, so the assertion cannot be satisfied by any status but bad_magic.
+// ---------------------------------------------------------------------------
+static void T2_v1_legacy_file_lands_on_bad_magic()
+{
+    const int32_t kNodes = 14;
+    const std::filesystem::path f = tmp_path("v1");
+
+    {
+        std::ofstream os(f, std::ios::binary | std::ios::trunc);
+        const std::string bytes = v1_side_file_bytes(kNodes, 3, (value_t)0.25);
+        os.write(bytes.data(), (std::streamsize)bytes.size());
+    }
+
+    std::ifstream in(f, std::ios::binary);
+    CHECK(in.is_open(), "the V1 fixture file must be readable");
+
+    const exchange_log_header_t h = read_exchange_log_header(in);
+    const exchange_header_status st =
+        validate_exchange_log_header(h, kNodes, EXCHANGE_LOG_VALUE_WIDTH);
+
+    CHECK(st == exchange_header_status::bad_magic,
+          "a V1 legacy side-file must be refused as bad_magic");
+    CHECK(st != exchange_header_status::ok,
+          "a V1 legacy side-file must NOT be accepted");
+    CHECK(st != exchange_header_status::node_count_mismatch,
+          "a V1 legacy side-file must not be blamed on the .inp / coupling");
+    CHECK(st != exchange_header_status::value_width_mismatch,
+          "a V1 legacy side-file must not be reported as a wrong stored width");
+
+    // The V1 magic survives into the header so replay_exchange_history() can emit
+    // the legacy-specific hint rather than a generic parse failure. The node count
+    // is genuinely correct here, which is exactly why a weaker ordering would have
+    // fallen through to the width check.
+    CHECK_EQ_I(h.magic, EXCHANGE_LOG_MAGIC, "the retained V1 magic must reach the caller");
+    CHECK_EQ_I(h.num_nodes, kNodes, "a V1 file's second field really is the node count");
+    CHECK(h.complete, "a V1 file with records is long enough to fill three fields");
+
+    in.close();
+    std::error_code ec;
+    std::filesystem::remove(f, ec);
+}
+
+// ---------------------------------------------------------------------------
+// T15 -- the adversarial case the magic bump exists for.
+//
+// A V1 file's bytes 8..11 are the first record's leading value_t, not a width. This
+// fixture chooses a first dt whose low four bytes ARE exactly this build's
+// sizeof(value_t), so the synthetic "width field" agrees and the node count agrees:
+// a validator that checked width without first checking magic would return `ok` and
+// replay the file with a wrong stride and no error anywhere.
+//
+// Checking magic first is the only thing standing between that file and swmm_step.
+// ---------------------------------------------------------------------------
+static void T15_v1_third_field_is_record_bytes_not_a_width()
+{
+    const int32_t kNodes = 14;
+    const int32_t kThis  = EXCHANGE_LOG_VALUE_WIDTH;
+
+    // Build a first dt whose leading four bytes read back as the int32 kThis.
+    value_t dt = (value_t)0.0;
+    std::memcpy(&dt, &kThis, sizeof(int32_t));
+
+    const std::string bytes = v1_side_file_bytes(kNodes, 2, dt);
+    std::istringstream is(bytes, std::ios::binary);
+    const exchange_log_header_t h = read_exchange_log_header(is);
+
+    // The trap is real: field 2 of this V1 file reads back as a plausible width.
+    CHECK_EQ_I(h.value_width, kThis,
+               "the fixture must actually reproduce the trap -- a V1 file whose "
+               "third int32 coincides with this build's value_t width");
+    CHECK_EQ_I(h.num_nodes, kNodes, "and whose node count agrees too");
+
+    // Despite every later field agreeing, the magic decides.
+    CHECK(validate_exchange_log_header(h, kNodes, kThis) == exchange_header_status::bad_magic,
+          "a V1 file must be refused on magic even when its record bytes happen to "
+          "read back as a matching width and node count");
+}
+
+// ---------------------------------------------------------------------------
+// T16 -- the converse: a V2 file is never mistaken for legacy.
+//
+// Chunk 3's claim is two-sided, and T2 only covers one side. Without this, a
+// reader that returned bad_magic unconditionally would pass every legacy test.
+// ---------------------------------------------------------------------------
+static void T16_v2_file_is_not_mistaken_for_legacy()
+{
+    const int32_t kNodes = 14;
+    const std::filesystem::path f = tmp_path("v2");
+
+    {
+        std::ofstream os(f, std::ios::binary | std::ios::trunc);
+        write_exchange_log_header(os, kNodes);
+        const value_t dt = (value_t)0.25;
+        os.write(reinterpret_cast<const char*>(&dt), sizeof(value_t));
+        const std::vector<value_t> q((std::size_t)kNodes, (value_t)0.5);
+        os.write(reinterpret_cast<const char*>(q.data()), sizeof(value_t) * (std::size_t)kNodes);
+    }
+
+    std::ifstream in(f, std::ios::binary);
+    const exchange_log_header_t h = read_exchange_log_header(in);
+
+    CHECK(h.magic != EXCHANGE_LOG_MAGIC,
+          "a file this build wrote must not carry the legacy magic");
+    CHECK(validate_exchange_log_header(h, kNodes, EXCHANGE_LOG_VALUE_WIDTH)
+              == exchange_header_status::ok,
+          "a file this build wrote must validate against this build");
+
+    in.close();
+    std::error_code ec;
+    std::filesystem::remove(f, ec);
+}
+
+// ---------------------------------------------------------------------------
 // Registry / driver
 // ---------------------------------------------------------------------------
 struct test_entry { const char* name; void (*fn)(); };
@@ -303,6 +462,9 @@ static const test_entry kTests[] = {
     { "T12_node_count_mismatch_refused",      &T12_node_count_mismatch_refused },
     { "T13_short_header_is_bad_magic",        &T13_short_header_is_bad_magic },
     { "T14_validation_order_magic_then_nodes_then_width", &T14_validation_order_magic_then_nodes_then_width },
+    { "T2_v1_legacy_file_lands_on_bad_magic", &T2_v1_legacy_file_lands_on_bad_magic },
+    { "T15_v1_third_field_is_record_bytes_not_a_width", &T15_v1_third_field_is_record_bytes_not_a_width },
+    { "T16_v2_file_is_not_mistaken_for_legacy", &T16_v2_file_is_not_mistaken_for_legacy },
 };
 
 int main(int argc, char** argv)

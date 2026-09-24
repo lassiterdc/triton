@@ -22,7 +22,10 @@ set(TRITON_EXCHANGE_LOG_HEADER_TESTS
   T1_stored_width_disagreement_is_refused
   T12_node_count_mismatch_refused
   T13_short_header_is_bad_magic
-  T14_validation_order_magic_then_nodes_then_width)
+  T14_validation_order_magic_then_nodes_then_width
+  T2_v1_legacy_file_lands_on_bad_magic
+  T15_v1_third_field_is_record_bytes_not_a_width
+  T16_v2_file_is_not_mistaken_for_legacy)
 
 foreach(_t IN LISTS TRITON_EXCHANGE_LOG_HEADER_TESTS)
   add_test(NAME UNIT-EXCHANGE-LOG-${_t}
