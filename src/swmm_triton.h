@@ -50,8 +50,46 @@
 namespace SWMM_triton
 {
 
-	// Magic header for the exchange-replay side-file (ASCII "SWMM").
-	static constexpr int32_t EXCHANGE_LOG_MAGIC = 0x53574D4D;
+	// Magic header for the exchange-replay side-file.
+	//
+	// V1 (RETAINED, and never re-used as the current magic): a two-field header
+	// {int32 magic, int32 num_nodes}. BOTH fields are precision-independent, so a
+	// side-file written by one value_t build and replayed by the other passed every
+	// guard and then strode each record by the wrong number of bytes -- silent
+	// corruption inside a correctness mechanism. The symbol is kept so the V2 reader
+	// can NAME what it rejected instead of reporting a generic parse failure.
+	static constexpr int32_t EXCHANGE_LOG_MAGIC = 0x53574D4D;        // ASCII "SWMM"
+
+	// V2 (current): a three-field header {int32 magic, int32 num_nodes, int32 value_width}.
+	// The magic bump is the load-bearing half of the guard. A V1 file read by a
+	// three-field reader consumes the first record's leading value_t as the third
+	// header field, so the reader must be able to tell the two generations apart
+	// BEFORE it interprets that field at all -- which is why the magic is checked
+	// first and a legacy file is reported as a bad header, never as a wrong width.
+	static constexpr int32_t EXCHANGE_LOG_MAGIC_V2 = 0x53574D32;     // ASCII "SWM2"
+
+	// The value_t width this build writes into, and demands of, a V2 side-file.
+	static constexpr int32_t EXCHANGE_LOG_VALUE_WIDTH = static_cast<int32_t>(sizeof(value_t));
+
+	// Bytes occupied by the V2 header. replay_exchange_history() strides records from
+	// this, so it is declared once beside the layout rather than recomputed at the use site.
+	static constexpr std::size_t EXCHANGE_LOG_HEADER_BYTES = 3 * sizeof(int32_t);
+
+	// --- V2 exchange-log header: the single expression of the layout ---------------
+	// open_exchange_log_truncate() and replay_exchange_history() call these rather than
+	// laying out the bytes themselves, so the write and read sides cannot drift, and a
+	// test can exercise the shipped layout with no solver run and no SWMM call.
+
+	/** @brief Writes the V2 side-file header: magic, node count, stored value_t width. */
+	static inline void write_exchange_log_header(std::ostream& out, int32_t num_nodes)
+	{
+		const int32_t magic = EXCHANGE_LOG_MAGIC_V2;
+		const int32_t n     = num_nodes;
+		const int32_t width = EXCHANGE_LOG_VALUE_WIDTH;
+		out.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+		out.write(reinterpret_cast<const char*>(&n),     sizeof(n));
+		out.write(reinterpret_cast<const char*>(&width), sizeof(width));
+	}
 
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
@@ -530,7 +568,8 @@ namespace SWMM_triton
 	// Exchange-series side-file (hotstart-resume replay support). Rank 0 only.
 	//
 	// File layout:
-	//   header : int32 magic (= EXCHANGE_LOG_MAGIC) ; int32 num_nodes
+	//   header : int32 magic (= EXCHANGE_LOG_MAGIC_V2) ; int32 num_nodes ;
+	//            int32 value_width (= sizeof(value_t) in the writing build)
 	//   record : value_t dt ; value_t exchange_q[0..num_nodes-1]   (one per TRITON step)
 	//
 	// Clean start: truncate the file and write a fresh header.
@@ -550,10 +589,7 @@ namespace SWMM_triton
 			          << exchange_log_path << std::endl;
 			exit(EXIT_FAILURE);
 		}
-		int32_t magic = EXCHANGE_LOG_MAGIC;
-		int32_t n = static_cast<int32_t>(exchange_num_nodes);
-		exchange_log.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
-		exchange_log.write(reinterpret_cast<const char*>(&n), sizeof(n));
+		write_exchange_log_header(exchange_log, static_cast<int32_t>(exchange_num_nodes));
 		exchange_log.flush();
 	}
 

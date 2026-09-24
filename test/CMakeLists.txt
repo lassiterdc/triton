@@ -1,3 +1,10 @@
+# Tier-1 unit tests for the coupled side-file header (no solver run).
+# Placed at the top of this file so an appended registration elsewhere cannot
+# conflict with it on a shared branch.
+if(TRITON_ENABLE_SWMM)
+  add_subdirectory(unit)
+endif()
+
 function(add_triton_test test_name cfg_name)
   file(COPY ${TRITON_SOURCE_DIR}/test/${cfg_name}
        DESTINATION ${TRITON_BUILD_DIR}/test)
