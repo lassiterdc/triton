@@ -312,6 +312,31 @@ static void snap_l(TSnapCtx* c, long* v)
 //  of what this traversal must cover, and the T6 test asserts the emitted
 //  manifest against it.
 //-----------------------------------------------------------------------------
+// MANIFEST mode must not touch model memory: the manifest describes what this
+// BUILD serializes and has to be answerable before a model is open, and with
+// every count at zero.  Without these dummies the manifest of an empty model is
+// empty -- which would make the file's own description of its layout depend on
+// the model it was taken from, and would make the manifest untestable without a
+// live solver.  They are written to in MANIFEST mode only in the sense that
+// nothing writes them at all: snap_* touch the slot only in WRITE and READ.
+static TNodeStats     _snapDummyNode;
+static TLinkStats     _snapDummyLink;
+static TStorageStats  _snapDummyStorage;
+static TOutfallStats  _snapDummyOutfall;
+static TPumpStats     _snapDummyPump;
+static TSubcatchStats _snapDummySubcatch;
+static TTimeStepStats _snapDummyTimeStep;
+static TMaxStats      _snapDummyMax;
+static TRunoffTotals  _snapDummyRunoff;
+static TGwaterTotals  _snapDummyGwater;
+static TRoutingTotals _snapDummyRouting;
+static TLoadingTotals _snapDummyLoading;
+static double         _snapDummyScalar;
+static long           _snapDummyLong;
+
+#define SNAP_N(c, real)  ((c)->mode == SNAP_MANIFEST ? 1 : (real))
+#define SNAP_P(c, arr, i, dummy)  ((c)->mode == SNAP_MANIFEST ? &(dummy) : &((arr)[i]))
+
 static void snapshot_traverse(TSnapCtx* c, int maxStats)
 {
     int i, k;
@@ -323,134 +348,149 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     double*         sysOut = NULL;
     int             nStats = 0;
 
-    stats_getSnapshotRefs(&tss, &mbe, &cc, &ft, &nc, &sysOut, &nStats);
-    if ( nStats != maxStats ) { c->error = 1; return; }
-
-    // --- node statistics
-    for (i = 0; i < Nobjects[NODE] && NodeStats; i++)
+    if ( c->mode != SNAP_MANIFEST )
     {
-        SNAP_D(c, "NodeStats", NodeStats[i], avgDepth);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxDepth);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxDepthDate);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxRptDepth);
-        SNAP_D(c, "NodeStats", NodeStats[i], volFlooded);
-        SNAP_D(c, "NodeStats", NodeStats[i], timeFlooded);
-        SNAP_D(c, "NodeStats", NodeStats[i], timeSurcharged);
-        SNAP_D(c, "NodeStats", NodeStats[i], timeCourantCritical);
-        SNAP_D(c, "NodeStats", NodeStats[i], totLatFlow);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxLatFlow);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxInflow);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxOverflow);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxPondedVol);
-        SNAP_I(c, "NodeStats", NodeStats[i], nonConvergedCount);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxInflowDate);
-        SNAP_D(c, "NodeStats", NodeStats[i], maxOverflowDate);
-        if ( c->mode == SNAP_MANIFEST ) break;   // one instance names the fields
+        stats_getSnapshotRefs(&tss, &mbe, &cc, &ft, &nc, &sysOut, &nStats);
+        // stats.c owns MAX_STATS as a private #define. If its value and ours
+        // ever diverge, refuse rather than index an array whose length we
+        // guessed -- the guess would be wrong by exactly the amount that makes
+        // the overrun hard to see.
+        if ( nStats != maxStats ) { c->error = 1; return; }
     }
 
-    // --- link statistics
-    for (i = 0; i < Nobjects[LINK] && LinkStats; i++)
+    // --- NodeStats
+    if ( c->mode != SNAP_MANIFEST && Nobjects[NODE] > 0 && !NodeStats ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[NODE]); i++)
     {
-        SNAP_D(c, "LinkStats", LinkStats[i], maxFlow);
-        SNAP_D(c, "LinkStats", LinkStats[i], maxFlowDate);
-        SNAP_D(c, "LinkStats", LinkStats[i], maxVeloc);
-        SNAP_D(c, "LinkStats", LinkStats[i], maxDepth);
-        SNAP_D(c, "LinkStats", LinkStats[i], maxStreetFilled);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeNormalFlow);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeInletControl);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeSurcharged);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeFullUpstream);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeFullDnstream);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeFullFlow);
-        SNAP_D(c, "LinkStats", LinkStats[i], timeCapacityLimited);
+        TNodeStats* s = SNAP_P(c, NodeStats, i, _snapDummyNode);
+        SNAP_D(c, "NodeStats", *s, avgDepth);
+        SNAP_D(c, "NodeStats", *s, maxDepth);
+        SNAP_D(c, "NodeStats", *s, maxDepthDate);
+        SNAP_D(c, "NodeStats", *s, maxRptDepth);
+        SNAP_D(c, "NodeStats", *s, volFlooded);
+        SNAP_D(c, "NodeStats", *s, timeFlooded);
+        SNAP_D(c, "NodeStats", *s, timeSurcharged);
+        SNAP_D(c, "NodeStats", *s, timeCourantCritical);
+        SNAP_D(c, "NodeStats", *s, totLatFlow);
+        SNAP_D(c, "NodeStats", *s, maxLatFlow);
+        SNAP_D(c, "NodeStats", *s, maxInflow);
+        SNAP_D(c, "NodeStats", *s, maxOverflow);
+        SNAP_D(c, "NodeStats", *s, maxPondedVol);
+        SNAP_I(c, "NodeStats", *s, nonConvergedCount);
+        SNAP_D(c, "NodeStats", *s, maxInflowDate);
+        SNAP_D(c, "NodeStats", *s, maxOverflowDate);
+    }
+
+    // --- LinkStats
+    if ( c->mode != SNAP_MANIFEST && Nobjects[LINK] > 0 && !LinkStats ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[LINK]); i++)
+    {
+        TLinkStats* s = SNAP_P(c, LinkStats, i, _snapDummyLink);
+        SNAP_D(c, "LinkStats", *s, maxFlow);
+        SNAP_D(c, "LinkStats", *s, maxFlowDate);
+        SNAP_D(c, "LinkStats", *s, maxVeloc);
+        SNAP_D(c, "LinkStats", *s, maxDepth);
+        SNAP_D(c, "LinkStats", *s, maxStreetFilled);
+        SNAP_D(c, "LinkStats", *s, timeNormalFlow);
+        SNAP_D(c, "LinkStats", *s, timeInletControl);
+        SNAP_D(c, "LinkStats", *s, timeSurcharged);
+        SNAP_D(c, "LinkStats", *s, timeFullUpstream);
+        SNAP_D(c, "LinkStats", *s, timeFullDnstream);
+        SNAP_D(c, "LinkStats", *s, timeFullFlow);
+        SNAP_D(c, "LinkStats", *s, timeCapacityLimited);
         for (k = 0; k < MAX_FLOW_CLASSES; k++)
         {
             snap_name(c, "LinkStats", "timeInFlowClass");
-            snap_d(c, &LinkStats[i].timeInFlowClass[k]);
+            snap_d(c, &s->timeInFlowClass[k]);
         }
-        SNAP_D(c, "LinkStats", LinkStats[i], timeCourantCritical);
-        SNAP_L(c, "LinkStats", LinkStats[i], flowTurns);
-        SNAP_I(c, "LinkStats", LinkStats[i], flowTurnSign);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        SNAP_D(c, "LinkStats", *s, timeCourantCritical);
+        SNAP_L(c, "LinkStats", *s, flowTurns);
+        SNAP_I(c, "LinkStats", *s, flowTurnSign);
     }
 
-    // --- storage statistics
-    for (i = 0; i < Nnodes[STORAGE] && StorageStats; i++)
+    // --- StorageStats
+    if ( c->mode != SNAP_MANIFEST && Nnodes[STORAGE] > 0 && !StorageStats ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nnodes[STORAGE]); i++)
     {
-        SNAP_D(c, "StorageStats", StorageStats[i], initVol);
-        SNAP_D(c, "StorageStats", StorageStats[i], avgVol);
-        SNAP_D(c, "StorageStats", StorageStats[i], maxVol);
-        SNAP_D(c, "StorageStats", StorageStats[i], maxFlow);
-        SNAP_D(c, "StorageStats", StorageStats[i], evapLosses);
-        SNAP_D(c, "StorageStats", StorageStats[i], exfilLosses);
-        SNAP_D(c, "StorageStats", StorageStats[i], maxVolDate);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        TStorageStats* s = SNAP_P(c, StorageStats, i, _snapDummyStorage);
+        SNAP_D(c, "StorageStats", *s, initVol);
+        SNAP_D(c, "StorageStats", *s, avgVol);
+        SNAP_D(c, "StorageStats", *s, maxVol);
+        SNAP_D(c, "StorageStats", *s, maxFlow);
+        SNAP_D(c, "StorageStats", *s, evapLosses);
+        SNAP_D(c, "StorageStats", *s, exfilLosses);
+        SNAP_D(c, "StorageStats", *s, maxVolDate);
     }
 
-    // --- outfall statistics. totalLoad is a per-pollutant array hanging off
-    //     the struct; the pointer is NOT serialized, its contents are.
-    for (i = 0; i < Nnodes[OUTFALL] && OutfallStats; i++)
+    // --- OutfallStats. totalLoad is a per-pollutant array hanging off the
+    //     struct; the POINTER is not serialized, its contents are.
+    if ( c->mode != SNAP_MANIFEST && Nnodes[OUTFALL] > 0 && !OutfallStats ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nnodes[OUTFALL]); i++)
     {
-        SNAP_D(c, "OutfallStats", OutfallStats[i], avgFlow);
-        SNAP_D(c, "OutfallStats", OutfallStats[i], maxFlow);
-        SNAP_I(c, "OutfallStats", OutfallStats[i], totalPeriods);
-        for (k = 0; k < Nobjects[POLLUT]; k++)
+        TOutfallStats* s = SNAP_P(c, OutfallStats, i, _snapDummyOutfall);
+        SNAP_D(c, "OutfallStats", *s, avgFlow);
+        SNAP_D(c, "OutfallStats", *s, maxFlow);
+        SNAP_I(c, "OutfallStats", *s, totalPeriods);
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
         {
             snap_name(c, "OutfallStats", "totalLoad");
-            if ( OutfallStats[i].totalLoad ) snap_d(c, &OutfallStats[i].totalLoad[k]);
-            else if ( c->mode != SNAP_MANIFEST ) { c->error = 1; return; }
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->totalLoad ) { c->error = 1; return; }
+            snap_d(c, &s->totalLoad[k]);
         }
-        if ( c->mode == SNAP_MANIFEST ) break;
     }
 
-    // --- pump statistics
-    for (i = 0; i < Nlinks[PUMP] && PumpStats; i++)
+    // --- PumpStats
+    if ( c->mode != SNAP_MANIFEST && Nlinks[PUMP] > 0 && !PumpStats ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nlinks[PUMP]); i++)
     {
-        SNAP_D(c, "PumpStats", PumpStats[i], utilized);
-        SNAP_D(c, "PumpStats", PumpStats[i], minFlow);
-        SNAP_D(c, "PumpStats", PumpStats[i], avgFlow);
-        SNAP_D(c, "PumpStats", PumpStats[i], maxFlow);
-        SNAP_D(c, "PumpStats", PumpStats[i], volume);
-        SNAP_D(c, "PumpStats", PumpStats[i], energy);
-        SNAP_D(c, "PumpStats", PumpStats[i], offCurveLow);
-        SNAP_D(c, "PumpStats", PumpStats[i], offCurveHigh);
-        SNAP_I(c, "PumpStats", PumpStats[i], startUps);
-        SNAP_I(c, "PumpStats", PumpStats[i], totalPeriods);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        TPumpStats* s = SNAP_P(c, PumpStats, i, _snapDummyPump);
+        SNAP_D(c, "PumpStats", *s, utilized);
+        SNAP_D(c, "PumpStats", *s, minFlow);
+        SNAP_D(c, "PumpStats", *s, avgFlow);
+        SNAP_D(c, "PumpStats", *s, maxFlow);
+        SNAP_D(c, "PumpStats", *s, volume);
+        SNAP_D(c, "PumpStats", *s, energy);
+        SNAP_D(c, "PumpStats", *s, offCurveLow);
+        SNAP_D(c, "PumpStats", *s, offCurveHigh);
+        SNAP_I(c, "PumpStats", *s, startUps);
+        SNAP_I(c, "PumpStats", *s, totalPeriods);
     }
 
-    // --- subcatchment statistics
-    for (i = 0; i < Nobjects[SUBCATCH] && SubcatchStats; i++)
+    // --- SubcatchStats
+    if ( c->mode != SNAP_MANIFEST && Nobjects[SUBCATCH] > 0 && !SubcatchStats ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[SUBCATCH]); i++)
     {
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], precip);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], runon);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], evap);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], infil);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], runoff);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], maxFlow);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], impervRunoff);
-        SNAP_D(c, "SubcatchStats", SubcatchStats[i], pervRunoff);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        TSubcatchStats* s = SNAP_P(c, SubcatchStats, i, _snapDummySubcatch);
+        SNAP_D(c, "SubcatchStats", *s, precip);
+        SNAP_D(c, "SubcatchStats", *s, runon);
+        SNAP_D(c, "SubcatchStats", *s, evap);
+        SNAP_D(c, "SubcatchStats", *s, infil);
+        SNAP_D(c, "SubcatchStats", *s, runoff);
+        SNAP_D(c, "SubcatchStats", *s, maxFlow);
+        SNAP_D(c, "SubcatchStats", *s, impervRunoff);
+        SNAP_D(c, "SubcatchStats", *s, pervRunoff);
     }
 
-    // --- time-step statistics (a single instance, reached via stats.c)
-    if ( tss )
+    // --- TimeStepStats: a single instance, private to stats.c
     {
-        SNAP_D(c, "TimeStepStats", *tss, minTimeStep);
-        SNAP_D(c, "TimeStepStats", *tss, maxTimeStep);
-        SNAP_D(c, "TimeStepStats", *tss, routingTime);
-        SNAP_I(c, "TimeStepStats", *tss, timeStepCount);
-        SNAP_D(c, "TimeStepStats", *tss, trialsCount);
-        SNAP_D(c, "TimeStepStats", *tss, steadyStateTime);
+        TTimeStepStats* s = (c->mode == SNAP_MANIFEST) ? &_snapDummyTimeStep : tss;
+        if ( !s ) { c->error = 1; return; }
+        SNAP_D(c, "TimeStepStats", *s, minTimeStep);
+        SNAP_D(c, "TimeStepStats", *s, maxTimeStep);
+        SNAP_D(c, "TimeStepStats", *s, routingTime);
+        SNAP_I(c, "TimeStepStats", *s, timeStepCount);
+        SNAP_D(c, "TimeStepStats", *s, trialsCount);
+        SNAP_D(c, "TimeStepStats", *s, steadyStateTime);
         for (k = 0; k < TIMELEVELS; k++)
         {
             snap_name(c, "TimeStepStats", "timeStepIntervals");
-            snap_d(c, &tss->timeStepIntervals[k]);
+            snap_d(c, &s->timeStepIntervals[k]);
         }
         for (k = 0; k < TIMELEVELS; k++)
         {
             snap_name(c, "TimeStepStats", "timeStepCounts");
-            snap_i(c, &tss->timeStepCounts[k]);
+            snap_i(c, &s->timeStepCounts[k]);
         }
     }
 
@@ -459,53 +499,58 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     //     stats_findMaxStats() RECOMPUTES all four at report time from
     //     NodeStats / LinkStats / NodeInflow / NodeOutflow / timeStepCount /
     //     ReportStepCount, so restoring them is redundant on the happy path.
-    //     They are serialized anyway because the criterion admits them -- the
-    //     report writers read them -- and because a redundant restore that a
-    //     later recompute overwrites costs 60 doubles and cannot be wrong,
-    //     while omitting them would make this file's contents depend on a
-    //     derivation holding somewhere else.
+    //     They are serialized anyway: the criterion admits them (the report
+    //     writers read them), and a redundant restore that a later recompute
+    //     overwrites costs 60 doubles and cannot be wrong -- whereas omitting
+    //     them would make this file's contents depend on a derivation holding
+    //     somewhere else.
     {
-        TMaxStats* arrays[4];
+        TMaxStats*  arrays[4];
         const char* names[4] = { "MaxMassBalErrs", "MaxCourantCrit",
                                  "MaxFlowTurns",   "MaxNonConverged" };
         int a;
         arrays[0] = mbe; arrays[1] = cc; arrays[2] = ft; arrays[3] = nc;
         for (a = 0; a < 4; a++)
         {
-            if ( !arrays[a] ) continue;
-            for (i = 0; i < maxStats; i++)
+            for (i = 0; i < SNAP_N(c, maxStats); i++)
             {
-                SNAP_I(c, names[a], arrays[a][i], objType);
-                SNAP_I(c, names[a], arrays[a][i], index);
-                SNAP_D(c, names[a], arrays[a][i], value);
-                if ( c->mode == SNAP_MANIFEST ) break;
+                TMaxStats* s = (c->mode == SNAP_MANIFEST)
+                             ? &_snapDummyMax : &arrays[a][i];
+                if ( c->mode != SNAP_MANIFEST && !arrays[a] ) { c->error = 1; return; }
+                SNAP_I(c, names[a], *s, objType);
+                SNAP_I(c, names[a], *s, index);
+                SNAP_D(c, names[a], *s, value);
             }
         }
     }
 
     // --- mass-balance accumulators
-    SNAP_D(c, "RunoffTotals", RunoffTotals, rainfall);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, evap);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, infil);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, runoff);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, drains);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, runon);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, initStorage);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, finalStorage);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, initSnowCover);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, finalSnowCover);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, snowRemoved);
-    SNAP_D(c, "RunoffTotals", RunoffTotals, pctError);
-
-    SNAP_D(c, "GwaterTotals", GwaterTotals, infil);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, upperEvap);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, lowerEvap);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, lowerPerc);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, gwater);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, initStorage);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, finalStorage);
-    SNAP_D(c, "GwaterTotals", GwaterTotals, pctError);
-
+    {
+        TRunoffTotals* s = (c->mode == SNAP_MANIFEST) ? &_snapDummyRunoff : &RunoffTotals;
+        SNAP_D(c, "RunoffTotals", *s, rainfall);
+        SNAP_D(c, "RunoffTotals", *s, evap);
+        SNAP_D(c, "RunoffTotals", *s, infil);
+        SNAP_D(c, "RunoffTotals", *s, runoff);
+        SNAP_D(c, "RunoffTotals", *s, drains);
+        SNAP_D(c, "RunoffTotals", *s, runon);
+        SNAP_D(c, "RunoffTotals", *s, initStorage);
+        SNAP_D(c, "RunoffTotals", *s, finalStorage);
+        SNAP_D(c, "RunoffTotals", *s, initSnowCover);
+        SNAP_D(c, "RunoffTotals", *s, finalSnowCover);
+        SNAP_D(c, "RunoffTotals", *s, snowRemoved);
+        SNAP_D(c, "RunoffTotals", *s, pctError);
+    }
+    {
+        TGwaterTotals* s = (c->mode == SNAP_MANIFEST) ? &_snapDummyGwater : &GwaterTotals;
+        SNAP_D(c, "GwaterTotals", *s, infil);
+        SNAP_D(c, "GwaterTotals", *s, upperEvap);
+        SNAP_D(c, "GwaterTotals", *s, lowerEvap);
+        SNAP_D(c, "GwaterTotals", *s, lowerPerc);
+        SNAP_D(c, "GwaterTotals", *s, gwater);
+        SNAP_D(c, "GwaterTotals", *s, initStorage);
+        SNAP_D(c, "GwaterTotals", *s, finalStorage);
+        SNAP_D(c, "GwaterTotals", *s, pctError);
+    }
     {
         TRoutingTotals* rt[3];
         const char* rtn[3] = { "FlowTotals", "StepFlowTotals", "OldStepFlowTotals" };
@@ -513,88 +558,102 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         rt[0] = &FlowTotals; rt[1] = &StepFlowTotals; rt[2] = &OldStepFlowTotals;
         for (a = 0; a < 3; a++)
         {
-            SNAP_D(c, rtn[a], *rt[a], dwInflow);
-            SNAP_D(c, rtn[a], *rt[a], wwInflow);
-            SNAP_D(c, rtn[a], *rt[a], gwInflow);
-            SNAP_D(c, rtn[a], *rt[a], iiInflow);
-            SNAP_D(c, rtn[a], *rt[a], exInflow);
-            SNAP_D(c, rtn[a], *rt[a], flooding);
-            SNAP_D(c, rtn[a], *rt[a], outflow);
-            SNAP_D(c, rtn[a], *rt[a], evapLoss);
-            SNAP_D(c, rtn[a], *rt[a], seepLoss);
-            SNAP_D(c, rtn[a], *rt[a], reacted);
-            SNAP_D(c, rtn[a], *rt[a], initStorage);
-            SNAP_D(c, rtn[a], *rt[a], finalStorage);
-            SNAP_D(c, rtn[a], *rt[a], pctError);
+            TRoutingTotals* s = (c->mode == SNAP_MANIFEST) ? &_snapDummyRouting : rt[a];
+            SNAP_D(c, rtn[a], *s, dwInflow);
+            SNAP_D(c, rtn[a], *s, wwInflow);
+            SNAP_D(c, rtn[a], *s, gwInflow);
+            SNAP_D(c, rtn[a], *s, iiInflow);
+            SNAP_D(c, rtn[a], *s, exInflow);
+            SNAP_D(c, rtn[a], *s, flooding);
+            SNAP_D(c, rtn[a], *s, outflow);
+            SNAP_D(c, rtn[a], *s, evapLoss);
+            SNAP_D(c, rtn[a], *s, seepLoss);
+            SNAP_D(c, rtn[a], *s, reacted);
+            SNAP_D(c, rtn[a], *s, initStorage);
+            SNAP_D(c, rtn[a], *s, finalStorage);
+            SNAP_D(c, rtn[a], *s, pctError);
         }
     }
 
     // --- per-pollutant totals
-    for (i = 0; i < Nobjects[POLLUT] && LoadingTotals; i++)
+    if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !LoadingTotals ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[POLLUT]); i++)
     {
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], initLoad);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], buildup);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], deposition);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], sweeping);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], bmpRemoval);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], infil);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], runoff);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], finalLoad);
-        SNAP_D(c, "LoadingTotals", LoadingTotals[i], pctError);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        TLoadingTotals* s = SNAP_P(c, LoadingTotals, i, _snapDummyLoading);
+        SNAP_D(c, "LoadingTotals", *s, initLoad);
+        SNAP_D(c, "LoadingTotals", *s, buildup);
+        SNAP_D(c, "LoadingTotals", *s, deposition);
+        SNAP_D(c, "LoadingTotals", *s, sweeping);
+        SNAP_D(c, "LoadingTotals", *s, bmpRemoval);
+        SNAP_D(c, "LoadingTotals", *s, infil);
+        SNAP_D(c, "LoadingTotals", *s, runoff);
+        SNAP_D(c, "LoadingTotals", *s, finalLoad);
+        SNAP_D(c, "LoadingTotals", *s, pctError);
     }
-    for (i = 0; i < Nobjects[POLLUT] && QualTotals; i++)
+    if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !QualTotals ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[POLLUT]); i++)
     {
-        SNAP_D(c, "QualTotals", QualTotals[i], dwInflow);
-        SNAP_D(c, "QualTotals", QualTotals[i], wwInflow);
-        SNAP_D(c, "QualTotals", QualTotals[i], gwInflow);
-        SNAP_D(c, "QualTotals", QualTotals[i], iiInflow);
-        SNAP_D(c, "QualTotals", QualTotals[i], exInflow);
-        SNAP_D(c, "QualTotals", QualTotals[i], flooding);
-        SNAP_D(c, "QualTotals", QualTotals[i], outflow);
-        SNAP_D(c, "QualTotals", QualTotals[i], evapLoss);
-        SNAP_D(c, "QualTotals", QualTotals[i], seepLoss);
-        SNAP_D(c, "QualTotals", QualTotals[i], reacted);
-        SNAP_D(c, "QualTotals", QualTotals[i], initStorage);
-        SNAP_D(c, "QualTotals", QualTotals[i], finalStorage);
-        SNAP_D(c, "QualTotals", QualTotals[i], pctError);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        TRoutingTotals* s = SNAP_P(c, QualTotals, i, _snapDummyRouting);
+        SNAP_D(c, "QualTotals", *s, dwInflow);
+        SNAP_D(c, "QualTotals", *s, wwInflow);
+        SNAP_D(c, "QualTotals", *s, gwInflow);
+        SNAP_D(c, "QualTotals", *s, iiInflow);
+        SNAP_D(c, "QualTotals", *s, exInflow);
+        SNAP_D(c, "QualTotals", *s, flooding);
+        SNAP_D(c, "QualTotals", *s, outflow);
+        SNAP_D(c, "QualTotals", *s, evapLoss);
+        SNAP_D(c, "QualTotals", *s, seepLoss);
+        SNAP_D(c, "QualTotals", *s, reacted);
+        SNAP_D(c, "QualTotals", *s, initStorage);
+        SNAP_D(c, "QualTotals", *s, finalStorage);
+        SNAP_D(c, "QualTotals", *s, pctError);
     }
 
     // --- per-node mass-balance volumes. stats_findMaxStats divides by these,
     //     so a resume that leaves them at the post-resume-only accumulation
-    //     reports mass-balance errors against the wrong denominator.
-    for (i = 0; i < Nobjects[NODE] && NodeInflow; i++)
+    //     ranks mass-balance errors against the wrong denominator.
+    if ( c->mode != SNAP_MANIFEST && Nobjects[NODE] > 0 && (!NodeInflow || !NodeOutflow) )
+    { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[NODE]); i++)
     {
         snap_name(c, "NodeInflow", "value");
-        snap_d(c, &NodeInflow[i]);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        snap_d(c, (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &NodeInflow[i]);
     }
-    for (i = 0; i < Nobjects[NODE] && NodeOutflow; i++)
+    for (i = 0; i < SNAP_N(c, Nobjects[NODE]); i++)
     {
         snap_name(c, "NodeOutflow", "value");
-        snap_d(c, &NodeOutflow[i]);
-        if ( c->mode == SNAP_MANIFEST ) break;
+        snap_d(c, (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &NodeOutflow[i]);
     }
 
     // --- scalar accumulators.
     //
     //     ReportStepCount is a globals.h global rather than a stats.c static,
     //     and it is the divisor stats_findMaxStats uses for the flow-turns
-    //     percentage. It is easy to miss for exactly that reason: it is not in
-    //     any stats struct and not among stats.c's statics, so an inventory
-    //     seeded on either would not reach it.
-    //     NonConvergeCount is the same shape and was found the same way: the
-    //     time-step frequency table divides by it at report.c:1076, and it
-    //     lives in neither a stats struct nor stats.c's statics.
-    snap_name(c, "MaxOutfallFlow",   "value"); snap_d(c, &MaxOutfallFlow);
-    snap_name(c, "MaxRunoffFlow",    "value"); snap_d(c, &MaxRunoffFlow);
-    snap_name(c, "RoutingTimeSpan",  "value"); snap_d(c, &RoutingTimeSpan);
-    snap_name(c, "TotalArea",        "value"); snap_d(c, &TotalArea);
-    if ( sysOut ) { snap_name(c, "SysOutfallFlow", "value"); snap_d(c, sysOut); }
-    snap_name(c, "ReportStepCount",  "value"); snap_l(c, &ReportStepCount);
-    snap_name(c, "NonConvergeCount", "value"); snap_l(c, &NonConvergeCount);
-    snap_name(c, "TotalStepCount",   "value"); snap_l(c, &TotalStepCount);
+    //     percentage. NonConvergeCount is the same shape: the time-step
+    //     frequency table divides by it at report.c:1076. Both are easy to miss
+    //     for the same reason -- they are in no stats struct and among no
+    //     file's statics, so an inventory seeded on either would not reach
+    //     them. The inventory script's discovery pass is what found the second.
+    {
+        double* dd; long* ll;
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &MaxOutfallFlow;
+        snap_name(c, "MaxOutfallFlow", "value");  snap_d(c, dd);
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &MaxRunoffFlow;
+        snap_name(c, "MaxRunoffFlow", "value");   snap_d(c, dd);
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &RoutingTimeSpan;
+        snap_name(c, "RoutingTimeSpan", "value"); snap_d(c, dd);
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &TotalArea;
+        snap_name(c, "TotalArea", "value");       snap_d(c, dd);
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : sysOut;
+        if ( !dd ) { c->error = 1; return; }
+        snap_name(c, "SysOutfallFlow", "value");  snap_d(c, dd);
+        ll = (c->mode == SNAP_MANIFEST) ? &_snapDummyLong : &ReportStepCount;
+        snap_name(c, "ReportStepCount", "value");  snap_l(c, ll);
+        ll = (c->mode == SNAP_MANIFEST) ? &_snapDummyLong : &NonConvergeCount;
+        snap_name(c, "NonConvergeCount", "value"); snap_l(c, ll);
+        ll = (c->mode == SNAP_MANIFEST) ? &_snapDummyLong : &TotalStepCount;
+        snap_name(c, "TotalStepCount", "value");   snap_l(c, ll);
+    }
 }
 
 //=============================================================================
