@@ -66,6 +66,18 @@ SERIALIZED_OBJECTS = {
     "MaxCourantCrit": "TMaxStats",
     "MaxFlowTurns": "TMaxStats",
     "MaxNonConverged": "TMaxStats",
+    # Mass-balance accumulators.  `massbal_report` reads all of these, so the
+    # criterion admits them on exactly the same footing as the statistics
+    # accumulators; option B2 is "capture and restore the statistics AND the
+    # mass-balance accumulators", and omitting this half would leave the
+    # continuity table covering only the post-resume segment.
+    "RunoffTotals": "TRunoffTotals",
+    "GwaterTotals": "TGwaterTotals",
+    "FlowTotals": "TRoutingTotals",
+    "LoadingTotals": "TLoadingTotals",
+    "QualTotals": "TRoutingTotals",
+    "StepFlowTotals": "TRoutingTotals",
+    "OldStepFlowTotals": "TRoutingTotals",
 }
 
 # Scalar accumulators that are not struct members.  These are read by report
@@ -79,6 +91,8 @@ SERIALIZED_SCALARS = [
     ("RoutingTimeSpan", "double", "stats.c", "extern"),
     ("SysOutfallFlow", "double", "stats.c", "static"),
     ("TotalArea", "double", "massbal.c", "extern"),
+    ("NodeInflow", "double*", "massbal.c", "extern"),
+    ("NodeOutflow", "double*", "massbal.c", "extern"),
     ("ReportStepCount", "long", "globals.h", "extern"),
 ]
 

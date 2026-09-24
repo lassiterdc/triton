@@ -14,6 +14,31 @@
 #
 # object<TAB>field<TAB>declared<TAB>read_by_report_path
 #
+# FlowTotals : TRoutingTotals -- 13 field(s) declared in the struct body
+FlowTotals	dwInflow	TRoutingTotals	yes
+FlowTotals	wwInflow	TRoutingTotals	yes
+FlowTotals	gwInflow	TRoutingTotals	yes
+FlowTotals	iiInflow	TRoutingTotals	yes
+FlowTotals	exInflow	TRoutingTotals	yes
+FlowTotals	flooding	TRoutingTotals	yes
+FlowTotals	outflow	TRoutingTotals	yes
+FlowTotals	evapLoss	TRoutingTotals	yes
+FlowTotals	seepLoss	TRoutingTotals	yes
+FlowTotals	reacted	TRoutingTotals	yes
+FlowTotals	initStorage	TRoutingTotals	yes
+FlowTotals	finalStorage	TRoutingTotals	yes
+FlowTotals	pctError	TRoutingTotals	yes
+#
+# GwaterTotals : TGwaterTotals -- 8 field(s) declared in the struct body
+GwaterTotals	infil	TGwaterTotals	yes
+GwaterTotals	upperEvap	TGwaterTotals	yes
+GwaterTotals	lowerEvap	TGwaterTotals	yes
+GwaterTotals	lowerPerc	TGwaterTotals	yes
+GwaterTotals	gwater	TGwaterTotals	yes
+GwaterTotals	initStorage	TGwaterTotals	yes
+GwaterTotals	finalStorage	TGwaterTotals	yes
+GwaterTotals	pctError	TGwaterTotals	yes
+#
 # LinkStats : TLinkStats -- 16 field(s) declared in the struct body
 LinkStats	maxFlow	TLinkStats	yes
 LinkStats	maxFlowDate	TLinkStats	yes
@@ -31,6 +56,17 @@ LinkStats	timeInFlowClass	TLinkStats	yes
 LinkStats	timeCourantCritical	TLinkStats	yes
 LinkStats	flowTurns	TLinkStats	yes
 LinkStats	flowTurnSign	TLinkStats	no
+#
+# LoadingTotals : TLoadingTotals -- 9 field(s) declared in the struct body
+LoadingTotals	initLoad	TLoadingTotals	yes
+LoadingTotals	buildup	TLoadingTotals	yes
+LoadingTotals	deposition	TLoadingTotals	yes
+LoadingTotals	sweeping	TLoadingTotals	yes
+LoadingTotals	bmpRemoval	TLoadingTotals	yes
+LoadingTotals	infil	TLoadingTotals	yes
+LoadingTotals	runoff	TLoadingTotals	yes
+LoadingTotals	finalLoad	TLoadingTotals	yes
+LoadingTotals	pctError	TLoadingTotals	yes
 #
 # MaxCourantCrit : TMaxStats -- 3 field(s) declared in the struct body
 MaxCourantCrit	objType	TMaxStats	no
@@ -70,6 +106,21 @@ NodeStats	nonConvergedCount	TNodeStats	yes
 NodeStats	maxInflowDate	TNodeStats	yes
 NodeStats	maxOverflowDate	TNodeStats	yes
 #
+# OldStepFlowTotals : TRoutingTotals -- 13 field(s) declared in the struct body
+OldStepFlowTotals	dwInflow	TRoutingTotals	no
+OldStepFlowTotals	wwInflow	TRoutingTotals	no
+OldStepFlowTotals	gwInflow	TRoutingTotals	no
+OldStepFlowTotals	iiInflow	TRoutingTotals	no
+OldStepFlowTotals	exInflow	TRoutingTotals	no
+OldStepFlowTotals	flooding	TRoutingTotals	no
+OldStepFlowTotals	outflow	TRoutingTotals	no
+OldStepFlowTotals	evapLoss	TRoutingTotals	no
+OldStepFlowTotals	seepLoss	TRoutingTotals	no
+OldStepFlowTotals	reacted	TRoutingTotals	no
+OldStepFlowTotals	initStorage	TRoutingTotals	no
+OldStepFlowTotals	finalStorage	TRoutingTotals	no
+OldStepFlowTotals	pctError	TRoutingTotals	no
+#
 # OutfallStats : TOutfallStats -- 4 field(s) declared in the struct body
 OutfallStats	avgFlow	TOutfallStats	yes
 OutfallStats	maxFlow	TOutfallStats	yes
@@ -87,6 +138,50 @@ PumpStats	offCurveLow	TPumpStats	yes
 PumpStats	offCurveHigh	TPumpStats	yes
 PumpStats	startUps	TPumpStats	yes
 PumpStats	totalPeriods	TPumpStats	yes
+#
+# QualTotals : TRoutingTotals -- 13 field(s) declared in the struct body
+QualTotals	dwInflow	TRoutingTotals	yes
+QualTotals	wwInflow	TRoutingTotals	yes
+QualTotals	gwInflow	TRoutingTotals	yes
+QualTotals	iiInflow	TRoutingTotals	yes
+QualTotals	exInflow	TRoutingTotals	yes
+QualTotals	flooding	TRoutingTotals	yes
+QualTotals	outflow	TRoutingTotals	yes
+QualTotals	evapLoss	TRoutingTotals	no
+QualTotals	seepLoss	TRoutingTotals	yes
+QualTotals	reacted	TRoutingTotals	yes
+QualTotals	initStorage	TRoutingTotals	yes
+QualTotals	finalStorage	TRoutingTotals	yes
+QualTotals	pctError	TRoutingTotals	yes
+#
+# RunoffTotals : TRunoffTotals -- 12 field(s) declared in the struct body
+RunoffTotals	rainfall	TRunoffTotals	yes
+RunoffTotals	evap	TRunoffTotals	yes
+RunoffTotals	infil	TRunoffTotals	yes
+RunoffTotals	runoff	TRunoffTotals	yes
+RunoffTotals	drains	TRunoffTotals	yes
+RunoffTotals	runon	TRunoffTotals	yes
+RunoffTotals	initStorage	TRunoffTotals	yes
+RunoffTotals	finalStorage	TRunoffTotals	yes
+RunoffTotals	initSnowCover	TRunoffTotals	yes
+RunoffTotals	finalSnowCover	TRunoffTotals	yes
+RunoffTotals	snowRemoved	TRunoffTotals	yes
+RunoffTotals	pctError	TRunoffTotals	yes
+#
+# StepFlowTotals : TRoutingTotals -- 13 field(s) declared in the struct body
+StepFlowTotals	dwInflow	TRoutingTotals	no
+StepFlowTotals	wwInflow	TRoutingTotals	no
+StepFlowTotals	gwInflow	TRoutingTotals	no
+StepFlowTotals	iiInflow	TRoutingTotals	no
+StepFlowTotals	exInflow	TRoutingTotals	no
+StepFlowTotals	flooding	TRoutingTotals	no
+StepFlowTotals	outflow	TRoutingTotals	no
+StepFlowTotals	evapLoss	TRoutingTotals	no
+StepFlowTotals	seepLoss	TRoutingTotals	no
+StepFlowTotals	reacted	TRoutingTotals	no
+StepFlowTotals	initStorage	TRoutingTotals	no
+StepFlowTotals	finalStorage	TRoutingTotals	no
+StepFlowTotals	pctError	TRoutingTotals	no
 #
 # StorageStats : TStorageStats -- 7 field(s) declared in the struct body
 StorageStats	initVol	TStorageStats	no
@@ -123,6 +218,8 @@ MaxRunoffFlow	-	double	no	stats.c	extern
 RoutingTimeSpan	-	double	yes	stats.c	extern
 SysOutfallFlow	-	double	no	stats.c	static
 TotalArea	-	double	yes	massbal.c	extern
+NodeInflow	-	double*	yes	massbal.c	extern
+NodeOutflow	-	double*	yes	massbal.c	extern
 ReportStepCount	-	long	yes	globals.h	extern
 #
-# TOTAL PAIRS: 87
+# TOTAL PAIRS: 170
