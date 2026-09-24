@@ -17,7 +17,12 @@ target_link_libraries(test_exchange_log_header PRIVATE kokkos swmm5)
 # by a pass/fail total that cannot say which property it contains.
 set(TRITON_EXCHANGE_LOG_HEADER_TESTS
   T9_magic_v2_differs_from_retained_v1
-  T10_header_write_layout)
+  T10_header_write_layout
+  T11_header_roundtrip_ok
+  T1_stored_width_disagreement_is_refused
+  T12_node_count_mismatch_refused
+  T13_short_header_is_bad_magic
+  T14_validation_order_magic_then_nodes_then_width)
 
 foreach(_t IN LISTS TRITON_EXCHANGE_LOG_HEADER_TESTS)
   add_test(NAME UNIT-EXCHANGE-LOG-${_t}

@@ -91,6 +91,79 @@ namespace SWMM_triton
 		out.write(reinterpret_cast<const char*>(&width), sizeof(width));
 	}
 
+	/** @brief The three V2 header fields, as read off disk. */
+	struct exchange_log_header_t
+	{
+		int32_t magic       = 0;
+		int32_t num_nodes   = 0;
+		int32_t value_width = 0;
+		/// false when the file ended mid-header. Kept separate from the field values so
+		/// a V1 file that was killed before its first record still exposes its magic and
+		/// earns the legacy-specific diagnostic.
+		bool    complete    = false;
+	};
+
+	/** @brief Why a side-file header was refused. One value per diagnostic. */
+	enum class exchange_header_status
+	{
+		ok = 0,
+		bad_magic,             ///< not a readable V2 header: a V1 legacy file, or a short/absent header
+		node_count_mismatch,   ///< the .inp / coupling changed between runs
+		value_width_mismatch   ///< written by a build whose value_t differs from this one
+	};
+
+	/** @brief Reads the V2 header, tolerating a short or empty file.
+	 *
+	 *  A field that cannot be read in full is left at 0 and `complete` is left false,
+	 *  so a truncated or absent header is refused as a bad header rather than
+	 *  surfacing as a stream error or -- the case a test caught here -- as a spurious
+	 *  "node count 0 does not match" that blames the .inp. Fields that WERE read are
+	 *  preserved, so an 8-byte V1 file still earns the legacy-specific diagnostic.
+	 *  Stream state is left as the read left it: on a complete header the get pointer
+	 *  sits at the first record.
+	 */
+	static inline exchange_log_header_t read_exchange_log_header(std::istream& in)
+	{
+		exchange_log_header_t h;
+		const std::streamsize w = (std::streamsize)sizeof(int32_t);
+
+		in.read(reinterpret_cast<char*>(&h.magic), sizeof(int32_t));
+		if (in.gcount() != w) { h.magic = 0; return h; }
+		in.read(reinterpret_cast<char*>(&h.num_nodes), sizeof(int32_t));
+		if (in.gcount() != w) { h.num_nodes = 0; return h; }
+		in.read(reinterpret_cast<char*>(&h.value_width), sizeof(int32_t));
+		if (in.gcount() != w) { h.value_width = 0; return h; }
+		h.complete = true;
+		return h;
+	}
+
+	/** @brief Validates a side-file header against the running build.
+	 *
+	 *  THE ORDER IS THE SPECIFICATION, not a style choice. Completeness and magic are
+	 *  checked FIRST -- together they are the "is this a readable V2 header at all"
+	 *  question -- so that a V1 legacy file, whose third "field" is really the first
+	 *  record's leading value_t bytes, is reported as a bad header and never as a
+	 *  wrong width. Node count is checked before width because a node-count disagreement
+	 *  means the .inp / coupling changed, which is a different and more likely
+	 *  operator error than a precision mismatch, and because it matches the field
+	 *  order on disk.
+	 *
+	 *  @param h                    header as read from the side-file
+	 *  @param expected_nodes       this run's global SWMM surface-node count
+	 *  @param running_value_width  sizeof(value_t) in the build about to replay
+	 */
+	static inline exchange_header_status
+	validate_exchange_log_header(const exchange_log_header_t& h,
+	                             int32_t expected_nodes,
+	                             int32_t running_value_width)
+	{
+		if (!h.complete)                          return exchange_header_status::bad_magic;
+		if (h.magic != EXCHANGE_LOG_MAGIC_V2)     return exchange_header_status::bad_magic;
+		if (h.num_nodes != expected_nodes)        return exchange_header_status::node_count_mismatch;
+		if (h.value_width != running_value_width) return exchange_header_status::value_width_mismatch;
+		return exchange_header_status::ok;
+	}
+
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
 
@@ -621,7 +694,7 @@ namespace SWMM_triton
 	{
 		if (rank_ != 0) return;
 
-		const std::size_t header_bytes = 2 * sizeof(int32_t);
+		const std::size_t header_bytes = EXCHANGE_LOG_HEADER_BYTES;
 		const std::size_t record_bytes = sizeof(value_t) * (1 + exchange_num_nodes);
 		const value_t EPS = (value_t)1e-6;
 
@@ -636,22 +709,40 @@ namespace SWMM_triton
 			exit(EXIT_FAILURE);
 		}
 
-		// --- validate header ---
-		int32_t magic = 0, n = 0;
-		in.read(reinterpret_cast<char*>(&magic), sizeof(int32_t));
-		if (in.gcount() == (std::streamsize)sizeof(int32_t))
-			in.read(reinterpret_cast<char*>(&n), sizeof(int32_t));
-		if (magic != EXCHANGE_LOG_MAGIC)
+		// --- validate header, in the order the diagnostics depend on ---
+		const exchange_log_header_t hdr = read_exchange_log_header(in);
+		const exchange_header_status st =
+			validate_exchange_log_header(hdr,
+			                             static_cast<int32_t>(exchange_num_nodes),
+			                             EXCHANGE_LOG_VALUE_WIDTH);
+
+		if (st == exchange_header_status::bad_magic)
 		{
 			std::cerr << ERROR "Exchange-replay side-file has a bad/missing header: "
-			          << exchange_log_path << std::endl;
+			          << exchange_log_path << "\n";
+			if (hdr.magic == EXCHANGE_LOG_MAGIC)
+				std::cerr << "         It carries the pre-versioning (V1) magic, which recorded no\n"
+			          << "         stored float width and so could not be replayed safely.\n";
+			std::cerr << "         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
+			          << std::endl;
 			exit(EXIT_FAILURE);
 		}
-		if (n != exchange_num_nodes)
+		if (st == exchange_header_status::node_count_mismatch)
 		{
-			std::cerr << ERROR "Exchange-replay side-file node count (" << n
+			std::cerr << ERROR "Exchange-replay side-file node count (" << hdr.num_nodes
 			          << ") does not match this run (" << exchange_num_nodes
 			          << "). The .inp / coupling changed between runs." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		if (st == exchange_header_status::value_width_mismatch)
+		{
+			std::cerr << ERROR "Exchange-replay side-file stores " << hdr.value_width
+			          << "-byte values but this build's value_t is " << EXCHANGE_LOG_VALUE_WIDTH
+			          << " bytes.\n"
+			          << "         The side-file was written by a build of the other precision\n"
+			          << "         (USE_SINGLE_PRECISION differs). Replaying it would stride every\n"
+			          << "         record wrongly. Re-run with the writing build's precision, or\n"
+			          << "         from a clean start (checkpoint_id=0)." << std::endl;
 			exit(EXIT_FAILURE);
 		}
 

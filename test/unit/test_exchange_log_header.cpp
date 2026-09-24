@@ -83,6 +83,26 @@ static int32_t i32_at(const std::string& bytes, std::size_t off)
     return v;
 }
 
+/** Lays down an arbitrary three-field header as raw bytes. Used to synthesise
+ *  headers this build would never write -- a foreign precision, a V1 magic --
+ *  without hand-constructing an exchange_log_header_t, so every header under test
+ *  has been through the SHIPPED reader and carries a reader-produced `complete`. */
+static std::string raw_header_bytes(int32_t magic, int32_t num_nodes, int32_t value_width)
+{
+    std::ostringstream os(std::ios::binary);
+    os.write(reinterpret_cast<const char*>(&magic),       sizeof(int32_t));
+    os.write(reinterpret_cast<const char*>(&num_nodes),   sizeof(int32_t));
+    os.write(reinterpret_cast<const char*>(&value_width), sizeof(int32_t));
+    return os.str();
+}
+
+/** raw_header_bytes() round-tripped through the shipped reader. */
+static exchange_log_header_t hdr_of(int32_t magic, int32_t num_nodes, int32_t value_width)
+{
+    std::istringstream is(raw_header_bytes(magic, num_nodes, value_width), std::ios::binary);
+    return read_exchange_log_header(is);
+}
+
 // ---------------------------------------------------------------------------
 // T9 -- design section 5 property 2: the magic is bumped and the OLD symbol RETAINED.
 //
@@ -133,6 +153,144 @@ static void T10_header_write_layout()
 }
 
 // ---------------------------------------------------------------------------
+// T11 -- write/read round trip through the shipped layout.
+//
+// The stride the reader uses and the bytes the writer emits are single-sourced
+// through EXCHANGE_LOG_HEADER_BYTES; this asserts they agree by construction, and
+// that a clean header leaves the get pointer exactly at the first record.
+// ---------------------------------------------------------------------------
+static void T11_header_roundtrip_ok()
+{
+    const int32_t kNodes = 14;
+
+    std::ostringstream os(std::ios::binary);
+    write_exchange_log_header(os, kNodes);
+    // A first record, so a stride error would show up as a non-EOF stream position.
+    const value_t dt = (value_t)1.25;
+    os.write(reinterpret_cast<const char*>(&dt), sizeof(value_t));
+
+    std::istringstream is(os.str(), std::ios::binary);
+    const exchange_log_header_t h = read_exchange_log_header(is);
+
+    CHECK_EQ_I(h.magic,       EXCHANGE_LOG_MAGIC_V2,       "round-tripped magic");
+    CHECK_EQ_I(h.num_nodes,   kNodes,                      "round-tripped node count");
+    CHECK_EQ_I(h.value_width, (int32_t)sizeof(value_t),    "round-tripped stored width");
+
+    CHECK(validate_exchange_log_header(h, kNodes, EXCHANGE_LOG_VALUE_WIDTH)
+              == exchange_header_status::ok,
+          "a header written by this build must validate against this build");
+
+    CHECK_EQ_I(is.tellg(), (long long)EXCHANGE_LOG_HEADER_BYTES,
+               "after reading the header the get pointer must sit at the first record");
+}
+
+// ---------------------------------------------------------------------------
+// T1 -- design section 5 property 1: a side-file whose stored width disagrees is REFUSED.
+//
+// This is the defect itself. Before the guard, the only two validated fields were
+// precision-independent, so the cross-precision file passed and then strode every
+// record by the wrong number of bytes.
+// ---------------------------------------------------------------------------
+static void T1_stored_width_disagreement_is_refused()
+{
+    const int32_t kNodes = 14;
+    const int32_t kThis  = EXCHANGE_LOG_VALUE_WIDTH;
+    const int32_t kOther = (kThis == 8) ? 4 : 8;   // the other precision build's width
+
+    // A well-formed V2 header from a build of the OTHER precision.
+    const exchange_log_header_t foreign = hdr_of(EXCHANGE_LOG_MAGIC_V2, kNodes, kOther);
+
+    CHECK(validate_exchange_log_header(foreign, kNodes, kThis)
+              == exchange_header_status::value_width_mismatch,
+          "a V2 header storing the other precision's width must be refused");
+
+    // ... and the same header IS accepted by a build of the width it records, so the
+    // guard keys on disagreement rather than on a hardcoded width.
+    CHECK(validate_exchange_log_header(foreign, kNodes, kOther)
+              == exchange_header_status::ok,
+          "the guard must key on disagreement, not on a hardcoded width");
+
+    CHECK(kThis == 4 || kThis == 8,
+          "value_t is expected to be float or double; a third width needs review here");
+}
+
+// ---------------------------------------------------------------------------
+// T12 -- node-count disagreement keeps its own distinct diagnostic.
+// ---------------------------------------------------------------------------
+static void T12_node_count_mismatch_refused()
+{
+    const exchange_log_header_t h = hdr_of(EXCHANGE_LOG_MAGIC_V2, 14, EXCHANGE_LOG_VALUE_WIDTH);
+
+    CHECK(validate_exchange_log_header(h, 13, EXCHANGE_LOG_VALUE_WIDTH)
+              == exchange_header_status::node_count_mismatch,
+          "a node-count disagreement must be refused as node_count_mismatch");
+}
+
+// ---------------------------------------------------------------------------
+// T13 -- a short or empty header presents as bad_magic, not as a stream error.
+//
+// Any field that cannot be read in full is left at 0, and 0 is not the V2 magic.
+// ---------------------------------------------------------------------------
+static void T13_short_header_is_bad_magic()
+{
+    const int32_t kNodes = 14;
+
+    struct { const char* what; std::size_t nbytes; } cases[] = {
+        { "empty file",          0 },
+        { "1 byte",              1 },
+        { "magic only",          4 },
+        { "magic + node count",  8 },
+        { "header less 1 byte",  EXCHANGE_LOG_HEADER_BYTES - 1 },
+    };
+
+    std::ostringstream os(std::ios::binary);
+    write_exchange_log_header(os, kNodes);
+    const std::string full = os.str();
+
+    for (const auto& c : cases) {
+        std::istringstream is(full.substr(0, c.nbytes), std::ios::binary);
+        const exchange_log_header_t h = read_exchange_log_header(is);
+        const exchange_header_status st =
+            validate_exchange_log_header(h, kNodes, EXCHANGE_LOG_VALUE_WIDTH);
+        CHECK(!h.complete, c.what);
+        CHECK(st == exchange_header_status::bad_magic, c.what);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// T14 -- design section 5 property 3: THE VALIDATION ORDER IS THE SPECIFICATION.
+//
+// Each case is wrong in MORE THAN ONE way, so only the ordering decides which
+// status comes back. Reorder validate_exchange_log_header() and this test fails;
+// a single-defect case would pass under any order and prove nothing.
+// ---------------------------------------------------------------------------
+static void T14_validation_order_magic_then_nodes_then_width()
+{
+    const int32_t kNodes = 14;
+    const int32_t kThis  = EXCHANGE_LOG_VALUE_WIDTH;
+    const int32_t kOther = (kThis == 8) ? 4 : 8;
+
+    // Wrong in all three ways -> the FIRST check must win.
+    const exchange_log_header_t all_wrong = hdr_of(EXCHANGE_LOG_MAGIC, kNodes + 1, kOther);
+    CHECK(validate_exchange_log_header(all_wrong, kNodes, kThis)
+              == exchange_header_status::bad_magic,
+          "magic is checked first: a legacy file must report bad_magic, never a width "
+          "or node-count error");
+
+    // Magic right, the other two wrong -> the node count must win over the width.
+    const exchange_log_header_t nodes_and_width = hdr_of(EXCHANGE_LOG_MAGIC_V2, kNodes + 1, kOther);
+    CHECK(validate_exchange_log_header(nodes_and_width, kNodes, kThis)
+              == exchange_header_status::node_count_mismatch,
+          "node count is checked before stored width");
+
+    // Only the width wrong -> the width check is reached and fires.
+    const exchange_log_header_t width_only = hdr_of(EXCHANGE_LOG_MAGIC_V2, kNodes, kOther);
+    CHECK(validate_exchange_log_header(width_only, kNodes, kThis)
+              == exchange_header_status::value_width_mismatch,
+          "stored width is checked last and does fire when it is the only disagreement");
+}
+
+// ---------------------------------------------------------------------------
 // Registry / driver
 // ---------------------------------------------------------------------------
 struct test_entry { const char* name; void (*fn)(); };
@@ -140,6 +298,11 @@ struct test_entry { const char* name; void (*fn)(); };
 static const test_entry kTests[] = {
     { "T9_magic_v2_differs_from_retained_v1", &T9_magic_v2_differs_from_retained_v1 },
     { "T10_header_write_layout",              &T10_header_write_layout },
+    { "T11_header_roundtrip_ok",              &T11_header_roundtrip_ok },
+    { "T1_stored_width_disagreement_is_refused", &T1_stored_width_disagreement_is_refused },
+    { "T12_node_count_mismatch_refused",      &T12_node_count_mismatch_refused },
+    { "T13_short_header_is_bad_magic",        &T13_short_header_is_bad_magic },
+    { "T14_validation_order_magic_then_nodes_then_width", &T14_validation_order_magic_then_nodes_then_width },
 };
 
 int main(int argc, char** argv)
