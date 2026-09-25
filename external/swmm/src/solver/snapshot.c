@@ -384,13 +384,15 @@ static TRoutingTotals _snapDummyRouting;
 static TLoadingTotals _snapDummyLoading;
 static double         _snapDummyScalar;
 static long           _snapDummyLong;
-// Criterion-P routing objects. Named ...Obj because _snapDummyNode and
-// _snapDummyLink above are the *Stats* structs, which are different types.
+// Criterion-P routing objects. Named ...Obj because _snapDummyNode,
+// _snapDummyLink, _snapDummyStorage and _snapDummyOutfall above are the *Stats*
+// structs, which are DIFFERENT TYPES under the same names. Dropping the suffix
+// on any of the four is a redefinition, not a shadow.
 static TNode          _snapDummyNodeObj;
 static TLink          _snapDummyLinkObj;
 static TConduit       _snapDummyConduit;
-static TOutfall       _snapDummyOutfall;
-static TStorage       _snapDummyStorage;
+static TOutfall       _snapDummyOutfallObj;
+static TStorage       _snapDummyStorageObj;
 
 #define SNAP_N(c, real)  ((c)->mode == SNAP_MANIFEST ? 1 : (real))
 #define SNAP_P(c, arr, i, dummy)  ((c)->mode == SNAP_MANIFEST ? &(dummy) : &((arr)[i]))
@@ -798,7 +800,7 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     if ( c->mode != SNAP_MANIFEST && Nnodes[OUTFALL] > 0 && !Outfall ) { c->error = 1; return; }
     for (i = 0; i < SNAP_N(c, Nnodes[OUTFALL]); i++)
     {
-        TOutfall* s = SNAP_P(c, Outfall, i, _snapDummyOutfall);
+        TOutfall* s = SNAP_P(c, Outfall, i, _snapDummyOutfallObj);
         SNAP_D(c, "Outfall", *s, vRouted);
         if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !s->wRouted )
         { c->error = 1; return; }
@@ -814,7 +816,7 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     if ( c->mode != SNAP_MANIFEST && Nnodes[STORAGE] > 0 && !Storage ) { c->error = 1; return; }
     for (i = 0; i < SNAP_N(c, Nnodes[STORAGE]); i++)
     {
-        TStorage* s = SNAP_P(c, Storage, i, _snapDummyStorage);
+        TStorage* s = SNAP_P(c, Storage, i, _snapDummyStorageObj);
         SNAP_D(c, "Storage", *s, hrt);
         SNAP_D(c, "Storage", *s, evapLoss);
         SNAP_D(c, "Storage", *s, exfilLoss);
