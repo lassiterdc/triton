@@ -270,8 +270,14 @@ def main(argv) -> int:
          "--solver-dir", str(solver), "--check"],
         capture_output=True, text=True,
     )
+    # P9 asks about DRIFT and nothing else, so it is keyed on the drift status
+    # rather than on "exit 0".  Since the untriaged gate was armed, `--check`
+    # also reddens (EXIT_UNTRIAGED) while open triage decisions remain, and a
+    # bare `== 0` here would have turned P9 red for a condition P9 does not
+    # claim to measure -- reporting the vendored tree as drifted when it has
+    # not moved at all.
     check("P9  the committed inventory matches a regeneration at this pin",
-          rc.returncode == 0, rc.stderr.strip().splitlines()[:1])
+          rc.returncode != R.EXIT_DRIFT, rc.stderr.strip().splitlines()[:1])
 
     print("")
     if failures:

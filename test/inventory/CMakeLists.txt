@@ -16,6 +16,20 @@
 #
 #     ctest -LE slow
 
+# IT REDDENS FOR TWO INDEPENDENT REASONS AND THE OUTPUT NAMES WHICH.  Exit 1 is
+# DRIFT -- the vendored EPA tree moved underneath the committed artifact, and
+# the remedy is to regenerate and re-review.  Exit 3 is OPEN TRIAGE DECISIONS --
+# the artifact is current and some quantity the closure surfaced has no verdict
+# yet, and the remedy is to give it one.  Do not read the second as the first:
+# on an exit-3 red the vendored tree has not moved at all.
+#
+# The open-decision half is the design's closure-check mode (i), and it is
+# armed here deliberately.  It was disarmed for a while by an honest accident:
+# a round correctly surfaced a large set of untriaged quantities and correctly
+# committed them to the artifact, which emptied the diff -- so a diff-only
+# check had nothing left to say and reported a tree full of open decisions as
+# clean.  An empty diff over an un-triaged artifact is not a passing state.
+
 if(Python3_EXECUTABLE)
   add_test(
     NAME SLOW-SNAPSHOT-INVENTORY-REGENERATION

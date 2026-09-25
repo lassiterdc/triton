@@ -3,10 +3,12 @@
 
 WHY THIS EXISTS
 ---------------
-``regenerate_snapshot_inventory.py --check`` returns 0 on the landed tree.  So
-would a check whose pre-filter verified itself, whose triage tables swallowed
-every name, or whose parser truncated the walk before the interesting units --
-and none of that is visible from a green run.  §2.1(e) asks a closure check to
+``regenerate_snapshot_inventory.py --check`` returns 0 only when the inventory
+is BOTH current against the vendored tree AND carries no open triage decision
+-- so a green run is a claim about the check as much as about the tree.  A
+check whose pre-filter verified itself, whose triage tables swallowed every
+name, or whose parser truncated the walk before the interesting units would
+return 0 just as readily, and none of that is visible from a green run.  §2.1(e) asks a closure check to
 name the omission it catches and the document state in which it FAILS; this
 file supplies that state, one mutation at a time.
 
@@ -30,6 +32,40 @@ and asserts it goes RED **and prints the marker that names the right mode**.
   M9  re-order the scalar basis back below validation  -> every scalar row
                                                           silently leaves the
                                                           artifact
+
+  G1  an artifact that is CURRENT but carries an open  -> EXIT_UNTRIAGED, and
+      decision                                            NOT the drift status
+  G2  an artifact that is current AND fully triaged    -> EXIT_OK
+  G3  an artifact that has DRIFTED, decisions closed   -> EXIT_DRIFT, and NOT
+                                                          the untriaged status
+
+G1-G3 ARE THE GATE'S OWN DIFFERENTIAL, and they belong here for the reason the
+whole file exists.  Before they were written, `--check` returned 0 on a tree
+carrying 140 open decisions: the rows had been correctly surfaced and correctly
+committed to the artifact, which emptied the diff, and a diff-only check has
+nothing left to say.  A specified gate was disarmed as a side effect of doing
+the right thing with the rows.  G1 is the assertion that would have caught it,
+and it FAILS against the pre-arming script.  G2 and G3 are the other two
+corners, because a gate that fires on every input is as useless as one that
+fires on none, and because the two red reasons must stay distinguishable to a
+maintainer who has to know WHICH problem the tree has.
+
+  G1  an artifact that is CURRENT but carries an open  -> EXIT_UNTRIAGED, and
+      decision                                            NOT the drift status
+  G2  an artifact that is current AND fully triaged    -> EXIT_OK
+  G3  an artifact that has DRIFTED, decisions all      -> EXIT_DRIFT, and NOT
+      closed                                              the untriaged status
+
+G1-G3 are the GATE's own differential and they belong here for the reason the
+whole file exists.  Before they were written, `--check` returned 0 on a tree
+carrying 140 open decisions: the rows had been correctly surfaced and correctly
+committed to the artifact, which emptied the diff, and a diff-only check has
+nothing left to say.  A specified gate was disarmed as a side effect of doing
+the right thing with the rows.  G1 is the assertion that would have caught it
+and it FAILS against the pre-arming script; G2 and G3 are the other two corners,
+because a gate that fires on every input is as useless as one that fires on
+none, and because the two red reasons must stay distinguishable to a maintainer
+who has to know WHICH problem the tree has.
 
 M9 IS THE FIRST SCALAR-AXIS MODE IN THIS FILE, and its absence is why the defect
 it catches survived. M1-M8 are all field-axis: they perturb a struct field, a
@@ -223,6 +259,143 @@ BLIND = {
 }
 
 
+# =============================================================================
+# THE GATE'S OWN DIFFERENTIAL (G1-G3)
+# =============================================================================
+#
+# Every mode above perturbs the OPERATION and asks whether the check notices.
+# These three perturb the TREE'S TRIAGE STATE and ask whether the check's
+# VERDICT is the right one -- a different question, and the one that went
+# unasked while `--check` reported a 140-open-decision tree as clean.
+#
+# Each stages the tree, REGENERATES the artifact in place so the drift axis is
+# quiet by construction, and only then asks what `--check` says.  Regenerating
+# first is what makes these differential rather than incidental: without it a
+# red would be explained by drift and would establish nothing about the gate.
+
+_EXCLUDED_TABLE_END = (
+    '    ("Subcatch", "outNode"):\n'
+    '        "config: re-read from the .inp at swmm_open",\n'
+    '}'
+)
+
+
+def _exit_codes(tmp: Path) -> tuple[int, int, int]:
+    """``(EXIT_OK, EXIT_DRIFT, EXIT_UNTRIAGED)`` read from the STAGED script.
+
+    Read from the subject rather than hard-coded here, so the two cannot drift
+    apart into a test that asserts a status the script no longer returns.
+    """
+    import importlib.util
+    path = tmp / "inventory" / SCRIPT
+    spec = importlib.util.spec_from_file_location("staged_snapshot_inventory", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.EXIT_OK, mod.EXIT_DRIFT, mod.EXIT_UNTRIAGED
+
+
+def regenerate(tmp: Path) -> str:
+    """Rewrite the staged artifact from the staged script; return its text."""
+    proc = subprocess.run(
+        [sys.executable, str(tmp / "inventory" / SCRIPT),
+         "--solver-dir", str(tmp / "solver"),
+         "--inventory", str(tmp / "inventory" / INVENTORY)],
+        capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        raise AssertionError("staged regeneration failed: %s" % (proc.stderr[-400:],))
+    return (tmp / "inventory" / INVENTORY).read_text()
+
+
+def close_every_open_decision(tmp: Path) -> int:
+    """Triage every currently-open Criterion-P row EXCLUDED; return how many.
+
+    The names are taken from the staged artifact itself rather than from a list
+    here, so this stays correct as the real triage closes: when nothing is open
+    it injects nothing and G2 still asserts the clean verdict.  The disposition
+    is a throwaway -- G2 is about the gate's arithmetic, not about whether any
+    of these belong in the snapshot, and inventing a real verdict here would be
+    the over-capture direction this design treats as the worse one.
+    """
+    text = regenerate(tmp)
+    rows = [ln.split("\t") for ln in text.splitlines() if "\tUNTRIAGED\t" in ln]
+    keys = [(r[0], r[1]) for r in rows if len(r) >= 2]
+    if not keys:
+        return 0
+    injected = "".join(
+        '    (%r, %r):\n        "test-only disposition injected by G2",\n' % (obj, field)
+        for obj, field in keys
+    )
+    edit(tmp / "inventory" / SCRIPT,
+         _EXCLUDED_TABLE_END,
+         _EXCLUDED_TABLE_END[:-1] + injected + "}")
+    return len(keys)
+
+
+def g1_current_but_open(tmp: Path) -> tuple[bool, str]:
+    """An artifact that is CURRENT and carries an open decision must go RED."""
+    ok_, drift, untriaged = _exit_codes(tmp)
+    # Open ONE decision deliberately rather than relying on the 140 that happen
+    # to be open today: this subtest must keep discriminating after the real
+    # triage closes, and an assertion resting on today's backlog would invert
+    # into a wrong answer on the day the backlog is cleared.
+    edit(tmp / "inventory" / SCRIPT,
+         '    ("Conduit", "barrels"):',
+         '    ("Conduit", "__opened_by_G1__"):')
+    regenerate(tmp)                   # artifact now CURRENT; the drift axis is quiet
+    rc, out = run_check(tmp)
+    if rc == ok_:
+        return False, "the check stayed GREEN on a tree with an open decision"
+    if rc == drift:
+        return False, ("reported DRIFT (%d) on a freshly regenerated artifact, so "
+                       "the two red reasons are not separable" % rc)
+    if rc != untriaged:
+        return False, "expected EXIT_UNTRIAGED (%d), got %d" % (untriaged, rc)
+    if "open triage decision" not in out:
+        return False, "red with the right status but no open-decision message"
+    return True, "EXIT_UNTRIAGED (%d), named the open decision" % rc
+
+
+def g2_current_and_closed(tmp: Path) -> tuple[bool, str]:
+    """Current AND fully triaged is the ONE state that may report clean."""
+    ok_, _drift, _untriaged = _exit_codes(tmp)
+    n = close_every_open_decision(tmp)
+    regenerate(tmp)
+    rc, out = run_check(tmp)
+    if rc != ok_:
+        return False, ("went red (%d) on a current, fully-triaged artifact, so the "
+                       "gate fires on more than its invariant's violations: %s"
+                       % (rc, out.strip().splitlines()[:1]))
+    return True, "EXIT_OK after closing %d open decision(s)" % n
+
+
+def g3_drifted(tmp: Path) -> tuple[bool, str]:
+    """Drift must still report DRIFT, and must not be masked by the new axis."""
+    _ok, drift, untriaged = _exit_codes(tmp)
+    close_every_open_decision(tmp)
+    regenerate(tmp)
+    inv = tmp / "inventory" / INVENTORY
+    # Drop a data row: the cheapest perturbation that is unambiguously drift.
+    kept = [ln for ln in inv.read_text().splitlines()
+            if not ln.startswith("Conduit\tq1\t")]
+    inv.write_text("\n".join(kept) + "\n")
+    rc, out = run_check(tmp)
+    if rc == untriaged:
+        return False, "reported open decisions (%d) for what is drift" % rc
+    if rc != drift:
+        return False, "expected EXIT_DRIFT (%d), got %d" % (drift, rc)
+    if "differs from the committed one" not in out:
+        return False, "red with the right status but no drift message"
+    return True, "EXIT_DRIFT (%d), named the drift" % rc
+
+
+GATE = {
+    "G1 current artifact, one open decision": g1_current_but_open,
+    "G2 current artifact, every decision closed": g2_current_and_closed,
+    "G3 drifted artifact, every decision closed": g3_drifted,
+}
+
+
 def main(argv) -> int:
     if len(argv) < 2:
         print("usage: %s <repo-root>" % argv[0], file=sys.stderr)
@@ -275,13 +448,25 @@ def main(argv) -> int:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    for name, probe in GATE.items():
+        tmp = stage(repo)
+        try:
+            passed, detail = probe(tmp)
+            if passed:
+                print("ok    %-56s %s" % (name, detail))
+            else:
+                failures.append("%s: %s" % (name, detail))
+                print("FAIL  %-56s %s" % (name, detail))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     print("")
     if failures:
         for f in failures:
             print("FAIL: %s" % f)
         return 1
     print("PASS: all %d defect forms are caught."
-          % (len(MUTATIONS) + len(BLIND)))
+          % (len(MUTATIONS) + len(BLIND) + len(GATE)))
     return 0
 
 

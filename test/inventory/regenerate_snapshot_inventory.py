@@ -1307,6 +1307,60 @@ def _tfile_handles(globals_h: str, objects_h: str) -> list[tuple[str, str]]:
     return out
 
 
+# --- the --check verdict vocabulary ------------------------------------------
+#
+# ``--check`` answers TWO independent questions and a single non-zero status
+# cannot tell a maintainer which one went wrong.  They are different problems
+# with different remedies: DRIFT means the vendored EPA tree moved underneath a
+# committed artifact and the remedy is to regenerate and re-review; OPEN
+# DECISIONS mean the artifact is current and correct and some quantity it
+# surfaced has no verdict yet, and the remedy is to triage it.
+#
+# 3 rather than 2 for the open-decision status: argparse already exits 2 on a
+# usage error (this script requires --solver-dir), so 2 is taken and reusing it
+# would make "you forgot an argument" and "the inventory needs triage"
+# indistinguishable to any caller reading the status.
+EXIT_OK = 0
+EXIT_DRIFT = 1
+EXIT_UNTRIAGED = 3
+
+
+def open_triage_decisions(text: str) -> list[tuple[str, int]]:
+    """``[(axis, count), ...]`` read back from the GENERATED inventory text.
+
+    The counts are read from the artifact's own generated summary lines rather
+    than recomputed here.  That is deliberate and it is the whole point: a
+    second computation could disagree with the artifact a maintainer reads, and
+    then the gate and the artifact would be making different claims about the
+    same tree.  Reading the emitted line makes the two agree by construction.
+
+    Returns every axis, including the zero ones, so a caller can report the
+    full picture rather than only the axis that happens to be non-zero.
+    """
+    axes: list[tuple[str, int]] = []
+    # Criterion R's discovery pass has no counter line -- it emits one row per
+    # untriaged name -- so it is counted by row.
+    axes.append((
+        "Criterion R scalars (SERIALIZED_SCALARS / EXCLUDED_SCALARS)",
+        len(re.findall(r"^#   UNTRIAGED: ", text, re.M)),
+    ))
+    for label, pattern in (
+        ("Criterion P routing state (ADMITTED_ROUTING_STATE / EXCLUDED_ROUTING_STATE)",
+         r"^# UNTRIAGED COUNT: (\d+)$"),
+        ("D-R6 stream positions (TFILE_ADMITTED / TFILE_EXCLUDED)",
+         r"^# D-R6 UNTRIAGED COUNT: (\d+)$"),
+    ):
+        m = re.search(pattern, text, re.M)
+        if m is None:
+            # A counter the emitter is supposed to produce has gone missing.
+            # Report it as an open decision rather than as a zero: a silently
+            # absent counter is the one state that must not read as clean.
+            axes.append((label + " [COUNTER LINE ABSENT]", 1))
+        else:
+            axes.append((label, int(m.group(1))))
+    return axes
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--solver-dir", required=True, type=Path)
@@ -1470,7 +1524,7 @@ def main() -> int:
     if args.check:
         if not inv_path.exists():
             print(f"FAIL: committed inventory not found at {inv_path}", file=sys.stderr)
-            return 1
+            return EXIT_DRIFT
         committed = inv_path.read_text()
         if committed != text:
             print("FAIL: regenerated inventory differs from the committed one.", file=sys.stderr)
@@ -1491,9 +1545,43 @@ def main() -> int:
                 "match before committing the new inventory.",
                 file=sys.stderr,
             )
-            return 1
-        print(f"OK: regenerated inventory matches {inv_path} ({total_pairs} pairs)")
-        return 0
+            return EXIT_DRIFT
+        # DRIFT and OPEN DECISIONS are checked independently and reported with
+        # distinguishable statuses.  Drift is reported first and alone when
+        # both hold, because an open-decision count read off a stale artifact
+        # is not a number worth acting on -- triage it against the regenerated
+        # one.
+        axes = open_triage_decisions(text)
+        total_open = sum(n for _label, n in axes)
+        if total_open:
+            # WORDING IS LOAD-BEARING: this message must NOT contain the bare
+            # token "UNTRIAGED".  test_snapshot_inventory_closure_modes.py's
+            # M1/M2/M5 assert that a red run PRINTS that token, to establish
+            # the check fired for their mutation's reason rather than for some
+            # other one.  If this message carried it too, every red run would
+            # satisfy that assertion and those three subtests would stop
+            # discriminating -- green-looking, and blind.  Say "open triage
+            # decision" here and leave "UNTRIAGED" to the rows and the diff.
+            print(
+                f"FAIL: the inventory is current but carries {total_open} open "
+                f"triage decision(s).",
+                file=sys.stderr,
+            )
+            for label, n in axes:
+                print(f"  {n:>4}  {label}", file=sys.stderr)
+            print(
+                "\nEach one is a quantity the closure surfaced that has no verdict.\n"
+                "Give each a verdict in the table named beside its axis above, then\n"
+                "re-run without --check to refresh the artifact.  Leaving them open is\n"
+                "a RED tree on purpose: an empty diff over an artifact full of open\n"
+                "decisions is exactly the state this status exists to stop reading as\n"
+                "clean.",
+                file=sys.stderr,
+            )
+            return EXIT_UNTRIAGED
+        print(f"OK: regenerated inventory matches {inv_path} ({total_pairs} pairs)"
+              f" and carries no open triage decisions")
+        return EXIT_OK
 
     inv_path.write_text(text)
     print(f"wrote {inv_path} ({total_pairs} pairs, {len(reached)} functions reached)")
