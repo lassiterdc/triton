@@ -86,17 +86,34 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
-# REVIEWER FINDING, registered RED against the tree as landed (WP-1A review).
+# WHY THE RESIDUAL'S SIGN IS THE FALSIFIER, AND THE SUM IS NOT.
 # SWMM_OTHER is DERIVED by subtraction, so XFER + MPI + STEP + OTHER == SWMM is
 # an algebraic tautology over the emitted row: it holds for ANY values the three
 # measured children hold, including values no correct bracket placement could
 # produce. What falsifies a bracket fault is the residual's SIGN -- a child that
 # escaped the parent, or two children that overlap, drive SWMM_OTHER NEGATIVE
-# while leaving the sum exact. test_perf_identity.cpp P4 does assert other >= 0,
-# but only against its own correctly-nested in-process harness; the two
-# artifacts that meet real data -- the operator-facing checker and the source
-# guard -- do not. This node id is EXPECTED TO FAIL until that is repaired; the
-# repair belongs to the package author, not to the reviewer.
+# while leaving the sum exact. test_perf_identity.cpp P4 asserts other >= 0, but
+# only against its own correctly-nested in-process harness, which is why the two
+# artifacts that meet REAL data need the assertion of their own: the
+# operator-facing checker, and the source guard over the bracket placement.
+#
+# This node covers exactly those two. C1 mutates a run's emitted row into an
+# escaped child and into overlapping children and requires the operator-facing
+# checker to reject both; C2 mutates the bracket placement in source and
+# requires the source guard to reject it.
+#
+# IT IS REGISTERED WITHOUT CTEST'S EXPECTED-FAILURE PROPERTY AND IS NOT
+# EXPECTED TO FAIL. (The property's name is deliberately not spelled here:
+# `grep -c` for it over this file is how a reader establishes that no node
+# carries one, and a mention in prose would answer 1 where the true count of
+# set properties is 0.) A red at this node is a regression in one of those two
+# artifacts, not a known-open item. It was registered red by the WP-1A review,
+# when neither artifact carried the
+# assertion and the node was the review's way of leaving the gap visible; both
+# were subsequently repaired and the node passes. That history is recorded
+# because the node id still reads like a reviewer's placeholder, and because a
+# status claim left standing after its repair trains a reader to discount a
+# genuine red at exactly this node.
 add_test(
     NAME SOURCE-SWMM-COLUMN-SPLIT-RESIDUAL-SIGN
     COMMAND ${Python3_EXECUTABLE}
