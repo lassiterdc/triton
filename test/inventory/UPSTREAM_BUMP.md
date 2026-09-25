@@ -58,6 +58,59 @@ the cases are distinguishable and the remedies differ:
 Then re-run without `--check` to write the new inventory, and commit it in the
 **same commit as the bump** so the two never disagree on disk.
 
+## The Criterion-P half of the same step
+
+The command above regenerates **both** halves of the inventory, so the single
+`--check` invocation already covers routing state as well as report state. What
+changes is how you read a non-empty diff, because Criterion P's failure modes
+are different ones:
+
+1. **A row reads `UNTRIAGED`.** The routing closure reads a quantity that
+   appears in neither `ADMITTED_ROUTING_STATE` nor `EXCLUDED_ROUTING_STATE` nor
+   a whole-object rule in `EXCLUDED_ROUTING_OBJECTS`. Decide which it is and say
+   why. **Under Criterion P the two directions are not symmetric**: under-capture
+   is the wrong numbers, over-capture is a maintenance cost — *except* for `.inp`
+   configuration, where restoring it lets a stale snapshot silently override the
+   model the operator is running. So admit state freely and exclude
+   configuration by triage, never the reverse.
+
+2. **A row moved between `LIVE` and `KILLED`.** EPA changed where the step
+   prologue writes a field relative to where it reads it. The kill pass is
+   ORDER-SENSITIVE and a flat reading of it is unsound, so resolve this by
+   reading the prologue in execution order rather than by grepping for the
+   write.
+
+3. **`PROLOGUE-ORDER-VIOLATION`.** The six prologue functions no longer execute
+   in the order `ROUTING_PROLOGUE` declares. Mode 2 is not well-posed until this
+   is resolved: update the declared order to the source's, and re-examine every
+   `KILLED` row, because the order is what decided them.
+
+4. **`PREFILTER-VIOLATION`.** A translation unit declared in
+   `PREFILTER_EXCLUDED_UNITS` now declares mutable state, so its own
+   declarations belong back in the candidate pool. Remove it from the list and
+   triage whatever it contributes. **This is the mode a translation-unit bound
+   could not fail on** — it is the reason the bound sits on the field axis.
+
+5. **`PREFILTER-UNDECLARED`.** A unit the walk reaches has stopped declaring
+   mutable state. Add it to `PREFILTER_EXCLUDED_UNITS` so the exclusion stays a
+   committed declaration a reader can check, rather than a recomputation that
+   verifies itself.
+
+6. **A `D-R6` handle reads `UNTRIAGED`.** Upstream added a `TFile`. The
+   enumeration is keyed on the TYPE and not on a declaration site, so it found
+   the new handle automatically; supply its row. An EMPTY admitted set is a
+   passing result.
+
+**Two defects this check cannot catch by itself, and the node that does.** The
+regeneration compares two outputs of the SAME parser, so a parser that stops
+seeing a construct makes both sides agree and the diff empty. Two such defects
+have already been repaired here — `struct_fields` dropping every declarator but
+the last of a multi-declarator line, and `split_functions` refusing a definition
+whose header carries a trailing `//` comment — and the second silently removed
+thirty rows while the run exited 0. `SLOW-SNAPSHOT-INVENTORY-CLOSURE-MODES`
+reintroduces each defect on a throwaway copy and asserts the row disappears. If
+you touch either helper, run that node.
+
 ## Why the script lives here and is never hand-ported
 
 It sits in TRITON's own test tree, on the precedent of
