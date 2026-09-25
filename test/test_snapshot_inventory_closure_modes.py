@@ -27,6 +27,19 @@ and asserts it goes RED **and prints the marker that names the right mode**.
       comment                                          -> the walk truncates and
                                                           inflow.c / rdii.c drop
                                                           out of the closure
+  M9  re-order the scalar basis back below validation  -> every scalar row
+                                                          silently leaves the
+                                                          artifact
+
+M9 IS THE FIRST SCALAR-AXIS MODE IN THIS FILE, and its absence is why the defect
+it catches survived. M1-M8 are all field-axis: they perturb a struct field, a
+struct-typed object, or a helper that parses struct declarations. While the
+scalar half of Criterion P emitted no rows, a scalar-axis mutation had nothing
+to remove and was unwritable -- so this guard-of-the-guard could not have gone
+red on a basis that produced nothing, and its green was silent about it. The
+lesson generalises: a mutation suite can only perturb what its subject already
+emits, so "all modes pass" never establishes that the subject's coverage is
+complete.
 
 M7 and M8 are the two that a diff-only check cannot catch by itself, because the
 regeneration compares two outputs of the SAME helper: if the helper stops
@@ -140,6 +153,45 @@ def m8(tmp: Path) -> None:
          r'\)\s*(?://.*)?$",', r'\)\s*$",')
 
 
+# The SCALAR-axis mutation. Every mode above it is field-axis -- it perturbs a
+# struct field, a struct-typed object, or a helper that parses struct
+# declarations -- so while the scalar basis produced no rows a scalar-axis
+# mutation was literally unwritable: there was nothing for it to remove. That is
+# why the basis being dead code went unnoticed by this file for its whole life.
+#
+# M9 reverts the ORDERING, which is the defect as it actually shipped: build
+# `stream` and add the ("-", name) scalars to `candidates` AFTER the validation
+# loop has already consumed `candidates`. The kill pass takes `validated`, not
+# `candidates`, so under that ordering no scalar ever reaches it, the
+# `if obj == "-"` branch inside the validation loop is unreachable by
+# construction, and the whole second Criterion-P basis is dead. The two
+# statements are byte-identical in both positions -- only where they sit
+# changes, which is exactly why the defect was invisible to a reader scanning
+# for a wrong expression.
+#
+# BLIND form rather than marker form, deliberately. A marker-form assertion
+# ("--check went red and said UNTRIAGED") would be satisfied here for a trivial
+# reason -- 140 rows vanish from the diff, so the check reddens no matter what
+# the scalar basis is doing. Asserting that one specific scalar row is ABSENT
+# from the REGENERATED artifact is what ties this subtest to the basis rather
+# than to the diff.
+_HOISTED_SCALAR_BLOCK = """    stream = step_event_stream(defs, reached, objects, scalars)
+    for _kind, obj, field, _fn in stream:
+        if obj == "-":
+            candidates.add((obj, field))
+
+"""
+_KILL_PASS_LINE = "    live, killed = kill_pass(validated, stream)"
+
+
+def m9(tmp: Path) -> None:
+    script = tmp / "inventory" / SCRIPT
+    # 1. lift the hoisted block out of its correct position
+    edit(script, _HOISTED_SCALAR_BLOCK, "")
+    # 2. put it back where it used to be -- below the validation loop, too late
+    edit(script, _KILL_PASS_LINE, _HOISTED_SCALAR_BLOCK + _KILL_PASS_LINE)
+
+
 # name -> (mutation, marker the output must carry, or None for "blind-check" form)
 MUTATIONS = {
     "M1 drop a triaged field from ADMITTED_ROUTING_STATE": (m1, "UNTRIAGED"),
@@ -161,6 +213,13 @@ BLIND = {
     # Node.oldVolume, Conduit.a2/q1Old/q2Old and Xnode.converged, while the
     # Criterion-R half stays at 172 pairs and the run exits 0.
     "M8 split_functions rejects a trailing line comment": (m8, "Subcatch\tnewRunoff\t"),
+    # ReportTime is the sentinel because Sec 4.6.3 names it as one of the three
+    # fields (with BetweenEvents and VariableStep) that widening the boundary to
+    # swmm_step is SUPPOSED to make visible, and it is referenced nowhere in the
+    # four-root routing closure -- so it is reachable through the scalar basis
+    # and through nothing else. A struct-field sentinel could not distinguish
+    # this defect from a dozen others.
+    "M9 the scalar basis is re-ordered back into dead code": (m9, "-\tReportTime\t"),
 }
 
 

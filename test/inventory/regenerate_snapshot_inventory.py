@@ -1115,13 +1115,41 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
     for unit, fn in sorted(reached):
         if unit not in contributing:
             continue
+        # The empty `scalars` set here is DELIBERATE and is not the defect this
+        # ordering once carried: the struct-field basis is the four-root routing
+        # closure, and scalars are added from the STEP stream immediately below,
+        # which is a different basis. Passing `scalars` here would merge the two.
         for _, _kind, obj, field in state_events(bodies[(unit, fn)], objects, frozenset()):
             candidates.add((obj, field))
 
-
+    # SCALAR candidates, from the STEP stream. THE ORDER OF THESE TWO BLOCKS
+    # AGAINST THE VALIDATION LOOP BELOW IS LOAD-BEARING, and getting it wrong is
+    # what made the scalar basis dead code for its whole life.
+    #
+    # Until this commit, `stream` was built and the scalars were added to
+    # `candidates` AFTER the validation loop had already run, and the kill pass
+    # consumes `validated`, not `candidates`. So no ("-", name) tuple could exist
+    # when validation ran, the `if obj == "-"` branch inside it was unreachable by
+    # construction, and not one scalar ever reached the kill pass or the triage
+    # table. §4.6.3's F2 correction specifies Criterion P over TWO bases --
+    # struct fields from the four-root closure and scalar globals from the
+    # swmm_step statement stream -- and the second basis shipped as dead code.
+    #
+    # The unreachable `obj == "-"` branch in the validation loop is the evidence
+    # the split was INTENDED and merely mis-ordered: nobody writes a branch for a
+    # value that cannot occur.
+    #
+    # NOTHING ELSE CHANGES. These are the same two statements, moved.
+    stream = step_event_stream(defs, reached, objects, scalars)
+    for _kind, obj, field, _fn in stream:
+        if obj == "-":
+            candidates.add((obj, field))
 
     # A lexical match against a struct-typed global must name a REAL member of
     # that struct, or it is a false positive the pool would carry forever.
+    # Scalars carry the sentinel object "-" and have no struct to check against,
+    # so they pass straight through -- that is what the first branch is for, and
+    # it is reachable now.
     validated: set[tuple[str, str]] = set()
     rejected: list[tuple[str, str]] = []
     member_cache: dict[str, set[str]] = {}
@@ -1137,10 +1165,6 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
         else:
             rejected.append((obj, field))
 
-    stream = step_event_stream(defs, reached, objects, scalars)
-    for _kind, obj, field, _fn in stream:
-        if obj == "-":
-            candidates.add((obj, field))
     live, killed = kill_pass(validated, stream)
     prologue_seen = prologue_order_holds(stream)
 
