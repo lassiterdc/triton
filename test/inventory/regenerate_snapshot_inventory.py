@@ -296,19 +296,39 @@ ADMITTED_ROUTING_STATE = {
 
 # Routing state EXCLUDED by Criterion P, every exclusion carrying its reason.
 EXCLUDED_ROUTING_STATE = {
-    # CORRECTED at WP-1B(10). This was ADMITTED with the reason "routing state:
-    # surcharge depth carried across steps". Measured: the only writes to
-    # Node[].surDepth are node.c's .inp readers (node_readParams and its
-    # per-type arms) and the only reads are in dynwave.c -- no routing write
-    # exists anywhere in the tree. It is .inp CONFIGURATION, which is the one
-    # class Sec 4.6.1 excludes by triage rather than admitting freely, because
-    # over-capture there lets a stale snapshot silently override the model the
-    # operator is running. Under-capture is the wrong numbers; THIS direction is
-    # the wrong model, which is worse and is why the exception exists.
+    # CORRECTED at WP-1B(10), and its REASON corrected again here. The verdict
+    # was and remains EXCLUDE; what was wrong was the ground given for it.
+    #
+    # This was originally ADMITTED with the reason "routing state: surcharge
+    # depth carried across steps". The exclusion rests entirely on the WRITE
+    # side: every write to Node[].surDepth is in node.c's .inp readers
+    # (node_readParams and its per-type arms, :143/:152/:179/:192), and NO
+    # routing write exists anywhere in the tree. A field no routing step writes
+    # cannot carry state across steps, whatever reads it.
+    #
+    # The earlier reason ALSO said reads are confined to dynwave.c. That half
+    # was false and is removed rather than softened. Measured at this commit,
+    # surDepth is read at dynwave.c:736 and :799, stats.c:617, link.c:450 and
+    # :458, and node.c:216 -- six sites in four files, of which stats.c and
+    # link.c are unambiguously routing-side. (node.c:216 is the initDepth
+    # validation inside node.c's own reader, so the "written only by node.c"
+    # half covers it.) Those reads are consistent with the exclusion, because a
+    # config value is read by whatever consults the model; they are not evidence
+    # FOR it, and citing them as if they were invited the next reader to
+    # re-derive the verdict from a premise that does not hold.
+    #
+    # It is .inp CONFIGURATION, which is the one class Sec 4.6.1 excludes by
+    # triage rather than admitting freely, because over-capture there lets a
+    # stale snapshot silently override the model the operator is running.
+    # Under-capture is the wrong numbers; THIS direction is the wrong model,
+    # which is worse and is why the exception exists.
     ("Node", "surDepth"):
-        "config: .inp surcharge depth -- written only by node.c's .inp readers "
-        "and read only in dynwave.c; no routing write exists, so admitting it "
-        "would let a stale snapshot override the running model",
+        "config: .inp surcharge depth -- every write is in node.c's .inp readers "
+        "and no routing write exists anywhere in the tree, so it carries nothing "
+        "across steps; admitting it would let a stale snapshot override the "
+        "running model. (Read at dynwave.c:736/:799, stats.c:617, link.c:450/:458 "
+        "and node.c:216 -- reads do not bear on the verdict, which rests on the "
+        "write side.)",
     ("Conduit", "barrels"):
         "config: re-read from the .inp at swmm_open",
     ("Conduit", "beta"):

@@ -739,12 +739,21 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     //
     //     Node.surDepth is NOT here, and its absence is load-bearing. It was
     //     ADMITTED by the inventory as "surcharge depth carried across steps";
-    //     measured, its only writes are node.c's .inp readers and its only
-    //     reads are in dynwave.c -- no routing write exists. It is .inp
-    //     CONFIGURATION, which is the ONE class Criterion P excludes by triage
-    //     rather than admitting freely, because a stale snapshot of it silently
-    //     overrides the model the operator is running. The inventory row was
-    //     corrected in the same commit that added this block.
+    //     measured, its only writes are node.c's .inp readers (:143/:152/:179/
+    //     :192) and NO routing write exists anywhere in the tree, so it carries
+    //     nothing across steps. It is .inp CONFIGURATION, which is the ONE class
+    //     Criterion P excludes by triage rather than admitting freely, because a
+    //     stale snapshot of it silently overrides the model the operator is
+    //     running. The inventory row was corrected in the same commit that added
+    //     this block.
+    //
+    //     An earlier form of this note ALSO claimed its reads are confined to
+    //     dynwave.c. That was false: surDepth is read at dynwave.c:736/:799,
+    //     stats.c:617, link.c:450/:458 and node.c:216. The claim is removed
+    //     rather than softened, because the exclusion never rested on it -- the
+    //     write side is the whole argument, and a reader who checked the read
+    //     claim would have found it wrong and had no way to tell whether the
+    //     verdict went with it. It does not.
     if ( c->mode != SNAP_MANIFEST && Nobjects[NODE] > 0 && !Node ) { c->error = 1; return; }
     for (i = 0; i < SNAP_N(c, Nobjects[NODE]); i++)
     {
