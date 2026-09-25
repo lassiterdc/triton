@@ -114,6 +114,55 @@ static double getNodeStep(double tMin, int *minNode);
 
 //=============================================================================
 
+int dynwave_getSnapshotCount()                                            //TRITON
+//
+//  Input:   none
+//  Output:  returns the number of Xnode entries a snapshot should carry
+//  Purpose: reports whether this file's extended nodal array is live, and how
+//           long it is, WITHOUT exposing TXnode.
+//
+//  Zero is a correct and expected answer, not an error: Xnode is allocated by
+//  dynwave_init(), so a run whose routing model is not DYNWAVE never has one.
+//  The caller records this count in the snapshot's shape block, so a snapshot
+//  taken under dynamic-wave routing is REFUSED by shape rather than silently
+//  restored into a run that has no Xnode to restore into.
+//
+{
+    if ( Xnode == NULL ) return 0;
+    return Nobjects[NODE];
+}
+
+//=============================================================================
+
+int dynwave_getSnapshotRefs(int j, double** oldSurfArea, double** dYdT)   //TRITON
+//
+//  Input:   j = node index; pointers receiving the addresses of Xnode[j]'s
+//           cross-step-live members
+//  Output:  returns 1 if the addresses were handed out, 0 otherwise
+//  Purpose: hands the coupled-resume snapshot serializer access to the two
+//           Xnode members Criterion P admits.
+//
+//  SAME LINKAGE PROBLEM AS stats_getSnapshotRefs, PLUS ONE MORE.  Xnode is
+//  `static` here, so `extern` cannot reach it -- that much is the stats.c case.
+//  What is different is that TXnode is declared in THIS FILE and appears in no
+//  header, so a caller cannot name the type even if it could reach the object.
+//  Handing out `double*` per member is therefore not a stylistic choice: it is
+//  the only opening that does not require publishing the struct.
+//
+//  Xnode[].oldSurfArea is the field that refuses a hand-written inventory. It
+//  is written only in setNodeDepth's non-surcharged branch and read only in its
+//  surcharged branch, by design, and it is in NO struct body in objects.h.
+//
+{
+    if ( Xnode == NULL ) return 0;
+    if ( j < 0 || j >= Nobjects[NODE] ) return 0;
+    if ( oldSurfArea ) *oldSurfArea = &Xnode[j].oldSurfArea;
+    if ( dYdT )        *dYdT        = &Xnode[j].dYdT;
+    return 1;
+}
+
+//=============================================================================
+
 void dynwave_init()
 //
 //  Input:   none
