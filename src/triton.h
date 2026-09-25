@@ -2248,24 +2248,38 @@ namespace Triton
         // DO NOT restate this as a reachable durability bug. It was carried as
         // one -- "the log is written but never flushed, so a hard kill loses the
         // tail" -- and that is FALSE as a description of a run you can reach.
-        // log_exchange_step() is called INSIDE the per-step coupling block that
-        // opens on `if (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count --
+        // log_exchange_step() was called INSIDE a per-step coupling block that
+        // opened on `if (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count --
         // so on the very decomposition this guard is about (rank 0 owns no
-        // manhole) nothing is ever appended and the file holds only its header.
-        // Worse, that same block encloses the MPI_Gatherv of host_vec[SWMM_Q]
-        // and the MPI_Scatterv of aux_global_new_depth over ENSIFY_COMM_WORLD,
-        // which rank 0 then skips while every manhole-owning rank enters them --
-        // the run DEADLOCKS at the first coupled timestep, long before a
-        // checkpoint is reached. (Measured at this commit: that block spans
-        // :2485-:2576 and encloses all three call sites. Locators drift; the
-        // symbol names above do not.)
+        // manhole) nothing was ever appended and the file held only its header.
+        // Worse, that same block enclosed the MPI_Gatherv of the exchange flux
+        // and the MPI_Scatterv of the node depths over ENSIFY_COMM_WORLD, which
+        // rank 0 then skipped while every manhole-owning rank entered them --
+        // the run DEADLOCKED at the first coupled timestep, long before a
+        // checkpoint was reached.
         //
-        // The edit here is still correct and still required: it removes two of
-        // the three local/global inconsistencies this file carries, so the
-        // guard-predicate closure check passes. It does NOT on its own make that
-        // decomposition runnable; the per-step block above is the remaining
-        // inconsistency and it is a separate fix, because changing it moves two
-        // MPI collectives.
+        // The edit here was correct and required but was never sufficient on its
+        // own: it removed ONE of the THREE local/global inconsistencies this file
+        // carried, so the guard-predicate closure check passed. TWO remained, and
+        // they are named here rather than counted, because a count is what let the
+        // earlier form of this note say "the remaining inconsistency" in the
+        // singular while two were open:
+        //
+        //   * compute_new_state()'s per-step coupling block -- the two MPI
+        //     collectives above, the deadlock.
+        //   * simulate()'s end_swmm finalizer -- no collective, so no deadlock,
+        //     but an opened SWMM engine never closed and never reported. It was
+        //     unreachable only because the deadlock came first, so repairing the
+        //     collectives alone would have traded a loud hang for a silently
+        //     missing hydraulics.rpt on exactly those runs.
+        //
+        // Both are now repaired; both guard on the global count, and the collective
+        // site's buffers moved off the conditionally-appended host_vec entries at
+        // the same time. See the block comments at each site for why the predicate
+        // flip alone would have been undefined behaviour. This guard and those two
+        // are one predicate -- rank 0's local count is zero -- which is why the
+        // guard-predicate closure check now asserts over all three classes rather
+        // than observing two of them.
         if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
 
@@ -2547,8 +2561,16 @@ namespace Triton
       // SWMM_TIME is split into three MEASURED children plus a DERIVED residual
       // (SWMM_OTHER, computed in output.h::write_times).  The parent bracket above
       // and below is deliberately untouched, so the SWMM column reports the same
-      // timer reading it reported before the split, and the four columns close on
-      // it exactly: XFER + MPI + STEP + OTHER == SWMM on every per-rank row.
+      // timer reading it reported before the split.
+      //
+      // DO NOT CITE `XFER + MPI + STEP + OTHER == SWMM` AS EVIDENCE THE BRACKETS
+      // ARE RIGHT.  SWMM_OTHER is DERIVED by subtracting the three measured
+      // children from the parent, so that identity is an algebraic TAUTOLOGY over
+      // the emitted row: it holds for any values the three children take,
+      // including values no correct bracket placement could produce.  What
+      // falsifies a bracket fault is the residual's SIGN -- a child that escaped
+      // the parent, or two children that overlap, drive SWMM_OTHER NEGATIVE while
+      // leaving the sum exact to the last digit.  Check `SWMM_OTHER >= 0`.
       //
       // What lands in the residual, and why that is correct rather than leftover:
       // the two sizeof-scaled assignments just above, the `if (rank == 0)` branch
@@ -2563,8 +2585,9 @@ namespace Triton
       // removes an out-of-range index rather than skipping any work. The SWMM_XFER bracket sits
       // INSIDE the guard for the same reason SWMM_STEP sits inside the rank-0 guard below: a rank
       // that performs none of this work reports exactly 0.0 rather than a small nonzero reading
-      // for a branch test, and the closure XFER + MPI + STEP + OTHER == SWMM still holds on every
-      // rank because the branch test's own cost falls to the residual.
+      // for a branch test, and the branch test's own cost falls to the residual, keeping
+      // SWMM_OTHER non-negative on that rank -- which is the falsifiable property, not the
+      // tautological sum. See the residual note above.
       if (swmm_model.num_of_swmm_links > 0) {
         st.start(SWMM_XFER);
 
@@ -2612,8 +2635,20 @@ namespace Triton
         // column that is exactly zero on N-1 of N ranks, so its Average row entry
         // is rank0/N -- a number that halves as rank count doubles while the serial
         // solve is constant.  The PER-RANK rows are the truthful ones; the Average
-        // row is outside every claim this split makes.  The serial-solve cost is
-        // the MAX over Rank, which is what the downstream summary already takes.
+        // row is outside every claim this split makes.
+        //
+        // WHAT THE MAX OVER RANK IS, stated precisely because an earlier form of
+        // this note called it "the serial-solve cost" and that is not what this
+        // bracket measures.  MAX over Rank of SWMM_STEP is the whole BRACKET's
+        // cost: the serial solve PLUS the two index remaps (local_to_global,
+        // global_to_local) PLUS one buffered per-timestep file write
+        // (log_exchange_step, two ofstream::write calls).  All four are inside
+        // the bracket, two lines below this comment, where anyone can see them.
+        // The bracket cost is an UPPER BOUND on the serial solve and is the right
+        // number for "what does the coupling cost on the critical path"; it is the
+        // WRONG number for any claim about swmm_step() itself, and separating the
+        // solve from its scaffolding would take a fourth child bracket, which this
+        // split deliberately does not add.
         st.start(SWMM_STEP);
         swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
                                     swmm_model.node_to_rank_dict);
