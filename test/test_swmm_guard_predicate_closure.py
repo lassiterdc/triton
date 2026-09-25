@@ -33,17 +33,52 @@ reaches only the sites that spell the rank test and the member access together
 in one condition.  It does NOT reach:
 
   * ``if (swmm_model.num_of_swmm_links > 0)`` with no ``rank ==`` in the same
-    condition -- including the per-step coupling block, which is gated on the
-    LOCAL count and encloses an ``MPI_Gatherv`` and an ``MPI_Scatterv`` over
-    ``ENSIFY_COMM_WORLD``.  On the same decomposition this file is about, rank 0
-    skips both while every manhole-owning rank enters them and the run
-    DEADLOCKS.  That site is a real and separate defect; subtest G3 below
-    OBSERVES it and reports it, deliberately without failing on it, so the
-    number is visible rather than implied.
+    condition.  Two such sites were real defects on the rank-0-owns-no-manhole
+    decomposition; both are repaired, and subtests G3a and G3b below now ASSERT
+    rather than observe, so neither can silently return.
   * a rank test hoisted into an enclosing block.
 
 A check that names its own boundary is worth more than one that implies
 coverage it does not have.
+
+WHY G3 IS TWO ASSERTIONS AND NOT ONE
+------------------------------------
+The two repaired sites belong to DIFFERENT classes, and one predicate cannot
+reach both.
+
+G3a asserts that no MPI collective is lexically enclosed by a local-count guard.
+That is the per-step coupling block's defect exactly: it enclosed an
+``MPI_Gatherv`` and an ``MPI_Scatterv`` over ``ENSIFY_COMM_WORLD``, so a rank
+whose strip held no manhole skipped two collectives every other rank entered and
+the run DEADLOCKED.  G3a is correctly SILENT on the host/device-vector append
+block in ``initialize()``, which is legitimately local-count-guarded because it
+appends per-rank buffers and enters no collective, and on the per-rank device
+transfers inside the repaired coupling block for the same reason.
+
+G3a IS BLIND TO THE SECOND SITE, and shipping it alone would have left that site
+with no static guard at all.  ``end_swmm`` encloses NO collective -- it is
+internally ``rank_ == 0``-guarded around swmm_end/swmm_report/swmm_close -- so it
+could never deadlock, and G3a cannot see it.  Its defect is different in kind:
+``init_swmm`` opens SWMM on rank 0 whenever the MODEL has any node, guarding
+``swmm_open``/``swmm_start`` on ``rank_ == 0`` and nothing else, so a
+local-count-guarded finalizer left an opened engine never closed and never
+reported -- no hydraulics.rpt, silently.  Repairing only the collective site
+would have converted a loud hang into a missing report file on exactly the runs
+the repair rescues, which is why the two land together and why the guard needs
+two assertions rather than one.
+
+G3b therefore asserts a different property: no ``swmm_model.<method>(`` CALL is
+lexically enclosed by a local-count guard.  A call into the coupling object is an
+operation on the MODEL, whose scope is global; a member-data access
+(``swmm_model.loss.data()``, ``swmm_model.num_of_swmm_links``) is not a call and
+does not match, which is what keeps G3b silent on the append block.
+
+LIMITATION OF THE BRACE WALK, stated so a green is not over-read: the enclosure
+scan strips ``//`` line comments and counts braces.  It does NOT parse block
+comments, string literals containing braces, or preprocessor conditionals.  It
+is sound on this file's style and would need a real parser to be sound in
+general.  Both subtests print the block extent they walked, so a reader can
+check the walk rather than trust it.
 """
 
 import re
@@ -52,6 +87,85 @@ from pathlib import Path
 
 PREDICATE_RE = re.compile(r"rank == 0 && swmm_model\.(\w+)")
 LOCAL_ONLY_RE = re.compile(r"if \(swmm_model\.(\w+) > 0\)")
+
+# G3a's subject: any MPI entry point. Collectives are the deadlocking class, but
+# the pattern is deliberately wider than MPI_Gatherv/MPI_Scatterv -- a future
+# edit that moves an MPI_Allreduce or an MPI_Barrier under a local-count guard is
+# the same defect, and enumerating today's two calls would not catch it.
+MPI_CALL_RE = re.compile(r"\bMPI_[A-Z]\w*\s*\(")
+
+# G3b's subject: a CALL into the coupling object. The `(` immediately after the
+# member name is what separates `swmm_model.end_swmm(` from `swmm_model.loss` and
+# from `swmm_model.loss.data()`, whose `(` follows `data`, not `loss`.
+SWMM_MODEL_CALL_RE = re.compile(r"\bswmm_model\.(\w+)\s*\(")
+
+
+def strip_line_comment(text):
+    """Drop a `//` tail. Sound on this file's style; see the docstring's stated
+    limitation -- block comments and brace-bearing string literals are not
+    parsed."""
+    cut = text.find("//")
+    return text if cut < 0 else text[:cut]
+
+
+def enclosed_block(lines, start_idx):
+    """Return (first_idx, last_idx) of the brace-delimited block opened at or
+    after `start_idx`, inclusive, or None if no brace opens on the guard line.
+
+    `start_idx` is 0-based. The walk begins on the guard line itself, so a guard
+    written `if (...) {` is handled; a braceless single-statement guard returns
+    None and is reported by the caller rather than silently skipped."""
+    depth = 0
+    opened = False
+    for i in range(start_idx, len(lines)):
+        for ch in strip_line_comment(lines[i]):
+            if ch == "{":
+                depth += 1
+                opened = True
+            elif ch == "}":
+                depth -= 1
+                if opened and depth == 0:
+                    return (start_idx, i)
+        if not opened and i > start_idx:
+            # The guard line carried no `{` and neither did the next line: a
+            # braceless single-statement guard.
+            return None
+    return None
+
+
+def local_count_guards(lines):
+    """Every `if (swmm_model.num_of_swmm_links > 0)` site, as
+    (line_no_1based, block_first_idx, block_last_idx, text)."""
+    out = []
+    for n, line in enumerate(lines, 1):
+        if line.lstrip().startswith("//") or PREDICATE_RE.search(line):
+            continue
+        m = LOCAL_ONLY_RE.search(line)
+        if not m or m.group(1) != "num_of_swmm_links":
+            continue
+        block = enclosed_block(lines, n - 1)
+        if block is None:
+            out.append((n, None, None, line.strip()))
+        else:
+            out.append((n, block[0], block[1], line.strip()))
+    return out
+
+
+def scan_guarded_blocks(lines, guards, pattern):
+    """Return [(guard_line, hit_line, hit_text), ...] for every `pattern` match
+    lexically inside a local-count-guarded block, comments excluded."""
+    hits = []
+    for guard_line, first, last, _ in guards:
+        if first is None:
+            continue
+        for i in range(first, last + 1):
+            raw = lines[i]
+            if raw.lstrip().startswith("//"):
+                continue
+            body = strip_line_comment(raw)
+            if pattern.search(body):
+                hits.append((guard_line, i + 1, raw.strip()))
+    return hits
 
 
 def main(argv):
@@ -105,29 +219,60 @@ def main(argv):
           predicates == ["global_num_of_swmm_links"],
           "predicate(s) found: %s" % ", ".join(predicates))
 
-    # --- G3: OBSERVE the sites this operation cannot reach -------------------
+    # --- G3: ASSERT over the sites the G1/G2 operation cannot reach ----------
     #
-    # Reported, not asserted. These are `swmm_model.<count> > 0` conditions with
-    # no rank test in the same condition, so the published operation is blind to
-    # them by construction. Printing the count keeps the boundary visible in the
-    # artifact instead of only in this docstring.
-    unreached = []
-    for n, line in enumerate(lines, 1):
-        if line.lstrip().startswith("//") or PREDICATE_RE.search(line):
-            continue
-        m = LOCAL_ONLY_RE.search(line)
-        if m and m.group(1) == "num_of_swmm_links":
-            unreached.append((n, line.strip()))
+    # These are `swmm_model.<count> > 0` conditions with no rank test in the same
+    # condition, so the published operation is blind to them by construction.
+    # They were OBSERVE-only while the two defects below were open; both are now
+    # repaired and both assertions are live. The block extents are printed so the
+    # brace walk is checkable rather than trusted.
+    guards = local_count_guards(lines)
     print("")
-    print("NOTE: %d local-count site(s) carry no rank test in the same condition "
-          "and are OUTSIDE this operation:" % len(unreached))
-    for n, t in unreached:
-        print("        :%d  %s" % (n, t))
-    print("      The per-step coupling block among them encloses two MPI "
-          "collectives; on a rank-0-owns-no-manhole")
-    print("      decomposition rank 0 skips them while other ranks enter, and "
-          "the run deadlocks. Not this check's")
-    print("      subject, and not fixed by chunk (12).")
+    print("G3  %d local-count guard site(s) carry no rank test in the same "
+          "condition:" % len(guards))
+    for n, first, last, t in guards:
+        extent = ("braceless single statement" if first is None
+                  else "block :%d-:%d" % (first + 1, last + 1))
+        print("        :%d  %-58s  [%s]" % (n, t[:58], extent))
+    print("")
+
+    # --- G3a: no MPI call inside a local-count-guarded block -----------------
+    #
+    # The deadlocking class. A local-count guard is a PER-RANK predicate and an
+    # MPI collective is a WHOLE-COMMUNICATOR operation, so the two can never be
+    # correctly composed: the decomposition that makes the counts differ is
+    # exactly the one on which some ranks enter and others do not.
+    mpi_hits = scan_guarded_blocks(lines, guards, MPI_CALL_RE)
+    check("G3a no MPI call is lexically enclosed by a local-count guard "
+          "(%d hit(s))" % len(mpi_hits),
+          not mpi_hits,
+          "; ".join(":%d (guard at :%d) %s" % (h, g, t) for g, h, t in mpi_hits))
+
+    # --- G3b: no swmm_model method CALL inside a local-count-guarded block ---
+    #
+    # The silently-lost-artifact class, which G3a cannot see because its member
+    # of it -- end_swmm -- encloses no collective at all. A call into the
+    # coupling object operates on the MODEL, whose scope is global; gating one on
+    # this rank's subdomain count skips whole-model work on a rank that happens
+    # to own no node. Member-data access does not match: the `(` must follow the
+    # member name, so `swmm_model.loss.data()` is not a hit.
+    call_hits = scan_guarded_blocks(lines, guards, SWMM_MODEL_CALL_RE)
+    check("G3b no swmm_model method call is lexically enclosed by a local-count "
+          "guard (%d hit(s))" % len(call_hits),
+          not call_hits,
+          "; ".join(":%d (guard at :%d) %s" % (h, g, t) for g, h, t in call_hits))
+
+    # --- G3c: the walk reached a block on every guard ------------------------
+    #
+    # Without this, a guard rewritten into a braceless single statement makes
+    # G3a and G3b vacuously green on it -- they scan an empty range and find
+    # nothing, which is byte-identical at the exit code to finding nothing in a
+    # block that was genuinely clean.
+    braceless = [(n, t) for n, first, _, t in guards if first is None]
+    check("G3c the brace walk reached a block on every local-count guard "
+          "(%d unwalked)" % len(braceless),
+          not braceless,
+          "; ".join(":%d %s" % (n, t) for n, t in braceless))
     print("")
 
     if failures:
