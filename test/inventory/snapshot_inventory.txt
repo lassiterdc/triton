@@ -244,3 +244,284 @@ NonConvergeCount	-	long	yes	globals.h	extern
 TotalStepCount	-	long	no	globals.h	extern
 #
 # TOTAL PAIRS: 172
+#
+# ==========================================================================
+# CRITERION P -- routing state LIVE ON ENTRY at swmm_step's boundary
+# ==========================================================================
+# Criterion: a quantity is IN the snapshot iff a step beginning at t_k READS
+#            it before that step writes it.
+# Seed roots: routing_execute, routeFlow, flowrout_execute, dynwave_execute
+# Walk: UNRESTRICTED -- every solver translation unit the closure reaches.
+# Functions reached: 298 across 37 translation unit(s)
+# Step stream rooted at: swmm_step (the declared boundary)
+# Prologue, as declared: initSystemInflows -> link_setOldHydState -> node_setOldHydState -> node_initFlows -> initRoutingStep -> initNodeStates
+# Prologue, as the step stream reaches it: initSystemInflows -> link_setOldHydState -> node_setOldHydState -> node_initFlows -> initRoutingStep -> initNodeStates
+#
+# mutable-state pre-filter -- per reached unit:
+#   contributes controls.c: declares 7 non-const file-scope static(s)
+#   contributes culvert.c: writes through a global
+#   contributes datetime.c: declares 1 non-const file-scope static(s)
+#   contributes dwflow.c: writes through a global
+#   contributes dynwave.c: declares 4 non-const file-scope static(s)
+#   contributes error.c: defines 1 file-scope global(s)
+#   contributes exfil.c: writes through a global
+#   EXCLUDED    findroot.c: declares no mutable state and writes no global
+#   contributes flowrout.c: writes through a global
+#   EXCLUDED    forcmain.c: declares no mutable state and writes no global
+#   contributes gage.c: writes through a global
+#   contributes gwater.c: declares 25 non-const file-scope static(s)
+#   contributes iface.c: declares 11 non-const file-scope static(s)
+#   contributes infil.c: declares 2 non-const file-scope static(s)
+#   contributes inflow.c: writes through a global
+#   contributes inlet.c: declares 18 non-const file-scope static(s)
+#   contributes input.c: declares 6 non-const file-scope static(s)
+#   contributes kinwave.c: declares 6 non-const file-scope static(s)
+#   contributes lid.c: declares 7 non-const file-scope static(s)
+#   contributes link.c: writes through a global
+#   contributes massbal.c: defines 11 file-scope global(s)
+#   contributes mathexpr.c: declares 10 non-const file-scope static(s)
+#   contributes node.c: writes through a global
+#   contributes qualrout.c: writes through a global
+#   contributes rdii.c: declares 11 non-const file-scope static(s)
+#   contributes report.c: declares 1 non-const file-scope static(s)
+#   contributes roadway.c: writes through a global
+#   contributes routing.c: declares 4 non-const file-scope static(s)
+#   contributes shape.c: declares 2 non-const file-scope static(s)
+#   contributes stats.c: declares 6 non-const file-scope static(s)
+#   contributes street.c: writes through a global
+#   contributes subcatch.c: declares 4 non-const file-scope static(s)
+#   contributes surfqual.c: writes through a global
+#   contributes swmm5.c: declares 7 non-const file-scope static(s)
+#   contributes table.c: writes through a global
+#   contributes treatmnt.c: declares 7 non-const file-scope static(s)
+#   EXCLUDED    xsect.c: declares no mutable state and writes no global
+#
+# closure-check mode (iv) -- a pre-filter-EXCLUDED unit that declares
+# mutable state at the current pin:
+#   none -- every declared exclusion holds at this pin
+#
+# TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason
+A	conductivity	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+A	porosity	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Adjust	hydconFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	a1	LIVE	ADMITTED	routing state: initRoutingStep copies a1 into a2 at the top of every step; the multi-declarator drop in struct_fields is the defect that would have hidden it
+Conduit	barrels	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	beta	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	capacityLimited	LIVE	ADMITTED	routing state: per-step capacity flag read by the next step
+Conduit	evapLossRate	LIVE	ADMITTED	routing state: per-step loss rate; admitted because under P over-capture is a maintenance cost and under-capture is the wrong numbers
+Conduit	fullState	LIVE	ADMITTED	routing state: full-flow state carried across steps
+Conduit	hasLosses	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	length	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	modLength	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	q1	LIVE	ADMITTED	routing state: upstream flow carried across steps
+Conduit	q2	LIVE	ADMITTED	routing state: downstream flow carried across steps
+Conduit	qMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	roughFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	roughness	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Conduit	seepLossRate	LIVE	ADMITTED	routing state: per-step loss rate; admitted on the same ground as evapLossRate
+Conduit	slope	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Curve	curveType	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	cWeir	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	dhMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	flowCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	link	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	qMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	qMin	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Divider	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Evap	rate	LIVE	EXCLUDED	config: recomputed every step by climate_setState from .inp-derived series
+Evap	recoveryFactor	LIVE	EXCLUDED	config: recomputed every step by climate_setState from .inp-derived series
+Event	end	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Event	start	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Gage	isUsed	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Gage	pastRain	LIVE	EXCLUDED	runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)
+Gage	rainfall	LIVE	EXCLUDED	runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)
+LidProcs	drainRmvl	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	ID	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	cLossAvg	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	cLossInlet	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	cLossOutlet	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	direction	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	dqdh	LIVE	ADMITTED	routing state: the derivative the dynamic-wave solution carries across steps
+Link	flowClass	LIVE	ADMITTED	routing state: flow classification carried across steps
+Link	froude	LIVE	ADMITTED	routing state: Froude number carried across steps
+Link	hasFlapGate	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	inlet	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	inletControl	LIVE	ADMITTED	routing state: inlet-control flag carried across steps
+Link	newDepth	LIVE	ADMITTED	routing state: the depth the resumed step continues from
+Link	newFlow	LIVE	ADMITTED	routing state: the flow the resumed step continues from
+Link	newQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Link	newVolume	LIVE	ADMITTED	routing state: conduit volume carried across steps
+Link	node1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	node2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	normalFlow	LIVE	ADMITTED	routing state: normal-flow limiter state
+Link	offset1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	offset2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	oldQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Link	qFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	qLimit	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	seepRate	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	setting	LIVE	ADMITTED	control state: evolved by control rules during the run, not re-derivable from the .inp
+Link	subIndex	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	targetSetting	LIVE	ADMITTED	control state: evolved by control rules during the run, not re-derivable from the .inp
+Link	timeLastSet	LIVE	ADMITTED	control state: the time the last control action fired
+Link	totalLoad	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Link	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Link	xsect	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	ID	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	apiExtInflow	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	crownElev	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	degree	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	dwfInflow	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	extInflow	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	fullDepth	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	fullVolume	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	inflow	LIVE	ADMITTED	routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it
+Node	inlet	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	invertElev	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	losses	LIVE	ADMITTED	routing state: per-step evaporation and seepage losses
+Node	newDepth	LIVE	ADMITTED	routing state: the depth the resumed step continues from
+Node	newLatFlow	LIVE	ADMITTED	routing state: read one line before it is zeroed inside initSystemInflows
+Node	newQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Node	newVolume	LIVE	ADMITTED	routing state: reconstruction from restored primitives is bitwise only in the non-flooded branch, and the coupled case is the flooded branch
+Node	oldDepth	LIVE	ADMITTED	routing state: previous-step depth, read by the routing solution
+Node	oldFlowInflow	LIVE	ADMITTED	routing state: previous-step inflow, read by the steady-state test
+Node	oldNetInflow	LIVE	ADMITTED	routing state: previous-step net inflow, read by the steady-state test
+Node	oldQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Node	outflow	LIVE	ADMITTED	routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it
+Node	overflow	LIVE	ADMITTED	routing state: read at massbal.c:635 by the opening massbal_updateRoutingTotals, before the prologue runs
+Node	pondedArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	qualInflow	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Node	subIndex	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	surDepth	LIVE	ADMITTED	routing state: surcharge depth carried across steps
+Node	treatment	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Node	updated	LIVE	ADMITTED	routing state: the per-step updated flag the dynamic-wave solution reads
+Orifice	cOrif	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Orifice	cWeir	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Orifice	hCrit	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Orifice	length	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Orifice	surfArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Orifice	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	fixedStage	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	routeTo	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	stageSeries	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	tideCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	vRouted	LIVE	ADMITTED	routing accumulator: volume routed to the outfall since t=0
+Outfall	wRouted	LIVE	ADMITTED	routing accumulator: mass routed to the outfall since t=0
+Outlet	curveType	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outlet	qCoeff	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outlet	qCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outlet	qExpon	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pattern	factor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pattern	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pollut	dwfConcen	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pollut	gwConcen	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pollut	kDecay	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pollut	rdiiConcen	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pump	pumpCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pump	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pump	xMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Pump	xMin	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+R	Dickinson	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+RptFlags	controls	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	a0	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	a1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	a2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	aCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	evapLoss	LIVE	ADMITTED	routing state: per-step evaporation loss
+Storage	exfil	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	exfilLoss	LIVE	ADMITTED	routing state: per-step exfiltration loss
+Storage	fEvap	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Storage	hrt	LIVE	ADMITTED	routing state: hydraulic residence time accumulated across steps
+Storage	shape	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Street	gutterDepression	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Street	gutterWidth	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Street	roughness	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Street	sides	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Street	slope	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Street	width	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Subcatch	area	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Subcatch	groundwater	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Subcatch	infilPattern	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Subcatch	lidArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Subcatch	newQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Subcatch	newRunoff	LIVE	EXCLUDED	runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)
+Subcatch	oldQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Subcatch	oldRunoff	LIVE	EXCLUDED	runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)
+Subcatch	outNode	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+TimeStepStats	maxTimeStep	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	minTimeStep	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	routingTime	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	steadyStateTime	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	timeStepCount	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	timeStepCounts	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	timeStepIntervals	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+TimeStepStats	trialsCount	LIVE	EXCLUDED	report accumulator; admitted by Criterion R above and restored by the same snapshot
+Transect	lengthFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	cDisch1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	cDisch2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	cSurcharge	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	canSurcharge	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	cdCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	endCon	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	length	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	roadSurface	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	roadWidth	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	slope	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	surfArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Weir	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Xnode	dYdT	LIVE	ADMITTED	routing state: depth derivative carried across Picard iterations and steps
+Xnode	oldSurfArea	LIVE	ADMITTED	routing state: written only in setNodeDepth's non-surcharged branch and read only in its surcharged branch, by design; appears in NO struct body in objects.h and is the single field that refuses a hand-written list
+pXsect	sMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	aFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	culvertCode	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	rFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	sBot	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	transect	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	wMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	yBot	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	yFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+xsect	ywMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+#
+# KILLED by the prologue -- a PURE WRITE precedes every read, in order.
+Conduit	a2	KILLED	-	prologue writes before any read
+Conduit	q1Old	KILLED	-	prologue writes before any read
+Conduit	q2Old	KILLED	-	prologue writes before any read
+Link	bypassed	KILLED	-	prologue writes before any read
+Link	oldDepth	KILLED	-	prologue writes before any read
+Link	oldFlow	KILLED	-	prologue writes before any read
+Link	oldVolume	KILLED	-	prologue writes before any read
+Link	surfArea1	KILLED	-	prologue writes before any read
+Link	surfArea2	KILLED	-	prologue writes before any read
+Node	oldLatFlow	KILLED	-	prologue writes before any read
+Node	oldVolume	KILLED	-	prologue writes before any read
+Xnode	converged	KILLED	-	prologue writes before any read
+Xnode	newSurfArea	KILLED	-	prologue writes before any read
+Xnode	sumdqdh	KILLED	-	prologue writes before any read
+#
+# UNTRIAGED COUNT: 0
+#
+# --------------------------------------------------------------------------
+# D-R6 -- non-field (stream position) state, keyed on the TYPE TFile
+# --------------------------------------------------------------------------
+# Declaration sites found by type: 12 handle(s)
+# handle<TAB>site<TAB>disposition<TAB>reason
+Finp	globals.h EXTERN TFile block	EXCLUDED	input file; re-read from the .inp at swmm_open, and the resumed process reopens it at position 0 by construction
+Fout	globals.h EXTERN TFile block	EXCLUDED	unrestorable by ANY offset: output_openOutFile reopens it 'w+b', which TRUNCATES, and output_open resets Nperiods = 0, so there are no bytes to seek past -- and the 0..t_k period records were never written in the resumed process because saveResults() is never called for those steps
+Frpt	globals.h EXTERN TFile block	EXCLUDED	report file; the full-window hydraulics.rpt is produced by the replayed report path, not by a restored offset
+Fclimate	globals.h EXTERN TFile block	EXCLUDED	climate file; the coupled hydraulics-only configuration does not advance the climate clock
+Frain	globals.h EXTERN TFile block	EXCLUDED	rainfall file; the coupled hydraulics-only configuration supplies inflows externally and does not read rainfall
+Frunoff	globals.h EXTERN TFile block	EXCLUDED	runoff interface file; not in use in the coupled configuration (mode NO_FILE)
+Frdii	globals.h EXTERN TFile block	EXCLUDED	RDII interface file; not in use in the coupled configuration (mode NO_FILE)
+Fhotstart1	globals.h EXTERN TFile block	EXCLUDED	hot-start INPUT file; read once at swmm_start and never re-read, so no cursor survives the call
+Fhotstart2	globals.h EXTERN TFile block	EXCLUDED	hot-start OUTPUT file; written once at swmm_end, after the resumed segment has completed
+Finflows	globals.h EXTERN TFile block	EXCLUDED	routing-interface inflow file; not in use in the coupled configuration (mode NO_FILE)
+Foutflows	globals.h EXTERN TFile block	EXCLUDED	routing-interface outflow file; not in use in the coupled configuration (mode NO_FILE)
+TTable.file	objects.h member of TTable	EXCLUDED	per-time-series cursor. It SELF-HEALS: table_tseriesLookup has two healing branches -- a degenerate bracket (x1 == x2) and a lookup falling left of it (x < x1) -- and both route to table_getFirstEntry, which rewinds and re-scans for a file-backed series (table.c:773-781). The design offered a SECOND ground, that admitting it is strictly worse than not because struct_fields dropped x1/y1 from `double x1, x2;` and a half-restored bracket interpolates against a bogus y1; THAT GROUND IS RETIRED, because this chunk repaired struct_fields and the helper now returns all four. The self-healing ground stands alone and is sufficient. Do not cite the repaired defect.
+#
+# D-R6 ADMITTED: 0 (an empty admitted set is a PASSING result)
+# D-R6 UNTRIAGED COUNT: 0
+#
+# CRITERION P ROWS: 209
