@@ -1,0 +1,3 @@
+#ifndef KOKKOS_POST_INCLUDE_HPP
+#define KOKKOS_POST_INCLUDE_HPP
+#endif

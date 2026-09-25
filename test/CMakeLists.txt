@@ -6,6 +6,35 @@ if(TRITON_ENABLE_SWMM)
   add_subdirectory(snapshot)
 endif()
 
+# FAST-TIER syntax check. Every C++ translation unit must PARSE under
+# `mpic++ -fsyntax-only` with the six-file Kokkos config shim checked into
+# test/syntax/kokkos-shim/. Measured on this tree: 5 TUs, ~6.6 s total.
+#
+# Registered UNCONDITIONALLY and deliberately FIRST among the Python nodes. It
+# needs no CMake configure of Kokkos, no link, no GPU and no solver run, so it
+# is the cheapest instrument in the suite and the one most likely to be run --
+# which matters, because the failure class it catches (a broken declaration in a
+# header) otherwise surfaces only after a full Kokkos build. It already caught a
+# real symbol redefinition on this branch, fixed at d648106.
+#
+# It asserts each TU's compiler EXIT STATUS and NOT the absence of warnings.
+# Measured at this commit with -Wall -Wextra there are 4 project-source warnings
+# on every test TU and 11 on src/main.cpp, plus 2 more per TU from the installed
+# OpenMPI's own headers -- a count that varies by site. A zero-diagnostics gate
+# would fail immediately and would fail differently on every machine. See
+# test/syntax/run_syntax_check.py's docstring for the full attribution and for
+# the extern "C" signature-drift blind spot that no syntax-only check can close.
+#
+# It does NOT use ${CMAKE_CXX_COMPILER}: that may be a site wrapper (CC on Cray)
+# whose include defaults differ from the plain MPI wrapper this shim was measured
+# against. Pass --compiler to override.
+add_test(
+    NAME SOURCE-SYNTAX-PARSE-ALL-TUS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/syntax/run_syntax_check.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 # Slow-tier inventory-regeneration check (WP-1B). Registered unconditionally:
 # it reads the vendored EPA source with Python and links nothing, so it is
 # meaningful in a non-coupled configuration too -- the inventory describes the
