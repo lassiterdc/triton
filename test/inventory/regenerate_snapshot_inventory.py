@@ -292,6 +292,41 @@ ADMITTED_ROUTING_STATE = {
         "routing state: depth derivative carried across Picard iterations and steps",
     ("Xnode", "oldSurfArea"):
         "routing state: written only in setNodeDepth's non-surcharged branch and read only in its surcharged branch, by design; appears in NO struct body in objects.h and is the single field that refuses a hand-written list",
+    # --- SCALAR AXIS: routing state ADMITTED by Criterion P ------------------
+    #
+    # These four are the cross-step CLOCKS and COUNTERS that swmm_start resets
+    # on every resume.  Each is read by the step before the step writes it --
+    # the criterion's own definition -- and each has its reset site named in
+    # its reason, because the reset is what makes a resume wrong without it.
+    #
+    # A read-modify-write (`+=`, `++`) counts as a READ here, per the kill
+    # pass's own rule: it consumes the value the previous step left.  That is
+    # why ReportTime, NewRuleTime and NextEvent are live despite being
+    # "assigned" every step -- their only PURE write is the start-path reset.
+    ("-", 'NewRoutingTime'):
+        "routing clock, live on entry: swmm_step's FIRST statement reads it "
+        '(swmm5.c:439, `if (NewRoutingTime < RoutingDuration)`) before '
+        'anything in the step writes it, and swmm_start sets it to 0.0 '
+        '(swmm5.c:354), so a resumed run restarts the routing clock at zero '
+        "without it. NOT driven by the caller: swmm_step's elapsedTime "
+        'parameter is an OUT parameter whose first executable statement is '
+        '`*elapsedTime = 0.0` (swmm5.c:425)',
+    ("-", 'NewRuleTime'):
+        'control-rule clock, live on entry: read at routing.c:191 inside '
+        'routing_getRoutingStep, which runs before evaluateControlRules '
+        'advances it by `NewRuleTime += 1000.0*RuleStep` (routing.c:374); '
+        'routing_open resets it to 0.0 (routing.c:128) on every swmm_start',
+    ("-", 'NextEvent'):
+        'event index, live on entry: isBetweenEvents reads '
+        'Event[NextEvent].end (routing.c:411) before incrementing it '
+        '(routing.c:413), so it carries the position in the event series '
+        'across steps; routing_open resets it to 0 (routing.c:126)',
+    ("-", 'ReportTime'):
+        'reporting clock, live on entry: read at swmm5.c:596 before '
+        'saveResults advances it by `ReportTime = ReportTime + '
+        '1000*ReportStep` (swmm5.c:618); its only PURE write is '
+        "swmm_start's initialization (swmm5.c:355), which is what a resume "
+        'would otherwise restart from',
 }
 
 # Routing state EXCLUDED by Criterion P, every exclusion carrying its reason.
@@ -469,6 +504,371 @@ EXCLUDED_ROUTING_STATE = {
         "runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)",
     ("Subcatch", "outNode"):
         "config: re-read from the .inp at swmm_open",
+    # --- SCALAR AXIS: state EXCLUDED by Criterion P --------------------------
+    #
+    # Four grounds appear below, applied in this ORDER, because the order is
+    # what makes the answers right.  CONFIG is read-only during a step, so a
+    # config value's first step event is always a READ and it looks live on
+    # entry -- "read before written" is therefore NOT sufficient for ADMIT and
+    # the config test must run first.  Admitting a config value is the WRONG
+    # MODEL direction the surDepth entry above records as worse than wrong
+    # numbers.
+    #
+    #   1. pointer/array name  -- the value is an allocation address
+    #   2. .inp configuration  -- every write is in the config-authorship set
+    #                             (setDefaults / project_readOption /
+    #                             project_readInput / project_validate)
+    #   3. derived in-step     -- the step writes it before it reads it, so
+    #                             nothing crosses the boundary
+    #   4. named individually  -- lifecycle flags, already-captured counters,
+    #                             and subsystems the coupled hydraulics-only
+    #                             configuration does not advance
+    #
+    # The "derived in-step" group is overwhelmingly C's scratch-parameter-block
+    # idiom: a module sets file-scope statics at the top of its public entry so
+    # its static helpers can read them without parameters.  SWMM says so in its
+    # own source -- inlet.c:1491 reads "a, W, Sx, Sw, SL, & n were from
+    # getConduitGeometry()".
+    ("-", 'Afull'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'AllowPonding'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Alpha'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'AvailEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Beta'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Beta1'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'C1'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'C2'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Cin'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'CourantFactor'):
+        'config: re-read from the .inp at swmm_open -- the same verdict '
+        'EXCLUDED_SCALARS records for it under Criterion R',
+    ("-", 'CrownCutoff'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'DateFormat'):
+        'report date formatting, set from configuration at start by '
+        'datetime_setDateFormat; it selects presentation, not state',
+    ("-", 'DeepFlowExpr'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'DoRouting'):
+        'derived at swmm_start from the .inp-derived object counts '
+        '(swmm5.c), so it is re-derived identically on resume',
+    ("-", 'DoRunoff'):
+        'derived at swmm_start from Nobjects[SUBCATCH], which the coupled '
+        'build forces to 0 (swmm5.c:377), so it is re-derived identically '
+        'on resume',
+    ("-", 'DryStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Dstore'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Dt'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'ElapsedTime'):
+        'derived within the step from NewRoutingTime, which IS admitted: '
+        'swmm_step assigns `ElapsedTime = NewRoutingTime / MSECperDAY` '
+        '(swmm5.c:454) and only then reads it back out. It is also NOT '
+        'caller-driven -- the elapsedTime parameter is an OUT parameter, '
+        'discarded by `*elapsedTime = 0.0` at swmm5.c:425 before any use',
+    ("-", 'EndDateTime'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'ErrCode'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'ErrorCode'):
+        'engine error state; a resumed run must begin clean, and restoring '
+        'a prior error code would abort it before its first step',
+    ("-", 'ExceptionCount'):
+        'engine lifecycle counter, reset by swmm_start; carrying a prior '
+        "segment's exception count would misreport the resumed run",
+    ("-", 'FirstInlet'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'ForceMainEqn'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'FracPerv'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Fumax'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'GWFlow'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'HeadTol'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Hgw'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Hstar'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Hsw'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'HydCon'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'IfaceFrac'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'IfaceNodes'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'IfacePolluts'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'IgnoreGwater'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreQuality'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreRainfall'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreRouting'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreSnowmelt'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'InertDamping'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'InfilFactor'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'InletFlow'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'IsOpenFlag'):
+        'engine lifecycle flag; the resumed process genuinely is freshly '
+        'opened and swmm_open must set it',
+    ("-", 'IsStartedFlag'):
+        'engine lifecycle flag; the resumed process genuinely is freshly '
+        'started and swmm_start must set it',
+    ("-", 'J'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'LatFlowExpr'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'LatFlowTol'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'LidGroups'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'LidProcs'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'LowerEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'LowerLoss'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxGWFlowNeg'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxGWFlowPos'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxTrials'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'MaxUpperPerc'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MinRouteStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'MinSurfArea'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'NativeInfil'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'NewIfaceDate'):
+        'routing-interface file cursor state; that file is not in use in '
+        'the coupled configuration (mode NO_FILE), the ground D-R6 already '
+        'records for Finflows/Foutflows',
+    ("-", 'NewIfaceValues'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'NewRunoffTime'):
+        'runoff clock; not advanced in the coupled hydraulics-only '
+        'configuration (swmm_start forces Nobjects[SUBCATCH]=0 at '
+        'swmm5.c:377) -- the same ground EXCLUDED_SCALARS already records '
+        'for it under Criterion R',
+    ("-", 'NonConvergeCount'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once',
+    ("-", 'NormalFlowLtd'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Nperiods'):
+        'period count of the binary output file, which D-R6 records as '
+        "unrestorable by ANY offset: output_openOutFile reopens Fout 'w+b' "
+        '(truncating) and output_open resets Nperiods = 0, so there is '
+        'nothing for a restored count to index',
+    ("-", 'Nsides'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'NumEvents'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'NumIfaceNodes'):
+        'routing-interface file node count; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'NumIfacePolluts'):
+        'routing-interface file pollutant count; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'NumRdiiNodes'):
+        'RDII interface file node count; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'NumThreads'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'OldIfaceDate'):
+        'routing-interface file cursor state; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'OldIfaceValues'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'OldRoutingTime'):
+        'derived within the step: evaluateControlRules sets `OldRoutingTime '
+        '= NewRoutingTime` (routing.c:369) from the admitted clock, at a '
+        'call site (routing.c:227) that precedes every read of it in the '
+        'step',
+    ("-", 'OldRunoffTime'):
+        'runoff clock; not advanced in the coupled hydraulics-only '
+        'configuration (the ground NewRunoffTime already carries)',
+    ("-", 'Omega'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Qfactor'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Qfull'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'R'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'RdiiEndDate'):
+        'RDII interface file window end; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'RdiiFileType'):
+        'RDII interface file type; not in use in the coupled configuration '
+        '(mode NO_FILE)',
+    ("-", 'RdiiNodeFlow'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'RdiiNodeIndex'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'RdiiStartDate'):
+        'RDII interface file window start; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'RdiiStep'):
+        'RDII interface file time step; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'ReportStart'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'ReportStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'ReportStepCount'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once',
+    ("-", 'RouteModel'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'RouteStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'RoutingDuration'):
+        'derived at swmm_start from TotalDuration (swmm5.c:350), itself '
+        '.inp configuration',
+    ("-", 'RuleStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SL'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'SaveResultsFlag'):
+        "supplied by the caller as swmm_start's saveResults argument, so it "
+        'is re-established on every start by the caller, not carried',
+    ("-", 'SkipSteadyState'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SortedLinks'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'StartDateTime'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SurchargeMethod'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Sw'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'SweepEnd'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SweepStart'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Sx'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'SysFlowTol'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Tcrown'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'TotalDepth'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'TotalDuration'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'TotalStepCount'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once',
+    ("-", 'UnitSystem'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'UpperEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'UpperPerc'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'WetStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'pXsect'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'theSubarea'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
 }
 
 # Whole-object exclusion RULES.  An object appears here only when every field it

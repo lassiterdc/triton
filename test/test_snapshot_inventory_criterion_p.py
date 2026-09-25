@@ -191,6 +191,42 @@ def main(argv) -> int:
             % ((obj, field) in live_set, (obj, field) in R.ADMITTED_ROUTING_STATE),
         )
 
+    # --- P3b: the four cross-step CLOCKS on the scalar axis -------------------
+    #
+    # These are the scalar-axis counterpart of P3, and they exist because the
+    # scalar basis shipped as dead code for its whole life: until it was made
+    # reachable, no scalar row existed for a subtest to assert on at all.  Each
+    # of the four is read by the step before the step writes it, and each is
+    # RESET by the start path, which is the pair of facts that makes a resume
+    # wrong without it.  A read-modify-write counts as a read here (the kill
+    # pass's own rule), which is why three of the four are live despite being
+    # "assigned" every step -- their only PURE write is the start-path reset.
+    #
+    # The reset site is asserted alongside the verdict, because the verdict
+    # without it is just a claim that something is live; the reset is what
+    # makes it CONSEQUENTIAL on a resume.
+    for name, reset_unit, reset_needle in (
+        ("NewRoutingTime", "swmm5.c",   "NewRoutingTime = 0.0"),
+        ("ReportTime",     "swmm5.c",   "ReportTime = 1000 * (double)ReportStep"),
+        ("NewRuleTime",    "routing.c", "NewRuleTime = 0.0"),
+        ("NextEvent",      "routing.c", "NextEvent = 0"),
+    ):
+        key = ("-", name)
+        check(
+            "P3b %s is LIVE and ADMITTED on the scalar axis" % name,
+            key in live_set and key in R.ADMITTED_ROUTING_STATE,
+            "live=%s admitted=%s"
+            % (key in live_set, key in R.ADMITTED_ROUTING_STATE),
+        )
+        unit_src = (solver / reset_unit).read_text(errors="replace")
+        check(
+            "P3c %s is reset by the start path (%s), which is what a resume "
+            "would otherwise restart from" % (name, reset_unit),
+            reset_needle in unit_src,
+            "%r not found in %s -- either the reset moved or this assertion is "
+            "naming the wrong site" % (reset_needle, reset_unit),
+        )
+
     # --- P4: the pre-filter discriminates ------------------------------------
     check(
         "P4a xsect.c is pre-filter EXCLUDED (the largest contributor, no cross-step state)",

@@ -302,144 +302,144 @@ TotalStepCount	-	long	no	globals.h	extern
 #
 # TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason
 -	A	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Afull	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	AllowPonding	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Alpha	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Afull	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	AllowPonding	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	Alpha	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Area	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	AvailEvap	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Beta	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Beta1	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	AvailEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Beta	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Beta1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	BetweenEvents	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	C1	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	C2	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Cin	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	CourantFactor	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	CrownCutoff	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	DateFormat	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	DeepFlowExpr	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	DoRouting	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	DoRunoff	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	DryStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Dstore	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Dt	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ElapsedTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	EndDateTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ErrCode	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ErrorCode	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	C1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	C2	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Cin	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	CourantFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open -- the same verdict EXCLUDED_SCALARS records for it under Criterion R
+-	CrownCutoff	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	DateFormat	LIVE	EXCLUDED	report date formatting, set from configuration at start by datetime_setDateFormat; it selects presentation, not state
+-	DeepFlowExpr	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	DoRouting	LIVE	EXCLUDED	derived at swmm_start from the .inp-derived object counts (swmm5.c), so it is re-derived identically on resume
+-	DoRunoff	LIVE	EXCLUDED	derived at swmm_start from Nobjects[SUBCATCH], which the coupled build forces to 0 (swmm5.c:377), so it is re-derived identically on resume
+-	DryStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	Dstore	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Dt	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	ElapsedTime	LIVE	EXCLUDED	derived within the step from NewRoutingTime, which IS admitted: swmm_step assigns `ElapsedTime = NewRoutingTime / MSECperDAY` (swmm5.c:454) and only then reads it back out. It is also NOT caller-driven -- the elapsedTime parameter is an OUT parameter, discarded by `*elapsedTime = 0.0` at swmm5.c:425 before any use
+-	EndDateTime	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	ErrCode	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	ErrorCode	LIVE	EXCLUDED	engine error state; a resumed run must begin clean, and restoring a prior error code would abort it before its first step
 -	EvapRate	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ExceptionCount	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	FirstInlet	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ForceMainEqn	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	FracPerv	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Fumax	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	ExceptionCount	LIVE	EXCLUDED	engine lifecycle counter, reset by swmm_start; carrying a prior segment's exception count would misreport the resumed run
+-	FirstInlet	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	ForceMainEqn	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	FracPerv	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Fumax	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	GW	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	GWFlow	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	HeadTol	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Hgw	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Hstar	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Hsw	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	HydCon	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IfaceFrac	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IfaceNodes	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IfacePolluts	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IgnoreGwater	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IgnoreQuality	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IgnoreRainfall	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IgnoreRouting	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IgnoreSnowmelt	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	InertDamping	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	GWFlow	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	HeadTol	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	Hgw	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Hstar	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Hsw	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	HydCon	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	IfaceFrac	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	IfaceNodes	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	IfacePolluts	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	IgnoreGwater	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	IgnoreQuality	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	IgnoreRainfall	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	IgnoreRouting	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	IgnoreSnowmelt	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	InertDamping	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Infil	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	InfilFactor	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	InletFlow	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IsOpenFlag	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	IsStartedFlag	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	J	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	LatFlowExpr	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	LatFlowTol	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	LidGroups	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	LidProcs	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	LowerEvap	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	LowerLoss	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MaxEvap	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MaxGWFlowNeg	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MaxGWFlowPos	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	InfilFactor	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	InletFlow	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	IsOpenFlag	LIVE	EXCLUDED	engine lifecycle flag; the resumed process genuinely is freshly opened and swmm_open must set it
+-	IsStartedFlag	LIVE	EXCLUDED	engine lifecycle flag; the resumed process genuinely is freshly started and swmm_start must set it
+-	J	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	LatFlowExpr	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	LatFlowTol	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	LidGroups	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	LidProcs	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	LowerEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	LowerLoss	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	MaxEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	MaxGWFlowNeg	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	MaxGWFlowPos	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	MaxNativeInfil	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MaxTrials	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MaxUpperPerc	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MinRouteStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	MinSurfArea	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NativeInfil	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NewIfaceDate	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NewIfaceValues	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NewRoutingTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NewRuleTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NewRunoffTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NextEvent	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NonConvergeCount	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NormalFlowLtd	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Nperiods	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Nsides	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NumEvents	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NumIfaceNodes	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NumIfacePolluts	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NumRdiiNodes	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	NumThreads	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	OldIfaceDate	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	OldIfaceValues	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	OldRoutingTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	OldRunoffTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Omega	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	MaxTrials	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	MaxUpperPerc	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	MinRouteStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	MinSurfArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	NativeInfil	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	NewIfaceDate	LIVE	EXCLUDED	routing-interface file cursor state; that file is not in use in the coupled configuration (mode NO_FILE), the ground D-R6 already records for Finflows/Foutflows
+-	NewIfaceValues	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	NewRoutingTime	LIVE	ADMITTED	routing clock, live on entry: swmm_step's FIRST statement reads it (swmm5.c:439, `if (NewRoutingTime < RoutingDuration)`) before anything in the step writes it, and swmm_start sets it to 0.0 (swmm5.c:354), so a resumed run restarts the routing clock at zero without it. NOT driven by the caller: swmm_step's elapsedTime parameter is an OUT parameter whose first executable statement is `*elapsedTime = 0.0` (swmm5.c:425)
+-	NewRuleTime	LIVE	ADMITTED	control-rule clock, live on entry: read at routing.c:191 inside routing_getRoutingStep, which runs before evaluateControlRules advances it by `NewRuleTime += 1000.0*RuleStep` (routing.c:374); routing_open resets it to 0.0 (routing.c:128) on every swmm_start
+-	NewRunoffTime	LIVE	EXCLUDED	runoff clock; not advanced in the coupled hydraulics-only configuration (swmm_start forces Nobjects[SUBCATCH]=0 at swmm5.c:377) -- the same ground EXCLUDED_SCALARS already records for it under Criterion R
+-	NextEvent	LIVE	ADMITTED	event index, live on entry: isBetweenEvents reads Event[NextEvent].end (routing.c:411) before incrementing it (routing.c:413), so it carries the position in the event series across steps; routing_open resets it to 0 (routing.c:126)
+-	NonConvergeCount	LIVE	EXCLUDED	already captured: SERIALIZED_SCALARS carries it under Criterion R, and one quantity is restored once
+-	NormalFlowLtd	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	Nperiods	LIVE	EXCLUDED	period count of the binary output file, which D-R6 records as unrestorable by ANY offset: output_openOutFile reopens Fout 'w+b' (truncating) and output_open resets Nperiods = 0, so there is nothing for a restored count to index
+-	Nsides	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	NumEvents	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	NumIfaceNodes	LIVE	EXCLUDED	routing-interface file node count; not in use in the coupled configuration (mode NO_FILE)
+-	NumIfacePolluts	LIVE	EXCLUDED	routing-interface file pollutant count; not in use in the coupled configuration (mode NO_FILE)
+-	NumRdiiNodes	LIVE	EXCLUDED	RDII interface file node count; not in use in the coupled configuration (mode NO_FILE)
+-	NumThreads	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	OldIfaceDate	LIVE	EXCLUDED	routing-interface file cursor state; not in use in the coupled configuration (mode NO_FILE)
+-	OldIfaceValues	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	OldRoutingTime	LIVE	EXCLUDED	derived within the step: evaluateControlRules sets `OldRoutingTime = NewRoutingTime` (routing.c:369) from the admitted clock, at a call site (routing.c:227) that precedes every read of it in the step
+-	OldRunoffTime	LIVE	EXCLUDED	runoff clock; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)
+-	Omega	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Q	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Qfactor	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Qfull	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	R	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RdiiEndDate	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RdiiFileType	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RdiiNodeFlow	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RdiiNodeIndex	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RdiiStartDate	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RdiiStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ReportStart	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ReportStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ReportStepCount	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	ReportTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RouteModel	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RouteStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RoutingDuration	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	RuleStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Qfactor	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	Qfull	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	R	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	RdiiEndDate	LIVE	EXCLUDED	RDII interface file window end; not in use in the coupled configuration (mode NO_FILE)
+-	RdiiFileType	LIVE	EXCLUDED	RDII interface file type; not in use in the coupled configuration (mode NO_FILE)
+-	RdiiNodeFlow	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	RdiiNodeIndex	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	RdiiStartDate	LIVE	EXCLUDED	RDII interface file window start; not in use in the coupled configuration (mode NO_FILE)
+-	RdiiStep	LIVE	EXCLUDED	RDII interface file time step; not in use in the coupled configuration (mode NO_FILE)
+-	ReportStart	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	ReportStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	ReportStepCount	LIVE	EXCLUDED	already captured: SERIALIZED_SCALARS carries it under Criterion R, and one quantity is restored once
+-	ReportTime	LIVE	ADMITTED	reporting clock, live on entry: read at swmm5.c:596 before saveResults advances it by `ReportTime = ReportTime + 1000*ReportStep` (swmm5.c:618); its only PURE write is swmm_start's initialization (swmm5.c:355), which is what a resume would otherwise restart from
+-	RouteModel	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	RouteStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	RoutingDuration	LIVE	EXCLUDED	derived at swmm_start from TotalDuration (swmm5.c:350), itself .inp configuration
+-	RuleStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	S	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SL	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SaveResultsFlag	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SkipSteadyState	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SortedLinks	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	StartDateTime	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	SL	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	SaveResultsFlag	LIVE	EXCLUDED	supplied by the caller as swmm_start's saveResults argument, so it is re-established on every start by the caller, not carried
+-	SkipSteadyState	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	SortedLinks	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	StartDateTime	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Steps	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SurchargeMethod	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Sw	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SweepEnd	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SweepStart	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Sx	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	SysFlowTol	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	SurchargeMethod	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	Sw	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	SweepEnd	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	SweepStart	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	Sx	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	SysFlowTol	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	SysOutfallFlow	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	T	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	Tcrown	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Tcrown	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Theta	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	TotalDepth	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	TotalDuration	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	TotalStepCount	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	TotalDepth	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	TotalDuration	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	TotalStepCount	LIVE	EXCLUDED	already captured: SERIALIZED_SCALARS carries it under Criterion R, and one quantity is restored once
 -	Tstep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	UnitSystem	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	UpperEvap	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	UpperPerc	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	UnitSystem	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+-	UpperEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
+-	UpperPerc	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	V	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	VariableStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	W	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	WetStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	WetStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Xnode	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	a	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	n	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	pXsect	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	theSubarea	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	pXsect	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	theSubarea	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
 -	xsect	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 A	conductivity	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 A	porosity	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -641,7 +641,7 @@ Xnode	converged	KILLED	-	prologue writes before any read
 Xnode	newSurfArea	KILLED	-	prologue writes before any read
 Xnode	sumdqdh	KILLED	-	prologue writes before any read
 #
-# UNTRIAGED COUNT: 140
+# UNTRIAGED COUNT: 21
 #
 # --------------------------------------------------------------------------
 # D-R6 -- non-field (stream position) state, keyed on the TYPE TFile

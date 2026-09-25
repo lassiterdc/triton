@@ -273,10 +273,16 @@ BLIND = {
 # first is what makes these differential rather than incidental: without it a
 # red would be explained by drift and would establish nothing about the gate.
 
+# The END of EXCLUDED_ROUTING_STATE, anchored on the table's TERMINATOR and the
+# comment that follows it rather than on whichever entry happens to be last.
+# The entry-anchored form broke the moment the table grew, which is the right
+# failure -- it raised, naming the missing anchor -- but it is a failure this
+# subtest will meet again on every future triage round, so the anchor moves to
+# something growth-invariant.
 _EXCLUDED_TABLE_END = (
-    '    ("Subcatch", "outNode"):\n'
-    '        "config: re-read from the .inp at swmm_open",\n'
-    '}'
+    "}\n"
+    "\n"
+    "# Whole-object exclusion RULES."
 )
 
 
@@ -328,7 +334,7 @@ def close_every_open_decision(tmp: Path) -> int:
     )
     edit(tmp / "inventory" / SCRIPT,
          _EXCLUDED_TABLE_END,
-         _EXCLUDED_TABLE_END[:-1] + injected + "}")
+         injected + _EXCLUDED_TABLE_END)
     return len(keys)
 
 
