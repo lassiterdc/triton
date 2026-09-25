@@ -392,7 +392,7 @@ Node	overflow	LIVE	ADMITTED	routing state: read at massbal.c:635 by the opening 
 Node	pondedArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Node	qualInflow	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
 Node	subIndex	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-Node	surDepth	LIVE	ADMITTED	routing state: surcharge depth carried across steps
+Node	surDepth	LIVE	EXCLUDED	config: .inp surcharge depth -- written only by node.c's .inp readers and read only in dynwave.c; no routing write exists, so admitting it would let a stale snapshot override the running model
 Node	treatment	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Node	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Node	updated	LIVE	ADMITTED	routing state: the per-step updated flag the dynamic-wave solution reads

@@ -276,8 +276,6 @@ ADMITTED_ROUTING_STATE = {
         "routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it",
     ("Node", "overflow"):
         "routing state: read at massbal.c:635 by the opening massbal_updateRoutingTotals, before the prologue runs",
-    ("Node", "surDepth"):
-        "routing state: surcharge depth carried across steps",
     ("Node", "updated"):
         "routing state: the per-step updated flag the dynamic-wave solution reads",
     ("Outfall", "vRouted"):
@@ -298,6 +296,19 @@ ADMITTED_ROUTING_STATE = {
 
 # Routing state EXCLUDED by Criterion P, every exclusion carrying its reason.
 EXCLUDED_ROUTING_STATE = {
+    # CORRECTED at WP-1B(10). This was ADMITTED with the reason "routing state:
+    # surcharge depth carried across steps". Measured: the only writes to
+    # Node[].surDepth are node.c's .inp readers (node_readParams and its
+    # per-type arms) and the only reads are in dynwave.c -- no routing write
+    # exists anywhere in the tree. It is .inp CONFIGURATION, which is the one
+    # class Sec 4.6.1 excludes by triage rather than admitting freely, because
+    # over-capture there lets a stale snapshot silently override the model the
+    # operator is running. Under-capture is the wrong numbers; THIS direction is
+    # the wrong model, which is worse and is why the exception exists.
+    ("Node", "surDepth"):
+        "config: .inp surcharge depth -- written only by node.c's .inp readers "
+        "and read only in dynwave.c; no routing write exists, so admitting it "
+        "would let a stale snapshot override the running model",
     ("Conduit", "barrels"):
         "config: re-read from the .inp at swmm_open",
     ("Conduit", "beta"):
