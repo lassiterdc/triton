@@ -128,6 +128,18 @@ def run_check(tmp: Path):
     return proc.returncode, proc.stdout + proc.stderr
 
 
+def _neuter_comment_blanking(tmp: Path) -> None:
+    """Make ``blank_comments`` the identity, restoring comment contamination.
+
+    Shared by M8 and M10.  The edit lands on the FIRST statement of the
+    function body, so the docstring above it (which itself contains ``//`` and
+    ``/*`` in prose) is untouched and the anchor cannot match anywhere else.
+    """
+    edit(tmp / "inventory" / SCRIPT,
+         '    out = []\n    i, n = 0, len(src)',
+         '    return src\n    out = []\n    i, n = 0, len(src)')
+
+
 def m1(tmp: Path) -> None:
     edit(tmp / "inventory" / SCRIPT,
          '    ("Node", "overflow"):',
@@ -184,7 +196,20 @@ def m7(tmp: Path) -> None:
         fields.append(toks[-1])""")
 
 
+# M8 IS NOW A COMPOUND MUTATION, and the second half is what keeps it
+# discriminating.  split_functions blanks comments before _FUNC_DEF runs, so a
+# header's trailing `//` comment is already whitespace by the time the regex
+# sees it and the reverted regex still matches -- measured: with the blanking in
+# place, the single-edit form left `Subcatch\tnewRunoff\t` in the artifact and
+# this subtest failed loudly rather than passing on a mutation that did nothing.
+# Blanking SUBSUMES the trailing-comment repair; it does not make the repair
+# wrong, and reverting BOTH is what re-opens the defect this mode is about.
+def _m10(tmp: Path) -> None:
+    _neuter_comment_blanking(tmp)
+
+
 def m8(tmp: Path) -> None:
+    _neuter_comment_blanking(tmp)
     edit(tmp / "inventory" / SCRIPT,
          r'\)\s*(?://.*)?$",', r'\)\s*$",')
 
@@ -211,7 +236,16 @@ def m8(tmp: Path) -> None:
 # the scalar basis is doing. Asserting that one specific scalar row is ABSENT
 # from the REGENERATED artifact is what ties this subtest to the basis rather
 # than to the diff.
-_HOISTED_SCALAR_BLOCK = """    stream = step_event_stream(defs, reached, objects, scalars)
+#
+# THE ANCHOR TRACKS THE CALL AS WRITTEN, including its per-unit visibility
+# arguments.  It went stale LOUDLY -- "mutation anchor not found" -- when
+# step_event_stream gained unit_objects / unit_scalars, and that is the
+# behaviour to keep: a mutation that silently fails to apply produces a FALSE
+# PASS indistinguishable from a real one, and this file's entire value is that
+# its mutations provably land.
+_HOISTED_SCALAR_BLOCK = """    stream = step_event_stream(defs, reached,
+                               globals_only_objects, globals_only_scalars,
+                               unit_objects, unit_scalars)
     for _kind, obj, field, _fn in stream:
         if obj == "-":
             candidates.add((obj, field))
@@ -236,6 +270,29 @@ MUTATIONS = {
     "M4 a pre-filter-excluded unit gains a static": (m4, "PREFILTER-VIOLATION"),
     "M5 upstream adds an untriaged routing field": (m5, "UNTRIAGED"),
     "M6 reorder the declared prologue": (m6, "PROLOGUE-ORDER-VIOLATION"),
+    # M10 -- the instrument reads PROSE as code.
+    #
+    # split_functions returns a body verbatim from source, comments included,
+    # and _REF matches bare identifiers.  So before blank_comments landed, the
+    # English article "a", the letter "n" in "n iterations" and every other
+    # single-letter word in a doc comment was emitted as an EVENT on the scalar
+    # row of that name.  That is not a count error: the kill pass and the triage
+    # both key on WHICH EVENT COMES FIRST, so a comment decided verdicts.
+    # Measured at this pin, T, a and n each flipped from first-event-READ to
+    # first-event-WRITE when comments were blanked, and GW went from 18 events
+    # to 2 -- four rows that looked live on entry and are derived.  Under
+    # Criterion P over-capture is the harmful direction, so the defect pointed
+    # at exactly the mistake the criterion's configuration exception guards.
+    #
+    # The marker is the ROW the contamination invents, not the token
+    # "UNTRIAGED": contamination is a SUPERSET defect -- it adds phantom rows
+    # rather than removing real ones -- so a red is guaranteed by drift alone
+    # and a bare-red assertion would establish nothing.  RptFlags.controls is
+    # absent from the committed artifact (grep -Fc: 0) and appears as an ADDED
+    # diff line under the mutation, because the word "controls" occurs in prose
+    # inside a reached body and RptFlags is a struct-typed global.
+    "M10 the instrument reads comments as code": (
+        _m10, "RptFlags\tcontrols"),
 }
 
 # These two defeat a diff-only check, so they are asserted by absence from the

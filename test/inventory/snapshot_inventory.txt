@@ -252,7 +252,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #            it before that step writes it.
 # Seed roots: routing_execute, routeFlow, flowrout_execute, dynwave_execute
 # Walk: UNRESTRICTED -- every solver translation unit the closure reaches.
-# Functions reached: 298 across 37 translation unit(s)
+# Functions reached: 295 across 37 translation unit(s)
 # Step stream rooted at: swmm_step (the declared boundary)
 # Prologue, as declared: initSystemInflows -> link_setOldHydState -> node_setOldHydState -> node_initFlows -> initRoutingStep -> initNodeStates
 # Prologue, as the step stream reaches it: initSystemInflows -> link_setOldHydState -> node_setOldHydState -> node_initFlows -> initRoutingStep -> initNodeStates
@@ -300,12 +300,16 @@ TotalStepCount	-	long	no	globals.h	extern
 # mutable state at the current pin:
 #   none -- every declared exclusion holds at this pin
 #
+# scalar-scope census -- a row key is the bare NAME:
+#   none -- each of the 139 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
+# SCALAR-SCOPE COLLISIONS: 0
+#
 # TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason
--	A	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	A	LIVE	EXCLUDED	config: `A = Aquifer[GW->aquifer]` (gwater.c:498) copies an .inp-derived aquifer record into a scratch struct at the top of every groundwater step, so it is re-read from the .inp at swmm_open and carries nothing across steps
 -	Afull	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	AllowPonding	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Alpha	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	Area	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Area	LIVE	EXCLUDED	derived within the step: `Area = Subcatch[j].area` (gwater.c:503) is the first step event on this row, so no value crosses the boundary
 -	AvailEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Beta	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Beta1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
@@ -326,13 +330,13 @@ TotalStepCount	-	long	no	globals.h	extern
 -	EndDateTime	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	ErrCode	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	ErrorCode	LIVE	EXCLUDED	engine error state; a resumed run must begin clean, and restoring a prior error code would abort it before its first step
--	EvapRate	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	EvapRate	LIVE	EXCLUDED	derived within the step: `EvapRate = Evap.rate` (lid.c:1636) is the first step event on this row, so no value crosses the boundary
 -	ExceptionCount	LIVE	EXCLUDED	engine lifecycle counter, reset by swmm_start; carrying a prior segment's exception count would misreport the resumed run
 -	FirstInlet	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
 -	ForceMainEqn	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	FracPerv	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Fumax	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	GW	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	GW	LIVE	EXCLUDED	pointer/array name: `GW = Subcatch[j].groundwater` (gwater.c:494) is a heap address into the .inp-derived subcatchment array, meaningless to carry between processes; any state behind it is carried on its own axis
 -	GWFlow	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	HeadTol	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Hgw	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
@@ -348,7 +352,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	IgnoreRouting	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	IgnoreSnowmelt	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	InertDamping	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
--	Infil	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Infil	LIVE	EXCLUDED	derived within the step: `Infil = infil` (gwater.c:508) is the first step event on this row, so no value crosses the boundary
 -	InfilFactor	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	InletFlow	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
 -	IsOpenFlag	LIVE	EXCLUDED	engine lifecycle flag; the resumed process genuinely is freshly opened and swmm_open must set it
@@ -363,7 +367,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	MaxEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	MaxGWFlowNeg	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	MaxGWFlowPos	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	MaxNativeInfil	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	MaxNativeInfil	LIVE	EXCLUDED	derived within the step: findNativeInfil writes it (lid.c:1727) before evalLidUnit reads it, so no value crosses the boundary
 -	MaxTrials	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	MaxUpperPerc	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	MinRouteStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -389,7 +393,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	OldRoutingTime	LIVE	EXCLUDED	derived within the step: evaluateControlRules sets `OldRoutingTime = NewRoutingTime` (routing.c:369) from the admitted clock, at a call site (routing.c:227) that precedes every read of it in the step
 -	OldRunoffTime	LIVE	EXCLUDED	runoff clock; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)
 -	Omega	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	Q	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Q	LIVE	EXCLUDED	derived within the step: `Q = q` (treatmnt.c:222) copies the node inflow parameter at the top of treatmnt_treat, so no value crosses the boundary
 -	Qfactor	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Qfull	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	R	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
@@ -407,40 +411,39 @@ TotalStepCount	-	long	no	globals.h	extern
 -	RouteStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	RoutingDuration	LIVE	EXCLUDED	derived at swmm_start from TotalDuration (swmm5.c:350), itself .inp configuration
 -	RuleStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
--	S	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	SL	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	SaveResultsFlag	LIVE	EXCLUDED	supplied by the caller as swmm_start's saveResults argument, so it is re-established on every start by the caller, not carried
 -	SkipSteadyState	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	SortedLinks	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
 -	StartDateTime	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
--	Steps	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Steps	LIVE	EXCLUDED	derived within the step: `Steps = 0` (dynwave.c:285) opens dynwave_execute's Picard loop before any read of it, so the iteration count is per-step and no value crosses the boundary
 -	SurchargeMethod	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Sw	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	SweepEnd	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	SweepStart	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Sx	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	SysFlowTol	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
--	SysOutfallFlow	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	T	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	SysOutfallFlow	LIVE	EXCLUDED	already captured: SERIALIZED_SCALARS carries it under Criterion R, and one quantity is restored once. Independently derived within the step: stats_updateFlowStats zeroes it (stats.c:497) before the `+=` at :659 and the read at :515
+-	T	LIVE	EXCLUDED	derived within the step: `T = getFlowSpread(Q)` (inlet.c:1353) is the first step event on this row. It read as live-on-entry until comments were blanked -- the prior first event was the letter T in prose
 -	Tcrown	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Theta	LIVE	EXCLUDED	derived within the call: the write at gwater.c:648 (`Theta = theta;` in getFluxes) DOMINATES both reads -- gwater.c:865 in getVariableValue, reachable only as the mathexpr_eval callback passed at gwater.c:659 and :669, later in the same getFluxes body -- so no value crosses the boundary. A second, independent ground: the coupled build forces Nobjects[SUBCATCH] = 0 (swmm5.c:375) and groundwater is per-subcatchment, so gwater never runs here at all
 -	TotalDepth	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	TotalDuration	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	TotalStepCount	LIVE	EXCLUDED	already captured: SERIALIZED_SCALARS carries it under Criterion R, and one quantity is restored once
--	Tstep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Tstep	LIVE	EXCLUDED	derived within the step: `Tstep = tStep` (gwater.c:509) copies the step size from the parameter before getFluxes reads it, so no value crosses the boundary
 -	UnitSystem	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	UpperEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	UpperPerc	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	V	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	V	LIVE	EXCLUDED	derived within the step: `V = v` (treatmnt.c:223) copies the node volume parameter at the top of treatmnt_treat, so no value crosses the boundary
 -	VariableStep	LIVE	ADMITTED	variable-step carrier, live on entry: read at dynwave.c:258 and written at :260/:264, all three inside dynwave_getRoutingStep -- but the read is the FIRST reference on every path that reaches it (the early returns at :253/:254 do not touch it), so it consumes the PREVIOUS call's value rather than one this call computed. A "written-and-read within one call, therefore derived" rule fires on this shape and is WRONG here; the refinement is the step-level kill pass's own: a write kills only when it DOMINATES every read. dynwave_init resets it to 0.0 (dynwave.c:176). The consequence is not the routing step, which TRITON discards at swmm5.c:546, but the side effect of the non-sentinel branch: getVariableStep calls stats_updateCriticalTimeCount, which increments the timeCourantCritical counters this same snapshot serializes under Criterion R
--	W	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	W	LIVE	EXCLUDED	derived within the step: `W = Street[t].gutterWidth` (inlet.c:1084) is the first step event on this row -- getConduitGeometry reloads the street geometry for each inlet before any capture calculation reads it
 -	WetStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
--	Xnode	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	a	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	n	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Xnode	LIVE	EXCLUDED	pointer/array name: `static TXnode* Xnode` (dynwave.c:85) is a heap address allocated by dynwave_init, meaningless to carry between processes. It is the one row here whose first step event is a READ, and the pointer rule decides it rather than liveness: the state BEHIND it is already carried on its own axis as the ADMITTED rows Xnode.oldSurfArea and Xnode.dYdT
+-	a	LIVE	EXCLUDED	derived within the step: `a = Street[t].gutterDepression` (inlet.c:1083) is the first step event on this row. It read as live-on-entry until comments were blanked -- the prior first event was the English article "a" in a doc comment
+-	n	LIVE	EXCLUDED	derived within the step: `n = Street[t].roughness` (inlet.c:1085) is the first step event on this row. It read as live-on-entry until comments were blanked -- the prior first event was the letter n in prose
 -	pXsect	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
 -	theSubarea	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
--	xsect	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	xsect	LIVE	EXCLUDED	pointer/array name: `xsect = &Link[i].xsect` (inlet.c:486/:1160/:1921) is an address into the .inp-derived link array; any state behind it is carried on its own axis
 A	conductivity	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 A	porosity	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Adjust	hydconFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -563,8 +566,6 @@ Pump	pumpCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Pump	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Pump	xMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Pump	xMin	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-R	Dickinson	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-RptFlags	controls	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Storage	a0	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Storage	a1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Storage	a2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -614,16 +615,10 @@ Weir	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Xnode	dYdT	LIVE	ADMITTED	routing state: depth derivative carried across Picard iterations and steps
 Xnode	oldSurfArea	LIVE	ADMITTED	routing state: written only in setNodeDepth's non-surcharged branch and read only in its surcharged branch, by design; appears in NO struct body in objects.h and is the single field that refuses a hand-written list
 pXsect	sMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-xsect	aFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-xsect	culvertCode	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-xsect	rFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 xsect	sBot	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 xsect	transect	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 xsect	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-xsect	wMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 xsect	yBot	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-xsect	yFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-xsect	ywMax	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 #
 # KILLED by the prologue -- a PURE WRITE precedes every read, in order.
 Conduit	a2	KILLED	-	prologue writes before any read
@@ -641,7 +636,7 @@ Xnode	converged	KILLED	-	prologue writes before any read
 Xnode	newSurfArea	KILLED	-	prologue writes before any read
 Xnode	sumdqdh	KILLED	-	prologue writes before any read
 #
-# UNTRIAGED COUNT: 18
+# UNTRIAGED COUNT: 0
 #
 # --------------------------------------------------------------------------
 # D-R6 -- non-field (stream position) state, keyed on the TYPE TFile
@@ -664,4 +659,4 @@ TTable.file	objects.h member of TTable	EXCLUDED	per-time-series cursor. It SELF-
 # D-R6 ADMITTED: 0 (an empty admitted set is a PASSING result)
 # D-R6 UNTRIAGED COUNT: 0
 #
-# CRITERION P ROWS: 349
+# CRITERION P ROWS: 340

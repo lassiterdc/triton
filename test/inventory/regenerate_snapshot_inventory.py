@@ -923,6 +923,123 @@ EXCLUDED_ROUTING_STATE = {
         'pointer/array name: the value is a heap address produced during '
         'open/init, meaningless to carry between processes; any state '
         'behind it is carried on its own axis',
+
+    # =====================================================================
+    # THE ROWS THAT WERE OPEN BY IDENTITY, decided once the instrument could
+    # name the object each row refers to.
+    #
+    # Every one of these is a file-scope `static`, and each was left open by
+    # the round that surfaced it because the row's event set was a MIXTURE:
+    # the walk matched the bare name in bodies that cannot see the object the
+    # row names, so events from locals, parameters and prose were attributed
+    # to it.  Two instrument repairs, both above in this file, made each row
+    # refer to exactly one C object:
+    #
+    #   per-unit visibility   a file-scope static is invisible outside its own
+    #                         translation unit, so a match elsewhere is a
+    #                         different object.  See emit_p_section's
+    #                         unit_objects / unit_scalars.
+    #   comment blanking      a body taken verbatim carries its comments, and
+    #                         _REF matched identifiers in prose.  See
+    #                         blank_comments.
+    #
+    # FOUR of the verdicts below CHANGED DIRECTION under the second repair.
+    # T, a and n read first-event-READ with comments in the stream and
+    # first-event-WRITE without them, and GW went from 18 events to 2.  Read
+    # first, all four look live on entry; the read that made `a` look live was
+    # the word "a" in "before a flow routing step has been taken".  Under
+    # Criterion P over-capture is the harmful direction, so the uncorrected
+    # instrument pointed at exactly the mistake the criterion guards.
+    #
+    # After both repairs, 16 of the 17 have a PURE WRITE as their first event
+    # in step order and take the ordinary derived reason; the seventeenth,
+    # Xnode, reads first and is excluded as a pointer whose per-node state is
+    # already carried on its own axis.
+    # =====================================================================
+
+    # --- pointer/array names (rule 1) ------------------------------------
+    ("-", 'GW'):
+        'pointer/array name: `GW = Subcatch[j].groundwater` (gwater.c:494) is '
+        'a heap address into the .inp-derived subcatchment array, meaningless '
+        'to carry between processes; any state behind it is carried on its own '
+        'axis',
+    ("-", 'Xnode'):
+        'pointer/array name: `static TXnode* Xnode` (dynwave.c:85) is a heap '
+        'address allocated by dynwave_init, meaningless to carry between '
+        'processes. It is the one row here whose first step event is a READ, '
+        'and the pointer rule decides it rather than liveness: the state '
+        'BEHIND it is already carried on its own axis as the ADMITTED rows '
+        'Xnode.oldSurfArea and Xnode.dYdT',
+    ("-", 'xsect'):
+        'pointer/array name: `xsect = &Link[i].xsect` (inlet.c:486/:1160/'
+        ':1921) is an address into the .inp-derived link array; any state '
+        'behind it is carried on its own axis',
+
+    # --- a copy of a configuration object ---------------------------------
+    ("-", 'A'):
+        'config: `A = Aquifer[GW->aquifer]` (gwater.c:498) copies an '
+        '.inp-derived aquifer record into a scratch struct at the top of every '
+        'groundwater step, so it is re-read from the .inp at swmm_open and '
+        'carries nothing across steps',
+
+    # --- already captured under Criterion R -------------------------------
+    ("-", 'SysOutfallFlow'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once. Independently derived within the '
+        'step: stats_updateFlowStats zeroes it (stats.c:497) before the `+=` '
+        'at :659 and the read at :515',
+
+    # --- derived within the step (rule 3) ---------------------------------
+    #
+    # Each names the PURE WRITE that is the first step event on this row, so a
+    # reader can re-run the ordering rather than take the verdict on trust.
+    ("-", 'Area'):
+        "derived within the step: `Area = Subcatch[j].area` (gwater.c:503) is "
+        'the first step event on this row, so no value crosses the boundary',
+    ("-", 'EvapRate'):
+        "derived within the step: `EvapRate = Evap.rate` (lid.c:1636) is the "
+        'first step event on this row, so no value crosses the boundary',
+    ("-", 'Infil'):
+        "derived within the step: `Infil = infil` (gwater.c:508) is the first "
+        'step event on this row, so no value crosses the boundary',
+    ("-", 'MaxNativeInfil'):
+        'derived within the step: findNativeInfil writes it (lid.c:1727) '
+        'before evalLidUnit reads it, so no value crosses the boundary',
+    ("-", 'Q'):
+        "derived within the step: `Q = q` (treatmnt.c:222) copies the node "
+        'inflow parameter at the top of treatmnt_treat, so no value crosses '
+        'the boundary',
+    ("-", 'Steps'):
+        "derived within the step: `Steps = 0` (dynwave.c:285) opens "
+        "dynwave_execute's Picard loop before any read of it, so the iteration "
+        'count is per-step and no value crosses the boundary',
+    ("-", 'T'):
+        "derived within the step: `T = getFlowSpread(Q)` (inlet.c:1353) is the "
+        'first step event on this row. It read as live-on-entry until comments '
+        'were blanked -- the prior first event was the letter T in prose',
+    ("-", 'Tstep'):
+        "derived within the step: `Tstep = tStep` (gwater.c:509) copies the "
+        'step size from the parameter before getFluxes reads it, so no value '
+        'crosses the boundary',
+    ("-", 'V'):
+        "derived within the step: `V = v` (treatmnt.c:223) copies the node "
+        'volume parameter at the top of treatmnt_treat, so no value crosses '
+        'the boundary',
+    ("-", 'W'):
+        "derived within the step: `W = Street[t].gutterWidth` (inlet.c:1084) "
+        "is the first step event on this row -- getConduitGeometry reloads the "
+        "street geometry for each inlet before any capture calculation reads "
+        'it',
+    ("-", 'a'):
+        "derived within the step: `a = Street[t].gutterDepression` "
+        '(inlet.c:1083) is the first step event on this row. It read as '
+        'live-on-entry until comments were blanked -- the prior first event '
+        'was the English article "a" in a doc comment',
+    ("-", 'n'):
+        "derived within the step: `n = Street[t].roughness` (inlet.c:1085) is "
+        'the first step event on this row. It read as live-on-entry until '
+        'comments were blanked -- the prior first event was the letter n in '
+        'prose',
 }
 
 # Whole-object exclusion RULES.  An object appears here only when every field it
@@ -1124,7 +1241,15 @@ def _signature_params(bodies, origin, solver: Path, fn: str) -> list[str]:
     if fn in _SIG_CACHE:
         return _SIG_CACHE[fn]
     params: list[str] = []
-    src = (solver / origin[fn]).read_text(errors="replace")
+    # BLANKED, and this call is load-bearing rather than tidiness. `bodies[fn]`
+    # comes from split_functions, which blanks comments; `src.find(body)` then
+    # searches the RAW text for a string that no longer occurs in it, returns
+    # -1, and the whole header parse below is skipped -- so `params` comes back
+    # EMPTY, the alias binding cannot propagate, and seven TimeStepStats fields
+    # silently flip read_by_report_path from yes to no. Measured exactly that
+    # when the blanking landed here without this line. Blanking BOTH sides also
+    # stops `header.rfind("(")` finding a parenthesis inside a doc comment.
+    src = blank_comments((solver / origin[fn]).read_text(errors="replace"))
     body = bodies[fn]
     at = src.find(body)
     if at > 0:
@@ -1142,8 +1267,88 @@ def _signature_params(bodies, origin, solver: Path, fn: str) -> list[str]:
     return params
 
 
+def blank_comments(src: str) -> str:
+    """Replace every comment's characters with spaces, preserving OFFSETS.
+
+    WHY THE WHOLE INSTRUMENT NEEDED THIS.  ``state_events`` matches bare
+    identifiers with ``_REF`` over a function body taken verbatim from source,
+    and a body taken verbatim CONTAINS ITS COMMENTS.  So every English article
+    "a" in a doc comment, every "n" in "n iterations", every standalone "T" in
+    prose was emitted as an EVENT on the scalar row of that name.
+
+    That is not a cosmetic count error.  The kill pass and the triage both key
+    on WHICH EVENT COMES FIRST, so a comment can decide a verdict.  Measured at
+    this pin, over the step stream, comparing the same walk with and without
+    comments:
+
+        name   with comments        stripped
+        T      first=READ  (n=50)   first=WRITE (n=46)
+        a      first=READ  (n=89)   first=WRITE (n=38)
+        n      first=READ  (n=28)   first=WRITE (n= 6)
+        GW     first=READ  (n=18)   first=WRITE (n= 2)
+
+    All four flip.  `T`, `a` and `n` are inlet.c's HEC-22 street-geometry
+    scratch variables, written by getConduitGeometry at the top of each inlet's
+    computation and read afterwards -- plainly derived.  Read first, they look
+    live on entry, and the read that made them look live was the word "a" in
+    the sentence "before a flow routing step has been taken".  Over-capture is
+    the harmful direction under Criterion P, so this defect pushed three rows
+    toward exactly the mistake the criterion's configuration exception exists
+    to prevent.
+
+    OFFSETS ARE PRESERVED because ``state_events`` orders by character offset
+    and the kill pass consumes that order.  Deleting the bytes instead would
+    re-order nothing visibly and change nothing measurably -- until a body
+    whose comments sit between two references shifted one past the other.
+
+    STRING AND CHARACTER LITERALS ARE TRACKED, so a `"http://..."` inside a
+    body does not swallow the rest of its line.  Escapes are honoured.
+    """
+    out = []
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if c == '"' or c == "'":
+            quote = c
+            out.append(c)
+            i += 1
+            while i < n:
+                out.append(src[i])
+                if src[i] == "\\" and i + 1 < n:
+                    out.append(src[i + 1])
+                    i += 2
+                    continue
+                if src[i] == quote:
+                    i += 1
+                    break
+                i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "*":
+            j = src.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append("".join(" " if ch != "\n" else "\n" for ch in src[i:j]))
+            i = j
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "/":
+            j = src.find("\n", i)
+            j = n if j < 0 else j
+            out.append(" " * (j - i))
+            i = j
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def split_functions(src: str) -> dict[str, str]:
-    """Split a translation unit into ``{function name: body}`` by brace match."""
+    """Split a translation unit into ``{function name: body}`` by brace match.
+
+    Comments are BLANKED first (offsets preserved), so no consumer of a body
+    ever sees prose: not ``state_events``' identifier scan, not ``_CALL``'s
+    call-graph scan (a commented-out call is not a call), and not the brace
+    matcher (a brace inside a comment is not a brace).
+    """
+    src = blank_comments(src)
     out: dict[str, str] = {}
     for m in _FUNC_DEF.finditer(src):
         name = m.group(1)
@@ -1351,8 +1556,25 @@ def state_events(body: str, objects: frozenset, scalars: frozenset):
     return events
 
 
-def step_event_stream(defs, reached, objects, scalars):
+def step_event_stream(defs, reached, objects, scalars,
+                      unit_objects=None, unit_scalars=None):
     """Events over the STEP, in execution order, from ``swmm_step``'s entry.
+
+    ``unit_objects`` / ``unit_scalars`` map a translation unit to the names
+    VISIBLE IN THAT UNIT.  When supplied they REPLACE ``objects`` / ``scalars``
+    per body, and a unit absent from the map falls back to the arguments, which
+    the caller passes as the globals-only sets.  This is the C visibility rule
+    and not a heuristic: a file-scope ``static`` is invisible outside its own
+    translation unit, so a bare-name match against it in another unit's body
+    names a DIFFERENT object -- a local, a parameter, a struct member that
+    happens to share the spelling.  Measured at the pin: attributing events
+    tree-wide gave the row for ``a`` 8,721 events from ``xsect.c`` alone, where
+    ``a`` is a local, against 89 from ``inlet.c``, which owns the static.  A
+    verdict on such a row is a statement about the wrong object.
+
+    ``objects`` / ``scalars`` remain the parameters rather than being derived
+    here because the caller has already computed the pre-filter verdict that
+    decides which units contribute statics at all.
 
     The boundary is ``swmm_step``'s entry and NOT ``routing_execute``'s, and the
     distinction is load-bearing rather than pedantic.  ``routing_execute``'s
@@ -1369,8 +1591,18 @@ def step_event_stream(defs, reached, objects, scalars):
     """
     bodies = {(unit, name): body for name, v in defs.items() for unit, body in v}
     by_name: dict[str, str] = {}
+    unit_by_name: dict[str, str] = {}
     for (unit, name), body in bodies.items():
-        by_name.setdefault(name, body)
+        if name not in by_name:
+            by_name[name] = body
+            unit_by_name[name] = unit
+
+    unit_objects = unit_objects or {}
+    unit_scalars = unit_scalars or {}
+
+    def visible(fn: str) -> tuple[frozenset, frozenset]:
+        unit = unit_by_name.get(fn)
+        return (unit_objects.get(unit, objects), unit_scalars.get(unit, scalars))
 
     stream: list[tuple[str, str, str, str]] = []
 
@@ -1378,6 +1610,7 @@ def step_event_stream(defs, reached, objects, scalars):
         if name in path or name not in by_name:
             return
         body = by_name[name]
+        obj_set, scal_set = visible(name)
         path = path | {name}
         marks = [
             (m.start(), m.group(1))
@@ -1386,11 +1619,11 @@ def step_event_stream(defs, reached, objects, scalars):
         ]
         cut = 0
         for at, callee in marks:
-            for _off, kind, obj, field in state_events(body[cut:at], objects, scalars):
+            for _off, kind, obj, field in state_events(body[cut:at], obj_set, scal_set):
                 stream.append((kind, obj, field, name))
             walk(callee, path)
             cut = at
-        for _off, kind, obj, field in state_events(body[cut:], objects, scalars):
+        for _off, kind, obj, field in state_events(body[cut:], obj_set, scal_set):
             stream.append((kind, obj, field, name))
 
     walk(STEP_ROOT, frozenset())
@@ -1557,6 +1790,48 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
     objects = frozenset(objects)
     scalars = frozenset(scalars)
 
+    # --- PER-UNIT VISIBILITY, which is a C language rule, not a heuristic ----
+    #
+    # `objects` and `scalars` above are the UNION over every contributing unit.
+    # Matching a bare name from that union against ANY unit's body attributes
+    # events from many distinct C objects to one row, because a file-scope
+    # `static` is invisible outside its own translation unit: a match on the
+    # same spelling elsewhere is a LOCAL, a PARAMETER, or a struct member.
+    #
+    # Measured at this pin, over the step stream, for the names this defect
+    # left untriaged:
+    #
+    #   a       owner inlet.c     8,721 events from xsect.c,  89 from inlet.c
+    #   n       owner inlet.c     6,750 events from xsect.c,  28 from inlet.c
+    #   xsect   owner inlet.c     3,208 events from xsect.c,  15 from inlet.c
+    #   S       owner mathexpr.c     18 events from xsect.c,   0 from mathexpr.c
+    #
+    # `S` is the sharpest: EVERY event on that row came from a unit that cannot
+    # see the object the row names.  A verdict there is a statement about the
+    # wrong object, which is why these rows were left open rather than guessed.
+    #
+    # The globals from globals.h stay visible everywhere -- that is what makes
+    # them globals -- so only the STATICS are scoped.
+    unit_objects = {u: frozenset(struct_globals | set(unit_statics[u]))
+                    for u in contributing}
+    unit_scalars = {u: frozenset(scalar_globals | set(unit_statics[u]))
+                    for u in contributing}
+    globals_only_objects = frozenset(struct_globals)
+    globals_only_scalars = frozenset(scalar_globals)
+
+    # A NAME OWNED BY TWO CONTRIBUTING UNITS WOULD STILL CONFLATE, because the
+    # row key is the bare name.  At this pin no name is -- measured below, not
+    # assumed -- so the bare name IS a unique key once foreign attribution is
+    # gone.  If that ever stops holding the census emitted into the artifact
+    # says so by name and counts as an open decision, rather than silently
+    # merging two objects into one verdict again.
+    static_owners: dict[str, list[str]] = {}
+    for unit in contributing:
+        for name in unit_statics[unit]:
+            static_owners.setdefault(name, []).append(unit)
+    scope_collisions = sorted(n for n, us in static_owners.items() if len(us) > 1)
+    shadowed = sorted(set(static_owners) & (set(scalar_globals) | set(struct_globals)))
+
     # STRUCT-FIELD candidates come from the ROUTING closure (the four seed
     # roots) restricted to contributing units.  SCALAR candidates come from the
     # STEP stream instead, because §4.6.3 records that widening the boundary to
@@ -1573,7 +1848,10 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
         # ordering once carried: the struct-field basis is the four-root routing
         # closure, and scalars are added from the STEP stream immediately below,
         # which is a different basis. Passing `scalars` here would merge the two.
-        for _, _kind, obj, field in state_events(bodies[(unit, fn)], objects, frozenset()):
+        for _, _kind, obj, field in state_events(
+                bodies[(unit, fn)],
+                unit_objects.get(unit, globals_only_objects),
+                frozenset()):
             candidates.add((obj, field))
 
     # SCALAR candidates, from the STEP stream. THE ORDER OF THESE TWO BLOCKS
@@ -1594,7 +1872,9 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
     # value that cannot occur.
     #
     # NOTHING ELSE CHANGES. These are the same two statements, moved.
-    stream = step_event_stream(defs, reached, objects, scalars)
+    stream = step_event_stream(defs, reached,
+                               globals_only_objects, globals_only_scalars,
+                               unit_objects, unit_scalars)
     for _kind, obj, field, _fn in stream:
         if obj == "-":
             candidates.add((obj, field))
@@ -1664,6 +1944,30 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
             lines.append(f"#   PREFILTER-UNDECLARED: {u} -- add to PREFILTER_EXCLUDED_UNITS")
     if not (violations or stale or newly):
         lines.append("#   none -- every declared exclusion holds at this pin")
+    lines.append("#")
+    # --- scalar-scope census -------------------------------------------------
+    #
+    # A scalar row's key is the BARE NAME, with "-" in the object column.  That
+    # key is unambiguous only while each name is owned by exactly ONE
+    # contributing unit, because a file-scope static is invisible outside its
+    # own translation unit and two units may legally declare the same spelling.
+    # Per-unit visibility (above) stops a FOREIGN body contributing events to a
+    # row; it cannot stop two OWNERS sharing one row.  So the property is
+    # measured here on every regeneration and counted as an open decision when
+    # it fails, rather than assumed and silently violated.
+    lines.append("# scalar-scope census -- a row key is the bare NAME:")
+    if scope_collisions:
+        for name in scope_collisions:
+            lines.append(f"#   SCALAR-SCOPE-COLLISION: {name} is a file-scope static in "
+                         f"{', '.join(static_owners[name])} -- one row, two objects")
+    if shadowed:
+        for name in shadowed:
+            lines.append(f"#   SCALAR-SCOPE-SHADOW: {name} is both a globals.h name and a "
+                         f"file-scope static in {', '.join(static_owners[name])}")
+    if not (scope_collisions or shadowed):
+        lines.append(f"#   none -- each of the {len(static_owners)} file-scope statics the "
+                     f"walk reaches is owned by exactly one unit, and none shadows a global")
+    lines.append(f"# SCALAR-SCOPE COLLISIONS: {len(scope_collisions) + len(shadowed)}")
     lines.append("#")
     if rejected:
         lines.append("# lexical matches rejected as non-members of their struct:")
@@ -1803,6 +2107,12 @@ def open_triage_decisions(text: str) -> list[tuple[str, int]]:
          r"^# UNTRIAGED COUNT: (\d+)$"),
         ("D-R6 stream positions (TFILE_ADMITTED / TFILE_EXCLUDED)",
          r"^# D-R6 UNTRIAGED COUNT: (\d+)$"),
+        # A scalar-scope collision is an open decision and not a drift: the
+        # tree has not moved, the row key has stopped being unambiguous, and
+        # the remedy is to re-key that row rather than to regenerate.  It is
+        # counted here so it cannot be read as clean.
+        ("Criterion P scalar-scope collisions (one row, two C objects)",
+         r"^# SCALAR-SCOPE COLLISIONS: (\d+)$"),
     ):
         m = re.search(pattern, text, re.M)
         if m is None:
