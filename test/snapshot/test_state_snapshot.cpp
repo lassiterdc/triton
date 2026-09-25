@@ -66,6 +66,22 @@ extern "C" {
     extern TRunoffTotals  RunoffTotals;
     extern TGwaterTotals  GwaterTotals;
     extern TRoutingTotals FlowTotals;
+
+    // Added with the Criterion-P routing fields (WP-1B chunk 10). Same rule as
+    // above: every name here is one the snapshot serializes.
+    extern int        Nnodes[];
+    extern int        Nlinks[];
+    extern TNode*     Node;
+    extern TLink*     Link;
+    extern TConduit*  Conduit;
+    extern TOutfall*  Outfall;
+    extern TStorage*  Storage;
+    extern TNodeStats*    NodeStats;
+    extern TLinkStats*    LinkStats;
+    extern TStorageStats* StorageStats;
+    extern TOutfallStats* OutfallStats;
+    extern double*    NodeInflow;
+    extern double*    NodeOutflow;
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +235,199 @@ static void T3_snapshot_roundtrips_bit_exactly()
 }
 
 // ---------------------------------------------------------------------------
+// T3c -- the Criterion-P ROUTING fields round-trip bit-exactly
+// ---------------------------------------------------------------------------
+//
+// T3 proves the report accumulators survive a round trip. It cannot say
+// anything about the routing fields chunk (10) added, because with no model
+// open every routing count is zero and every routing loop body runs zero times
+// -- so T3 would pass unchanged if chunk (10) had serialized nothing at all.
+// That is the shape this test exists to close: a green that is green because it
+// examined nothing.
+//
+// Method: stand up a MINIMAL synthetic model by setting the counts and
+// allocating the arrays the traversal walks, stamp distinguishable values,
+// save, CLOBBER, load, compare bitwise. The clobber is what makes it a test.
+//
+// WHAT THIS DOES NOT COVER, and it is not coverable from here: Xnode. dynwave.c
+// allocates it in dynwave_init() and it is `static`, so a test that never runs
+// the router has no Xnode and dynwave_getSnapshotCount() correctly returns 0 --
+// the loop emits nothing and the two Xnode names reach the manifest only
+// through MANIFEST mode. T6 still asserts both names are emitted; what is
+// unproven here is their round trip, which needs a real dynamic-wave run. Said
+// plainly rather than implied by a green.
+//
+// Each CTest node id runs this binary with ONE subtest name, so the globals
+// this mutates are private to its own process.
+static void T3c_routing_fields_roundtrip_bit_exactly()
+{
+    const std::string path = temp_path("t3c");
+
+    // --- stand up the smallest model that exercises every routing loop.
+    const int nNode = 3, nLink = 2, nCond = 2, nOut = 1, nStor = 1;
+    Nobjects[NODE]  = nNode;
+    Nobjects[LINK]  = nLink;
+    Nnodes[OUTFALL] = nOut;
+    Nnodes[STORAGE] = nStor;
+    Nlinks[CONDUIT] = nCond;
+
+    Node    = (TNode*)    std::calloc(nNode, sizeof(TNode));
+    Link    = (TLink*)    std::calloc(nLink, sizeof(TLink));
+    Conduit = (TConduit*) std::calloc(nCond, sizeof(TConduit));
+    Outfall = (TOutfall*) std::calloc(nOut,  sizeof(TOutfall));
+    Storage = (TStorage*) std::calloc(nStor, sizeof(TStorage));
+    // The traversal refuses (c->error) rather than indexing a null array, so the
+    // report-side arrays must exist too once their counts are non-zero. Their
+    // CONTENTS are T3's subject, not this test's.
+    NodeStats    = (TNodeStats*)    std::calloc(nNode, sizeof(TNodeStats));
+    LinkStats    = (TLinkStats*)    std::calloc(nLink, sizeof(TLinkStats));
+    StorageStats = (TStorageStats*) std::calloc(nStor, sizeof(TStorageStats));
+    OutfallStats = (TOutfallStats*) std::calloc(nOut,  sizeof(TOutfallStats));
+    NodeInflow   = (double*)        std::calloc(nNode, sizeof(double));
+    NodeOutflow  = (double*)        std::calloc(nNode, sizeof(double));
+
+    CHECK(Node && Link && Conduit && Outfall && Storage && NodeStats &&
+          LinkStats && StorageStats && OutfallStats && NodeInflow && NodeOutflow,
+          "the synthetic model must allocate");
+    if (!Node || !Link || !Conduit || !Outfall || !Storage) return;
+
+    // --- stamp. Mantissa-heavy so a float round trip could not preserve them.
+    Node[1].inflow        = 1.2345678901234567e3;
+    Node[1].outflow       = 2.3456789012345678e3;
+    Node[1].losses        = 3.4567890123456789e-2;
+    Node[1].newVolume     = 4.5678901234567890e4;
+    Node[1].overflow      = 5.6789012345678901e1;
+    Node[1].oldDepth      = 6.7890123456789012;
+    Node[1].newDepth      = 7.8901234567890123;
+    Node[1].newLatFlow    = 8.9012345678901234;
+    Node[1].oldFlowInflow = 9.0123456789012345;
+    Node[1].oldNetInflow  = 1.0234567890123456;
+    Node[1].updated       = (char) 1;
+
+    Link[1].newFlow       = 1.1345678901234567e2;
+    Link[1].newDepth      = 2.2456789012345678;
+    Link[1].newVolume     = 3.3567890123456789e3;
+    Link[1].setting       = 0.4567890123456789;
+    Link[1].targetSetting = 0.5678901234567890;
+    Link[1].timeLastSet   = 4.5678901234567890e4;
+    Link[1].froude        = 0.6789012345678901;
+    Link[1].dqdh          = 7.8901234567890123e-3;
+    Link[1].flowClass     = 3;
+    Link[1].normalFlow    = (char) 1;
+    Link[1].inletControl  = (char) 1;
+
+    Conduit[1].a1              = 1.9345678901234567;
+    Conduit[1].q1              = 2.8456789012345678e2;
+    Conduit[1].q2              = 3.7567890123456789e2;
+    Conduit[1].evapLossRate    = 4.6678901234567890e-4;
+    Conduit[1].seepLossRate    = 5.5789012345678901e-4;
+    Conduit[1].capacityLimited = (char) 1;
+    Conduit[1].fullState       = (char) 2;
+
+    Outfall[0].vRouted = 6.4890123456789012e5;
+    Storage[0].hrt       = 7.3901234567890123e3;
+    Storage[0].evapLoss  = 8.2012345678901234e-1;
+    Storage[0].exfilLoss = 9.1123456789012345e-1;
+
+    // --- capture
+    const double e_ninf  = Node[1].inflow,      e_nout = Node[1].outflow;
+    const double e_nlos  = Node[1].losses,      e_nvol = Node[1].newVolume;
+    const double e_novf  = Node[1].overflow,    e_nod  = Node[1].oldDepth;
+    const double e_nnd   = Node[1].newDepth,    e_nlat = Node[1].newLatFlow;
+    const double e_nofi  = Node[1].oldFlowInflow, e_noni = Node[1].oldNetInflow;
+    const char   e_nupd  = Node[1].updated;
+    const double e_lflow = Link[1].newFlow,     e_ldep = Link[1].newDepth;
+    const double e_lvol  = Link[1].newVolume,   e_lset = Link[1].setting;
+    const double e_ltgt  = Link[1].targetSetting, e_ltls = Link[1].timeLastSet;
+    const double e_lfr   = Link[1].froude,      e_ldq  = Link[1].dqdh;
+    const int    e_lfc   = Link[1].flowClass;
+    const char   e_lnf   = Link[1].normalFlow,  e_lic  = Link[1].inletControl;
+    const double e_ca1   = Conduit[1].a1,       e_cq1  = Conduit[1].q1;
+    const double e_cq2   = Conduit[1].q2,       e_cev  = Conduit[1].evapLossRate;
+    const double e_cse   = Conduit[1].seepLossRate;
+    const char   e_ccl   = Conduit[1].capacityLimited, e_cfs = Conduit[1].fullState;
+    const double e_ovr   = Outfall[0].vRouted;
+    const double e_shrt  = Storage[0].hrt,      e_sev  = Storage[0].evapLoss;
+    const double e_sex   = Storage[0].exfilLoss;
+
+    CHECK_EQ_I(snapshot_save(path.c_str()), 0,
+               "snapshot_save must succeed over a synthetic routing model");
+
+    // --- CLOBBER every captured slot.
+    Node[1].inflow = Node[1].outflow = Node[1].losses = Node[1].newVolume =
+        Node[1].overflow = Node[1].oldDepth = Node[1].newDepth =
+        Node[1].newLatFlow = Node[1].oldFlowInflow = Node[1].oldNetInflow = -1.0;
+    Node[1].updated = (char) 0;
+    Link[1].newFlow = Link[1].newDepth = Link[1].newVolume = Link[1].setting =
+        Link[1].targetSetting = Link[1].timeLastSet = Link[1].froude =
+        Link[1].dqdh = -1.0;
+    Link[1].flowClass = -1; Link[1].normalFlow = 0; Link[1].inletControl = 0;
+    Conduit[1].a1 = Conduit[1].q1 = Conduit[1].q2 =
+        Conduit[1].evapLossRate = Conduit[1].seepLossRate = -1.0;
+    Conduit[1].capacityLimited = 0; Conduit[1].fullState = 0;
+    Outfall[0].vRouted = -1.0;
+    Storage[0].hrt = Storage[0].evapLoss = Storage[0].exfilLoss = -1.0;
+
+    char msg[512]; msg[0] = '\0';
+    CHECK_EQ_I(snapshot_load(path.c_str(), msg, (int) sizeof(msg)), 0,
+               "snapshot_load must succeed on a snapshot this build wrote");
+    if (msg[0]) std::fprintf(stderr, "  note: load said: %s\n", msg);
+
+    CHECK(bit_equal(Node[1].inflow, e_ninf),        "Node.inflow must round-trip bitwise");
+    CHECK(bit_equal(Node[1].outflow, e_nout),       "Node.outflow must round-trip bitwise");
+    CHECK(bit_equal(Node[1].losses, e_nlos),        "Node.losses must round-trip bitwise");
+    CHECK(bit_equal(Node[1].newVolume, e_nvol),     "Node.newVolume must round-trip bitwise");
+    CHECK(bit_equal(Node[1].overflow, e_novf),      "Node.overflow must round-trip bitwise");
+    CHECK(bit_equal(Node[1].oldDepth, e_nod),       "Node.oldDepth must round-trip bitwise");
+    CHECK(bit_equal(Node[1].newDepth, e_nnd),       "Node.newDepth must round-trip bitwise");
+    CHECK(bit_equal(Node[1].newLatFlow, e_nlat),    "Node.newLatFlow must round-trip bitwise");
+    CHECK(bit_equal(Node[1].oldFlowInflow, e_nofi), "Node.oldFlowInflow must round-trip bitwise");
+    CHECK(bit_equal(Node[1].oldNetInflow, e_noni),  "Node.oldNetInflow must round-trip bitwise");
+    CHECK_EQ_I(Node[1].updated, e_nupd,             "Node.updated must round-trip");
+
+    CHECK(bit_equal(Link[1].newFlow, e_lflow),      "Link.newFlow must round-trip bitwise");
+    CHECK(bit_equal(Link[1].newDepth, e_ldep),      "Link.newDepth must round-trip bitwise");
+    CHECK(bit_equal(Link[1].newVolume, e_lvol),     "Link.newVolume must round-trip bitwise");
+    CHECK(bit_equal(Link[1].setting, e_lset),       "Link.setting must round-trip bitwise");
+    CHECK(bit_equal(Link[1].targetSetting, e_ltgt), "Link.targetSetting must round-trip bitwise");
+    CHECK(bit_equal(Link[1].timeLastSet, e_ltls),   "Link.timeLastSet must round-trip bitwise");
+    CHECK(bit_equal(Link[1].froude, e_lfr),         "Link.froude must round-trip bitwise");
+    CHECK(bit_equal(Link[1].dqdh, e_ldq),           "Link.dqdh must round-trip bitwise");
+    CHECK_EQ_I(Link[1].flowClass, e_lfc,            "Link.flowClass must round-trip");
+    CHECK_EQ_I(Link[1].normalFlow, e_lnf,           "Link.normalFlow must round-trip");
+    CHECK_EQ_I(Link[1].inletControl, e_lic,         "Link.inletControl must round-trip");
+
+    CHECK(bit_equal(Conduit[1].a1, e_ca1),          "Conduit.a1 must round-trip bitwise");
+    CHECK(bit_equal(Conduit[1].q1, e_cq1),          "Conduit.q1 must round-trip bitwise");
+    CHECK(bit_equal(Conduit[1].q2, e_cq2),          "Conduit.q2 must round-trip bitwise");
+    CHECK(bit_equal(Conduit[1].evapLossRate, e_cev),"Conduit.evapLossRate must round-trip bitwise");
+    CHECK(bit_equal(Conduit[1].seepLossRate, e_cse),"Conduit.seepLossRate must round-trip bitwise");
+    CHECK_EQ_I(Conduit[1].capacityLimited, e_ccl,   "Conduit.capacityLimited must round-trip");
+    CHECK_EQ_I(Conduit[1].fullState, e_cfs,         "Conduit.fullState must round-trip");
+
+    CHECK(bit_equal(Outfall[0].vRouted, e_ovr),     "Outfall.vRouted must round-trip bitwise");
+    CHECK(bit_equal(Storage[0].hrt, e_shrt),        "Storage.hrt must round-trip bitwise");
+    CHECK(bit_equal(Storage[0].evapLoss, e_sev),    "Storage.evapLoss must round-trip bitwise");
+    CHECK(bit_equal(Storage[0].exfilLoss, e_sex),   "Storage.exfilLoss must round-trip bitwise");
+
+    // Node.surDepth is .inp CONFIGURATION and is deliberately NOT serialized.
+    // Asserting its ABSENCE here is what keeps a future "while I am in this
+    // loop" re-admission from passing silently: a reader who restored it would
+    // see this line fail and read the reason above it.
+    Node[1].surDepth = 12345.0;
+    CHECK_EQ_I(snapshot_save(path.c_str()), 0, "second save must succeed");
+    Node[1].surDepth = -1.0;
+    msg[0] = '\0';
+    CHECK_EQ_I(snapshot_load(path.c_str(), msg, (int) sizeof(msg)), 0,
+               "second load must succeed");
+    CHECK(Node[1].surDepth == -1.0,
+          "Node.surDepth must NOT be restored -- it is .inp configuration, and "
+          "restoring it lets a stale snapshot override the running model");
+
+    std::error_code ec; std::filesystem::remove(path, ec);
+}
+
+// ---------------------------------------------------------------------------
 // T3b -- the stored width is double, and a float round trip would NOT pass T3
 // ---------------------------------------------------------------------------
 //
@@ -356,25 +565,113 @@ static void T6_manifest_covers_committed_inventory()
     CHECK(f.good(), "the committed inventory must be readable");
     if (!f.good()) return;
 
-    std::vector<std::string> missing;
+    // THE INVENTORY HAS THREE SECTIONS AND THEY DEMAND DIFFERENT THINGS.
+    //
+    //   Criterion R  -- every row is serialized. Row shape is
+    //                   object<TAB>field<TAB>declared<TAB>read_by_report_path.
+    //   Criterion P  -- only the ADMITTED rows are serialized. Row shape is
+    //                   object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason,
+    //                   and the EXCLUDED and KILLED rows MUST NOT appear, which
+    //                   is the half a coverage-only check cannot state.
+    //   D-R6         -- stream HANDLES, not fields. No row is serialized and no
+    //                   row names a {object, field} pair at all.
+    //
+    // A section-blind walk demanded all three. Measured on the inventory as
+    // chunk (9) committed it: 381 rows demanded, of which 209 are P-section and
+    // D-R6 rows the serializer does not and must not emit. This test was RED
+    // from the moment the P section landed; the assertion below is what chunk
+    // (13) owes it, not a tightening of a passing check.
+    //
+    // The EXCLUDED/KILLED direction is not symmetry for its own sake. Under
+    // Criterion P over-capture is ordinarily a maintenance cost, EXCEPT for
+    // .inp configuration, where a stale snapshot silently overrides the model
+    // the operator is running. That exception is exactly what an over-capture
+    // check catches, and the corrected Node.surDepth row is the instance it
+    // would have caught.
+    enum Section { SEC_R, SEC_P, SEC_DR6 };
+    Section sec = SEC_R;
+
+    // THE TWO CRITERIA OVERLAP ON NAMES, AND THE OVER-CAPTURE RULE MUST SAY SO.
+    // TimeStepStats' eight fields are ADMITTED under Criterion R and EXCLUDED
+    // under Criterion P, with the P-side reason reading "report accumulator;
+    // admitted by Criterion R above and restored by the same snapshot". They
+    // are serialized, correctly, and a naive "no refused row may be emitted"
+    // rule reports all eight as over-capture. So `required` is accumulated
+    // first, across BOTH sections, and a refused key is a violation only if
+    // nothing else required it. Measured: without this scoping the check is red
+    // on 8 names that are right.
+    std::set<std::string> required;  // R rows + ADMITTED P rows
+    std::set<std::string> refused;   // EXCLUDED / KILLED P rows
+    long nR = 0, nAdmitted = 0, nRefused = 0;
+
     std::string line;
     while (std::getline(f, line)) {
-        if (line.empty() || line[0] == '#') continue;
-        const std::size_t t1 = line.find('\t');
-        if (t1 == std::string::npos) continue;
-        const std::string obj = line.substr(0, t1);
-        const std::size_t t2 = line.find('\t', t1 + 1);
-        std::string fld = (t2 == std::string::npos) ? line.substr(t1 + 1)
-                                                    : line.substr(t1 + 1, t2 - t1 - 1);
-        if (fld == "-") fld = "value";   // scalar rows carry '-' for the field
-        if (!emitted.count(obj + "." + fld)) missing.push_back(obj + "." + fld);
+        if (!line.empty() && line[0] == '#') {
+            // MONOTONE. The string "CRITERION P" recurs in the trailing
+            // "# CRITERION P ROWS: N" footer, which sits AFTER the D-R6 table;
+            // a non-monotone machine would step back into SEC_P there. No data
+            // row follows it today, so the bug would be silent until one did.
+            if (sec == SEC_R && line.find("CRITERION P") != std::string::npos) sec = SEC_P;
+            else if (sec == SEC_P && line.find("D-R6 --") != std::string::npos) sec = SEC_DR6;
+            continue;
+        }
+        if (line.empty()) continue;
+        if (sec == SEC_DR6) continue;      // handles, not fields
+
+        std::vector<std::string> col;
+        std::size_t start = 0, tab;
+        while ((tab = line.find('\t', start)) != std::string::npos) {
+            col.push_back(line.substr(start, tab - start));
+            start = tab + 1;
+        }
+        col.push_back(line.substr(start));
+        if (col.size() < 2) continue;
+
+        std::string obj = col[0];
+        std::string fld = col[1];
+        if (fld == "-") fld = "value";     // scalar rows carry '-' for the field
+        const std::string key = obj + "." + fld;
+
+        if (sec == SEC_R) {
+            nR++;
+            required.insert(key);
+            continue;
+        }
+
+        // Criterion P: the disposition column decides which way the row points.
+        const std::string disp = (col.size() >= 4) ? col[3] : std::string("-");
+        if (disp == "ADMITTED") { nAdmitted++; required.insert(key); }
+        else                    { nRefused++;  refused.insert(key); }
     }
+
+    std::vector<std::string> missing;      // required, but absent from manifest
+    std::vector<std::string> overcaptured; // refused by both criteria, yet present
+    for (const std::string& k : required)
+        if (!emitted.count(k)) missing.push_back(k);
+    for (const std::string& k : refused)
+        if (emitted.count(k) && !required.count(k)) overcaptured.push_back(k);
 
     for (const std::string& m : missing)
         std::fprintf(stderr, "  MISSING FROM MANIFEST: %s\n", m.c_str());
+    for (const std::string& m : overcaptured)
+        std::fprintf(stderr, "  OVER-CAPTURED (excluded/killed, yet serialized): %s\n",
+                     m.c_str());
+
     CHECK_EQ_I((long) missing.size(), 0,
-               "every {object, field} pair in the committed inventory must appear "
-               "in the serializer's emitted manifest");
+               "every Criterion-R row and every ADMITTED Criterion-P row must "
+               "appear in the serializer's emitted manifest");
+    CHECK_EQ_I((long) overcaptured.size(), 0,
+               "no EXCLUDED or KILLED Criterion-P row may appear in the emitted "
+               "manifest -- over-capture of .inp configuration lets a stale "
+               "snapshot override the running model");
+
+    // A denominator, so a vacuous pass is legible in the artifact itself. A
+    // parser that silently matched nothing would satisfy both checks above.
+    std::fprintf(stderr, "  T6 examined: %ld Criterion-R rows, %ld ADMITTED, "
+                         "%ld EXCLUDED/KILLED\n", nR, nAdmitted, nRefused);
+    CHECK(nR > 0,        "T6 must find Criterion-R rows -- zero means the parse failed");
+    CHECK(nAdmitted > 0, "T6 must find ADMITTED Criterion-P rows -- zero means the parse failed");
+    CHECK(nRefused > 0,  "T6 must find refused Criterion-P rows -- zero means the parse failed");
 }
 
 // ---------------------------------------------------------------------------
@@ -461,6 +758,7 @@ static const test_entry kTests[] = {
     { "T4_bad_magic_is_refused",                 &T4_bad_magic_is_refused },
     { "T4b_missing_file_is_refused_by_name",     &T4b_missing_file_is_refused_by_name },
     { "T5_shape_mismatch_is_refused_and_named",  &T5_shape_mismatch_is_refused_and_named },
+    { "T3c_routing_fields_roundtrip_bit_exactly",&T3c_routing_fields_roundtrip_bit_exactly },
     { "T6_manifest_covers_committed_inventory",  &T6_manifest_covers_committed_inventory },
     { "T7_sizeof_guard_boundary_is_documented",  &T7_sizeof_guard_boundary_is_documented },
     { "T8_single_writer_is_structural",          &T8_single_writer_is_structural },

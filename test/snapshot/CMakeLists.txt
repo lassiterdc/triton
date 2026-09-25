@@ -18,6 +18,7 @@ target_link_libraries(test_state_snapshot PRIVATE kokkos swmm5)
 set(TRITON_SNAPSHOT_TESTS
   T3_snapshot_roundtrips_bit_exactly
   T3b_stored_width_is_double_not_float
+  T3c_routing_fields_roundtrip_bit_exactly
   T4_bad_magic_is_refused
   T4b_missing_file_is_refused_by_name
   T5_shape_mismatch_is_refused_and_named

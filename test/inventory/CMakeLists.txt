@@ -50,4 +50,17 @@ if(Python3_EXECUTABLE)
             ${CMAKE_SOURCE_DIR})
   set_tests_properties(SLOW-SNAPSHOT-INVENTORY-CLOSURE-MODES
                        PROPERTIES LABELS "slow")
+
+  # Sec 4.6.1's GUARD-PREDICATE closure check (WP-1B chunk 13).  Pure Python
+  # over src/triton.h -- no build, no solver run.  FAST tier: it is a grep and a
+  # set comparison, and its subject is a one-token divergence between a local
+  # and a global node count that reads identically at a glance and fails
+  # SILENTLY on a decomposition where rank 0 owns no manhole.  It returned 3
+  # lines with 2 distinct predicates and FAILED before chunk (12); it is kept so
+  # a future edit cannot reintroduce the divergence unnoticed.
+  add_test(
+    NAME SOURCE-SWMM-GUARD-PREDICATE-CLOSURE
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/test/test_swmm_guard_predicate_closure.py
+            ${CMAKE_SOURCE_DIR})
 endif()
