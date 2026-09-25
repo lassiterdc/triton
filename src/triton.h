@@ -2222,7 +2222,14 @@ namespace Triton
         // flush_exchange_log's cost already falls (that is a separate, known
         // miscount -- see the note below -- and adding a second one to keep it
         // company is not a reason).
-        if (rank == 0 && swmm_model.num_of_swmm_links > 0)
+        // GLOBAL count, matching the sibling guard at :453 whose comment already
+        // states the rule. num_of_swmm_links is rank 0's *local* (subdomain)
+        // count, so on a decomposition where rank 0's top strip holds no manhole
+        // this guard is false and no snapshot is written -- silently. SWMM is
+        // opened and started on rank 0 unconditionally (swmm_triton.h:605), so
+        // the engine state serialized here exists whether or not rank 0 owns a
+        // node, and the global predicate is the one that matches what is written.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0)
           swmm_model.write_state_snapshot(print_id);
 #endif
         st.stop(IO_TIME);
@@ -2236,7 +2243,30 @@ namespace Triton
         // rather than in IO_TIME. That is a pre-existing miscount, it is known,
         // and moving it is a separate commit -- not a drive-by inside the
         // package that happens to be editing the neighbouring lines.
-        if (rank == 0 && swmm_model.num_of_swmm_links > 0) swmm_model.flush_exchange_log();
+        // GLOBAL count, matching the sibling guard at :453.
+        //
+        // DO NOT restate this as a reachable durability bug. It was carried as
+        // one -- "the log is written but never flushed, so a hard kill loses the
+        // tail" -- and that is FALSE as a description of a run you can reach.
+        // log_exchange_step() is called INSIDE the per-step coupling block that
+        // opens on `if (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count --
+        // so on the very decomposition this guard is about (rank 0 owns no
+        // manhole) nothing is ever appended and the file holds only its header.
+        // Worse, that same block encloses the MPI_Gatherv of host_vec[SWMM_Q]
+        // and the MPI_Scatterv of aux_global_new_depth over ENSIFY_COMM_WORLD,
+        // which rank 0 then skips while every manhole-owning rank enters them --
+        // the run DEADLOCKS at the first coupled timestep, long before a
+        // checkpoint is reached. (Measured at this commit: that block spans
+        // :2485-:2576 and encloses all three call sites. Locators drift; the
+        // symbol names above do not.)
+        //
+        // The edit here is still correct and still required: it removes two of
+        // the three local/global inconsistencies this file carries, so the
+        // guard-predicate closure check passes. It does NOT on its own make that
+        // decomposition runnable; the per-step block above is the remaining
+        // inconsistency and it is a separate fix, because changing it moves two
+        // MPI collectives.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
 
         #if WRITE_PERFORMANCE
