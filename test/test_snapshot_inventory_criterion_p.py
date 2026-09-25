@@ -315,6 +315,104 @@ def main(argv) -> int:
     check("P9  the committed inventory matches a regeneration at this pin",
           rc.returncode != R.EXIT_DRIFT, rc.stderr.strip().splitlines()[:1])
 
+    # --- P10: the two sections' SCALAR ROW SHAPES, which T6's key-builder
+    #          depends on and cannot assert about itself -----------------------
+    #
+    # T6 (test/snapshot/test_state_snapshot.cpp) turns an inventory row into the
+    # key `object.field`, and a SCALAR row carries a '-' sentinel in whichever
+    # column its section does not use.  THE TWO SECTIONS SPELL IT IN OPPOSITE
+    # ORDERS -- Criterion R writes `name<TAB>-` and Criterion P writes
+    # `-<TAB>name` -- so T6 needs a section-aware branch to land both on
+    # `Name.value`.  It carries one.
+    #
+    # P10 asserts the SHAPES that branch was written against.  It lives here and
+    # not there because T6 is COMPILE-BEARING: it cannot run without building
+    # the coupled test binary.  If these shapes ever converge or swap, the C++
+    # branch becomes wrong SILENTLY -- a P scalar row would normalize to a key
+    # the serializer never emits, and T6's over-capture half would go vacuous
+    # again exactly as it was before the branch landed.  That failure mode is
+    # green-looking, which is why it wants a check that runs cheaply.
+    #
+    # P10 IS NOT A SUBSTITUTE FOR T6 and asserts nothing T6 asserts.  T6
+    # compares the serializer's RUN-TIME manifest against the inventory; this
+    # compares two column orders in a text file.
+    inv_text = (repo / "test" / "inventory" / "snapshot_inventory.txt").read_text()
+    r_scalar_rows, p_scalar_rows, sec_p = 0, 0, False
+    for line in inv_text.splitlines():
+        if line.startswith("#"):
+            if not sec_p and "CRITERION P" in line:
+                sec_p = True
+            elif sec_p and "D-R6 --" in line:
+                break
+            continue
+        col = line.split("\t")
+        if len(col) < 2:
+            continue
+        if sec_p:
+            if col[0] == "-":
+                p_scalar_rows += 1
+        elif col[1] == "-":
+            r_scalar_rows += 1
+    check("P10a Criterion-R scalar rows carry the sentinel in the FIELD column",
+          r_scalar_rows > 0,
+          "found %d -- either the R scalar block is gone or its column order "
+          "moved, and T6's `if (fld == \"-\")` branch is now wrong"
+          % r_scalar_rows)
+    check("P10b Criterion-P scalar rows carry the sentinel in the OBJECT column",
+          p_scalar_rows > 0,
+          "found %d -- either the P scalar basis is dead again or its column "
+          "order moved, and T6's `if (obj == \"-\")` branch is now wrong"
+          % p_scalar_rows)
+
+    # --- P11: the serializer carries every ADMITTED scalar and no refused one -
+    #
+    # The scalar-axis half of what T6 asserts, at TEXT level against
+    # snapshot.c's `snap_name(c, "Name", "value")` calls.  Again NOT a
+    # substitute: T6 builds the manifest by RUNNING snapshot_traverse, so it
+    # catches a name spelled in a call the traversal never reaches, and it
+    # covers the struct axis too.  What P11 adds is coverage of the one failure
+    # mode a compile-bearing test cannot reach on an un-built tree -- an
+    # ADMITTED scalar that nobody added to the serializer at all, which is
+    # precisely the state the four routing clocks were in when it was written.
+    import re as _re11
+    snap_c = (solver / "snapshot.c").read_text(errors="replace")
+    emitted_scalars = set(
+        _re11.findall(
+            r'snap_name\(\s*c\s*,\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*,\s*"value"\s*\)',
+            snap_c,
+        )
+    )
+    check("P11a the snap_name('value') scan found a non-empty set",
+          bool(emitted_scalars),
+          "zero matches -- the scan regex no longer matches the emit form, so "
+          "P11c and P11d below would pass vacuously")
+    admitted_scalars = sorted(f for (o, f) in R.ADMITTED_ROUTING_STATE if o == "-")
+    check("P11b the admitted-scalar set is non-empty",
+          bool(admitted_scalars),
+          "zero ADMITTED scalar rows -- P11c would pass vacuously")
+    missing_scalars = [n for n in admitted_scalars if n not in emitted_scalars]
+    check("P11c every ADMITTED Criterion-P scalar is emitted by the serializer",
+          not missing_scalars,
+          "absent from snapshot.c: %s -- T6 will report these as MISSING FROM "
+          "MANIFEST" % missing_scalars)
+    # SERIALIZED_SCALARS is a list of (name, ctype, unit, linkage) TUPLES, not
+    # of names.  Membership-testing a bare name against it returns False for
+    # every name, which would make this check fire on the four Criterion-R
+    # scalars that the P section also refuses and that ARE correctly serialized
+    # -- a confident, plausible, wrong finding.  Project the first column.
+    r_serialized = {t[0] for t in R.SERIALIZED_SCALARS}
+    overcaptured_scalars = sorted(
+        f for (o, f) in R.EXCLUDED_ROUTING_STATE
+        if o == "-" and f in emitted_scalars
+        and ("-", f) not in R.ADMITTED_ROUTING_STATE
+        and f not in r_serialized
+    )
+    check("P11d no EXCLUDED Criterion-P scalar is emitted by the serializer",
+          not overcaptured_scalars,
+          "serialized despite being refused by BOTH criteria: %s -- "
+          "over-capture of .inp configuration lets a stale snapshot override "
+          "the model the operator is running" % overcaptured_scalars)
+
     print("")
     if failures:
         for f in failures:

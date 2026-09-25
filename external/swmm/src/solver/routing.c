@@ -1031,3 +1031,44 @@ void sortEvents()
 }
 
 //=============================================================================
+
+void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent)       //TRITON
+//
+//  Input:   pointers receiving the addresses of this file's cross-step-live
+//           file-scope statics (either may be NULL)
+//  Output:  none
+//  Purpose: hands the coupled-resume snapshot serializer access to the two
+//           routing clocks Criterion P admits.
+//
+//  SAME LINKAGE PROBLEM AS stats_getSnapshotRefs.  NewRuleTime and NextEvent
+//  are `static` here, so `extern` cannot reach them from snapshot.c.  Unlike
+//  dynwave's Xnode there is no private TYPE to hide -- both are plain scalars
+//  -- so the accessor hands out their addresses directly, and there is no
+//  count to report because there is exactly one of each and both always exist.
+//
+//  PLACED AT THE END OF THE FILE ON PURPOSE, not beside routing_close where it
+//  reads better.  Eleven committed citations name routing.c line numbers --
+//  :126, :128, :191, :227, :369, :374, :411, :413 in the inventory artifact and
+//  in the generator's hand-written triage-reason tables -- and NOTHING checks
+//  them, so an insertion above them would silently falsify all eleven.  Append
+//  here; do not tidy this up the file.
+//
+//  WHY THEY ARE IN THE SNAPSHOT.  routing_open resets both unconditionally
+//  (`NextEvent = 0` at :126 and `NewRuleTime = 0.0` at :128), and the step
+//  READS both before it writes them:
+//
+//    NewRuleTime  read at :191 inside routing_getRoutingStep, which swmm5.c's
+//                 execRouting calls at :540, BEFORE evaluateControlRules
+//                 advances it by `NewRuleTime += 1000.0*RuleStep` at :374.
+//    NextEvent    read as `Event[NextEvent].end` at :411 before the `++` at
+//                 :413, so it carries the position in the event series.
+//
+//  Without them a resumed run restarts the control-rule clock and the event
+//  series at zero while the rest of the model continues from t_k.
+//
+{
+    if ( newRuleTime ) *newRuleTime = &NewRuleTime;
+    if ( nextEvent )   *nextEvent   = &NextEvent;
+}
+
+//=============================================================================

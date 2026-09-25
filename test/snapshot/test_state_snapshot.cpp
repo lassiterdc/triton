@@ -629,7 +629,40 @@ static void T6_manifest_covers_committed_inventory()
 
         std::string obj = col[0];
         std::string fld = col[1];
-        if (fld == "-") fld = "value";     // scalar rows carry '-' for the field
+
+        // A SCALAR ROW CARRIES A '-' SENTINEL IN THE COLUMN ITS SECTION DOES
+        // NOT USE, AND THE TWO SECTIONS SPELL IT IN OPPOSITE ORDERS.
+        //
+        //   Criterion R   name<TAB>-      -- the sentinel is the FIELD
+        //   Criterion P   -<TAB>name      -- the sentinel is the OBJECT
+        //
+        // Both normalize onto "Name.value", which is what the serializer emits
+        // for a singleton (snap_name(c, "NewRoutingTime", "value")).
+        //
+        // THE NORMALIZATION USED TO BE SECTION-BLIND -- a bare
+        // `if (fld == "-") fld = "value";` -- and that made the OVER-CAPTURE
+        // half of this test VACUOUS ON THE ENTIRE SCALAR AXIS. A P scalar row
+        // left the blind form as the key `-.RouteModel`, while a serializer
+        // that wrongly captured that config value would emit `RouteModel.value`.
+        // The two can never be equal, so `overcaptured` stayed empty no matter
+        // what the serializer did. The defect was latent for as long as every P
+        // scalar row was UNTRIAGED, because an untriaged row lands in `refused`
+        // and a refused key that matches nothing produces no finding -- so the
+        // check reported green while measuring nothing, which is the exact
+        // failure mode the denominator assertions at the end of this function
+        // exist to make visible.
+        //
+        // Over-capture is the harmful direction here and that is why this is
+        // worth a branch: under Criterion P over-capturing routing state is a
+        // maintenance cost, but over-capturing .inp CONFIGURATION lets a stale
+        // snapshot silently override the model the operator is running. Every
+        // config scalar in the P section is spelled in the order this branch
+        // repairs.
+        if (sec == SEC_R) {
+            if (fld == "-") fld = "value";
+        } else if (sec == SEC_P) {
+            if (obj == "-") { obj = fld; fld = "value"; }
+        }
         const std::string key = obj + "." + fld;
 
         if (sec == SEC_R) {

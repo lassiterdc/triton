@@ -110,6 +110,10 @@ extern double          TotalArea;
 // VERSION 2 adds the Criterion-P routing-state fields to the traversal, and two
 // dimensions (nConduit, nXnode) to the shape block.
 //
+// VERSION 3 adds the four Criterion-P GLOBAL ROUTING CLOCKS -- NewRoutingTime,
+// ReportTime, NewRuleTime and NextEvent.  It adds NO shape dimension: each is a
+// singleton, so the shape block is byte-identical between V2 and V3.
+//
 // A V1 FILE IS REFUSED, NOT MIS-STRIDED, AND THE REFUSAL IS THE EXACT-EQUALITY
 // TEST IN snapshot_load, NOT AN INFERENCE FROM THE BUMP.  The check is
 // `hdr[1] != SNAPSHOT_VERSION`, it runs BEFORE the shape block is read, and it
@@ -120,7 +124,20 @@ extern double          TotalArea;
 // NOT bumped -- the format family is the same, and a version mismatch produces a
 // message naming the two versions, where a magic mismatch would only say the
 // file is foreign.
-#define SNAPSHOT_VERSION  2
+//
+// WHY V2 -> V3 IS A BUMP WHEN THE REFUSAL DOES NOT NEED ONE.  A V2 file is
+// ALREADY refused without it, twice over: snapshot_load strcmp's the file's
+// EMBEDDED manifest against this build's, and the four names change that text;
+// and the payload is four doubles short, so the traversal's final fread fails.
+// Neither path can mis-stride.  The bump is not for the refusal -- it is for
+// WHAT THE REFUSAL SAYS.  The manifest path reports "the vendored EPA structs
+// changed between the writing and reading builds", which is FALSE here: EPA's
+// structs did not move, TRITON's admitted set grew.  That message sends an
+// operator to diff the vendored tree for a change that is not in it.  The
+// version test fires first and says "snapshot is version 2 but this build reads
+// version 3", which is true and actionable.  A bump costs one constant; a
+// refusal that blames the wrong party costs an investigation.
+#define SNAPSHOT_VERSION  3
 
 // Must match stats.c's private MAX_STATS. stats.c hands us its value at
 // runtime through stats_getSnapshotRefs(); this is only the compile-time
@@ -384,6 +401,7 @@ static TRoutingTotals _snapDummyRouting;
 static TLoadingTotals _snapDummyLoading;
 static double         _snapDummyScalar;
 static long           _snapDummyLong;
+static int            _snapDummyInt;
 // Criterion-P routing objects. Named ...Obj because _snapDummyNode,
 // _snapDummyLink, _snapDummyStorage and _snapDummyOutfall above are the *Stats*
 // structs, which are DIFFERENT TYPES under the same names. Dropping the suffix
@@ -847,6 +865,62 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
              !dynwave_getSnapshotRefs(i, &osa, &dyd) ) { c->error = 1; return; }
         snap_name(c, "Xnode", "oldSurfArea"); snap_d(c, osa);
         snap_name(c, "Xnode", "dYdT");        snap_d(c, dyd);
+    }
+
+    // --- the GLOBAL ROUTING CLOCKS (V3).
+    //
+    //     These are singletons, not per-object arrays, so they carry the same
+    //     "Name.value" shape the Criterion-R scalar accumulators above use --
+    //     the object column is the quantity's own name and the field column is
+    //     the literal "value". The committed inventory's Criterion-P section
+    //     spells a scalar row in the OPPOSITE column order (`-<TAB>Name`), and
+    //     T6 normalizes the two onto this one key; see the section-aware
+    //     normalization in test/snapshot/test_state_snapshot.cpp.
+    //
+    //     EVERY ONE IS RESET BY THE START PATH AND READ BEFORE THE STEP WRITES
+    //     IT. That pairing is what makes the liveness consequential: a clock
+    //     that were live but never reset would survive a resume by accident.
+    //     Deciding sites, from the committed inventory's ADMITTED rows:
+    //
+    //       NewRoutingTime  swmm_step's FIRST guarded statement reads it
+    //                       (swmm5.c:439) before anything in the step writes
+    //                       it; swmm_start sets it 0.0 at swmm5.c:354.
+    //       ReportTime      read at swmm5.c:596 before saveResults advances it
+    //                       at :618; its only PURE write is swmm_start's
+    //                       initialization at :355.
+    //       NewRuleTime     read at routing.c:191 before evaluateControlRules
+    //                       advances it at :374; routing_open resets it at
+    //                       :128.
+    //       NextEvent       `Event[NextEvent].end` read at routing.c:411
+    //                       before the `++` at :413; routing_open resets it at
+    //                       :126.
+    //
+    //     NOT CALLER-DRIVEN, and the doc comment says otherwise. swmm_step's
+    //     `elapsedTime` parameter is pure OUT: the function's first executable
+    //     statement is `*elapsedTime = 0.0` (swmm5.c:425), which discards
+    //     whatever the caller passed, and :458 writes it back from the internal
+    //     global. The comment directly above the signature reads
+    //     "Input: elapsedTime" and is wrong about the direction, which is why
+    //     "the caller drives these clocks" is a plausible misreading. It does
+    //     not hold, so the start-path zeroing governs unopposed.
+    //
+    //     NewRoutingTime and ReportTime are EXTERN doubles in globals.h and are
+    //     named directly. NewRuleTime and NextEvent are `static` in routing.c
+    //     and are reached through routing_getSnapshotRefs -- the same linkage
+    //     pattern stats.c and dynwave.c already use, not a new mechanism.
+    {
+        double* nrt = &_snapDummyScalar;
+        int*    nev = &_snapDummyInt;
+        double* dd;
+
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &NewRoutingTime;
+        snap_name(c, "NewRoutingTime", "value"); snap_d(c, dd);
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &ReportTime;
+        snap_name(c, "ReportTime", "value");     snap_d(c, dd);
+
+        if ( c->mode != SNAP_MANIFEST ) routing_getSnapshotRefs(&nrt, &nev);
+        snap_name(c, "NewRuleTime", "value");    snap_d(c, nrt);
+        snap_name(c, "NextEvent", "value");      snap_i(c, nev);
     }
 }
 

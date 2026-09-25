@@ -315,6 +315,12 @@ int     dynwave_getSnapshotCount(void);                                   //TRIT
 int     dynwave_getSnapshotRefs(int j, double** oldSurfArea,
         double** dYdT);                                                   //TRITON
 
+// Hands snapshot.c the addresses of the two routing clocks Criterion P admits
+// that are `static` in routing.c and therefore unreachable by `extern`.  Both
+// are plain scalars, so there is no private type to hide and no count to
+// report -- there is exactly one of each and both always exist.
+void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent);   //TRITON
+
 // Writes SWMM's statistics and mass-balance accumulators at full double
 // precision.  Returns 0 on success.
 int     snapshot_save(const char* path);                                  //TRITON
