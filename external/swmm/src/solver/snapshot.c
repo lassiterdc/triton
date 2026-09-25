@@ -114,6 +114,17 @@ extern double          TotalArea;
 // ReportTime, NewRuleTime and NextEvent.  It adds NO shape dimension: each is a
 // singleton, so the shape block is byte-identical between V2 and V3.
 //
+// VERSION 4 adds the two Criterion-P routing SENTINELS that closed on triage
+// rather than on measurement -- BetweenEvents (routing.c) and VariableStep
+// (dynwave.c).  Also singletons, so the shape block is again unchanged.
+//
+// THE VERSION NAMES THE FIELD SET, so it moves whenever the field set moves,
+// even twice in one working session.  V3 and V4 both exist on this branch, a
+// build from either could have written a file, and a V3 file met by a V4 reader
+// must say "version 3 against version 4" rather than blaming the vendored tree.
+// Collapsing the two bumps into one would save a constant and buy a wrong
+// message on exactly the file class the intermediate commit creates.
+//
 // A V1 FILE IS REFUSED, NOT MIS-STRIDED, AND THE REFUSAL IS THE EXACT-EQUALITY
 // TEST IN snapshot_load, NOT AN INFERENCE FROM THE BUMP.  The check is
 // `hdr[1] != SNAPSHOT_VERSION`, it runs BEFORE the shape block is read, and it
@@ -137,7 +148,7 @@ extern double          TotalArea;
 // version test fires first and says "snapshot is version 2 but this build reads
 // version 3", which is true and actionable.  A bump costs one constant; a
 // refusal that blames the wrong party costs an investigation.
-#define SNAPSHOT_VERSION  3
+#define SNAPSHOT_VERSION  4
 
 // Must match stats.c's private MAX_STATS. stats.c hands us its value at
 // runtime through stats_getSnapshotRefs(); this is only the compile-time
@@ -911,6 +922,8 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     {
         double* nrt = &_snapDummyScalar;
         int*    nev = &_snapDummyInt;
+        int*    bev = &_snapDummyInt;
+        double* vst = &_snapDummyScalar;
         double* dd;
 
         dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &NewRoutingTime;
@@ -918,9 +931,39 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &ReportTime;
         snap_name(c, "ReportTime", "value");     snap_d(c, dd);
 
-        if ( c->mode != SNAP_MANIFEST ) routing_getSnapshotRefs(&nrt, &nev);
+        if ( c->mode != SNAP_MANIFEST ) routing_getSnapshotRefs(&nrt, &nev, &bev);
         snap_name(c, "NewRuleTime", "value");    snap_d(c, nrt);
         snap_name(c, "NextEvent", "value");      snap_i(c, nev);
+
+        // --- the two routing SENTINELS (V4).
+        //
+        //     Both are read as a carried-over value before the step writes
+        //     them, and both are reset by the start path -- the same pair of
+        //     facts as the four clocks above. They are separated here only
+        //     because they closed on a call-order argument rather than on a
+        //     single function's statement order, which is what left them
+        //     untriaged after the clocks were settled.
+        //
+        //       BetweenEvents  read routing.c:166 (routing_getRoutingStep),
+        //                      written :235 (routing_execute); swmm5.c calls
+        //                      the two at :540 and :570 in that order, so the
+        //                      read precedes the write WITHIN a step.
+        //                      routing_open resets it at :127.
+        //       VariableStep   read dynwave.c:258, written :260/:264, all
+        //                      inside dynwave_getRoutingStep -- but the read is
+        //                      the FIRST reference on every path reaching it,
+        //                      so it consumes the PREVIOUS call's value.
+        //                      dynwave_init resets it at :176.
+        //
+        //     VariableStep's consequence is a SIDE EFFECT, not the routing step
+        //     TRITON discards at swmm5.c:546: the non-sentinel branch calls
+        //     getVariableStep -> stats_updateCriticalTimeCount, which
+        //     increments the timeCourantCritical counters this same snapshot
+        //     serializes under Criterion R.
+        snap_name(c, "BetweenEvents", "value");  snap_i(c, bev);
+
+        if ( c->mode != SNAP_MANIFEST ) dynwave_getVariableStepRef(&vst);
+        snap_name(c, "VariableStep", "value");   snap_d(c, vst);
     }
 }
 

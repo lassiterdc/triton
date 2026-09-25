@@ -327,6 +327,44 @@ ADMITTED_ROUTING_STATE = {
         '1000*ReportStep` (swmm5.c:618); its only PURE write is '
         "swmm_start's initialization (swmm5.c:355), which is what a resume "
         'would otherwise restart from',
+
+    # --- the two routing SENTINELS -------------------------------------------
+    #
+    # Same shape as the four clocks above -- read as a carried-over value
+    # before the step writes it, and reset by the start path -- but neither
+    # closes by reading ONE function's statement order, which is why both were
+    # left open when the clocks were settled.
+    #
+    # BetweenEvents needs a CALL-ORDER argument: its read and its write sit in
+    # two different functions and the verdict is a fact about the order the
+    # caller invokes them.  VariableStep needs a POSITIONAL one: all three of
+    # its references sit inside one function, so the shape that usually means
+    # "derived within the call" is present, and the refinement is that the read
+    # is the FIRST reference on every path reaching it.
+    ("-", 'BetweenEvents'):
+        'event-window flag, live on entry: routing_getRoutingStep READS it '
+        '(routing.c:166) and routing_execute WRITES it (routing.c:235), and '
+        "swmm5.c's execRouting calls the two in that order (:540 then :570), "
+        'so within one step the read precedes the write. routing_open resets '
+        'it to `(NumEvents > 0)` (routing.c:127), so a run resumed mid-event '
+        'restarts believing it is BETWEEN events and takes the large-step '
+        'branch. The ordering is across two functions, which is why reading '
+        'either one alone does not settle it',
+    ("-", 'VariableStep'):
+        'variable-step carrier, live on entry: read at dynwave.c:258 and '
+        'written at :260/:264, all three inside dynwave_getRoutingStep -- but '
+        'the read is the FIRST reference on every path that reaches it (the '
+        'early returns at :253/:254 do not touch it), so it consumes the '
+        "PREVIOUS call's value rather than one this call computed. A "
+        '"written-and-read within one call, therefore derived" rule fires on '
+        'this shape and is WRONG here; the refinement is the step-level kill '
+        "pass's own: a write kills only when it DOMINATES every read. "
+        'dynwave_init resets it to 0.0 (dynwave.c:176). The consequence is not '
+        'the routing step, which TRITON discards at swmm5.c:546, but the side '
+        'effect of the non-sentinel branch: getVariableStep calls '
+        'stats_updateCriticalTimeCount, which increments the '
+        'timeCourantCritical counters this same snapshot serializes under '
+        'Criterion R',
 }
 
 # Routing state EXCLUDED by Criterion P, every exclusion carrying its reason.
@@ -843,6 +881,22 @@ EXCLUDED_ROUTING_STATE = {
     ("-", 'Tcrown'):
         "derived within the step: the step's own execution order writes it "
         'before it reads it, so no value crosses the boundary',
+    # Theta was left open because its ordering had never been established, not
+    # because it resisted the rule.  Established here, and it EXCLUDES on the
+    # dominance test VariableStep fails: the write at gwater.c:648
+    # (`Theta = theta;` inside getFluxes) precedes BOTH reads, which are reached
+    # only through getVariableValue -- itself reachable only as the callback
+    # mathexpr_eval is handed at gwater.c:659 and :669, both LATER in the same
+    # getFluxes body.  So no read of Theta can observe a value from a previous
+    # call, and the ordinary derived-within-the-call reason holds unmodified.
+    ("-", 'Theta'):
+        "derived within the call: the write at gwater.c:648 (`Theta = theta;` "
+        'in getFluxes) DOMINATES both reads -- gwater.c:865 in '
+        'getVariableValue, reachable only as the mathexpr_eval callback passed '
+        'at gwater.c:659 and :669, later in the same getFluxes body -- so no '
+        'value crosses the boundary. A second, independent ground: the coupled '
+        'build forces Nobjects[SUBCATCH] = 0 (swmm5.c:375) and groundwater is '
+        'per-subcatchment, so gwater never runs here at all',
     ("-", 'TotalDepth'):
         "derived within the step: the step's own execution order writes it "
         'before it reads it, so no value crosses the boundary',

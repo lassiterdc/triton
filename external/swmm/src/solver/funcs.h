@@ -315,11 +315,18 @@ int     dynwave_getSnapshotCount(void);                                   //TRIT
 int     dynwave_getSnapshotRefs(int j, double** oldSurfArea,
         double** dYdT);                                                   //TRITON
 
-// Hands snapshot.c the addresses of the two routing clocks Criterion P admits
-// that are `static` in routing.c and therefore unreachable by `extern`.  Both
-// are plain scalars, so there is no private type to hide and no count to
-// report -- there is exactly one of each and both always exist.
-void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent);   //TRITON
+// Hands snapshot.c the addresses of the three routing statics Criterion P
+// admits that are `static` in routing.c and therefore unreachable by `extern`.
+// All three are plain scalars, so there is no private type to hide and no
+// count to report -- there is exactly one of each and all three always exist.
+void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
+        int** betweenEvents);                                             //TRITON
+
+// Hands snapshot.c the address of dynwave.c's VariableStep, the variable-step
+// carrier Criterion P admits.  Separate from dynwave_getSnapshotRefs because
+// that one is per-node indexed and gated on Xnode's allocation; VariableStep
+// is a singleton that always exists, so this accessor cannot fail.
+void    dynwave_getVariableStepRef(double** variableStep);                //TRITON
 
 // Writes SWMM's statistics and mass-balance accumulators at full double
 // precision.  Returns 0 on success.

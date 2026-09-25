@@ -309,7 +309,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	AvailEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Beta	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Beta1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	BetweenEvents	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	BetweenEvents	LIVE	ADMITTED	event-window flag, live on entry: routing_getRoutingStep READS it (routing.c:166) and routing_execute WRITES it (routing.c:235), and swmm5.c's execRouting calls the two in that order (:540 then :570), so within one step the read precedes the write. routing_open resets it to `(NumEvents > 0)` (routing.c:127), so a run resumed mid-event restarts believing it is BETWEEN events and takes the large-step branch. The ordering is across two functions, which is why reading either one alone does not settle it
 -	C1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	C2	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Cin	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
@@ -423,7 +423,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	SysOutfallFlow	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	T	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	Tcrown	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
--	Theta	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	Theta	LIVE	EXCLUDED	derived within the call: the write at gwater.c:648 (`Theta = theta;` in getFluxes) DOMINATES both reads -- gwater.c:865 in getVariableValue, reachable only as the mathexpr_eval callback passed at gwater.c:659 and :669, later in the same getFluxes body -- so no value crosses the boundary. A second, independent ground: the coupled build forces Nobjects[SUBCATCH] = 0 (swmm5.c:375) and groundwater is per-subcatchment, so gwater never runs here at all
 -	TotalDepth	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	TotalDuration	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	TotalStepCount	LIVE	EXCLUDED	already captured: SERIALIZED_SCALARS carries it under Criterion R, and one quantity is restored once
@@ -432,7 +432,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	UpperEvap	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	UpperPerc	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	V	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
--	VariableStep	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
+-	VariableStep	LIVE	ADMITTED	variable-step carrier, live on entry: read at dynwave.c:258 and written at :260/:264, all three inside dynwave_getRoutingStep -- but the read is the FIRST reference on every path that reaches it (the early returns at :253/:254 do not touch it), so it consumes the PREVIOUS call's value rather than one this call computed. A "written-and-read within one call, therefore derived" rule fires on this shape and is WRONG here; the refinement is the step-level kill pass's own: a write kills only when it DOMINATES every read. dynwave_init resets it to 0.0 (dynwave.c:176). The consequence is not the routing step, which TRITON discards at swmm5.c:546, but the side effect of the non-sentinel branch: getVariableStep calls stats_updateCriticalTimeCount, which increments the timeCourantCritical counters this same snapshot serializes under Criterion R
 -	W	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
 -	WetStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	Xnode	LIVE	UNTRIAGED	<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE
@@ -641,7 +641,7 @@ Xnode	converged	KILLED	-	prologue writes before any read
 Xnode	newSurfArea	KILLED	-	prologue writes before any read
 Xnode	sumdqdh	KILLED	-	prologue writes before any read
 #
-# UNTRIAGED COUNT: 21
+# UNTRIAGED COUNT: 18
 #
 # --------------------------------------------------------------------------
 # D-R6 -- non-field (stream position) state, keyed on the TYPE TFile

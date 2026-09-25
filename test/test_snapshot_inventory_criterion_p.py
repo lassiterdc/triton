@@ -205,11 +205,18 @@ def main(argv) -> int:
     # The reset site is asserted alongside the verdict, because the verdict
     # without it is just a claim that something is live; the reset is what
     # makes it CONSEQUENTIAL on a resume.
+    # The last two are the routing SENTINELS, added when their rows closed.
+    # They belong in this loop and not beside it because the property asserted
+    # is identical -- live on the scalar axis AND reset by the start path.
+    # What differs is only how each verdict was REACHED, and that is recorded
+    # in the generator's reason table, not here.
     for name, reset_unit, reset_needle in (
         ("NewRoutingTime", "swmm5.c",   "NewRoutingTime = 0.0"),
         ("ReportTime",     "swmm5.c",   "ReportTime = 1000 * (double)ReportStep"),
         ("NewRuleTime",    "routing.c", "NewRuleTime = 0.0"),
         ("NextEvent",      "routing.c", "NextEvent = 0"),
+        ("BetweenEvents",  "routing.c", "BetweenEvents = (NumEvents > 0)"),
+        ("VariableStep",   "dynwave.c", "VariableStep = 0.0"),
     ):
         key = ("-", name)
         check(

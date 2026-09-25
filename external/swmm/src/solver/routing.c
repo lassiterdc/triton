@@ -1032,19 +1032,20 @@ void sortEvents()
 
 //=============================================================================
 
-void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent)       //TRITON
+void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
+                             int** betweenEvents)                        //TRITON
 //
 //  Input:   pointers receiving the addresses of this file's cross-step-live
-//           file-scope statics (either may be NULL)
+//           file-scope statics (any may be NULL)
 //  Output:  none
-//  Purpose: hands the coupled-resume snapshot serializer access to the two
-//           routing clocks Criterion P admits.
+//  Purpose: hands the coupled-resume snapshot serializer access to the three
+//           routing statics Criterion P admits.
 //
-//  SAME LINKAGE PROBLEM AS stats_getSnapshotRefs.  NewRuleTime and NextEvent
-//  are `static` here, so `extern` cannot reach them from snapshot.c.  Unlike
-//  dynwave's Xnode there is no private TYPE to hide -- both are plain scalars
-//  -- so the accessor hands out their addresses directly, and there is no
-//  count to report because there is exactly one of each and both always exist.
+//  SAME LINKAGE PROBLEM AS stats_getSnapshotRefs.  All three are `static` here,
+//  so `extern` cannot reach them from snapshot.c.  Unlike dynwave's Xnode there
+//  is no private TYPE to hide -- all three are plain scalars -- so the accessor
+//  hands out their addresses directly, and there is no count to report because
+//  there is exactly one of each and all three always exist.
 //
 //  PLACED AT THE END OF THE FILE ON PURPOSE, not beside routing_close where it
 //  reads better.  Eleven committed citations name routing.c line numbers --
@@ -1063,12 +1064,30 @@ void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent)       //TRIT
 //    NextEvent    read as `Event[NextEvent].end` at :411 before the `++` at
 //                 :413, so it carries the position in the event series.
 //
-//  Without them a resumed run restarts the control-rule clock and the event
-//  series at zero while the rest of the model continues from t_k.
+//  BetweenEvents is the same shape, and its ordering is ACROSS TWO FUNCTIONS
+//  rather than inside one, which is why it took a call-order argument rather
+//  than a reading of either function alone:
+//
+//    read   :166, inside routing_getRoutingStep (:152-:199)
+//    write  :235, inside routing_execute        (:203-:271)
+//    order  swmm5.c's execRouting calls routing_getRoutingStep at :540 and
+//           routing_execute at :570, straight-line, one after the other. So
+//           within ONE step the read precedes the write and the value is
+//           genuinely live on entry.
+//
+//    routing_open resets it at :127 to `(NumEvents > 0)`, i.e. TRUE whenever
+//    the model declares any [EVENTS] at all -- so a run resumed mid-event
+//    restarts believing it is BETWEEN events and takes the large-step branch
+//    at :166.
+//
+//  Without these a resumed run restarts the control-rule clock, the event
+//  series and the between-events flag from their start-path values while the
+//  rest of the model continues from t_k.
 //
 {
-    if ( newRuleTime ) *newRuleTime = &NewRuleTime;
-    if ( nextEvent )   *nextEvent   = &NextEvent;
+    if ( newRuleTime )   *newRuleTime   = &NewRuleTime;
+    if ( nextEvent )     *nextEvent     = &NextEvent;
+    if ( betweenEvents ) *betweenEvents = &BetweenEvents;
 }
 
 //=============================================================================

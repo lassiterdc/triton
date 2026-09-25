@@ -970,3 +970,54 @@ double getNodeStep(double tMin, int *minNode)
     }
     return tNode;
 }
+
+//=============================================================================
+
+void dynwave_getVariableStepRef(double** variableStep)                    //TRITON
+//
+//  Input:   variableStep = pointer receiving the address of VariableStep
+//  Output:  none
+//  Purpose: hands the coupled-resume snapshot serializer access to the
+//           variable-step carrier Criterion P admits.
+//
+//  SAME LINKAGE PROBLEM AS stats_getSnapshotRefs: VariableStep is `static`
+//  here.  Unlike Xnode it is a plain double that ALWAYS exists -- it is not
+//  allocated, so there is no count and no NULL case, and this accessor cannot
+//  fail.  dynwave_getSnapshotCount()'s zero answer governs Xnode only.
+//
+//  APPENDED AT END OF FILE, like routing_getSnapshotRefs, so the committed
+//  citations naming dynwave.c line numbers (:736/:799 in the Node.surDepth
+//  exclusion, carried in the inventory artifact, in the generator's reason
+//  table and in snapshot.c's own comment) stay true.  Nothing checks them.
+//
+//  WHY IT IS IN THE SNAPSHOT, AND WHY THE OBVIOUS RULE GETS IT WRONG.  All
+//  three of its references sit inside ONE function, dynwave_getRoutingStep:
+//
+//    read   :258   if ( VariableStep == 0.0 )
+//    write  :260   VariableStep = MinRouteStep;            (the zero branch)
+//    write  :264   else VariableStep = getVariableStep(fixedStep);
+//
+//  A rule reading "written and read within one call, therefore derived" fires
+//  on that shape and EXCLUDES it.  The rule is wrong here, and the reason is
+//  positional: the read at :258 is the FIRST reference to the name on every
+//  path that reaches it -- the two early returns at :253/:254 do not touch it
+//  -- so what it consumes is the PREVIOUS call's value, carried across the
+//  boundary as a first-call sentinel, not a value this call computed.  The
+//  refinement the rule needs is the one the step-level kill pass already
+//  applies: the FIRST event in execution order decides, and a write only kills
+//  when it DOMINATES every read.  Here no write dominates the read.
+//
+//  THE CONSEQUENCE IS NOT THE RETURN VALUE.  TRITON overwrites the returned
+//  step with dt2D at swmm5.c:546, so the number this function computes is
+//  discarded.  What is not discarded is its SIDE EFFECT: the `else` branch at
+//  :264 calls getVariableStep, which calls stats_updateCriticalTimeCount, which
+//  increments NodeStats[].timeCourantCritical / LinkStats[].timeCourantCritical
+//  -- both of them fields this same snapshot already serializes under
+//  Criterion R, and both named in snapshot.c's header as duration counters that
+//  are NOT reconstructible from the reported .out variables.  Restored as 0.0,
+//  the first post-resume call takes the :260 branch instead, skips that call,
+//  and silently loses one step's tally per resume.
+//
+{
+    if ( variableStep ) *variableStep = &VariableStep;
+}
