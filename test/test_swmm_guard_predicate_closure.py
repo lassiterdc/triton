@@ -38,8 +38,30 @@ in one condition.  It does NOT reach:
     rather than observe, so neither can silently return.
   * a rank test hoisted into an enclosing block.
 
+  * an index site outside src/triton.h.  G4a asserts there is none, rather
+    than leaving the walk's single-file extent as an unstated assumption.
+
 A check that names its own boundary is worth more than one that implies
 coverage it does not have.
+
+WHY G4 EXISTS: G1-G3 COVER THE PREDICATE, NOT THE INDEX SITE
+------------------------------------------------------------
+G3a and G3b are EXCLUSION assertions -- nothing of a named kind may sit inside a
+local-count-guarded block.  They are silent on the converse, and the repair has
+a second half that lives there.  Measured: removing the INNER local-count guard
+from the per-step coupling block (guard count 3 -> 2) leaves G1-G3c returning
+REAL EXIT 0, so a tree on which `host_vec[SWMM_NEWD]` is an out-of-range
+`operator[]` on a rank owning no sewer node passes this file clean.  Nothing
+moved that G3a or G3b looks for; the guard that made the index legal simply
+stopped being there.
+
+G4 is the inverse walk: every `SWMM_*`-indexed access to the flat host/device
+vectors must BE enclosed by a local-count guard.  The predicate has to be the
+LOCAL count -- a global-count guard is not a weaker form of the same check but
+the specific bug triton.h's own comment describes, because the SWMM_LOSS..SWMM_Q
+entries are appended by a block that is itself local-count-guarded, so only a
+predicate matching the APPEND's condition establishes that what is being indexed
+exists.
 
 WHY G3 IS TWO ASSERTIONS AND NOT ONE
 ------------------------------------
@@ -273,6 +295,91 @@ def main(argv):
           "(%d unwalked)" % len(braceless),
           not braceless,
           "; ".join(":%d %s" % (n, t) for n, t in braceless))
+    # --- G4: the INVERSE walk -- every SWMM_* index site IS guarded ----------
+    #
+    # G3a and G3b are EXCLUSION assertions: nothing of a named kind may appear
+    # inside a local-count-guarded block.  They say nothing about what must
+    # appear inside one, and the repair has a second half they therefore cannot
+    # reach.  Removing the inner local-count guard at the per-step coupling
+    # block leaves this file returning 0: a tree on which `host_vec[SWMM_NEWD]`
+    # is an out-of-range `operator[]` on a rank owning no sewer node passes
+    # clean, because no MPI call and no swmm_model method call moved.
+    #
+    # G4 asserts the converse.  Every `SWMM_*`-indexed access to the flat
+    # host/device vectors MUST be lexically enclosed by a LOCAL-count guard.
+    #
+    # THE PREDICATE MUST BE THE LOCAL COUNT, and a global-count guard is not a
+    # weaker version of the same thing -- it is the specific bug triton.h's own
+    # comment at the coupling block describes.  The SWMM_LOSS..SWMM_Q entries
+    # are appended to host_vec/device_vec by a block in initialize() that is
+    # itself guarded on the LOCAL count, so on a zero-local-link rank those
+    # indices are past the end of a 23-entry vector with no bounds check.  Only
+    # a predicate matching the APPEND's condition establishes that the entries
+    # being indexed exist.
+    #
+    # The vector names are matched as a set rather than enumerated one by one,
+    # and the index as any `SWMM`-prefixed macro, because naming today's five
+    # macros would leave a sixth uncovered on the day it is added -- the same
+    # reason G3a matches any `MPI_*` rather than today's two collectives.
+    site_pat = re.compile(
+        r"\b(?:host_vec|device_vec|host_vec_int|device_vec_int)\s*\[\s*(SWMM\w*)\s*\]")
+
+    # G4a: the population is confined to the file this walk covers.  Stated as
+    # an assertion rather than assumed, because the walk reads only triton.h:
+    # an index site added in another header would be invisible here and G4
+    # would stay green while covering less than it claims.
+    stray = []
+    for path in sorted((repo / "src").glob("*.h")):
+        if path.name == "triton.h":
+            continue
+        for n, raw in enumerate(path.read_text().split("\n"), 1):
+            if raw.lstrip().startswith("//"):
+                continue
+            if site_pat.search(strip_line_comment(raw)):
+                stray.append("%s:%d" % (path.name, n))
+    check("G4a every SWMM_* index site lives in triton.h, which is the file "
+          "this walk covers (%d elsewhere)" % len(stray),
+          not stray, "; ".join(stray))
+
+    sites = []
+    for n, raw in enumerate(lines, 1):
+        if raw.lstrip().startswith("//"):
+            continue          # an index spelled in a comment is not an access
+        m = site_pat.search(strip_line_comment(raw))
+        if m:
+            sites.append((n, m.group(1), raw.strip()))
+
+    # G4b: without this the assertion is vacuous.  A rename of the SWMM_*
+    # macros, or of the vectors, would empty the population and turn G4 green
+    # by deleting its subject -- the same failure G1 exists to stop above.
+    check("G4b the SWMM_* index-site population is non-empty (%d site(s))"
+          % len(sites),
+          len(sites) > 0,
+          "no host_vec/device_vec SWMM_* index site found -- the vectors or the "
+          "index macros were renamed, and this assertion lost its subject")
+
+    if sites:
+        local_ranges = [(g[1], g[2], g[0]) for g in guards if g[1] is not None]
+        unguarded = []
+        for n, macro, text in sites:
+            idx = n - 1
+            if not any(first <= idx <= last for first, last, _ in local_ranges):
+                unguarded.append((n, macro, text))
+        print("G4  %d SWMM_* index site(s); enclosing local-count guard per site:"
+              % len(sites))
+        for n, macro, text in sites:
+            idx = n - 1
+            owner = next((gl for first, last, gl in local_ranges
+                          if first <= idx <= last), None)
+            print("        :%-5d %-16s %s" % (
+                n, macro,
+                "guarded by :%d" % owner if owner else "UNGUARDED"))
+        print("")
+        check("G4  every SWMM_* index site is lexically enclosed by a "
+              "LOCAL-count guard (%d unguarded)" % len(unguarded),
+              not unguarded,
+              "; ".join(":%d %s -- %s" % (n, macro, t[:60])
+                        for n, macro, t in unguarded))
     print("")
 
     if failures:
