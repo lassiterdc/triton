@@ -137,6 +137,25 @@ add_test(
 # this package was dispatched to repair -- and an unregistered guard is the same
 # defect wearing a different hat, which is why all three are registered here
 # rather than left to be run by hand.
+# WP-1C: the structural half of full-window .out continuity.
+#
+# Three of WP-1C's properties cannot be EXECUTED without an open model --
+# output_openOutFile has internal linkage, and the prologue comparison and the
+# positioning arithmetic both read file-scope statics that only output_open
+# sets. Their behavioural arms live in UNIT-SNAPSHOT-* and in Tier 2; the
+# structural arms live here.
+#
+# Every S* property check is paired with an X* probe that mutates the source
+# in memory into the defect form it exists to catch and asserts it goes red.
+# A check whose probe does not fire fails the run as VACUOUS, which is what
+# separates this from a set of greps that agree with themselves.
+add_test(
+    NAME SOURCE-OUT-CONTINUITY
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_out_continuity_source.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 add_test(
     NAME SOURCE-FENCE-COMPUTE-TIMER
     COMMAND ${Python3_EXECUTABLE}

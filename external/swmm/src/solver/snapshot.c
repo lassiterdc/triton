@@ -76,6 +76,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include "headers.h"
 
 //-----------------------------------------------------------------------------
@@ -148,7 +149,23 @@ extern double          TotalArea;
 // version test fires first and says "snapshot is version 2 but this build reads
 // version 3", which is true and actionable.  A bump costs one constant; a
 // refusal that blames the wrong party costs an investigation.
-#define SNAPSHOT_VERSION  4
+// BUMPED 4 -> 5 at WP-1C chunk (1), with the output-period count (Nperiods)
+// admitted.  Same ground as every prior bump and it is NOT the refusal itself:
+// the manifest comparison and the short final fread ALREADY refuse a V4 file
+// against a V5 build.  The bump is for WHAT THE REFUSAL SAYS.  The manifest
+// path reports that "the vendored EPA structs changed between the writing and
+// reading builds", which is false here -- EPA's structs did not move, TRITON's
+// admitted set grew -- and sends an operator to diff the vendored tree for a
+// change that is not in it.  The version test fires first and says "snapshot
+// is version 4 but this build reads version 5", which is true and actionable.
+//
+// VERIFIED AT SOURCE BEFORE BUMPING rather than taken from the instruction.
+// The design records that an earlier form of this same chunk said "bump from
+// 1"; executing that literally would have set the constant to 2, after which
+// snapshot_load's version test REJECTS EVERY REAL SNAPSHOT IN THE TREE and
+// silently routes every resume back to the replay path -- reproducing the
+// coverage regression this package exists to prevent, by following the design.
+#define SNAPSHOT_VERSION  5
 
 // Must match stats.c's private MAX_STATS. stats.c hands us its value at
 // runtime through stats_getSnapshotRefs(); this is only the compile-time
@@ -965,6 +982,40 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         if ( c->mode != SNAP_MANIFEST ) dynwave_getVariableStepRef(&vst);
         snap_name(c, "VariableStep", "value");   snap_d(c, vst);
     }
+
+    // =====================================================================
+    // THE OUTPUT-PERIOD COUNT (V5, WP-1C chunk 1).
+    //
+    //  Nperiods is a globals.h `long` -- hence snap_l and not snap_i, which is
+    //  the one operand in this chunk that a reader would guess wrong; the
+    //  three scalars beside it in globals.h's EXTERN long block are the same
+    //  type and already use snap_l.
+    //
+    //  IT WAS EXCLUDED, AND THE EXCLUSION'S GROUND WAS CIRCULAR. The inventory
+    //  recorded it as "the period count of a file that is unrestorable by ANY
+    //  offset, because output_openOutFile reopens Fout 'w+b' (truncating) and
+    //  output_open resets Nperiods = 0, so there is nothing for a restored
+    //  count to index." Every clause was true and the conclusion did not
+    //  follow: the truncating open is a PROPERTY OF THE CODE, not a constraint
+    //  on it. This package removes the truncation, and the count becomes both
+    //  restorable and load-bearing.
+    //
+    //  WHAT IT IS LOAD-BEARING FOR, three consumers rather than one:
+    //    - the resumed run's period offsets, via output_positionForResume;
+    //    - output_end's trailer, whose fourth INT4 IS this count and which an
+    //      external reader believes;
+    //    - report.c's four detail-table loops, which run `period = 1 ..
+    //      Nperiods` and read back from the .out, so the .rpt detail tables
+    //      and the TRITON-added node{N}.out files truncate with it.
+    //
+    //  Appended AFTER every V4 field: field order here is the payload order
+    //  and the manifest order, so appending is the only change that cannot
+    //  re-stride an existing reader.
+    // =====================================================================
+    {
+        long* np = (c->mode == SNAP_MANIFEST) ? &_snapDummyLong : &Nperiods;
+        snap_name(c, "Nperiods", "value");       snap_l(c, np);
+    }
 }
 
 //=============================================================================
@@ -1048,7 +1099,7 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
 //  Input:   path      = snapshot file to read
 //           errMsg    = buffer receiving a human-readable refusal reason
 //           errMsgLen = its size
-//  Output:  returns 0 on success, non-zero on refusal
+//  Output:  SNAPSHOT_OK, SNAPSHOT_ABSENT or SNAPSHOT_UNREADABLE
 //  Purpose: restores SWMM's accumulators from a snapshot, REFUSING loudly and
 //           specifically rather than restoring a file that does not describe
 //           the running model.
@@ -1056,6 +1107,16 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
 //  Every refusal names the mismatching quantity. A generic "bad snapshot" would
 //  send an operator to re-run from scratch without telling them which of the
 //  .inp, the build precision or the toolkit version changed under them.
+//
+//  THE RETURN IS GRADUATED (WP-1C chunk 4). It was a uniform 1 across eleven
+//  refusal sites, so no caller could branch on absent-versus-unreadable and
+//  every refusal degraded to the slow replay -- including the ones that mean a
+//  real defect. Exactly ONE site returns SNAPSHOT_ABSENT: the fopen failure,
+//  and only when errno says the file is not there. A fopen that fails for any
+//  OTHER reason (a permission error, a directory in the way) is a defect
+//  wearing absence's clothing and returns SNAPSHOT_UNREADABLE, because the
+//  caller's whole reason for distinguishing the two is that absence is
+//  LEGITIMATE and everything else is not.
 //
 {
     FILE* f;
@@ -1066,50 +1127,58 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     char* manifest = NULL;
     char* mine     = NULL;
     long  nFields  = 0;
-    int   rc = 1;
+    int   rc = SNAPSHOT_UNREADABLE;
 
     if ( errMsg && errMsgLen > 0 ) errMsg[0] = '\0';
 
     f = fopen(path, "rb");
     if ( !f )
     {
+        // ENOENT is the legitimate case the caller falls back on; anything
+        // else is a defect and must not be laundered into a silent fallback.
+        if ( errno == ENOENT )
+        {
+            if ( errMsg ) snprintf(errMsg, errMsgLen,
+                "snapshot not found: %s", path);
+            return SNAPSHOT_ABSENT;
+        }
         if ( errMsg ) snprintf(errMsg, errMsgLen,
-            "snapshot not found: %s", path);
-        return 1;
+            "snapshot could not be opened (%s): %s", strerror(errno), path);
+        return SNAPSHOT_UNREADABLE;
     }
 
     if ( fread(hdr, sizeof(int), 4, f) != 4 )
     {
         if ( errMsg ) snprintf(errMsg, errMsgLen,
             "snapshot header is short (file truncated): %s", path);
-        fclose(f); return 1;
+        fclose(f); return SNAPSHOT_UNREADABLE;
     }
     if ( hdr[0] != SNAPSHOT_MAGIC )
     {
         if ( errMsg ) snprintf(errMsg, errMsgLen,
             "snapshot has a bad magic (0x%08X, expected 0x%08X): %s",
             (unsigned) hdr[0], (unsigned) SNAPSHOT_MAGIC, path);
-        fclose(f); return 1;
+        fclose(f); return SNAPSHOT_UNREADABLE;
     }
     if ( hdr[1] != SNAPSHOT_VERSION )
     {
         if ( errMsg ) snprintf(errMsg, errMsgLen,
             "snapshot is version %d but this build reads version %d",
             hdr[1], SNAPSHOT_VERSION);
-        fclose(f); return 1;
+        fclose(f); return SNAPSHOT_UNREADABLE;
     }
     if ( hdr[2] != (int) sizeof(double) )
     {
         if ( errMsg ) snprintf(errMsg, errMsgLen,
             "snapshot stores %d-byte values but this build's double is %d bytes",
             hdr[2], (int) sizeof(double));
-        fclose(f); return 1;
+        fclose(f); return SNAPSHOT_UNREADABLE;
     }
     if ( fread(shp, sizeof(int), SNAPSHOT_SHAPE_FIELDS, f) != SNAPSHOT_SHAPE_FIELDS )
     {
         if ( errMsg ) snprintf(errMsg, errMsgLen,
             "snapshot shape block is short (file truncated): %s", path);
-        fclose(f); return 1;
+        fclose(f); return SNAPSHOT_UNREADABLE;
     }
     memcpy(&got, shp, sizeof(got));
     snapshot_currentShape(&want, SNAPSHOT_MAX_STATS);
@@ -1120,7 +1189,7 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
         if ( errMsg ) snprintf(errMsg, errMsgLen,                              \
             "snapshot describes %d %s but this run has %d -- the .inp or the "  \
             "coupling changed between runs", got.field, label, want.field);    \
-        fclose(f); return 1;                                                   \
+        fclose(f); return SNAPSHOT_UNREADABLE;                                                   \
     }
     SHAPE_CHECK(nNodes,      "node(s)")
     SHAPE_CHECK(nLinks,      "link(s)")
@@ -1148,13 +1217,13 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
         if ( !manifest )
         {
             if ( errMsg ) snprintf(errMsg, errMsgLen, "out of memory reading snapshot manifest");
-            fclose(f); return 1;
+            fclose(f); return SNAPSHOT_UNREADABLE;
         }
         if ( fread(manifest, 1, (size_t) hdr[3], f) != (size_t) hdr[3] )
         {
             if ( errMsg ) snprintf(errMsg, errMsgLen,
                 "snapshot manifest is short (file truncated): %s", path);
-            free(manifest); fclose(f); return 1;
+            free(manifest); fclose(f); return SNAPSHOT_UNREADABLE;
         }
         manifest[hdr[3]] = '\0';
     }
@@ -1162,7 +1231,7 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     if ( !mine )
     {
         if ( errMsg ) snprintf(errMsg, errMsgLen, "could not build this build's snapshot manifest");
-        free(manifest); fclose(f); return 1;
+        free(manifest); fclose(f); return SNAPSHOT_UNREADABLE;
     }
     if ( !manifest || strcmp(manifest, mine) != 0 )
     {
@@ -1170,7 +1239,7 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
             "snapshot field manifest does not match this build's serializer -- "
             "the vendored EPA structs changed between the writing and reading "
             "builds; re-run from a clean start (checkpoint_id=0)");
-        free(manifest); free(mine); fclose(f); return 1;
+        free(manifest); free(mine); fclose(f); return SNAPSHOT_UNREADABLE;
     }
     free(manifest); free(mine);
 
@@ -1178,7 +1247,7 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     c.mode = SNAP_READ;
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
-    rc = c.error;
+    rc = c.error ? SNAPSHOT_UNREADABLE : SNAPSHOT_OK;
     if ( rc && errMsg ) snprintf(errMsg, errMsgLen,
         "snapshot payload is short or unreadable: %s", path);
 

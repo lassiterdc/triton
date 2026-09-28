@@ -24,7 +24,12 @@ set(TRITON_SNAPSHOT_TESTS
   T5_shape_mismatch_is_refused_and_named
   T6_manifest_covers_committed_inventory
   T7_sizeof_guard_boundary_is_documented
-  T8_single_writer_is_structural)
+  T8_single_writer_is_structural
+  # WP-1C -- full-window .out continuity. One node per property, as above.
+  T3d_nperiods_roundtrips_bit_exactly
+  T12_resume_refuses_more_periods_than_the_file_holds
+  T13_snapshot_load_return_is_graduated
+  T14_output_end_leaves_the_trailer_last)
 
 foreach(_t IN LISTS TRITON_SNAPSHOT_TESTS)
   add_test(NAME UNIT-SNAPSHOT-${_t}

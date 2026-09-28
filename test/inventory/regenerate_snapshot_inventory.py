@@ -303,6 +303,22 @@ ADMITTED_ROUTING_STATE = {
     # pass's own rule: it consumes the value the previous step left.  That is
     # why ReportTime, NewRuleTime and NextEvent are live despite being
     # "assigned" every step -- their only PURE write is the start-path reset.
+    ("-", 'Nperiods'):
+        'output-period count, live on entry and ADMITTED AT WP-1C (this row '
+        'was EXCLUDED, and its ground was CIRCULAR). The exclusion read: the '
+        'period count of a file unrestorable by ANY offset, because '
+        "output_openOutFile reopens Fout 'w+b' (truncating) and output_open "
+        'resets Nperiods = 0, so there is nothing for a restored count to '
+        'index. Every clause was TRUE and the conclusion did not follow: the '
+        'truncating open is a PROPERTY OF THE CODE, not a constraint on it, '
+        'and WP-1C removes it. With a non-truncating open the count is both '
+        'restorable and load-bearing on three consumers -- the resumed run\'s '
+        'period offsets via output_positionForResume; output_end\'s trailer, '
+        'whose fourth INT4 IS this count and which every external .out reader '
+        "believes; and report.c's four detail-table loops, which run "
+        '`period = 1 .. Nperiods` reading back from the .out, so the .rpt '
+        'detail tables and the TRITON-added node{N}.out files truncate with '
+        'it. A globals.h `long`, hence snap_l',
     ("-", 'NewRoutingTime'):
         "routing clock, live on entry: swmm_step's FIRST statement reads it "
         '(swmm5.c:439, `if (NewRoutingTime < RoutingDuration)`) before '
@@ -765,11 +781,6 @@ EXCLUDED_ROUTING_STATE = {
         'and one quantity is restored once',
     ("-", 'NormalFlowLtd'):
         'config: re-read from the .inp at swmm_open',
-    ("-", 'Nperiods'):
-        'period count of the binary output file, which D-R6 records as '
-        "unrestorable by ANY offset: output_openOutFile reopens Fout 'w+b' "
-        '(truncating) and output_open resets Nperiods = 0, so there is '
-        'nothing for a restored count to index',
     ("-", 'Nsides'):
         "derived within the step: the step's own execution order writes it "
         'before it reads it, so no value crosses the boundary',
@@ -1105,7 +1116,26 @@ EXCLUDED_ROUTING_OBJECTS = {
 # The captured quantity would be uniform -- one ``long`` from ``ftell`` per
 # handle -- so the cost is O(1) in handle count either way.  An EMPTY admitted
 # set is a PASSING result: the deliverable of this pass is the table.
-TFILE_ADMITTED = {}
+TFILE_ADMITTED = {
+    "Fout": "ADMITTED AT WP-1C, and the exclusion it replaces was CIRCULAR in "
+            "exactly the way ('-', 'Nperiods') was. The old ground read: "
+            "unrestorable by ANY offset, because output_openOutFile reopens it "
+            "'w+b', which TRUNCATES, and output_open resets Nperiods = 0, so "
+            "there are no bytes to seek past -- and the 0..t_k period records "
+            "were never written in the resumed process because saveResults() "
+            "is never called for those steps. The first clause is a property "
+            "of code this package changes, and once the open preserves the "
+            "file the second stops following: the 0..t_k records are ALREADY "
+            "on disk from the previous exec and do not need re-writing. NOTE "
+            "WHAT IS AND IS NOT CAPTURED: the snapshot does NOT carry Fout's "
+            "stream POSITION. The position is RE-DERIVED inside output.c from "
+            "the restored Nperiods and the two re-computed statics "
+            "(OutputStartPos, BytesPerPeriod), which is why this row's "
+            "admission adds no field to the payload -- the admitted quantity "
+            "is the period count on the scalar axis, and this row records that "
+            "the handle's continuity is now a property the design maintains "
+            "rather than one it declares impossible",
+}
 
 TFILE_EXCLUDED = {
     "Fclimate":
@@ -1118,8 +1148,6 @@ TFILE_EXCLUDED = {
         "routing-interface inflow file; not in use in the coupled configuration (mode NO_FILE)",
     "Finp":
         "input file; re-read from the .inp at swmm_open, and the resumed process reopens it at position 0 by construction",
-    "Fout":
-        "unrestorable by ANY offset: output_openOutFile reopens it 'w+b', which TRUNCATES, and output_open resets Nperiods = 0, so there are no bytes to seek past -- and the 0..t_k period records were never written in the resumed process because saveResults() is never called for those steps",
     "Foutflows":
         "routing-interface outflow file; not in use in the coupled configuration (mode NO_FILE)",
     "Frain":

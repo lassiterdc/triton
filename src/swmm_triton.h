@@ -184,7 +184,12 @@ namespace SWMM_triton
 		// (global exchange flux + dt). We durably log them every step and, on resume,
 		// fast-replay 0..t_k so SWMM's .out/stats rebuild the full window.
 		void open_exchange_log_truncate();                       ///< clean start: fresh side-file + header
-		void replay_exchange_history(value_t up_to_time);        ///< resume: replay 0..t_k, truncate, reopen for append
+		/// Resume: replay 0..t_k, truncate, reopen for append. `reason` is the
+		/// classified ground for taking this path rather than the snapshot; it
+		/// is carried into the resume-event record, not used for control flow.
+		void replay_exchange_history(value_t up_to_time,
+		                             int checkpoint_id = 0,
+		                             const char* reason = "absent");
 		void log_exchange_step(value_t dt, const value_t* gq);   ///< append one step's (dt, exchange_q) record
 		void flush_exchange_log();                               ///< flush (called at each checkpoint write)
 		void close_exchange_log();                               ///< close (called at end_swmm)
@@ -206,10 +211,36 @@ namespace SWMM_triton
 		void write_state_snapshot(int checkpoint_id);
 
 		/// Resume: restore SWMM's state from this checkpoint's snapshot.
-		/// Returns true if it engaged; false means the caller MUST run the
-		/// replay fallback. Never exits -- every refusal degrades to the
-		/// fallback, because the fallback is correct.
-		bool try_restore_state_snapshot(int checkpoint_id, value_t up_to_time);
+		///
+		/// FAIL-FAST IS THE DEFAULT AND THE RETURN IS GRADUATED. A bool could
+		/// carry only "engaged / did not", so every refusal degraded to the
+		/// replay -- correct numbers, slowly, and a real defect hidden. The
+		/// caller's dispositions differ by cause and it could not see them:
+		///
+		///   Restored       -- continue on the snapshot.
+		///   Absent         -- legitimate (a checkpoint predating snapshots,
+		///                     or one the keep-2 retention pruned). Run the
+		///                     replay fallback.
+		///   Unreadable     -- present but unusable: written by a different
+		///                     build, or corrupt. ABORT.
+		///   OutputMismatch -- the snapshot loaded, but its output-period count
+		///                     exceeds the periods the .out actually holds.
+		///                     ABORT -- and it must not fall back, because the
+		///                     accumulators are ALREADY restored and a replay
+		///                     on top of them would double-apply the prefix.
+		///
+		/// The cost asymmetry is what sets the default: a wrongly aborting
+		/// resume costs one job and a loud message; a wrongly falling-back
+		/// resume costs a completed run whose numbers are wrong and whose
+		/// every artifact reads healthy.
+		enum class SnapshotRestore { Restored, Absent, Unreadable, OutputMismatch };
+
+		SnapshotRestore try_restore_state_snapshot(int checkpoint_id,
+		                                           value_t up_to_time);
+
+		/// Classifies WHY no snapshot was available for this checkpoint, into
+		/// the three reason values the resume-event record carries. Rank 0.
+		const char* classify_missing_snapshot(int checkpoint_id) const;
 
 		void local_to_global(value_t*  local, value_t*  global, int* dict);
 		void global_to_local(value_t*  global, value_t*  local, int* dict);
@@ -738,12 +769,32 @@ namespace SWMM_triton
 	}
 
 
-	void swmm_triton::replay_exchange_history(value_t up_to_time)
+	void swmm_triton::replay_exchange_history(value_t up_to_time, int checkpoint_id,
+	                                          const char* reason)
 	{
 		if (rank_ != 0) return;
 		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/true);
+
+		// THE FOUR-FIELD RESUME-EVENT RECORD (WP-1C chunk 5), replay arm.
+		//
+		// The four fields are the checkpoint id, the resume time, the path
+		// taken, and -- on this arm only -- the classified reason. The PATH is
+		// carried by WHICH marker fires: these two literals already discriminate
+		// snapshot from replay with zero ambiguity, and they are what the
+		// downstream consumer greps for, so the record is APPENDED to the
+		// existing sentence rather than emitted as a separate line.
+		//
+		// The leading text through "to t=" and the numeric that follows it are
+		// BYTE-UNCHANGED, deliberately: the consumer's parse takes the first
+		// whitespace token after the marker, so appending after it cannot move
+		// the number, and any consumer matching the whole existing sentence
+		// still matches. One row per resume event, because exactly one of the
+		// two markers fires per exec.
 		std::cerr << IN "SWMM exchange history replayed to t=" << up_to_time
-		          << " s (" << rec_count << " steps); resuming live segment" << std::endl;
+		          << " s (" << rec_count << " steps); resuming live segment"
+		          << " [resume-event checkpoint=" << checkpoint_id
+		          << " path=replay reason=" << (reason ? reason : "absent") << "]"
+		          << std::endl;
 	}
 
 
@@ -889,6 +940,22 @@ namespace SWMM_triton
 		if (rank_ != 0) return;
 		if (snapshot_path_stem.empty()) return;   // no SWMM surface nodes / not initialized
 
+		// REQUIREMENT 4. The period count this snapshot is about to record is a
+		// claim about the .out, and fwrite is stdio-buffered -- the only flush
+		// anywhere in the vendored solver is the implicit one inside fclose at
+		// shutdown. Without this the bytes Nperiods counts may not be on disk
+		// when the process is SIGKILLed, and the resumed run would then seek
+		// past end-of-file and append across a zero-filled hole that parses as
+		// valid data. A silent-wrong-numbers failure on exactly the kill path
+		// the snapshot exists to serve, and invisible to any check that reads
+		// the file's period count rather than its length.
+		//
+		// Distinct from the close-time flush in output_end, which is there so a
+		// TRUNCATION acts on flushed bytes: different site, different dependent,
+		// and neither implies the other -- this one fires per checkpoint on the
+		// kill path, that one once per exec on the normal path.
+		output_flush();
+
 		const std::string path = snapshot_path_for(checkpoint_id);
 		if (snapshot_save(path.c_str()) != 0)
 		{
@@ -916,26 +983,96 @@ namespace SWMM_triton
 	}
 
 
-	bool swmm_triton::try_restore_state_snapshot(int checkpoint_id, value_t up_to_time)
+	// Classifies an ABSENT snapshot into the three reason values the
+	// resume-event record carries. All three ground out in the same errno, so
+	// the discriminator is the SHAPE OF THE SNAPSHOT SERIES on disk rather than
+	// the failure itself:
+	//
+	//   pre-snapshot-checkpoint  no snapshot exists for ANY checkpoint, so this
+	//                            run predates the snapshot mechanism entirely.
+	//   retention-collision      a snapshot exists for a HIGHER checkpoint id,
+	//                            so the series reached this point and keep-2
+	//                            pruned the one this resume wanted. That is the
+	//                            measured collision: write_state_snapshot keeps
+	//                            2 against the highest index WRITTEN while the
+	//                            toolkit rewinds the resume index to a fixed
+	//                            LOWER one afterwards.
+	//   absent                   snapshots exist but none above this id -- the
+	//                            write for this checkpoint did not land.
+	const char* swmm_triton::classify_missing_snapshot(int checkpoint_id) const
 	{
-		if (rank_ != 0) return false;
-		if (snapshot_path_stem.empty()) return false;
+		if (rank_ != 0 || snapshot_path_stem.empty()) return "absent";
+
+		const std::filesystem::path stem(snapshot_path_stem);
+		const std::filesystem::path dir = stem.parent_path();
+		const std::string prefix = stem.filename().string() + "_cp";
+
+		bool any = false, higher = false;
+		std::error_code ec;
+		for (const auto& e : std::filesystem::directory_iterator(dir, ec))
+		{
+			if (ec) break;
+			const std::string name = e.path().filename().string();
+			if (name.rfind(prefix, 0) != 0) continue;
+			if (e.path().extension() != ".snapshot") continue;
+			const std::string idtxt =
+				name.substr(prefix.size(), name.size() - prefix.size() - 9);
+			if (idtxt.empty() ||
+			    idtxt.find_first_not_of("0123456789") != std::string::npos) continue;
+			any = true;
+			if (std::stol(idtxt) > (long)checkpoint_id) higher = true;
+		}
+		if (!any)   return "pre-snapshot-checkpoint";
+		if (higher) return "retention-collision";
+		return "absent";
+	}
+
+
+	swmm_triton::SnapshotRestore
+	swmm_triton::try_restore_state_snapshot(int checkpoint_id, value_t up_to_time)
+	{
+		// Defensive only: the sole call site is inside the caller's
+		// `rank == 0 && global_num_of_swmm_links > 0` guard, so rank_ is 0 at
+		// every reachable invocation. The guard's PLACEMENT is load-bearing and
+		// must be preserved -- hoisting this call above it would make a
+		// not-the-owning-rank outcome reachable, and neither mapping is safe:
+		// Unreadable would abort every multi-rank coupled resume, and Absent
+		// would emit one fallback record per non-zero rank per resume and
+		// contaminate the fallback count that the retention-collision
+		// acceptance reads.
+		if (rank_ != 0) return SnapshotRestore::Absent;
+		if (snapshot_path_stem.empty()) return SnapshotRestore::Absent;
 
 		const std::string path = snapshot_path_for(checkpoint_id);
 		char msg[512];
 		msg[0] = '\0';
 
-		if (snapshot_load(path.c_str(), msg, (int)sizeof(msg)) != 0)
+		const int rc = snapshot_load(path.c_str(), msg, (int)sizeof(msg));
+		if (rc != SNAPSHOT_OK)
 		{
-			// Every refusal degrades to the replay rather than aborting, because
-			// the replay is correct -- it is only slow. The reason is printed
-			// either way: a resume that silently took the slow path when the
-			// operator expected the fast one is a performance mystery nobody can
-			// diagnose from the artifacts.
-			std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"
-			          << "         Falling back to replaying the exchange history."
-			          << std::endl;
-			return false;
+			// GRADUATED, and this is where fail-fast becomes the default. An
+			// ABSENT snapshot is legitimate and degrades to the replay. Anything
+			// else means the file was written by a different build or is
+			// corrupt, and falling back there would produce correct numbers
+			// slowly while HIDING a real defect -- the campaign has already paid
+			// for one hidden defect of exactly that shape.
+			if (rc == SNAPSHOT_ABSENT)
+			{
+				std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"
+				          << "         Falling back to replaying the exchange history."
+				          << std::endl;
+				return SnapshotRestore::Absent;
+			}
+			std::cerr << ERROR "SWMM state snapshot is present but UNUSABLE ("
+			          << msg << ").\n"
+			          << "         Refusing to continue. This is not a missing "
+			             "snapshot -- the file exists and cannot be read, which "
+			             "means it was written by a different build or is "
+			             "corrupt.\n"
+			          << "         Re-run from a clean start (checkpoint_id=0), "
+			             "or remove " << path << " to resume via the exchange "
+			             "replay." << std::endl;
+			return SnapshotRestore::Unreadable;
 		}
 
 		// The snapshot restored SWMM's accumulators and routing state, but the
@@ -957,13 +1094,51 @@ namespace SWMM_triton
 		// the live segment begins.
 		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/false);
 
-		// The restore marker. Deliberately the same "...to t=" shape as the
-		// replay marker so one matcher discriminates both and the existing
-		// numeric parse works unchanged.
+		// CHUNK (3) -- POSITION THE BINARY OUTPUT FILE. RESTORE PATH ONLY, and
+		// the branch scope is a TERM of this call rather than an omission.
+		//
+		// The snapshot has just restored Nperiods, so output.c can seek the
+		// .out to where the resumed segment's first period belongs and drop any
+		// partial or stale record beyond it. The REPLAY-FALLBACK branch gets no
+		// such call and needs none: it restores no Nperiods, so this arithmetic
+		// has no operand there, and output_open already leaves the stream at
+		// OutputStartPos where output_saveResults writes period p to the
+		// clean-run offset sequentially.
+		//
+		// A failure here CANNOT fall back. The accumulators are already
+		// restored, so a replay on top of them would re-apply the whole 0..t_k
+		// prefix to state that already contains it. The only safe disposition
+		// is to stop.
+		{
+			char pmsg[512];
+			pmsg[0] = '\0';
+			if (output_positionForResume(pmsg, (int)sizeof(pmsg)) != 0)
+			{
+				std::cerr << ERROR "SWMM state snapshot loaded but the binary "
+				             "output file cannot carry the resumed segment ("
+				          << pmsg << ").\n"
+				          << "         Refusing to continue. The snapshot's "
+				             "accumulators are already restored, so falling back "
+				             "to the exchange replay would re-apply the 0..t_k "
+				             "prefix on top of state that already contains it.\n"
+				          << "         Re-run from a clean start "
+				             "(checkpoint_id=0)." << std::endl;
+				return SnapshotRestore::OutputMismatch;
+			}
+		}
+
+		// The restore marker, carrying the resume-event record (chunk 5). Same
+		// "...to t=" shape as the replay marker so one matcher discriminates
+		// both and the existing numeric parse works unchanged; the four fields
+		// are appended AFTER that parse's token, so the number cannot move.
+		// path=snapshot carries no reason -- the contract attaches a reason to
+		// the replay arm only.
 		std::cerr << IN "SWMM state restored from snapshot to t=" << up_to_time
 		          << " s (" << rec_count << " steps skipped); resuming live segment"
+		          << " [resume-event checkpoint=" << checkpoint_id
+		          << " path=snapshot]"
 		          << std::endl;
-		return true;
+		return SnapshotRestore::Restored;
 	}
 
 
