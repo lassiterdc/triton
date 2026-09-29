@@ -30,6 +30,37 @@
 #include "constants.h"
 #include "kokkos_utils.h"
 
+// ---------------------------------------------------------------------------
+// C LINKAGE for output_end -- AND THE POSITION OF THIS BLOCK IS LOAD-BEARING.
+//
+// funcs.h opens its `extern "C"` block partway down the file (`extern "C" {`
+// at :298, closing at :393), so every declaration outside that window -- which
+// includes `output_end` at funcs.h:163 -- takes C++ LANGUAGE LINKAGE in a C++
+// translation unit. output_end is defined at output.c:822, which CMake builds
+// as C, so T14's call below would emit a MANGLED reference against an
+// UNMANGLED definition and fail at LINK with an undefined reference. Measured
+// on the unrepaired TU shape: `nm -u` reports `U _Z10output_endv`; with this
+// block it reports `U output_end`.
+//
+// This declaration MUST precede `#include "swmm_triton.h"`, which is what
+// pulls funcs.h. Placed AFTER it -- for instance in the globals block below --
+// it is a second declaration giving a different language linkage to a name
+// already declared, which [dcl.link]p6 makes ill-formed and which g++ 13.3
+// rejects outright:
+//     error: conflicting declaration of 'void output_end()' with 'C' linkage
+//     note:  previous declaration with 'C++' linkage
+// Placed BEFORE, the later unadorned funcs.h declaration does not disturb the
+// linkage explicitly specified here -- the same rule read the other way.
+//
+// So the globals block below is NOT the model for this one, and the difference
+// is exactly what makes output_end a defect: those names have no prior
+// declaration to conflict with, because globals.h is never included here.
+// output_end has one. Do not fold this block into that one.
+// ---------------------------------------------------------------------------
+extern "C" {
+    void output_end(void);
+}
+
 #include "swmm_triton.h"
 
 #include <cstdint>

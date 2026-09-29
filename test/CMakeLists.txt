@@ -156,6 +156,41 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
+# WP-1C: the C/C++ LINKAGE BOUNDARY of funcs.h -- the gate the package's own
+# commit message named as the one it could not close ("cannot close extern
+# "C" signature drift"), and the blind spot run_syntax_check.py's docstring already
+# points at. Registered here so the class is held going forward rather than
+# once: -fsyntax-only CANNOT see it, because the declaration is visible and
+# well formed and only the LINK exposes the mismatch.
+#
+# funcs.h carries its extern "C" block over a PROPER SUBSET of its
+# declarations -- measured at this commit, the window is lines 298-393 and of
+# 324 declarations 11 are inside, 150 above and 163 below. Every symbol
+# OUTSIDE that window acquires C++ language linkage in a C++ TU, while its
+# definition is compiled as C, so a C++ call emits a mangled reference against
+# an unmangled definition and fails at link. This node quantifies over the
+# CLASS -- every funcs.h symbol any C++ TU calls -- so the next caller of a
+# second outside-the-block symbol is caught by the same run rather than by a
+# build on a cluster.
+#
+# Registered UNCONDITIONALLY and alongside the other SOURCE-* nodes: it is pure
+# Python over the source tree, with no build, no link, no GPU and no solver
+# run, so it is meaningful in a non-coupled configuration too -- the property
+# is a property of the SOURCE.
+#
+# Its three L0* vacuity guards and its two controls are what make a green here
+# mean something: L0a/L0b/L0c fail the run if the partition or the call-site
+# scan is empty (a structural check fails by silently matching nothing), C1
+# asserts the prescribed repair both CAN go red and IS cleared by the repair
+# this file prescribes, and C2 asserts the check keys on the block BOUNDARY by
+# moving an inside symbol out and requiring it to be caught.
+add_test(
+    NAME SOURCE-C-LINKAGE-BOUNDARY
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_review_c_linkage_boundary.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 add_test(
     NAME SOURCE-FENCE-COMPUTE-TIMER
     COMMAND ${Python3_EXECUTABLE}
