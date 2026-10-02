@@ -191,6 +191,60 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
+# WP-1C chunk (8): the cfg-gated STEM SUPPRESSION mechanism, by which
+# `swmm_snapshot_disable=1` leaves snapshot_path_stem EMPTY and so forces the
+# replay fallback deterministically instead of racing the retention collision
+# for it.
+#
+# Registered UNCONDITIONALLY, like the other SOURCE-* nodes: pure Python over
+# src/, no build, no link, no GPU, no solver run. The properties it holds are
+# properties of the SOURCE, and three of them (the ladder's strict `>`, the
+# single stem assignment site, the exit's position before the directory scan)
+# describe behaviour that must hold in a NON-coupled configuration too.
+#
+# WHY THIS TIER IS STRUCTURAL, and a reader must not read more into a green
+# here than it carries. Both inputs classify_missing_snapshot's fourth exit
+# reads -- snapshot_path_stem and rank_ -- are PRIVATE, and the stem's only
+# assignment site is inside init_swmm, which calls swmm_open and so needs a
+# real .inp. A compiled Tier-1 test can CALL the function but cannot ARRANGE
+# it, and a default-constructed swmm_triton leaves rank_ INDETERMINATE, so
+# classifying on a fresh object answers through undefined behaviour. Three
+# seams would have closed that -- a friend declaration, a test-only setter,
+# `#define private public` -- and none was taken, because each buys a Tier-1
+# green with permanent production surface for a property the design already
+# routes to the venue. THE BEHAVIOURAL TWO-ARM DIFFERENTIAL IS OWED AT THE
+# VENUE and is not discharged here; the file's final line says so on every run.
+#
+# Its four L0* vacuity guards and its nine two-state probes are what make a
+# green mean something. Each S* check is paired with an X* that mutates the
+# source in memory into the defect form it exists to catch; the probe asserts
+# BOTH that the mutated source goes red AND that the paired check was green on
+# unmutated source in the same run, because a red-on-mutation alone is produced
+# equally by a check that caught the mutation and a check that was already red
+# for an unrelated reason.
+#
+# MEASURED AGAINST THE PRE-CHUNK-(8) TREE rather than asserted: run against
+# e53c2fa source the node exits 1 with S1/S2/S3/S3b/S4/S8 red, while S5/S6/S7
+# stay GREEN -- correctly, because those three describe ladder and
+# assignment-site invariants this chunk must PRESERVE rather than create. Three
+# of thirteen properties holding in both worlds is the intended shape for an
+# invariance check, not a gap.
+#
+# TWO INSTRUMENT DEFECTS WERE FOUND BY ITS OWN PROBES ON THE FIRST RUN, recorded
+# because both are silent-pass shapes rather than loud ones. (1) These sources
+# carry CRLF, so a probe mutation written with a bare "\n" matched nothing and
+# str.replace no-opped silently. (2) S1's `bool ... KEY` predicate matched the
+# declaration's own DOC COMMENT, which names both the type and the key in prose
+# with no intervening `;` -- the walker-reads-comments-as-code class this
+# campaign has already paid for once. The predicates now strip comments; S8,
+# which deliberately reads a comment, is exempt by construction.
+add_test(
+    NAME SOURCE-SNAPSHOT-STEM-SUPPRESSION
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_snapshot_stem_suppression_source.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 add_test(
     NAME SOURCE-FENCE-COMPUTE-TIMER
     COMMAND ${Python3_EXECUTABLE}

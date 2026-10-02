@@ -174,7 +174,7 @@ namespace SWMM_triton
 *  @param rank_ Subdomain id
 *  @param size_ Number of subdomain
 */
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss);
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable);
 
 
 		void end_swmm(std::string output_dir);
@@ -313,7 +313,7 @@ namespace SWMM_triton
 
 		void process_swmm_node_locations(const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd);
 
-		void init_swmm(std::string project_dir, std::string inp_filename);
+		void init_swmm(std::string project_dir, std::string inp_filename, const bool swmm_snapshot_disable);
 
 
 		int rank_;
@@ -335,7 +335,7 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable)
 	{
 		rank_=rank;
 		size_=size;
@@ -344,7 +344,7 @@ namespace SWMM_triton
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
-		init_swmm(project_dir, inp_filename);
+		init_swmm(project_dir, inp_filename, swmm_snapshot_disable);
 	}
 
 
@@ -599,7 +599,7 @@ namespace SWMM_triton
 	}
 
 
-	void swmm_triton::init_swmm(std::string project_dir, std::string inp_filename)
+	void swmm_triton::init_swmm(std::string project_dir, std::string inp_filename, const bool swmm_snapshot_disable)
 	{
 
 		//initialize to zero all the exchange_q values and new_depth values
@@ -695,7 +695,44 @@ namespace SWMM_triton
 			// Per-checkpoint full-precision state snapshots live beside the
 			// side-file, in the same swmm/ subtree, so any orchestration that
 			// preserves one preserves the other.
-			snapshot_path_stem = output_dir_swmm + filenameWithoutExtension + "_state";
+			//
+			// STEM SUPPRESSION. Leaving the stem EMPTY is the cfg-gated mechanism by
+			// which the re-run's replay-fallback arm FORCES the old route rather than
+			// racing the retention collision for it. The empty stem takes
+			// classify_missing_snapshot's FOURTH EXIT, which fires BEFORE any directory
+			// scan runs, so the recorded reason is `absent` whatever the snapshot
+			// directory holds.
+			//
+			// ONE ASSIGNMENT SITE, THREE AGREEING READERS, AND THAT IS WHY NOTHING ELSE
+			// IS EDITED. The same .empty() predicate already governs
+			// write_state_snapshot (which then writes nothing) and
+			// try_restore_state_snapshot (which then returns Absent). Guarding those
+			// too would put the decision in three places that can disagree; guarding
+			// the single assignment keeps it in one that cannot.
+			//
+			// DEFAULT-INERT, and this is the conjunct the baseline measurement rests
+			// on. There is no else branch: an unset flag executes the assignment
+			// verbatim, so a cfg omitting the key is byte-equivalent.
+			//
+			// NOT "withholding the snapshot", which is a DIFFERENT mechanism with a
+			// DIFFERENT recorded reason. Withholding while leaving the stem intact
+			// leaves the scan finding nothing and yields `pre-snapshot-checkpoint`,
+			// which lands on the other side of the re-run's acceptance; deleting at the
+			// resume id while a HIGHER one survives yields `retention-collision`, which
+			// is the value the acceptance requires to be zero. Those two are refused by
+			// name, not merely unused.
+			if (!swmm_snapshot_disable)
+			{
+				snapshot_path_stem = output_dir_swmm + filenameWithoutExtension + "_state";
+			}
+			else
+			{
+				std::cerr << WARN "SWMM state snapshots DISABLED by cfg "
+				             "(swmm_snapshot_disable=1).\n"
+				          << "         Any hotstart resume will take the exchange-replay "
+				             "fallback and record reason `absent`."
+				          << std::endl;
+			}
 
 			swmm_open(inp_filename.c_str(), report_filename.c_str(), binary_filename.c_str());
 			swmm_start(TRUE);
@@ -1031,7 +1068,14 @@ namespace SWMM_triton
 	swmm_triton::SnapshotRestore
 	swmm_triton::try_restore_state_snapshot(int checkpoint_id, value_t up_to_time)
 	{
-		// Defensive only: the sole call site is inside the caller's
+		// TWO REFUSALS WITH TWO DIFFERENT STATUSES, and the distinction is what
+		// this opening used to get wrong. It read `Defensive only:` and sat above
+		// BOTH refusals while its reasoning covered only the first, so a reader
+		// inherited the word `defensive` for a branch that is now a PRODUCTION
+		// ROUTE.
+		//
+		// The rank_ refusal below IS defensive only: the sole call site is inside
+		// the caller's
 		// `rank == 0 && global_num_of_swmm_links > 0` guard, so rank_ is 0 at
 		// every reachable invocation. The guard's PLACEMENT is load-bearing and
 		// must be preserved -- hoisting this call above it would make a
@@ -1040,6 +1084,13 @@ namespace SWMM_triton
 		// would emit one fallback record per non-zero rank per resume and
 		// contaminate the fallback count that the retention-collision
 		// acceptance reads.
+		//
+		// The snapshot_path_stem refusal below is NOT defensive. An empty stem is
+		// the INTENDED and cfg-arming-visible route by which the re-run's
+		// replay-fallback arm forces this function to decline: init_swmm leaves the
+		// stem empty when swmm_snapshot_disable is set, so this return is reached on
+		// purpose, by configuration, on every resume of such a member. Reaching it
+		// is not a sign of a defect and must not be read as one.
 		if (rank_ != 0) return SnapshotRestore::Absent;
 		if (snapshot_path_stem.empty()) return SnapshotRestore::Absent;
 

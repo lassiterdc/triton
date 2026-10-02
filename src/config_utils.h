@@ -55,6 +55,28 @@ namespace ConfigUtils
 		T
 		manhole_diameter,	/**< A constant characteristic length for manholes in SWMM (either diameter or width) */
 		manhole_loss;	/**< Loss coefficient for manholes in SWMM links */
+
+		/// STEM SUPPRESSION. When true, init_swmm leaves snapshot_path_stem EMPTY,
+		/// which takes classify_missing_snapshot's FOURTH EXIT -- the one that fires
+		/// BEFORE any directory scan -- and yields the recorded reason `absent`. This
+		/// is the mechanism by which the re-run's replay-fallback arm FORCES the old
+		/// route deterministically instead of racing the retention collision for it.
+		///
+		/// The TYPE is bool and the READ is argsd(..., "0"), which composes the two
+		/// existing house forms rather than inventing a third: bool from the flag
+		/// group (time_series_flag, gpu_direct_flag) and the additive default from
+		/// the argsd group (checkpoint_id, it_count). Additive is REQUIRED -- every
+		/// cfg omitting this key must stay byte-equivalent, because the arm this
+		/// gates exists to leave the baseline measurement unperturbed.
+		///
+		/// THE SPELLING IS LOAD-BEARING OUTSIDE THIS TREE. Arm membership for the
+		/// re-run is established `iff that member's own config_{k}.cfg carries
+		/// swmm_snapshot_disable=1` -- a property of the artifact the resume read,
+		/// carried there verbatim by output_cfg's unknown-key passthrough. Renaming
+		/// this key without renaming that predicate in the same change silently
+		/// unassigns every member from its arm, with no compile error anywhere.
+		bool
+		swmm_snapshot_disable;
 #endif
 
 		std::string
@@ -487,6 +509,12 @@ namespace ConfigUtils
 		arglist.inp_filename = args("inp_filename", argmap);
 		arglist.manhole_diameter = atof((args("manhole_diameter", argmap)).c_str());
 		arglist.manhole_loss = atof((args("manhole_loss", argmap)).c_str());
+
+		// ADDITIVE: argsd with default "0", NOT args. The two siblings above use
+		// args because a coupled run cannot proceed without them; this key must
+		// leave every pre-existing cfg loading unchanged, so an absent key is a
+		// defined false rather than a consumer's problem.
+		arglist.swmm_snapshot_disable = atoi((argsd("swmm_snapshot_disable", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
