@@ -711,8 +711,21 @@ namespace SWMM_triton
 			// the single assignment keeps it in one that cannot.
 			//
 			// DEFAULT-INERT, and this is the conjunct the baseline measurement rests
-			// on. There is no else branch: an unset flag executes the assignment
-			// verbatim, so a cfg omitting the key is byte-equivalent.
+			// on. The ground is WHICH ARM an unset flag takes, NOT the absence of an
+			// else: argsd's "0" default leaves the flag false, so `!flag` is true and
+			// the guard's FIRST arm executes the pre-fix assignment verbatim -- a cfg
+			// omitting the key is byte-equivalent. There IS an else, four lines below,
+			// and it is reached ONLY when suppression is enabled.
+			//
+			// THE ELSE IS LOAD-BEARING, so do not delete it to simplify this comment.
+			// Its rank-0 WARN is the only artifact asserting that the suppression branch
+			// EXECUTED. The resume-event record on this arm reads `reason=absent`, and
+			// `absent` is ALSO the ladder tail's return, so that field cannot
+			// discriminate a configured decline from a genuinely missing snapshot. The
+			// per-checkpoint cfg dump copies the key verbatim and so records that
+			// suppression was CONFIGURED, which is the weaker claim. S9 in
+			// test/test_snapshot_stem_suppression_source.py goes red if this comment
+			// and the branch structure below it disagree again.
 			//
 			// NOT "withholding the snapshot", which is a DIFFERENT mechanism with a
 			// DIFFERENT recorded reason. Withholding while leaving the stem intact

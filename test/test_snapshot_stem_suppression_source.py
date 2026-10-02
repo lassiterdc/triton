@@ -266,6 +266,49 @@ def p_defensive_only_no_longer_covers_the_empty_refusal(swmm_h: str) -> bool:
     return scoped and intended
 
 
+def p_guard_comment_agrees_with_its_branch_structure(swmm_h: str) -> bool:
+    """S9: the stem guard's own comment block does not contradict the branch below it.
+
+    WHY THIS IS A SEPARATE PROPERTY AND NOT COVERED BY S4.  S4 is a guard-SENSE
+    property: its regex terminates at the assignment and never reads past the
+    closing brace, so it cannot see whether an `else` follows.  S1-S7 all run on
+    `_code()`, which STRIPS comments -- correct hygiene, and precisely what made a
+    false comment written beside the guarded statement in the same commit
+    invisible to every one of them.  S8 reads RAW text but a DIFFERENT region (the
+    restore prologue), so it could not see this one either.
+
+    MEASURED, because the scope of the blindness decides what the fix has to be:
+    deleting this guard's entire 290-byte `else` block changes the verdict of NONE
+    of the nine checks above.  The blindness is therefore to the branch STRUCTURE,
+    not merely to the comment -- which is also why DELETING the else (the obvious
+    way to make a "there is no else branch" comment true) would make the comment
+    true exactly once and guard nothing: the next `else` added under it would be
+    as invisible as the first.
+
+    Two conjuncts over the comment block immediately preceding the guard:
+      (a) it does NOT assert the else away while an else is in fact present;
+      (b) when an else IS present, it POSITIVELY names one.
+    Both are load-bearing.  (a) alone passes a comment that is merely SILENT about
+    a branch it ought to describe, and silence is how this defect started -- the
+    original comment was written when there was no else, and the else arrived
+    underneath it.
+    """
+    block = _guard_comment_block(swmm_h)
+    if not block:
+        return False
+    has_else = _guard_has_else(swmm_h)
+    # the denial form, in the shape a maintainer collapsing the block would write
+    denies = bool(re.search(r"\b(?:is|are|has|have)\s+no\s+else\b", block, re.I))
+    # a positive mention that SURVIVES removal of every denial phrase, so the
+    # denial's own occurrence of the word cannot satisfy conjunct (b)
+    residue = re.sub(r"\b(?:is|are|has|have)\s+no\s+else\b", "", block, flags=re.I)
+    names = bool(re.search(r"\belse\b", residue, re.I))
+    if has_else:
+        return (not denies) and names
+    # no else present: a comment claiming one is equally a disagreement
+    return not names
+
+
 # ---------------------------------------------------------------------------
 # Body extractors.  Returning "" on a miss would make every predicate above
 # red for the WRONG reason, which is the measured failure mode the paired
@@ -282,6 +325,43 @@ def _classify_body(swmm_h: str) -> str:
     if i == -1:
         return ""
     return swmm_h[i:i + 2500]
+
+
+def _guard_comment_block(swmm_h: str) -> str:
+    """The contiguous `//` lines immediately above the stem guard, RAW.
+
+    RAW is the whole point: this is the one extractor in this file whose consumer
+    is asserting ON comment text rather than reading THROUGH it, so passing it
+    `_code()` would hand S9 an empty string and make it vacuously red.  `_code()`
+    blanks comment bodies in place, so the blank-line skip below would then walk
+    the entire preceding function.
+    """
+    i = swmm_h.find("if (!%s)" % KEY)
+    if i == -1:
+        return ""
+    # drop the partial line carrying the guard's own indentation, then walk up
+    # while the lines are comment lines.  The block uses bare `//` separators, so
+    # it contains no blank lines and the first non-comment line ends the block.
+    out = []
+    for ln in reversed(swmm_h[:i].split("\n")[:-1]):
+        if ln.strip().startswith("//"):
+            out.append(ln)
+        else:
+            break
+    return "\n".join(reversed(out))
+
+
+def _guard_has_else(swmm_h: str) -> bool:
+    """Whether the stem guard carries an `else` arm.  Read from STRIPPED source.
+
+    The inverse of the extractor above, and deliberately so: this half is a
+    question about CODE, and an `else` named in a comment must not answer it --
+    that would let the comment corroborate itself and collapse S9 into a
+    tautology.  `[^{}]*` keeps the match inside the guard's own single-statement
+    block rather than running on to some later `else` in the file.
+    """
+    return bool(re.search(r"if\s*\(\s*!\s*%s\s*\)\s*\{[^{}]*\}\s*else\b" % KEY,
+                          _code(swmm_h), re.S))
 
 
 def _restore_prologue(swmm_h: str) -> str:
@@ -318,6 +398,11 @@ def main(argv: list[str]) -> int:
     check("L0d at least one `#ifdef TRITON_SWMM` region exists in config_utils.h",
           len(_swmm_ifdef_regions(cfg_h)) >= 1,
           "S1 would be vacuously red")
+    check("L0e the stem guard's comment block is locatable",
+          len(_guard_comment_block(swmm_h)) > 200,
+          "the extractor missed; S9 would be red for the wrong reason -- and S9 "
+          "is the one check whose input is comment text, so it is the one most "
+          "easily made vacuous by handing it stripped source")
 
     check("S1 the key is a bool under `#ifdef TRITON_SWMM`",
           p_declared_bool_under_swmm_ifdef(cfg_h),
@@ -350,6 +435,11 @@ def main(argv: list[str]) -> int:
           p_defensive_only_no_longer_covers_the_empty_refusal(swmm_h),
           "the comment still characterises the mechanism's intended production "
           "route as defensive")
+    check("S9 the guard's comment block agrees with the branch below it",
+          p_guard_comment_agrees_with_its_branch_structure(swmm_h),
+          "the comment denies an else that is present, or is silent about one "
+          "-- the exact defect a reviewer found in this chunk, which every "
+          "check above was structurally unable to see")
 
     # -----------------------------------------------------------------------
     # DEFECT PROBES.  Each mutates source in memory into the form its paired
@@ -396,6 +486,31 @@ def main(argv: list[str]) -> int:
         ("X8 -> S8", lambda: p_defensive_only_no_longer_covers_the_empty_refusal(
             swmm_h.replace("The rank_ refusal below IS defensive only:",
                            "Defensive only:", 1))),
+        # THE HISTORICAL DEFECT, re-inserted verbatim: a maintainer collapses the
+        # block back to the terse claim while the else stays put.  This is not a
+        # hypothetical mutation -- it is the text that shipped at e6a4f76 and that
+        # every check above passed.
+        ("X9 -> S9", lambda: p_guard_comment_agrees_with_its_branch_structure(
+            swmm_h.replace(
+                "There IS an else, four lines below,",
+                "There is no else branch,", 1))),
+        # THE SILENCE FORM, which conjunct (a) alone would pass: no denial is
+        # re-added, the comment simply stops describing the branch.  This is how
+        # the defect ORIGINATED rather than how it would regress -- the comment
+        # predated the else and was never updated -- so a check carrying only
+        # conjunct (a) would catch only the second half of the class.
+        #
+        # The mutation drops every COMMENT line mentioning `else` and touches no
+        # code, which is exactly the state "the comment no longer describes the
+        # branch" and nothing more.  A narrower edit to one clause is NOT a
+        # silence mutation while a second clause still names the branch, and
+        # writing one was this probe's own first-run failure: it reported
+        # "not caught" against a check that was fine.
+        ("X9b -> S9", lambda: p_guard_comment_agrees_with_its_branch_structure(
+            "\n".join(
+                ln for ln in swmm_h.split("\n")
+                if not (ln.lstrip().startswith("//")
+                        and re.search(r"\belse\b", ln, re.I))))),
     ]
 
     for name, fn in probes:
