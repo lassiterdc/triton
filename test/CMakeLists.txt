@@ -245,6 +245,89 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
+# The cfg-gated SNAPSHOT RETENTION OVERRIDE, by which `swmm_snapshot_keep_all=1`
+# makes write_state_snapshot SKIP its prune so every per-checkpoint snapshot
+# survives for the life of the run. Default OFF; keep-2 is unchanged.
+#
+# WHAT IT IS FOR, because a reader will otherwise look for the bug it fixes and
+# find none. There is no bug: keep-2 is correct and its replay fallback is
+# correct. What keep-2 costs is that WHICH ROUTE a resume takes is a WALL-CLOCK
+# property -- whether the wanted snapshot survived depends on how far that
+# member's series advanced before the interruption fired. Measured on a
+# 30-member arm, every member resuming at checkpoint 108: 22 snapshot / 8
+# replay, with four configurations splitting between their own two repeats on
+# identical inputs. The key lets an experiment ELECT uniform route coverage so a
+# cross-experiment comparison carries one fewer per-member variable.
+#
+# Registered UNCONDITIONALLY, like the other SOURCE-* nodes: pure Python over
+# src/, no build, no link, no GPU, no solver run.
+#
+# WHY THIS TIER IS STRUCTURAL, and a reader must not read more into a green here
+# than it carries. The three facts that would make a behavioural assertion
+# possible -- that the snapshot for checkpoint N-2 still exists after the (N)th
+# write with the key set, that it does NOT with the key unset, and that a resume
+# consequently records `snapshot` rather than `retention-collision` -- all need a
+# COMPILED coupled solver writing real snapshot files from a real .inp.
+# write_state_snapshot is public and a Tier-1 test could CALL it, but
+# snapshot_path_stem is private and its only assignment site is inside
+# init_swmm, which calls swmm_open; so exactly as with the sibling
+# stem-suppression node, a compiled test can call the function and cannot
+# ARRANGE it. No friend declaration, test-only setter, or `#define private
+# public` was added, for the reason that node already records. THE BEHAVIOURAL
+# TWO-ARM DIFFERENTIAL IS OWED AT THE VENUE; the file's final line says so on
+# every run.
+#
+# WHAT A GREEN DOES CARRY, beyond the source properties: a truth-table
+# differential (D1/D2) over the gate CONDITION, run on both arms. D1 asserts the
+# OFF arm reproduces `checkpoint_id >= 2` at every id -- the additive property.
+# D2 asserts the ON arm suppresses the prune at every id where the old condition
+# fired -- the capability. Neither substitutes for the other: D1 alone passes a
+# gate that never fires, D2 alone passes a gate that always fires. S5 separately
+# asserts the SOURCE carries that exact condition, so the restatement in the test
+# cannot drift from the thing it models without one of the two going red.
+#
+# MEASURED AGAINST THE PRE-CHANGE TREE rather than asserted. Run against
+# b1ff268's src/ the node exits 1 with S1/S2/S3/S3b/S4/S4b/S5/S7/S8/S11 red and
+# S3c/S6/S9/S10/D1/D2 GREEN -- correctly, because those six describe invariants
+# this change must PRESERVE rather than create (init_swmm stays unthreaded, the
+# writer keeps exactly one removal site, output_cfg's rewritten-key set stays the
+# closed four, every shipped cfg still omits the key, and the two gate arms are
+# properties of the condition rather than of the tree). Six of sixteen properties
+# holding in both worlds is the intended shape for an invariance check, not a gap.
+# All five L0* vacuity guards are green in BOTH worlds, which is what makes the
+# pre-change red set readable as ten real property misses rather than as an
+# extractor miss.
+#
+# S8 IS THE ONE PROPERTY WITH NO EXECUTABLE BACKSTOP ANYWHERE IN THIS TREE, and
+# that is why it is here rather than left to a build. It asserts that triton.h's
+# forwarded argument sits inside a `#ifdef TRITON_SWMM` region. The only no-build
+# parse node, SOURCE-SYNTAX-PARSE-ALL-TUS, passes -DTRITON_SWMM unconditionally
+# and its own source records that the define is REQUIRED -- so nothing in this
+# repository ever parses the NON-coupled configuration, and an argument that
+# drifted out of the guarded region during a reindent or a merge would compile in
+# every coupled configuration anyone tests and break the other one. That is the
+# call-site mirror of the declaration-side hazard the sibling node's S1 records.
+#
+# TWO INSTRUMENT DEFECTS WERE FOUND BY ITS OWN PROBES AND EXTRACTORS ON THE FIRST
+# RUN, recorded because both are silent-pass or wrong-reason shapes rather than
+# loud ones. (1) S4 counted `snapshot_keep_all =` occurrences to assert ONE latch
+# site, and the member's own in-class `= false` initialiser is syntactically such
+# an occurrence -- so S4 was RED on correct source, and it was the paired X4 probe
+# reporting "the check I am validating is already red" that surfaced it rather
+# than any assertion about the code. The initialiser is now removed from S4's
+# input, and its presence is S4b's separate property. (2) L0e's comment-block
+# extractor fell back to a MID-LINE anchor when the new guard form was absent, so
+# against pre-change source it returned "" and reported "no comment block" about
+# source that has one -- the vacuity class L0e exists to announce, arriving inside
+# L0e's own extractor. It now backs up to the start of the guard's line and is
+# green in both worlds.
+add_test(
+    NAME SOURCE-SNAPSHOT-KEEP-ALL
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_snapshot_keep_all_source.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 add_test(
     NAME SOURCE-FENCE-COMPUTE-TIMER
     COMMAND ${Python3_EXECUTABLE}

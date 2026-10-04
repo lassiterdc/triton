@@ -428,7 +428,8 @@ namespace Triton
     swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
                           dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                           arglist.manhole_diameter, arglist.manhole_loss,
-                          arglist.swmm_snapshot_disable);
+                          arglist.swmm_snapshot_disable,
+                          arglist.swmm_snapshot_keep_all);
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its

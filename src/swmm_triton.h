@@ -174,7 +174,7 @@ namespace SWMM_triton
 *  @param rank_ Subdomain id
 *  @param size_ Number of subdomain
 */
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable);
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all);
 
 
 		void end_swmm(std::string output_dir);
@@ -289,6 +289,15 @@ namespace SWMM_triton
 		/// LATER state -- it finds no file for its id and takes the replay.
 		std::string snapshot_path_stem;
 
+		/// Latched from the cfg key of the same name in initialize(). A MEMBER
+		/// rather than a threaded parameter because its consumer is
+		/// write_state_snapshot, which is called once per checkpoint long after
+		/// initialize returns -- unlike swmm_snapshot_disable, whose consumer is
+		/// init_swmm inside the same call and which therefore needs no member.
+		/// Default-initialised false so a non-coupled or partially-constructed
+		/// object retains the keep-2 default rather than an indeterminate one.
+		bool snapshot_keep_all = false;
+
 		std::string snapshot_path_for(int checkpoint_id) const;
 
 		/// Position the side-file for the live segment: validate the header,
@@ -335,12 +344,13 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all)
 	{
 		rank_=rank;
 		size_=size;
 		units=0;
 		this->output_folder = output_folder;
+		this->snapshot_keep_all = swmm_snapshot_keep_all;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
@@ -1021,11 +1031,30 @@ namespace SWMM_triton
 			return;
 		}
 
-		// Keep at most the current and the immediately previous snapshot. The
-		// series is per-checkpoint and would otherwise grow without bound over a
-		// long run; two is enough for the resume that is about to happen, and
-		// the exchange side-file remains the unbounded-history fallback.
-		if (checkpoint_id >= 2)
+		// RETENTION. BY DEFAULT keep at most the current and the immediately
+		// previous snapshot. The series is per-checkpoint and would otherwise grow
+		// without bound over a long run; two is enough for the resume that is about
+		// to happen, and the exchange side-file remains the unbounded-history
+		// fallback.
+		//
+		// `swmm_snapshot_keep_all=1` SKIPS the prune entirely, so every
+		// per-checkpoint snapshot survives for the life of the run. What that buys
+		// is not a correctness fix -- keep-2 is correct and its fallback is correct
+		// -- it is ROUTE UNIFORMITY. Under keep-2 whether the snapshot a resume
+		// wants still exists depends on how far that member's series advanced before
+		// the interruption fired, which is a wall-clock property: a 30-member arm at
+		// this pin split 22 snapshot / 8 replay with every member resuming at the
+		// SAME checkpoint id, and four configurations split between their own two
+		// repeats. Setting the key removes that variable from a cross-experiment
+		// comparison. The cost is bounded and measured: one snapshot is ~13 KiB, so
+		// a 144-checkpoint member holds ~2 MiB and a 30-member arm ~59 MiB.
+		//
+		// The comment above is therefore no longer the whole retention story, and
+		// that is why it was rewritten rather than left: `two is enough for the
+		// resume that is about to happen` is true of the resume and false of the
+		// EXPERIMENT, which needs one nominated checkpoint to survive on every
+		// member regardless of when each member was interrupted.
+		if (!snapshot_keep_all && checkpoint_id >= 2)
 		{
 			std::error_code ec;
 			std::filesystem::remove(snapshot_path_for(checkpoint_id - 2), ec);

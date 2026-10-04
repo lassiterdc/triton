@@ -77,6 +77,42 @@ namespace ConfigUtils
 		/// unassigns every member from its arm, with no compile error anywhere.
 		bool
 		swmm_snapshot_disable;
+
+		/// RETENTION OVERRIDE. When true, write_state_snapshot SKIPS its prune, so
+		/// every per-checkpoint snapshot survives for the life of the run instead of
+		/// only the current and the immediately previous one.
+		///
+		/// WHY A CFG KEY RATHER THAN A NEW DEFAULT. keep-2 is the settled default and
+		/// is NOT changed by this key. What keep-2 costs is that the ROUTE a resume
+		/// takes is wall-clock-dependent: whether the snapshot for the resumed
+		/// checkpoint still exists depends on how far that member's series advanced
+		/// before the interruption fired. Measured on a 30-member arm at this pin,
+		/// every member resuming at checkpoint 108, the split was 22 snapshot / 8
+		/// replay, with four configurations splitting between their own two repeats on
+		/// identical inputs. Both routes are CORRECT -- the 8 were classified
+		/// `retention-collision` and fell back as designed. The key exists so an
+		/// experiment can ELECT uniform route coverage and remove that variable from a
+		/// cross-experiment comparison.
+		///
+		/// The TYPE and the READ mirror swmm_snapshot_disable exactly: bool from the
+		/// flag group, argsd(..., "0") from the additive group. Additive is REQUIRED --
+		/// every cfg omitting this key must stay byte-equivalent in behaviour, because
+		/// the keep-2 path is the baseline every prior run used.
+		///
+		/// NOT a second spelling of swmm_snapshot_disable. The family is one axis per
+		/// key: `disable` governs whether the snapshot MECHANISM runs at all (it
+		/// leaves snapshot_path_stem empty), `keep_all` governs the RETENTION POLICY
+		/// of a mechanism that IS running. Setting both is coherent and inert: an
+		/// empty stem returns from write_state_snapshot before the prune is reached,
+		/// so keep_all then has nothing to suppress.
+		///
+		/// Declared as its own `bool` type-group rather than appended to the one above
+		/// with a comma. A comma form would rewrite the `swmm_snapshot_disable;` line
+		/// that SOURCE-SNAPSHOT-STEM-SUPPRESSION's X1 probe mutates by regex, and that
+		/// probe no-ops SILENTLY when its pattern misses -- reporting `not caught`
+		/// against a check that is in fact fine.
+		bool
+		swmm_snapshot_keep_all;
 #endif
 
 		std::string
@@ -515,6 +551,11 @@ namespace ConfigUtils
 		// leave every pre-existing cfg loading unchanged, so an absent key is a
 		// defined false rather than a consumer's problem.
 		arglist.swmm_snapshot_disable = atoi((argsd("swmm_snapshot_disable", argmap, "0")).c_str());
+
+		// ADDITIVE, for the same reason and in the same form as the sibling above:
+		// an absent key is a defined false, so every pre-existing cfg keeps loading
+		// and keeps the keep-2 retention it already had.
+		arglist.swmm_snapshot_keep_all = atoi((argsd("swmm_snapshot_keep_all", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
