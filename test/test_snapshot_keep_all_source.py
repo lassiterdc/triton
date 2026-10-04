@@ -46,11 +46,28 @@ unrelated reason.  A check whose probe does not discriminate is reported VACUOUS
 and fails the run.
 
 TWO INSTRUMENT HAZARDS ARE INHERITED FROM THE SIBLING NODE AND HANDLED HERE.
-(1) ``src/config_utils.h`` and ``src/swmm_triton.h`` carry CRLF while
-``src/triton.h`` does not, so a mutation written with a bare ``"\\n"`` matches
-NOTHING in the first two and ``str.replace`` no-ops SILENTLY -- leaving a probe
-reporting "not caught" against a check that is fine.  Every mutation below is
-either newline-free or newline-agnostic.  (2) A source walker that reads
+(1) ``src/config_utils.h`` and ``src/swmm_triton.h`` carry CRLF on disk while
+``src/triton.h`` does not -- AND THAT ASYMMETRY DOES NOT REACH THIS FILE, WHICH
+IS THE OPPOSITE OF WHAT THIS PARAGRAPH SAID UNTIL IT WAS MEASURED.  Every source
+here is read through ``Path.read_text()``, whose universal-newline translation
+converts ``"\\r\\n"`` to ``"\\n"`` before any predicate sees it: measured on this
+tree, ``read_text().count("\\r")`` is 0 on both CRLF files against
+``read_bytes().count(b"\\r")`` of 707 and 1342.  So a bare ``"\\n"`` is the
+CORRECT anchor everywhere, and the INERT one is ``"\\r\\n"`` -- the exact reverse
+of the earlier claim.  That direction is the dangerous one: an author who
+believes this file sees raw CRLF keys a mutation on ``"\\r\\n"``, it matches
+nothing, ``str.replace`` no-ops SILENTLY, and the probe then prints "the mutated
+source still passes -- the paired check is VACUOUS" against a check that is
+fine.  A FALSE VACUITY report sends the next reader to rewrite a correct
+predicate.  The hazard was neutralised by the I/O call, never by mutation
+discipline, so discipline is not what this file relies on: ``_perturbed()``
+asserts, as its own named check, that each new probe's mutation CHANGED the
+string before any verdict is read.  Two of the mutations below are same-length
+substitutions, so a length comparison would report them inert -- string
+inequality is the predicate that works.  The 15 pre-existing probes are not yet
+routed through ``_perturbed()``; all 15 were independently measured to perturb
+at this commit, so the gap is recorded rather than papered over, and wrapping
+them is a mechanical follow-up.  (2) A source walker that reads
 comments as code is a measured failure class in this campaign: the declaration
 this file guards is preceded by a doc comment naming both the type and the key
 in prose, so the predicates strip comments.  The one predicate that
@@ -70,6 +87,52 @@ MEMBER = "snapshot_keep_all"
 # new key is neither one of them nor a substring of one of them.
 REWRITTEN_CFG_KEYS = ("sim_start_time=", "checkpoint_id=", "time_step=", "it_count=")
 
+def _drift_read_below_endif(cfg_h: str) -> str:
+    """X8b's mutation: relocate the cfg read to just BELOW its region's ``#endif``.
+
+    BALANCED BY CONSTRUCTION.  It moves a statement rather than inserting a
+    directive, so the ``#ifdef``/``#endif`` count is unchanged and the byte
+    length is unchanged -- which is precisely what makes this the drift no other
+    instrument in this tree sees.  MEASURED: the coupled
+    ``SOURCE-SYNTAX-PARSE-ALL-TUS`` pass stays GREEN on this shape, while a
+    define-free ``-fsyntax-only`` pass over ``src/main.cpp`` raises ``'struct
+    ConfigUtils::arguments<double>' has no member named swmm_snapshot_keep_all``.
+    The alternative shape -- INSERTING an ``#endif`` above the read -- is
+    deliberately NOT used: it unbalances the directives and the already-
+    registered parse node catches it today as ``#endif without #if``, so a probe
+    written that way would be exercising a defect this file does not own.
+
+    IT IS POSITION-INDEPENDENT ON PURPOSE.  An earlier form anchored on the
+    literal ``read-line`` + ``#endif`` pair, which is correct only while the read
+    is the LAST statement in its region.  Moving the read to a different,
+    equally-correct position inside the region made that anchor match nothing,
+    and the probe's own perturbation check then went red -- an accurate
+    instrument message, but a node failure on a legitimate rearrangement.  This
+    form locates the read wherever it sits and uses the first ``#endif`` after
+    it, so S8b's probe survives any correct position.
+
+    The ``"\\n"`` anchors are correct and are NOT a CRLF hazard: ``config_utils.h``
+    is CRLF on disk, but every predicate here reads it through
+    ``Path.read_text()``, whose universal-newline translation yields ``"\\n"`` --
+    measured, ``read_text().count("\\r")`` is 0 against ``read_bytes()``'s 707.
+    An anchor written as ``"\\r\\n"`` is the INERT one.  See hazard (1) above.
+
+    On any miss it returns the input UNCHANGED rather than raising, so the
+    failure surfaces through ``_perturbed()``'s named check instead of as a
+    traceback with no ``FAIL`` line.
+    """
+    m = re.search(r"^[ \t]*arglist\.%s\b[^\n]*\n" % re.escape(KEY), cfg_h, re.M)
+    if not m:
+        return cfg_h
+    read_line = m.group(0)
+    endif = re.compile(r"^#endif[^\n]*\n", re.M).search(cfg_h, m.end())
+    if not endif:
+        return cfg_h
+    return (cfg_h[:m.start()]
+            + cfg_h[m.end():endif.end()]
+            + read_line
+            + cfg_h[endif.end():])
+
 failures: list[str] = []
 results: dict[str, bool] = {}
 
@@ -81,6 +144,39 @@ def check(name: str, ok: bool, detail: str = "") -> None:
     else:
         failures.append("%s: %s" % (name, detail))
         print("FAIL  %s   %s" % (name, detail))
+
+
+def _perturbed(probe: str, before: str, after: str) -> str:
+    """Assert a probe's mutation actually CHANGED the source, as its own check.
+
+    AN INERT MUTATION AND A VACUOUS CHECK ARE INDISTINGUISHABLE AT THE PROBE'S
+    OWN VERDICT, and that is why this is a separate named assertion rather than
+    a condition folded into the probe.  A ``str.replace`` whose pattern misses
+    returns the input unchanged and raises nothing, so the probe then evaluates
+    its predicate against UNMUTATED source, finds it green, and prints "the
+    mutated source still passes -- the paired check is VACUOUS" against a check
+    that is in fact fine.  The report is then a FALSE VACUITY claim, which is
+    worse than a missed probe because it sends the next reader to rewrite a
+    correct predicate.
+
+    A length comparison is NOT sufficient and is named here because it is the
+    plausible wrong form: two of this file's mutations (the ``"0"`` -> ``"1"``
+    default flip and the ``- 2`` -> ``- 3`` offset drift) are same-length
+    substitutions, so ``len(after) != len(before)`` reports them inert.  String
+    inequality is the predicate that distinguishes a same-length substitution
+    from a miss.
+
+    It returns ``after`` so it composes inline inside a probe lambda, and it
+    does NOT raise: a raise would exit non-zero with a traceback and no ``FAIL``
+    line, which is an exit code with an empty failure set -- a shape this
+    campaign has already mistaken for a verdict once.
+    """
+    check("%s the mutation PERTURBS the source" % probe,
+          after != before,
+          "the mutation matched NOTHING and the source is unchanged, so the "
+          "paired probe's verdict below is about UNMUTATED source and proves "
+          "nothing -- fix the mutation's anchor, not the predicate")
+    return after
 
 
 def _code(text: str) -> str:
@@ -303,6 +399,51 @@ def p_call_site_is_inside_a_swmm_ifdef(triton_h: str) -> bool:
     """
     regions = _swmm_ifdef_regions(_code(triton_h))
     return any(("arglist." + KEY) in r for r in regions)
+
+
+def p_read_is_inside_a_swmm_ifdef(cfg_h: str) -> bool:
+    """S8b: the cfg READ sits inside a ``#ifdef TRITON_SWMM`` region.
+
+    THE THIRD MEMBER OF S1's AND S8's OWN CLASS, AND IT HAD NO CHECK.  This
+    commit introduces three sites whose correctness depends on the coupled
+    define: the DECLARATION (covered by S1), the cfg READ (this check), and the
+    FORWARDED ARGUMENT in ``triton.h`` (covered by S8).  All three are dependent
+    constructs over ``arguments<T>``; the enumeration in S8's own docstring
+    named two of them.  Neither pre-existing predicate reaches this one: S1 is
+    region-scoped but keys on ``bool ... KEY`` and is satisfied by the
+    DECLARATION region, and S2 runs over whole-file comment-stripped text with
+    no region constraint at all.
+
+    MEASURED, NOT ASSERTED, and the measurement is what sets the probe's form
+    below.  Two drift shapes put this read outside the region.  One inserts an
+    ``#endif`` above it, which UNBALANCES the directives -- and that shape is
+    already caught by ``SOURCE-SYNTAX-PARSE-ALL-TUS`` today, with the define, as
+    ``error: #endif without #if``.  The other RELOCATES the read below the
+    existing ``#endif``, leaving the directives balanced, the byte length
+    unchanged, and the coupled parse GREEN.  The second shape -- the reflow or
+    merge that actually happens -- is the one no instrument in this tree saw,
+    and it is the one X8b mutates.  A probe written in the unbalanced form would
+    be testing a defect the parse node already owns.
+
+    WHY THE PREDICATE IS UNIVERSAL AND NOT EXISTENTIAL, which is where it
+    diverges from S8.  S8 asks ``any(... in r for r in regions)``: a check that
+    SOME occurrence is guarded, not that EVERY one is.  The two coincide only
+    because there is exactly one occurrence today; a second, unguarded read
+    would satisfy the existential form.  This predicate asserts instead that the
+    in-region occurrence count EQUALS the whole-file count, so an added
+    unguarded read goes red.  The ``>= 1`` floor is the vacuity half: without it
+    a key that vanished entirely would give ``0 == 0`` and pass, and a
+    structural check that passes by matching nothing is the failure shape this
+    campaign has now hit in several separate instruments.
+
+    The region scan is run on comment-stripped text so a commented-out mention
+    inside an ifdef cannot satisfy it.
+    """
+    code = _code(cfg_h)
+    anchor = "arglist." + KEY
+    whole = code.count(anchor)
+    inside = sum(r.count(anchor) for r in _swmm_ifdef_regions(code))
+    return whole >= 1 and inside == whole
 
 
 def p_latched_to_member_exactly_once(swmm_h: str) -> bool:
@@ -528,6 +669,13 @@ def main(argv: list[str]) -> int:
           "the argument drifted outside the coupled-only region -- it would "
           "compile in every coupled configuration and break the non-coupled "
           "one, and no executable check in this tree parses that configuration")
+    check("S8b config_utils.h's cfg read is inside a `#ifdef TRITON_SWMM` region",
+          p_read_is_inside_a_swmm_ifdef(cfg_h),
+          "the read drifted outside the coupled-only region, or a second "
+          "unguarded read was added -- the read is a dependent member access "
+          "on `arguments<T>`, so outside the region it breaks exactly the "
+          "configuration nothing in this tree parses, and it does so with the "
+          "directives balanced and the coupled parse still green")
     check("S3c the key is NOT threaded into init_swmm",
           p_not_threaded_into_init_swmm(swmm_h),
           "an unused parameter was added to init_swmm -- the deliberate "
@@ -602,7 +750,10 @@ def main(argv: list[str]) -> int:
     # check exists to catch.  Each mutation is written to be PLAUSIBLE -- the
     # edit a later maintainer might actually make -- rather than merely
     # destructive, because a check that only catches vandalism catches nothing
-    # that will happen.  No mutation contains a bare "\n" against a CRLF file.
+    # that will happen.  A bare "\n" is the CORRECT anchor in every mutation
+    # below, including against the two files that are CRLF on disk, because
+    # Path.read_text() has already translated them -- see hazard (1) in the
+    # module docstring, which asserted the reverse until it was measured.
     # ---------------------------------------------------------------------
     probes = [
         # the type drifts from bool to int: compiles, works, but leaves the
@@ -631,6 +782,18 @@ def main(argv: list[str]) -> int:
             triton_h.replace("                          arglist." + KEY + ");",
                              "#endif" + "\n"
                              "                          arglist." + KEY + ");", 1))),
+        # THE BALANCED DRIFT, which is the one no other instrument in this tree
+        # sees.  The read is RELOCATED below the region's existing `#endif`
+        # rather than having an `#endif` inserted above it: the directives stay
+        # balanced, the byte length is unchanged, and -- MEASURED -- the coupled
+        # `SOURCE-SYNTAX-PARSE-ALL-TUS` pass stays GREEN while a define-free
+        # pass over src/main.cpp raises `'struct ConfigUtils::arguments<double>'
+        # has no member named swmm_snapshot_keep_all`.  The unbalanced form is
+        # NOT used here on purpose: it produces `#endif without #if`, which the
+        # already-registered parse node catches today, so a probe written that
+        # way would be testing a defect this file does not own.
+        ("X8b -> S8b", lambda: p_read_is_inside_a_swmm_ifdef(_perturbed(
+            "X8b", cfg_h, _drift_read_below_endif(cfg_h)))),
         # "completing the pattern": the key is threaded into init_swmm, which
         # has no use for it
         ("X3c -> S3c", lambda: p_not_threaded_into_init_swmm(
