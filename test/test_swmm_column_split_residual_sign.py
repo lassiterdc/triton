@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""REVIEWER test for the SWMM column split (WP-1A): the residual's SIGN.
+"""REVIEWER test for the SWMM column split: the residual's SIGN.
 
 WHY THIS EXISTS
 ---------------
-WP-1A's stated acceptance property is
+The stated acceptance property is
 
     SWMM_XFER + SWMM_MPI + SWMM_STEP + SWMM_OTHER == SWMM
 

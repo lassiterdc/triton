@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard-of-the-guard for the SWMM column split (WP-1A).
+"""Guard-of-the-guard for the SWMM column split.
 
 WHY THIS EXISTS
 ---------------
@@ -7,7 +7,7 @@ WHY THIS EXISTS
 guard whose every predicate was inverted, mis-anchored, or matching nothing at
 all -- and the difference is invisible from a green run.  A guard with no guard
 of its own can be weakened by a later edit and stay green, which is precisely the
-class of defect the split was dispatched to remove from the timer accounting.
+class of defect the split exists to remove from the timer accounting.
 
 WHAT IT DOES
 ------------

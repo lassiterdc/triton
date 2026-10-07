@@ -12,14 +12,14 @@ WHY IT EXISTS, because a reader will otherwise look for the bug it fixes and
 find none.  There is no bug.  keep-2 is correct and its fallback is correct: a
 resume that finds no snapshot for its checkpoint id is classified
 ``retention-collision`` and replays the exchange history, which reaches the
-same state by a slower route.  What keep-2 costs is that WHICH ROUTE a member
+same state by a slower route.  What keep-2 costs is that WHICH ROUTE a resume
 takes is a WALL-CLOCK property -- whether the wanted snapshot survived depends
-on how far that member's series advanced before the interruption fired.
-Measured on a 30-member arm, every member resuming at checkpoint 108: the split
-was 22 snapshot / 8 replay, and four configurations split between their own two
-repeats on identical inputs.  The key lets an experiment ELECT uniform route
-coverage so a cross-experiment comparison carries one fewer per-member
-variable.
+on how far the run advanced before the interruption fell.  Measured over 30
+runs that all resumed at checkpoint 108: the split was 22 snapshot / 8 replay,
+and four configurations split between their own two repeats on identical
+inputs, so the route is not even a function of the configuration.  The key lets
+a caller ELECT uniform route coverage, removing that variable when one run is
+compared against another.
 
 WHY THIS TIER IS STRUCTURAL, stated plainly because it is this file's one real
 limitation.  The three facts that would make a behavioural assertion possible --
@@ -34,7 +34,7 @@ node, a compiled test can call the function and cannot ARRANGE it.  No ``friend`
 declaration, test-only setter, or ``#define private public`` was added, for the
 same reason the sibling declined them.  **Do not read a green run of this file
 as behavioural coverage.**  It covers the SOURCE properties that make the
-mechanism exist; the two-arm behavioural differential is owed at the venue and
+mechanism exist; the two-arm behavioural differential needs a compiled run and
 this file's last line says so on every run.
 
 EVERY CHECK CARRIES A DEFECT PROBE, and every probe is TWO-STATE: it mutates the
@@ -68,7 +68,7 @@ inequality is the predicate that works.  The 15 pre-existing probes are not yet
 routed through ``_perturbed()``; all 15 were independently measured to perturb
 at this commit, so the gap is recorded rather than papered over, and wrapping
 them is a mechanical follow-up.  (2) A source walker that reads
-comments as code is a measured failure class in this campaign: the declaration
+comments as code is a measured failure class in this work: the declaration
 this file guards is preceded by a doc comment naming both the type and the key
 in prose, so the predicates strip comments.  The one predicate that
 deliberately READS comment text is exempt by construction and says so.
@@ -168,8 +168,8 @@ def _perturbed(probe: str, before: str, after: str) -> str:
 
     It returns ``after`` so it composes inline inside a probe lambda, and it
     does NOT raise: a raise would exit non-zero with a traceback and no ``FAIL``
-    line, which is an exit code with an empty failure set -- a shape this
-    campaign has already mistaken for a verdict once.
+    line, which is an exit code with an empty failure set -- a shape that has
+    already been mistaken for a verdict once here.
     """
     check("%s the mutation PERTURBS the source" % probe,
           after != before,
@@ -434,7 +434,7 @@ def p_read_is_inside_a_swmm_ifdef(cfg_h: str) -> bool:
     unguarded read goes red.  The ``>= 1`` floor is the vacuity half: without it
     a key that vanished entirely would give ``0 == 0`` and pass, and a
     structural check that passes by matching nothing is the failure shape this
-    campaign has now hit in several separate instruments.
+    work has now hit in several separate instruments.
 
     The region scan is run on comment-stripped text so a commented-out mention
     inside an ifdef cannot satisfy it.
@@ -871,8 +871,8 @@ def main(argv: list[str]) -> int:
           "over the gate CONDITION. The behavioural two-arm differential -- a "
           "coupled run with swmm_snapshot_keep_all=1 still holding the snapshot "
           "for checkpoint N-2 after writing N, and NOT holding it with the key "
-          "unset -- requires a compiled coupled solver and is owed at the "
-          "venue. A green here does NOT discharge it.")
+          "unset -- requires a compiled coupled solver and is NOT discharged "
+          "here. A green here does NOT discharge it.")
     return 0
 
 

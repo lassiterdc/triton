@@ -443,10 +443,11 @@ namespace Triton
     // replay as the fallback. That ordering is the point of the snapshot: the
     // replay is exact but its cost grows with t_k, and because the device
     // vectors are not created until create_device_vectors() below, the GPU is
-    // idle for its whole duration. Two production members exceeded a measured
-    // 11,107 s replay floor and were cancelled still replaying, on a cluster
-    // that kills GPU jobs idle at 0% utilisation; each resume replays a longer
-    // prefix, so the sequence does not converge.
+    // idle for its whole duration. A long run was measured spending 11,107 s
+    // replaying before the resumed segment began any work, and was cancelled
+    // still replaying -- an idle GPU for that whole period is also a job a
+    // scheduler may reclaim. Each successive resume replays a longer prefix,
+    // so the sequence does not converge.
     //
     // The fallback is RETAINED for the ABSENT case only: a checkpoint written
     // before snapshots existed has none to load, and one the keep-2 retention

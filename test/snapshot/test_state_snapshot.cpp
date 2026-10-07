@@ -1,5 +1,5 @@
 /** @file test_state_snapshot.cpp
- *  @brief Tier-1 tests for the coupled-resume state snapshot (WP-1B).
+ *  @brief Tier-1 tests for the coupled-resume state snapshot.
  *
  *  No solver run, no cluster, no simulation. These exercise snapshot.c's
  *  serializer, deserializer and field manifest directly against the SWMM
@@ -98,7 +98,7 @@ extern "C" {
     extern TGwaterTotals  GwaterTotals;
     extern TRoutingTotals FlowTotals;
 
-    // Added with the Criterion-P routing fields (WP-1B chunk 10). Same rule as
+    // Added with the Criterion-P routing fields. Same rule as
     // above: every name here is one the snapshot serializes.
     extern int        Nnodes[];
     extern int        Nlinks[];
@@ -114,7 +114,7 @@ extern "C" {
     extern double*    NodeInflow;
     extern double*    NodeOutflow;
 
-    // WP-1C. Nperiods is the output-period count the snapshot now carries; it
+    // Nperiods is the output-period count the snapshot now carries; it
     // is a globals.h `long`, NOT an int, which is the one type a reader would
     // guess wrong. Fout is the binary output file handle the continuity work
     // positions and truncates.
@@ -611,12 +611,12 @@ static void T6_manifest_covers_committed_inventory()
     //                   object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason,
     //                   and the EXCLUDED and KILLED rows MUST NOT appear, which
     //                   is the half a coverage-only check cannot state.
-    //   D-R6         -- stream HANDLES, not fields. No row is serialized and no
+    //   TFILE-TRIAGE         -- stream HANDLES, not fields. No row is serialized and no
     //                   row names a {object, field} pair at all.
     //
     // A section-blind walk demanded all three. Measured on the inventory as
     // chunk (9) committed it: 381 rows demanded, of which 209 are P-section and
-    // D-R6 rows the serializer does not and must not emit. This test was RED
+    // TFILE-TRIAGE rows the serializer does not and must not emit. This test was RED
     // from the moment the P section landed; the assertion below is what chunk
     // (13) owes it, not a tightening of a passing check.
     //
@@ -646,11 +646,11 @@ static void T6_manifest_covers_committed_inventory()
     while (std::getline(f, line)) {
         if (!line.empty() && line[0] == '#') {
             // MONOTONE. The string "CRITERION P" recurs in the trailing
-            // "# CRITERION P ROWS: N" footer, which sits AFTER the D-R6 table;
+            // "# CRITERION P ROWS: N" footer, which sits AFTER the TFILE-TRIAGE table;
             // a non-monotone machine would step back into SEC_P there. No data
             // row follows it today, so the bug would be silent until one did.
             if (sec == SEC_R && line.find("CRITERION P") != std::string::npos) sec = SEC_P;
-            else if (sec == SEC_P && line.find("D-R6 --") != std::string::npos) sec = SEC_DR6;
+            else if (sec == SEC_P && line.find("TFILE-TRIAGE --") != std::string::npos) sec = SEC_DR6;
             continue;
         }
         if (line.empty()) continue;
@@ -819,7 +819,7 @@ static void T8_single_writer_is_structural()
 }
 
 // ---------------------------------------------------------------------------
-// WP-1C -- full-window SWMM output continuity.
+// Full-window SWMM output continuity.
 //
 // WHAT THIS TIER CAN AND CANNOT REACH, stated rather than left implicit.
 // output.c's OutputStartPos and BytesPerPeriod are file-scope statics that

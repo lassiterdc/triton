@@ -12,11 +12,11 @@ both:
                                    writes it.
 
 Criterion R is the original and is documented immediately below; Criterion P was
-added after WP-1B's acceptance gate FAILED, because the snapshot captured report
+added after an earlier acceptance gate FAILED, because the snapshot captured report
 accumulators and no live routing state and the implementation had followed the
 only criterion it was given.  Criterion P's machinery, its order-sensitive kill
 pass and its own closure check live in a clearly-marked block further down, as
-does the D-R6 stream-position exclusion table.
+does the TFILE-TRIAGE stream-position exclusion table.
 
 It is deliberately an OPERATION over source rather than a hand-maintained list.
 A hand-maintained list is what produces the documented failure: ``TNodeStats``
@@ -153,7 +153,7 @@ SEED_ROOTS = ["stats_report", "statsrpt_writeReport", "massbal_report"]
 # =============================================================================
 #
 # Criterion R above answers the REPORT requirement.  It cannot answer the
-# PHYSICS requirement, and WP-1B's acceptance gate failed because the
+# PHYSICS requirement, and that acceptance gate failed because the
 # implementation followed the only criterion it was given.  Criterion P is the
 # second criterion:
 #
@@ -304,14 +304,14 @@ ADMITTED_ROUTING_STATE = {
     # why ReportTime, NewRuleTime and NextEvent are live despite being
     # "assigned" every step -- their only PURE write is the start-path reset.
     ("-", 'Nperiods'):
-        'output-period count, live on entry and ADMITTED AT WP-1C (this row '
+        'output-period count, live on entry and ADMITTED WITH THE OUTPUT-CONTINUITY WORK (this row '
         'was EXCLUDED, and its ground was CIRCULAR). The exclusion read: the '
         'period count of a file unrestorable by ANY offset, because '
         "output_openOutFile reopens Fout 'w+b' (truncating) and output_open "
         'resets Nperiods = 0, so there is nothing for a restored count to '
         'index. Every clause was TRUE and the conclusion did not follow: the '
         'truncating open is a PROPERTY OF THE CODE, not a constraint on it, '
-        'and WP-1C removes it. With a non-truncating open the count is both '
+        'and the output-continuity work removes it. With a non-truncating open the count is both '
         'restorable and load-bearing on three consumers -- the resumed run\'s '
         'period offsets via output_positionForResume; output_end\'s trailer, '
         'whose fourth INT4 IS this count and which every external .out reader '
@@ -385,7 +385,7 @@ ADMITTED_ROUTING_STATE = {
 
 # Routing state EXCLUDED by Criterion P, every exclusion carrying its reason.
 EXCLUDED_ROUTING_STATE = {
-    # CORRECTED at WP-1B(10), and its REASON corrected again here. The verdict
+    # CORRECTED earlier, and its REASON corrected again here. The verdict
     # was and remains EXCLUDE; what was wrong was the ground given for it.
     #
     # This was originally ADMITTED with the reason "routing state: surcharge
@@ -406,7 +406,7 @@ EXCLUDED_ROUTING_STATE = {
     # FOR it, and citing them as if they were invited the next reader to
     # re-derive the verdict from a premise that does not hold.
     #
-    # It is .inp CONFIGURATION, which is the one class Sec 4.6.1 excludes by
+    # It is .inp CONFIGURATION, which is the one class Criterion P excludes by
     # triage rather than admitting freely, because over-capture there lets a
     # stale snapshot silently override the model the operator is running.
     # Under-capture is the wrong numbers; THIS direction is the wrong model,
@@ -765,7 +765,7 @@ EXCLUDED_ROUTING_STATE = {
         'before it reads it, so no value crosses the boundary',
     ("-", 'NewIfaceDate'):
         'routing-interface file cursor state; that file is not in use in '
-        'the coupled configuration (mode NO_FILE), the ground D-R6 already '
+        'the coupled configuration (mode NO_FILE), the ground TFILE-TRIAGE already '
         'records for Finflows/Foutflows',
     ("-", 'NewIfaceValues'):
         'pointer/array name: the value is a heap address produced during '
@@ -1101,7 +1101,7 @@ EXCLUDED_ROUTING_OBJECTS = {
         "config: re-read from the .inp at swmm_open",
 }
 
-# --- D-R6: the non-field (stream-position) exclusion table -------------------
+# --- TFILE-TRIAGE: the non-field (stream-position) exclusion table -------------------
 #
 # A field-liveness closure cannot see a FILE STREAM POSITION, whatever axis it
 # is bounded on.  The enumeration is keyed on the TYPE ``TFile``, never on a
@@ -1117,14 +1117,14 @@ EXCLUDED_ROUTING_OBJECTS = {
 # handle -- so the cost is O(1) in handle count either way.  An EMPTY admitted
 # set is a PASSING result: the deliverable of this pass is the table.
 TFILE_ADMITTED = {
-    "Fout": "ADMITTED AT WP-1C, and the exclusion it replaces was CIRCULAR in "
+    "Fout": "ADMITTED WITH THE OUTPUT-CONTINUITY WORK, and the exclusion it replaces was CIRCULAR in "
             "exactly the way ('-', 'Nperiods') was. The old ground read: "
             "unrestorable by ANY offset, because output_openOutFile reopens it "
             "'w+b', which TRUNCATES, and output_open resets Nperiods = 0, so "
             "there are no bytes to seek past -- and the 0..t_k period records "
             "were never written in the resumed process because saveResults() "
             "is never called for those steps. The first clause is a property "
-            "of code this package changes, and once the open preserves the "
+            "of code this change set changes, and once the open preserves the "
             "file the second stops following: the 0..t_k records are ALREADY "
             "on disk from the previous exec and do not need re-writing. NOTE "
             "WHAT IS AND IS NOT CAPTURED: the snapshot does NOT carry Fout's "
@@ -1724,7 +1724,7 @@ def _struct_typed_globals(globals_h: str) -> set[str]:
             cur = m.group(1)
             line = line[m.end():]
         if cur == "TFile":
-            # A stream handle is enumerated by the D-R6 table keyed on the TYPE,
+            # A stream handle is enumerated by the TFILE-TRIAGE table keyed on the TYPE,
             # not as a field of a struct-typed global.  Leaving it in both pools
             # would triage the same object twice under two different criteria.
             if ";" in raw:
@@ -2025,11 +2025,11 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
     lines.append("#")
     lines.append(f"# UNTRIAGED COUNT: {untriaged}")
 
-    # --- D-R6: the TFile exclusion table -------------------------------------
+    # --- TFILE-TRIAGE: the TFile exclusion table -------------------------------------
     handles = _tfile_handles(globals_h, objects_h)
     lines.append("#")
     lines.append("# " + "-" * 74)
-    lines.append("# D-R6 -- non-field (stream position) state, keyed on the TYPE TFile")
+    lines.append("# TFILE-TRIAGE -- non-field (stream position) state, keyed on the TYPE TFile")
     lines.append("# " + "-" * 74)
     lines.append(f"# Declaration sites found by type: {len(handles)} handle(s)")
     lines.append("# handle<TAB>site<TAB>disposition<TAB>reason")
@@ -2044,8 +2044,8 @@ def emit_p_section(solver: Path, lines: list[str]) -> int:
             dr6_untriaged += 1
         rows += 1
     lines.append("#")
-    lines.append(f"# D-R6 ADMITTED: {len(TFILE_ADMITTED)} (an empty admitted set is a PASSING result)")
-    lines.append(f"# D-R6 UNTRIAGED COUNT: {dr6_untriaged}")
+    lines.append(f"# TFILE-TRIAGE ADMITTED: {len(TFILE_ADMITTED)} (an empty admitted set is a PASSING result)")
+    lines.append(f"# TFILE-TRIAGE UNTRIAGED COUNT: {dr6_untriaged}")
     return rows
 
 
@@ -2133,8 +2133,8 @@ def open_triage_decisions(text: str) -> list[tuple[str, int]]:
     for label, pattern in (
         ("Criterion P routing state (ADMITTED_ROUTING_STATE / EXCLUDED_ROUTING_STATE)",
          r"^# UNTRIAGED COUNT: (\d+)$"),
-        ("D-R6 stream positions (TFILE_ADMITTED / TFILE_EXCLUDED)",
-         r"^# D-R6 UNTRIAGED COUNT: (\d+)$"),
+        ("TFILE-TRIAGE stream positions (TFILE_ADMITTED / TFILE_EXCLUDED)",
+         r"^# TFILE-TRIAGE UNTRIAGED COUNT: (\d+)$"),
         # A scalar-scope collision is an open decision and not a drift: the
         # tree has not moved, the row key has stopped being unambiguous, and
         # the remedy is to re-key that row rather than to regenerate.  It is

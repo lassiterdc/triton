@@ -1,4 +1,4 @@
-# Tier-1 runtime tests for the SWMM timer column split (WP-1A chunk 4).
+# Tier-1 runtime tests for the SWMM timer column split.
 #
 # No solver run, no cluster, no SWMM call, no GPU. They drive the real
 # SuperTimer and the real Output::output<T>::write_times, then parse the file

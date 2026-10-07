@@ -15,11 +15,12 @@
 //   ---------------
 //   On resume the coupled run replayed every recorded exchange record from t=0,
 //   one swmm_step per record, BEFORE any GPU array existed -- so the device sat
-//   idle for the whole replay. Two production members exceeded a measured
-//   11,107 s replay floor and were cancelled still replaying, on a cluster that
-//   kills GPU jobs idle at 0% utilisation. Each resume replays a longer prefix,
-//   so the sequence does not converge: it is a class of member that cannot
-//   complete. This snapshot makes the restore cost independent of t_k.
+//   idle for the whole replay. A long run was measured spending 11,107 s
+//   replaying before the resumed segment began any work, and was cancelled
+//   still replaying; an idle GPU for that whole period is also a job a
+//   scheduler may reclaim. Each successive resume replays a longer prefix, so
+//   the sequence does not converge -- a run interrupted often enough cannot
+//   complete at all. This snapshot makes the restore cost independent of t_k.
 //
 //   WHY NOT THE SHIPPED HOTSTART FILE
 //   ---------------------------------
@@ -41,8 +42,8 @@
 //   routing-step resolution against per-step predicates the report never
 //   carries; reconstruction would be quantized at REPORT_STEP = 120 s against a
 //   dt of ~0.028 s. Dropping them yields a run whose report renders cleanly and
-//   whose duration counters are silently low -- and resumed members whose SWMM
-//   summaries cover a different window than unresumed members' is the
+//   whose duration counters are silently low. A resumed run whose SWMM
+//   summaries cover a different window than an uninterrupted run's is the
 //   worst-blast-radius failure available here, because it is invisible in every
 //   artifact a reader would check.
 //
@@ -149,7 +150,7 @@ extern double          TotalArea;
 // version test fires first and says "snapshot is version 2 but this build reads
 // version 3", which is true and actionable.  A bump costs one constant; a
 // refusal that blames the wrong party costs an investigation.
-// BUMPED 4 -> 5 at WP-1C chunk (1), with the output-period count (Nperiods)
+// BUMPED 4 -> 5 with the output-period count (Nperiods)
 // admitted.  Same ground as every prior bump and it is NOT the refusal itself:
 // the manifest comparison and the short final fread ALREADY refuse a V4 file
 // against a V5 build.  The bump is for WHAT THE REFUSAL SAYS.  The manifest
@@ -160,11 +161,11 @@ extern double          TotalArea;
 // is version 4 but this build reads version 5", which is true and actionable.
 //
 // VERIFIED AT SOURCE BEFORE BUMPING rather than taken from the instruction.
-// The design records that an earlier form of this same chunk said "bump from
-// 1"; executing that literally would have set the constant to 2, after which
-// snapshot_load's version test REJECTS EVERY REAL SNAPSHOT IN THE TREE and
-// silently routes every resume back to the replay path -- reproducing the
-// coverage regression this package exists to prevent, by following the design.
+// An earlier draft of this step said "bump from 1"; executing that literally
+// would have set the constant to 2, after which snapshot_load's version test
+// REJECTS EVERY REAL SNAPSHOT IN THE TREE and silently routes every resume
+// back to the replay path -- reproducing the very coverage regression this
+// change exists to prevent. The constant tracks the format, not the step.
 #define SNAPSHOT_VERSION  5
 
 // Must match stats.c's private MAX_STATS. stats.c hands us its value at
@@ -984,7 +985,7 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     }
 
     // =====================================================================
-    // THE OUTPUT-PERIOD COUNT (V5, WP-1C chunk 1).
+    // THE OUTPUT-PERIOD COUNT (format V5).
     //
     //  Nperiods is a globals.h `long` -- hence snap_l and not snap_i, which is
     //  the one operand in this chunk that a reader would guess wrong; the
@@ -1106,9 +1107,9 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
 //
 //  Every refusal names the mismatching quantity. A generic "bad snapshot" would
 //  send an operator to re-run from scratch without telling them which of the
-//  .inp, the build precision or the toolkit version changed under them.
+//  .inp, the build precision or the solver version changed under them.
 //
-//  THE RETURN IS GRADUATED (WP-1C chunk 4). It was a uniform 1 across eleven
+//  THE RETURN IS GRADUATED. It was a uniform 1 across eleven
 //  refusal sites, so no caller could branch on absent-versus-unreadable and
 //  every refusal degraded to the slow replay -- including the ones that mean a
 //  real defect. Exactly ONE site returns SNAPSHOT_ABSENT: the fopen failure,

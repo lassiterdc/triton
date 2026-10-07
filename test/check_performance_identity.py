@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Construction check for the SWMM column split (WP-1A chunk 4).
+"""Construction check for the SWMM column split.
 
 WHAT THIS CHECKS, AND WHAT THE IDENTITY IS WORTH
 -------------------------------------------------

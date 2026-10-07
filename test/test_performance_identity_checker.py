@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Falsifiability tests for check_performance_identity.py (WP-1A chunk 4).
+"""Falsifiability tests for check_performance_identity.py.
 
 WHY THIS EXISTS
 ---------------

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Source-structural checks for WP-1C -- full-window SWMM output continuity.
+"""Source-structural checks for full-window SWMM output continuity.
 
 Usage:  test_out_continuity_source.py <repo-root>
 
-WHY THIS TIER EXISTS, stated rather than assumed.  Three of WP-1C's five
+WHY THIS TIER EXISTS, stated rather than assumed.  Three of the five
 properties cannot be EXECUTED without an open model: ``output_openOutFile`` has
 internal linkage, and the prologue comparison and the positioning arithmetic
 both read ``OutputStartPos`` / ``BytesPerPeriod``, which are file-scope statics
@@ -11,7 +11,7 @@ that only ``output_open`` sets -- and ``output_open`` needs an ``.inp``.  A
 Tier-1 test that called them anyway would be exercising a zero-valued stride
 and reporting it as coverage.  So the behavioural arms live in the compiled
 tier (``test/snapshot/test_state_snapshot.cpp``) and in Tier 2, and the
-STRUCTURAL arms live here, in the same shape the campaign already uses for
+STRUCTURAL arms live here, in the same shape already used for
 ``test_swmm_column_split_source.py`` and ``test_compute_timer_fence.py``.
 
 EVERY CHECK CARRIES A DEFECT PROBE.  A structural check reads source text, so
@@ -48,7 +48,7 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 # ---------------------------------------------------------------------------
 
 def p_open_is_existence_keyed(out_c: str) -> bool:
-    """D-OUT3: the mode is chosen from the file EXISTING, and both arms are present."""
+    """The mode is chosen from the file EXISTING, and both arms are present."""
     body = _func_body(out_c, "output_openOutFile")
     return ('"r+b"' in body) and ('"w+b"' in body) and ("OutputReopened" in body)
 
@@ -62,19 +62,19 @@ def p_no_unconditional_truncating_open(out_c: str) -> bool:
 
 
 def p_signal_is_file_local(repo: Path) -> bool:
-    """D-OUT3 acceptance: zero references to the resume signal outside output.c."""
+    """Acceptance: zero references to the resume signal outside output.c."""
     hits = _grep_tree(repo, "OutputReopened")
     return all(p.name == "output.c" for p in hits)
 
 
 def p_one_arithmetic_root(repo: Path, out_c: str) -> bool:
-    """D-OUT2 acceptance: BytesPerPeriod never leaves output.c, and the resume
+    """Acceptance: BytesPerPeriod never leaves output.c, and the resume
     product is formed in exactly one function."""
     # SCOPED TO THE SOLVER, on a named ground rather than to make this pass.
     # external/swmm/src/outfile/ is the INDEPENDENT reader library, and its
     # `p_data->BytesPerPeriod` is a struct MEMBER it re-derives from the file's
     # own header (swmm_output.c:231) -- a different symbol, in a different
-    # module, predating WP-1C. D-OUT2 is about the SOLVER's file-scope static
+    # module, predating this work. The property is about the SOLVER's static
     # not escaping output.c, and that is what this measures.
     outside = [p for p in _grep_tree(repo, "BytesPerPeriod")
                if p.name != "output.c" and "outfile" not in p.parts]
@@ -83,7 +83,7 @@ def p_one_arithmetic_root(repo: Path, out_c: str) -> bool:
 
 
 def p_one_truncation_wrapper(repo: Path, out_c: str) -> bool:
-    """D-OUT4 acceptance: one wrapper, and no call site names a platform."""
+    """Acceptance: one wrapper, and no call site names a platform."""
     outside = [p for p in _grep_tree(repo, "F_TRUNC") if p.name != "output.c"]
     defs = re.findall(r"^\s*#define\s+F_TRUNC\(", out_c, re.M)
     raw = re.findall(r"\b(?:ftruncate|_chsize_s)\s*\(", out_c)
@@ -120,7 +120,7 @@ def p_truncation_is_flushed_first(out_c: str) -> bool:
 
 
 def p_prologue_is_compared_not_rewritten(out_c: str) -> bool:
-    """D-OUT1 / requirement 2: on a reopened file the prologue is compared and
+    """On a reopened file the prologue is compared and
     a disagreement is refused, rather than written over a payload the OLD
     prologue describes."""
     body = _func_body(out_c, "output_open")
@@ -326,16 +326,16 @@ def main(argv: list[str]) -> int:
     triton_h = (repo / "src" / "triton.h").read_text(errors="replace")
 
     # --- S: the live checks -------------------------------------------------
-    check("S1  the .out open is existence-keyed and carries both modes (D-OUT3)",
+    check("S1  the .out open is existence-keyed and carries both modes",
           p_open_is_existence_keyed(out_c), "output_openOutFile no longer chooses its mode")
     check("S2  the truncating open survives only under a NULL-handle guard",
           p_no_unconditional_truncating_open(out_c), "an unguarded w+b is back")
-    check("S3  the resume signal is file-local (D-OUT3 acceptance)",
+    check("S3  the resume signal is file-local",
           p_signal_is_file_local(repo), "OutputReopened is referenced outside output.c")
-    check("S4  the resume arithmetic has exactly one root (D-OUT2 acceptance)",
+    check("S4  the resume arithmetic has exactly one root",
           p_one_arithmetic_root(repo, out_c),
           "BytesPerPeriod escaped output.c, or the product is formed twice")
-    check("S5  one truncation wrapper, no platform named at a call site (D-OUT4)",
+    check("S5  one truncation wrapper, no platform named at a call site",
           p_one_truncation_wrapper(repo, out_c), "F_TRUNC escaped, or a raw primitive is called directly")
     check("S6  the close-time truncate is in output_end, after the trailer (req 8)",
           p_truncate_is_in_output_end(out_c), "absent, or placed before the trailer write")
@@ -344,7 +344,7 @@ def main(argv: list[str]) -> int:
           "a truncate at swmm_close would cut the file mid-record (error 435 for every reader)")
     check("S8  the truncation flushes first",
           p_truncation_is_flushed_first(out_c), "it would act on unflushed buffered bytes")
-    check("S9  the prologue is compared and refused, not rewritten (D-OUT1, req 2)",
+    check("S9  the prologue is compared and refused, not rewritten",
           p_prologue_is_compared_not_rewritten(out_c), "the comparison is gone")
     check("S10 positioning is on the restore path ONLY (chunk 3)",
           p_positioning_is_restore_path_only(swmm_h),
@@ -429,7 +429,7 @@ def main(argv: list[str]) -> int:
         for f in failures:
             print("FAIL: %s" % f)
         return 1
-    print("PASS: WP-1C's structural properties hold, and every check discriminates.")
+    print("PASS: the structural properties hold, and every check discriminates.")
     return 0
 
 

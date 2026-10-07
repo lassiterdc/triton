@@ -196,9 +196,10 @@ namespace SWMM_triton
 
 		// --- full-precision state snapshot (bounds the resume cost) ---------
 		//
-		// The replay above is exact but its cost grows with t_k: two production
-		// members exceeded a measured 11,107 s replay floor and were cancelled
-		// still replaying, with the GPU idle throughout because the device
+		// The replay above is exact but its cost grows with t_k: a long run was
+		// measured spending 11,107 s replaying before the resumed segment began
+		// any work, and was cancelled still replaying, with the GPU idle
+		// throughout because the device
 		// vectors are not created until after the replay returns. The snapshot
 		// makes the restore cost independent of t_k; the replay is RETAINED as
 		// the fallback for checkpoints written before a snapshot existed.
@@ -707,7 +708,7 @@ namespace SWMM_triton
 			// preserves one preserves the other.
 			//
 			// STEM SUPPRESSION. Leaving the stem EMPTY is the cfg-gated mechanism by
-			// which the re-run's replay-fallback arm FORCES the old route rather than
+			// which a caller FORCES the replay route rather than
 			// racing the retention collision for it. The empty stem takes
 			// classify_missing_snapshot's FOURTH EXIT, which fires BEFORE any directory
 			// scan runs, so the recorded reason is `absent` whatever the snapshot
@@ -740,7 +741,7 @@ namespace SWMM_triton
 			// NOT "withholding the snapshot", which is a DIFFERENT mechanism with a
 			// DIFFERENT recorded reason. Withholding while leaving the stem intact
 			// leaves the scan finding nothing and yields `pre-snapshot-checkpoint`,
-			// which lands on the other side of the re-run's acceptance; deleting at the
+			// which is a DIFFERENT value from the one this mechanism must yield; deleting at the
 			// resume id while a HIGHER one survives yields `retention-collision`, which
 			// is the value the acceptance requires to be zero. Those two are refused by
 			// name, not merely unused.
@@ -835,13 +836,13 @@ namespace SWMM_triton
 		if (rank_ != 0) return;
 		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/true);
 
-		// THE FOUR-FIELD RESUME-EVENT RECORD (WP-1C chunk 5), replay arm.
+		// THE FOUR-FIELD RESUME-EVENT RECORD, replay path.
 		//
 		// The four fields are the checkpoint id, the resume time, the path
 		// taken, and -- on this arm only -- the classified reason. The PATH is
 		// carried by WHICH marker fires: these two literals already discriminate
-		// snapshot from replay with zero ambiguity, and they are what the
-		// downstream consumer greps for, so the record is APPENDED to the
+		// snapshot from replay with zero ambiguity, and they are what a log
+		// reader greps for, so the record is APPENDED to the
 		// existing sentence rather than emitted as a separate line.
 		//
 		// The leading text through "to t=" and the numeric that follows it are
@@ -1041,19 +1042,21 @@ namespace SWMM_triton
 		// per-checkpoint snapshot survives for the life of the run. What that buys
 		// is not a correctness fix -- keep-2 is correct and its fallback is correct
 		// -- it is ROUTE UNIFORMITY. Under keep-2 whether the snapshot a resume
-		// wants still exists depends on how far that member's series advanced before
-		// the interruption fired, which is a wall-clock property: a 30-member arm at
-		// this pin split 22 snapshot / 8 replay with every member resuming at the
-		// SAME checkpoint id, and four configurations split between their own two
-		// repeats. Setting the key removes that variable from a cross-experiment
-		// comparison. The cost is bounded and measured: one snapshot is ~13 KiB, so
-		// a 144-checkpoint member holds ~2 MiB and a 30-member arm ~59 MiB.
+		// wants still exists depends on how far the run advanced before the
+		// interruption fell, which is a wall-clock property: measured at this pin
+		// over 30 runs that all resumed at the SAME checkpoint id, the split was
+		// 22 snapshot / 8 replay, and four configurations split between their own
+		// two repeats on identical inputs -- so the route is not even a function
+		// of the configuration. Setting the key removes that variable when one run
+		// is compared against another. The cost is bounded and measured: one
+		// snapshot is ~13 KiB, so a 144-checkpoint run holds ~2 MiB and 30 such
+		// runs ~59 MiB.
 		//
 		// The comment above is therefore no longer the whole retention story, and
 		// that is why it was rewritten rather than left: `two is enough for the
-		// resume that is about to happen` is true of the resume and false of the
-		// EXPERIMENT, which needs one nominated checkpoint to survive on every
-		// member regardless of when each member was interrupted.
+		// resume that is about to happen` is true of a single resume and false
+		// whenever a NOMINATED checkpoint must survive on every run regardless of
+		// when each run was interrupted.
 		if (!snapshot_keep_all && checkpoint_id >= 2)
 		{
 			std::error_code ec;
@@ -1074,8 +1077,8 @@ namespace SWMM_triton
 	//                            pruned the one this resume wanted. That is the
 	//                            measured collision: write_state_snapshot keeps
 	//                            2 against the highest index WRITTEN while the
-	//                            toolkit rewinds the resume index to a fixed
-	//                            LOWER one afterwards.
+	//                            resume is subsequently launched from a fixed
+	//                            LOWER checkpoint id.
 	//   absent                   snapshots exist but none above this id -- the
 	//                            write for this checkpoint did not land.
 	const char* swmm_triton::classify_missing_snapshot(int checkpoint_id) const
@@ -1128,10 +1131,10 @@ namespace SWMM_triton
 		// acceptance reads.
 		//
 		// The snapshot_path_stem refusal below is NOT defensive. An empty stem is
-		// the INTENDED and cfg-arming-visible route by which the re-run's
-		// replay-fallback arm forces this function to decline: init_swmm leaves the
-		// stem empty when swmm_snapshot_disable is set, so this return is reached on
-		// purpose, by configuration, on every resume of such a member. Reaching it
+		// the INTENDED and cfg-visible route by which a caller forces this
+		// function to decline: init_swmm leaves the stem empty when
+		// swmm_snapshot_disable is set, so this return is reached on
+		// purpose, by configuration, on every resume of such a run. Reaching it
 		// is not a sign of a defect and must not be read as one.
 		if (rank_ != 0) return SnapshotRestore::Absent;
 		if (snapshot_path_stem.empty()) return SnapshotRestore::Absent;
@@ -1147,8 +1150,8 @@ namespace SWMM_triton
 			// ABSENT snapshot is legitimate and degrades to the replay. Anything
 			// else means the file was written by a different build or is
 			// corrupt, and falling back there would produce correct numbers
-			// slowly while HIDING a real defect -- the campaign has already paid
-			// for one hidden defect of exactly that shape.
+			// slowly while HIDING a real defect, which is exactly the failure
+			// mode this change exists to remove.
 			if (rc == SNAPSHOT_ABSENT)
 			{
 				std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"

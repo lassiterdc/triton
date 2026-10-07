@@ -328,7 +328,7 @@ void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
 // is a singleton that always exists, so this accessor cannot fail.
 void    dynwave_getVariableStepRef(double** variableStep);                //TRITON
 
-// THE GRADUATED REFUSAL CODE (WP-1C chunk 4).
+// THE GRADUATED REFUSAL CODE.
 //
 // snapshot_load returned a uniform 1 for every one of its eleven refusal
 // sites, distinguishing them only in the errMsg buffer -- and a message a
@@ -362,14 +362,14 @@ int     snapshot_load(const char* path, char* errMsg, int errMsgLen);     //TRIT
 // traversal that writes the payload, so it cannot describe a different set.
 char*   snapshot_buildManifest(long* nFields);                            //TRITON
 
-// Flushes the binary output file (WP-1C requirement 4). Called from the
+// Flushes the binary output file. Called from the
 // coupled checkpoint path immediately BEFORE the state snapshot is written, so
 // the period count the snapshot carries is a claim about bytes that are on
 // disk rather than about bytes still in a stdio buffer. Declared here rather
 // than beside the other output_* entry points because the caller is C++.
 void    output_flush(void);                                               //TRITON
 
-// Positions the binary output file for a resumed segment (WP-1C chunk 3), and
+// Positions the binary output file for a resumed segment, and
 // refuses when the restored period count exceeds the complete periods the file
 // actually holds. RESTORE PATH ONLY -- the replay fallback restores no period
 // count, so the arithmetic has no operand there and needs none.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Structural guards for the SWMM timer column split (WP-1A).
+"""Structural guards for the SWMM timer column split.
 
 WHAT THIS FALSIFIES
 -------------------

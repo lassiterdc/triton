@@ -59,22 +59,23 @@ namespace ConfigUtils
 		/// STEM SUPPRESSION. When true, init_swmm leaves snapshot_path_stem EMPTY,
 		/// which takes classify_missing_snapshot's FOURTH EXIT -- the one that fires
 		/// BEFORE any directory scan -- and yields the recorded reason `absent`. This
-		/// is the mechanism by which the re-run's replay-fallback arm FORCES the old
-		/// route deterministically instead of racing the retention collision for it.
+		/// is the mechanism by which a caller FORCES the replay route deterministically,
+		/// instead of depending on whether the snapshot for the resumed checkpoint
+		/// happens to have survived retention.
 		///
 		/// The TYPE is bool and the READ is argsd(..., "0"), which composes the two
 		/// existing house forms rather than inventing a third: bool from the flag
 		/// group (time_series_flag, gpu_direct_flag) and the additive default from
 		/// the argsd group (checkpoint_id, it_count). Additive is REQUIRED -- every
-		/// cfg omitting this key must stay byte-equivalent, because the arm this
-		/// gates exists to leave the baseline measurement unperturbed.
+		/// cfg omitting this key must stay byte-equivalent, so a run that does not set
+		/// it behaves exactly as it did before the key existed.
 		///
-		/// THE SPELLING IS LOAD-BEARING OUTSIDE THIS TREE. Arm membership for the
-		/// re-run is established `iff that member's own config_{k}.cfg carries
-		/// swmm_snapshot_disable=1` -- a property of the artifact the resume read,
-		/// carried there verbatim by output_cfg's unknown-key passthrough. Renaming
-		/// this key without renaming that predicate in the same change silently
-		/// unassigns every member from its arm, with no compile error anywhere.
+		/// THE KEY SELF-PROPAGATES ACROSS A RESUME. output_cfg seeds each
+		/// config_{k}.cfg from the verbatim parent cfg and rewrites only a closed
+		/// four-key set, copying every key it does not recognise -- so a run that
+		/// sets this key keeps it set through every subsequent hotstart resume
+		/// without the operator re-supplying it. A resumed run's route is therefore
+		/// fixed by the cfg the original run was launched from.
 		bool
 		swmm_snapshot_disable;
 
@@ -85,14 +86,14 @@ namespace ConfigUtils
 		/// WHY A CFG KEY RATHER THAN A NEW DEFAULT. keep-2 is the settled default and
 		/// is NOT changed by this key. What keep-2 costs is that the ROUTE a resume
 		/// takes is wall-clock-dependent: whether the snapshot for the resumed
-		/// checkpoint still exists depends on how far that member's series advanced
-		/// before the interruption fired. Measured on a 30-member arm at this pin,
-		/// every member resuming at checkpoint 108, the split was 22 snapshot / 8
-		/// replay, with four configurations splitting between their own two repeats on
-		/// identical inputs. Both routes are CORRECT -- the 8 were classified
-		/// `retention-collision` and fell back as designed. The key exists so an
-		/// experiment can ELECT uniform route coverage and remove that variable from a
-		/// cross-experiment comparison.
+		/// checkpoint still exists depends on how far the run advanced before the
+		/// interruption fell. Measured at this pin over 30 runs that all resumed at
+		/// checkpoint 108, the split was 22 snapshot / 8 replay -- and four
+		/// configurations split between their own two repeats on identical inputs, so
+		/// the route is not even a function of the configuration. Both routes are
+		/// CORRECT; the 8 were classified `retention-collision` and fell back as
+		/// designed. The key exists so a caller can ELECT uniform route coverage and
+		/// remove that variable when comparing one run against another.
 		///
 		/// The TYPE and the READ mirror swmm_snapshot_disable exactly: bool from the
 		/// flag group, argsd(..., "0") from the additive group. Additive is REQUIRED --

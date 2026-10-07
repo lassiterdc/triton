@@ -35,13 +35,13 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
-# Slow-tier inventory-regeneration check (WP-1B). Registered unconditionally:
+# Slow-tier inventory-regeneration check. Registered unconditionally:
 # it reads the vendored EPA source with Python and links nothing, so it is
 # meaningful in a non-coupled configuration too -- the inventory describes the
 # source tree, not the built binary.
 add_subdirectory(inventory)
 
-# Tier-1 runtime tests for the SWMM timer column split (WP-1A). Registered
+# Tier-1 runtime tests for the SWMM timer column split. Registered
 # UNCONDITIONALLY: they include only supertimer.h and output.h, and the four new
 # columns are emitted in EVERY configuration -- get_custom_time REGISTERS an
 # absent category and returns 0.0, so the identity must close in a non-coupled
@@ -107,7 +107,7 @@ add_test(
 # `grep -c` for it over this file is how a reader establishes that no node
 # carries one, and a mention in prose would answer 1 where the true count of
 # set properties is 0.) A red at this node is a regression in one of those two
-# artifacts, not a known-open item. It was registered red by the WP-1A review,
+# artifacts, not a known-open item. It was registered red by review,
 # when neither artifact carried the
 # assertion and the node was the review's way of leaving the gap visible; both
 # were subsequently repaired and the node passes. That history is recorded
@@ -134,12 +134,12 @@ add_test(
 # it is DOCUMENTED NOT to catch, so the guard's blind-spot list and the guard's
 # behaviour cannot drift apart in either direction.  A guard with no guard of
 # its own can be weakened by a later edit and stay green, which is the condition
-# this package was dispatched to repair -- and an unregistered guard is the same
+# this change set repairs -- and an unregistered guard is the same
 # defect wearing a different hat, which is why all three are registered here
 # rather than left to be run by hand.
-# WP-1C: the structural half of full-window .out continuity.
+# The structural half of full-window .out continuity.
 #
-# Three of WP-1C's properties cannot be EXECUTED without an open model --
+# Three of its properties cannot be EXECUTED without an open model --
 # output_openOutFile has internal linkage, and the prologue comparison and the
 # positioning arithmetic both read file-scope statics that only output_open
 # sets. Their behavioural arms live in UNIT-SNAPSHOT-* and in Tier 2; the
@@ -156,7 +156,7 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
-# WP-1C: the C/C++ LINKAGE BOUNDARY of funcs.h -- the gate the package's own
+# The C/C++ LINKAGE BOUNDARY of funcs.h -- the gate the package's own
 # commit message named as the one it could not close ("cannot close extern
 # "C" signature drift"), and the blind spot run_syntax_check.py's docstring already
 # points at. Registered here so the class is held going forward rather than
@@ -191,7 +191,7 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
-# WP-1C chunk (8): the cfg-gated STEM SUPPRESSION mechanism, by which
+# The cfg-gated STEM SUPPRESSION mechanism, by which
 # `swmm_snapshot_disable=1` leaves snapshot_path_stem EMPTY and so forces the
 # replay fallback deterministically instead of racing the retention collision
 # for it.
@@ -211,9 +211,9 @@ add_test(
 # classifying on a fresh object answers through undefined behaviour. Three
 # seams would have closed that -- a friend declaration, a test-only setter,
 # `#define private public` -- and none was taken, because each buys a Tier-1
-# green with permanent production surface for a property the design already
-# routes to the venue. THE BEHAVIOURAL TWO-ARM DIFFERENTIAL IS OWED AT THE
-# VENUE and is not discharged here; the file's final line says so on every run.
+# green with permanent production surface for a property that only a compiled
+# run can settle. THE BEHAVIOURAL TWO-ARM DIFFERENTIAL NEEDS A COMPILED COUPLED
+# SOLVER and is not discharged here; the file's final line says so on every run.
 #
 # Its four L0* vacuity guards and its nine two-state probes are what make a
 # green mean something. Each S* check is paired with an X* that mutates the
@@ -235,8 +235,8 @@ add_test(
 # carry CRLF, so a probe mutation written with a bare "\n" matched nothing and
 # str.replace no-opped silently. (2) S1's `bool ... KEY` predicate matched the
 # declaration's own DOC COMMENT, which names both the type and the key in prose
-# with no intervening `;` -- the walker-reads-comments-as-code class this
-# campaign has already paid for once. The predicates now strip comments; S8,
+# with no intervening `;` -- the walker-reads-comments-as-code class this work
+# has already paid for once. The predicates now strip comments; S8,
 # which deliberately reads a comment, is exempt by construction.
 add_test(
     NAME SOURCE-SNAPSHOT-STEM-SUPPRESSION
@@ -252,12 +252,12 @@ add_test(
 # WHAT IT IS FOR, because a reader will otherwise look for the bug it fixes and
 # find none. There is no bug: keep-2 is correct and its replay fallback is
 # correct. What keep-2 costs is that WHICH ROUTE a resume takes is a WALL-CLOCK
-# property -- whether the wanted snapshot survived depends on how far that
-# member's series advanced before the interruption fired. Measured on a
-# 30-member arm, every member resuming at checkpoint 108: 22 snapshot / 8
-# replay, with four configurations splitting between their own two repeats on
-# identical inputs. The key lets an experiment ELECT uniform route coverage so a
-# cross-experiment comparison carries one fewer per-member variable.
+# property -- whether the wanted snapshot survived depends on how far the run
+# advanced before the interruption fell. Measured over 30 runs that all resumed
+# at checkpoint 108: 22 snapshot / 8 replay, with four configurations splitting
+# between their own two repeats on identical inputs, so the route is not even a
+# function of the configuration. The key lets a caller ELECT uniform route
+# coverage, removing that variable when one run is compared against another.
 #
 # Registered UNCONDITIONALLY, like the other SOURCE-* nodes: pure Python over
 # src/, no build, no link, no GPU, no solver run.
@@ -274,7 +274,7 @@ add_test(
 # stem-suppression node, a compiled test can call the function and cannot
 # ARRANGE it. No friend declaration, test-only setter, or `#define private
 # public` was added, for the reason that node already records. THE BEHAVIOURAL
-# TWO-ARM DIFFERENTIAL IS OWED AT THE VENUE; the file's final line says so on
+# TWO-ARM DIFFERENTIAL NEEDS A COMPILED COUPLED SOLVER; the file's final line says so on
 # every run.
 #
 # WHAT A GREEN DOES CARRY, beyond the source properties: a truth-table

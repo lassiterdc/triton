@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Criterion-P assertions over the snapshot field inventory (WP-1B chunk 9).
+"""Criterion-P assertions over the snapshot field inventory.
 
 WHY THIS EXISTS
 ---------------
-``WP-1B``'s acceptance gate failed because the snapshot captured report
+An earlier acceptance gate failed because the snapshot captured report
 accumulators and NO live routing state: §4.6.1 carried one criterion and it was
 the report criterion, and the implementation followed the criterion it was
 given.  Criterion P is the routing criterion, and this file holds the
@@ -33,7 +33,7 @@ plausibly in the artifact, and is wrong:
   P5  the walk is UNRESTRICTED: it reaches the first-hop units the retired
       nine-unit list omitted.
   P6  the declared prologue order is the order the source executes.
-  P7  the D-R6 TFile enumeration is TYPE-keyed and returns both declaration
+  P7  the TFILE-TRIAGE TFile enumeration is TYPE-keyed and returns both declaration
       sites, admitted set empty, nothing untriaged.
   P8  struct_fields returns all twenty TConduit fields (the multi-declarator
       repair) and split_functions recovers a definition whose header carries a
@@ -278,7 +278,7 @@ def main(argv) -> int:
         "declared %s, reached %s" % (R.ROUTING_PROLOGUE, seen),
     )
 
-    # --- P7: D-R6 ------------------------------------------------------------
+    # --- P7: TFILE-TRIAGE ------------------------------------------------------------
     handles = R._tfile_handles(globals_h, objects_h)
     names = [n for n, _ in handles]
     sites = {s for _, s in handles}
@@ -293,12 +293,13 @@ def main(argv) -> int:
           all(n in R.TFILE_ADMITTED or n in R.TFILE_EXCLUDED for n in names),
           "untriaged: %s" % [n for n in names
                              if n not in R.TFILE_ADMITTED and n not in R.TFILE_EXCLUDED])
-    # P7e WAS "the admitted set is EMPTY (a passing result)", and WP-1C chunk
-    # (1) supersedes it by flipping Fout to ADMITTED. The old wording came from
-    # the D-R6 pass's own note that an empty admitted set is a PASSING result
-    # -- which said that emptiness was ACCEPTABLE at WP-1B, not that it was
+    # P7e WAS "the admitted set is EMPTY (a passing result)", and the output-
+    # continuity work supersedes it by flipping Fout to ADMITTED. The old
+    # wording came from
+    # the TFILE-TRIAGE pass's own note that an empty admitted set is a PASSING result
+    # -- which said that emptiness was ACCEPTABLE then, not that it was
     # REQUIRED forever. Read as a permanent invariant it would forbid the
-    # approved design.
+    # design above.
     #
     # It is REPLACED rather than removed, and by a STRICTLY STRONGER pair. The
     # old check constrained the set's SIZE; these two constrain its MEMBERSHIP
@@ -306,11 +307,11 @@ def main(argv) -> int:
     # in a way that captures a stream position now fail. A test edited to let a
     # fix through is the one failure a downstream gate cannot see, so this
     # edit's whole defence is that it rejects more than what it replaces.
-    check("P7e the admitted set is exactly {Fout} (WP-1C chunk 1)",
+    check("P7e the admitted set is exactly {Fout}",
           set(R.TFILE_ADMITTED) == {"Fout"},
           "admitted=%s -- expected exactly ['Fout']" % sorted(R.TFILE_ADMITTED))
 
-    # P7f is NEW and has no predecessor. Admitting a D-R6 handle must not turn
+    # P7f is NEW and has no predecessor. Admitting a TFILE-TRIAGE handle must not turn
     # a stream POSITION into a captured quantity: the snapshot carries the
     # period COUNT on the scalar axis, and output.c RE-DERIVES the position
     # from it plus two statics it recomputes at open. The falsifier is a
@@ -321,13 +322,13 @@ def main(argv) -> int:
     _snap_c7 = (solver / "snapshot.c").read_text(errors="replace")
     _emitted7 = set(_re7.findall(
         r'snap_name\(\s*c\s*,\s*"([A-Za-z_][A-Za-z0-9_.]*)"\s*,', _snap_c7))
-    check("P7f0 the D-R6 emit scan found a non-empty set",
+    check("P7f0 the TFILE-TRIAGE emit scan found a non-empty set",
           bool(_emitted7),
           "zero matches -- the scan regex no longer matches the emit form, so "
           "P7f below would pass vacuously")
-    check("P7f no ADMITTED D-R6 handle contributes a serialized field",
+    check("P7f no ADMITTED TFILE-TRIAGE handle contributes a serialized field",
           not (set(R.TFILE_ADMITTED) & _emitted7),
-          "the serializer emits a field for handle(s) %s -- a D-R6 admission "
+          "the serializer emits a field for handle(s) %s -- a TFILE-TRIAGE admission "
           "must be carried by the scalar-axis period count, never by a "
           "captured stream offset"
           % sorted(set(R.TFILE_ADMITTED) & _emitted7))
@@ -385,7 +386,7 @@ def main(argv) -> int:
         if line.startswith("#"):
             if not sec_p and "CRITERION P" in line:
                 sec_p = True
-            elif sec_p and "D-R6 --" in line:
+            elif sec_p and "TFILE-TRIAGE --" in line:
                 break
             continue
         col = line.split("\t")

@@ -1,13 +1,13 @@
 /** @file test_perf_identity.cpp
- *  @brief Runtime construction check for the SWMM timer column split (WP-1A
- *         chunk 4): XFER + MPI + STEP + OTHER == SWMM on every emitted per-rank
+ *  @brief Runtime construction check for the SWMM timer column split:
+ *         XFER + MPI + STEP + OTHER == SWMM on every emitted per-rank
  *         row, and SWMM_STEP is EXACTLY 0.0 on every rank that is not rank 0.
  *
  *  No solver run, no cluster, no SWMM call, no GPU.  These drive the REAL
  *  `SuperTimer::super_timer` and the REAL `Output::output<T>::write_times`, then
  *  parse the file write_times actually emitted.  That matters: a test that
  *  re-implemented the arithmetic would agree with itself no matter what
- *  write_times did, and the whole defect this package repairs is a number that
+ *  write_times did, and the whole defect this change repairs is a number that
  *  looked right and measured the wrong span.
  *
  *  THE TIMER PATTERN UNDER TEST is the one triton.h performs, reproduced here in
@@ -63,8 +63,8 @@
 //   "mpi_utils.h" -- output.h declares write_domain_decomposition taking a
 //                    MpiUtils::partition_data_t without including it.
 // This prefix reproduces main.cpp's include chain so those gaps stay OUT of this
-// test's scope: none of supertimer.h, matrix.h or their include sites is WP-1A's
-// to edit, and they are reported as findings instead. The same shape and the
+// test's scope: none of supertimer.h, matrix.h or their include sites is this
+// change's to edit, and they are reported as findings instead. The same shape and the
 // same rationale appear at the head of test/unit/test_exchange_log_header.cpp.
 #include <iostream>
 #include <fstream>
@@ -507,7 +507,7 @@ static void P6_parent_equals_an_unsplit_measurement()
     std::fprintf(stderr, "  rank %d: unsplit SWMM=%.6g split SWMM=%.6g rel=%.4f\n",
                  g_rank, unsplit, split, rel);
     // 10 %: generous against scheduler jitter on a shared login node, and still
-    // two orders of magnitude tighter than the defect this package repairs,
+    // two orders of magnitude tighter than the defect this change repairs,
     // where the SWMM column absorbed a whole timestep of GPU work.
     CHECK(rel < 0.10,
           "adding the inner brackets must not move the parent's reading beyond "

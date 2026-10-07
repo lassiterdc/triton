@@ -8,9 +8,8 @@ WHAT THIS MECHANISM IS.  ``swmm_snapshot_disable=1`` leaves
 ``swmm_triton::init_swmm``.  An empty stem takes
 ``classify_missing_snapshot``'s FOURTH EXIT -- the one that fires BEFORE any
 directory scan -- so the recorded resume reason is ``absent`` whatever the
-snapshot directory holds.  That is how the re-run's replay-fallback arm forces
-the OLD route deterministically instead of racing the retention collision for
-it.
+snapshot directory holds.  That is how a caller forces the replay route
+deterministically instead of racing the retention collision for it.
 
 WHY THIS TIER IS STRUCTURAL RATHER THAN BEHAVIOURAL, stated plainly because it
 is this file's one real limitation.  ``classify_missing_snapshot``,
@@ -27,10 +26,10 @@ not an arrangement and is not used here.
 THREE SEAMS WERE AVAILABLE AND NONE WAS TAKEN: a ``friend`` declaration for the
 test, a test-only public setter, and ``#define private public`` before the
 include.  Each adds permanent production surface, or UB, for a test.  The
-behavioural two-arm differential is discharged at the admissible venue on a real
-resumed coupled member, not here.  **Do not read a green run of this file as
+behavioural two-arm differential needs a compiled coupled solver and a real
+resumed run, not this file.  **Do not read a green run of this file as
 behavioural coverage of the route.**  It covers the SOURCE properties that make
-the route exist; the venue covers the route.
+the route exist; only a compiled run covers the route itself.
 
 EVERY CHECK CARRIES A DEFECT PROBE, and every probe is TWO-STATE.  A structural
 check reads source text, so the way it fails is by silently matching nothing.
@@ -205,8 +204,8 @@ def p_fourth_exit_precedes_the_directory_scan(swmm_h: str) -> bool:
     reason cannot be perturbed by whatever snapshots happen to survive
     retention.  Move the exit below the scan and an empty stem would reach
     `directory_iterator("")`, set the error code, leave `any` false and yield
-    `pre-snapshot-checkpoint` -- a DIFFERENT recorded value, on the other side
-    of the re-run's acceptance.
+    `pre-snapshot-checkpoint` -- a DIFFERENT recorded value from the one this
+    mechanism must yield.
     """
     body = _classify_body(_code(swmm_h))
     if not body:
@@ -532,9 +531,9 @@ def main(argv: list[str]) -> int:
     print("PASS: stem suppression's source properties hold, and every check "
           "discriminates.")
     print("NOTE: this is STRUCTURAL coverage. The behavioural two-arm "
-          "differential -- a resumed coupled member recording `absent` with "
+          "differential -- a resumed coupled run recording `absent` with "
           "the key set, and `retention-collision` without it under a "
-          "higher-id snapshot -- is owed at the venue and is NOT discharged "
+          "higher-id snapshot -- needs a compiled solver and is NOT discharged "
           "by a green here.")
     return 0
 

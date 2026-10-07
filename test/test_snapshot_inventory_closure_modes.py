@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard-of-the-guard for Criterion P's closure check (WP-1B chunk 9).
+"""Guard-of-the-guard for Criterion P's closure check.
 
 WHY THIS EXISTS
 ---------------
@@ -306,7 +306,7 @@ BLIND = {
     # Node.oldVolume, Conduit.a2/q1Old/q2Old and Xnode.converged, while the
     # Criterion-R half stays at 172 pairs and the run exits 0.
     "M8 split_functions rejects a trailing line comment": (m8, "Subcatch\tnewRunoff\t"),
-    # ReportTime is the sentinel because Sec 4.6.3 names it as one of the three
+    # ReportTime is the sentinel because it is one of the three
     # fields (with BetweenEvents and VariableStep) that widening the boundary to
     # swmm_step is SUPPOSED to make visible, and it is referenced nowhere in the
     # four-root routing closure -- so it is reachable through the scalar basis

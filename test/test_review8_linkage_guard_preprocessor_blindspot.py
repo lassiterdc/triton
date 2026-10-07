@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""REVIEW ARTIFACT (structural reviewer, WP-1C repair round 8) -- a
+"""REVIEW ARTIFACT (structural reviewer) -- a
 CHARACTERIZED LIMITATION of test_review_c_linkage_boundary.py, expressed as a
 failing test rather than as prose.
 

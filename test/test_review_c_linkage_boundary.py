@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""REVIEW ARTIFACT (structural reviewer, WP-1C round 7) -- the C/C++ linkage
+"""REVIEW ARTIFACT (structural reviewer) -- the C/C++ linkage
 boundary of funcs.h.
 
 Usage:  test_review_c_linkage_boundary.py <repo-root>
@@ -11,7 +11,7 @@ the tail.  Every declaration OUTSIDE that window acquires C++ LANGUAGE LINKAGE
 in any C++ translation unit that includes the header.
 
 THE OUTSIDE SET IS BOTH SIDES OF THE BLOCK, and saying "above" understates it
-by half.  Measured at the WP-1C commit: the window is lines 298-393, and of
+by half.  Measured at this commit: the window is lines 298-393, and of
 324 declarations 11 are inside, 150 are ABOVE and 163 are BELOW -- so the tail
 (the ``stats_*`` / ``gage_*`` / ``subcatch_*`` families) is exposed on exactly
 the same terms as the head.  The code below has always partitioned by span
@@ -22,7 +22,7 @@ emits a MANGLED reference against an UNMANGLED definition and fails at LINK.
 
 ``-fsyntax-only`` cannot see this.  The declaration is visible and well formed;
 only the link exposes the mismatch.  That is exactly the ``extern "C"``
-signature/linkage drift the WP-1C commit message names as the gate it could not
+signature/linkage drift that -fsyntax-only is named as unable to
 close, so the property is asserted here in the no-compile tier instead.
 
 THE CHECK QUANTIFIES OVER A CLASS, not over one symbol: every funcs.h-declared

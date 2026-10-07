@@ -1,4 +1,4 @@
-# Tier-1 unit tests for the coupled-resume state snapshot (WP-1B).
+# Tier-1 unit tests for the coupled-resume state snapshot.
 #
 # No solver run, no cluster, no simulation. They include swmm_triton.h and call
 # snapshot.c's C entry points directly, so they build only in a coupled
@@ -25,7 +25,7 @@ set(TRITON_SNAPSHOT_TESTS
   T6_manifest_covers_committed_inventory
   T7_sizeof_guard_boundary_is_documented
   T8_single_writer_is_structural
-  # WP-1C -- full-window .out continuity. One node per property, as above.
+  # Full-window .out continuity. One node per property, as above.
   T3d_nperiods_roundtrips_bit_exactly
   T12_resume_refuses_more_periods_than_the_file_holds
   T13_snapshot_load_return_is_graduated

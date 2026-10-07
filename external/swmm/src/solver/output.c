@@ -36,7 +36,7 @@
   #include <io.h>
   #define F_OFF __int64
   #define F_SEEK _fseeki64
-  // D-OUT4 (TRITON): the truncation primitive requirement 8 needs and that the
+  // TRITON: the truncation primitive the close-time truncate needs and that the
   // vendored tree did not carry. It lives in THIS block because it is the same
   // class of call the block already exists for -- Windows and POSIX diverge on
   // the file-positioning layer -- and it is declared once here so no call site
@@ -87,17 +87,17 @@ static INT4      NumNodes;             // number of nodes reported on
 static INT4      NumLinks;             // number of links reported on
 static INT4      NumPolluts;           // number of pollutants reported on
 
-// D-OUT3 (TRITON): how output_openOutFile learns that this exec is continuing
+// TRITON: how output_openOutFile learns that this exec is continuing
 // an existing .out. The signal is EXISTENCE-KEYED and is therefore set by
 // output_openOutFile itself from Fout.name -- nothing outside this file sets
 // it, nothing outside this file reads it, and no new EPA entry point is added
-// for it (that fourth vendored addition is what D-OUT3 rules out).
+// for it (avoiding a fourth vendored addition to the EPA entry-point set).
 //
 // It discriminates file-present from file-absent rather than resume from
 // clean, and the two places that matters are both closed here rather than
 // argued away: a WRONG-MODEL file is refused by the prologue comparison below
-// (D-OUT1), and a STALE TAIL from a longer previous exec is removed by the
-// close-time truncate in output_end (requirement 8). A clean re-run into a
+// (see output_comparePrologue), and a STALE TAIL from a longer previous exec
+// is removed by the close-time truncate in output_end. A clean re-run into a
 // dirty tree therefore lands on a correct file rather than on a plausible one.
 static int       OutputReopened;       // 1 when the .out was opened non-truncating
 
@@ -164,7 +164,7 @@ int output_open()
     REAL4 x;
     REAL8 z;
     F_OFF numResults;
-    FILE* realFout = NULL;              //TRITON (D-OUT1) see the diversion below
+    FILE* realFout = NULL;              //TRITON: see the prologue diversion below
 
     // --- open binary output file
     output_openOutFile();
@@ -222,7 +222,7 @@ int output_open()
         return ErrorCode;
     }
 
-    // --- TRITON (D-OUT1, requirement 2): on a reopened file the prologue is
+    // --- TRITON: on a reopened file the prologue is
     //     COMPARED rather than rewritten, and a disagreement is refused loudly
     //     instead of being written over a payload the old prologue describes.
     //
@@ -238,7 +238,7 @@ int output_open()
     //     A rewrite-in-place alternative was available and is refused: it is
     //     idempotent ONLY while the model is unchanged, and against an .out
     //     written from a different .inp it writes a NEW prologue over a payload
-    //     the OLD one describes -- a silently corrupt file where D-OUT1's
+    //     the OLD one describes -- a silently corrupt file where the prologue
     //     acceptance criterion requires a loud refusal.
     if ( OutputReopened )
     {
@@ -463,7 +463,7 @@ int output_open()
     }
     OutputStartPos = ftell(Fout.file);
 
-    // --- TRITON (D-OUT1): compare, then adopt. On a match NOTHING is written
+    // --- TRITON: compare, then adopt. On a match NOTHING is written
     //     to the real file -- requirement 1's "no byte below the retained
     //     prefix is rewritten with a different value" is satisfied by writing
     //     no byte at all -- and the stream is simply positioned where a clean
@@ -540,13 +540,14 @@ void output_openOutFile()
 
     // --- try to open the file
     //
-    //     TRITON (WP-1C requirement 1): "w+b" TRUNCATES, and on a resume that
-    //     discards periods 1..t_k that no resumed process ever re-writes --
-    //     which is the whole defect this package exists to close, because the
-    //     toolkit derives its *_max summary columns from the .out timeseries
-    //     and a missing prefix is a MISSING INPUT rather than a bad reduction.
+    //     TRITON: "w+b" TRUNCATES, and on a resume that discards periods
+    //     1..t_k that no resumed process ever re-writes -- which is the whole
+    //     defect this change exists to close. report.c rebuilds the .rpt
+    //     detail tables and the node{N}.out family by reading those periods
+    //     back, so any consumer that reduces over the series reads a MISSING
+    //     INPUT rather than computing a bad reduction.
     //
-    //     The mode is keyed on the file EXISTING (D-OUT3): "r+b" preserves the
+    //     The mode is keyed on the file EXISTING: "r+b" preserves the
     //     bytes and "w+b" creates. "r+b" cannot create, which is precisely why
     //     the existence test is the condition rather than a separate flag.
     {
@@ -639,12 +640,12 @@ void output_saveResults(double reportTime)
 //=============================================================================
 
 //=============================================================================
-//  TRITON (WP-1C) -- the .out continuity helpers.
+//  TRITON -- the .out continuity helpers.
 //
 //  THE ARITHMETIC HAS EXACTLY ONE ROOT. output_payloadEndPos() is the only
 //  place OutputStartPos and BytesPerPeriod are multiplied out for a resume or
 //  a truncation, and both statics stay file-scope: a grep for BytesPerPeriod
-//  outside this file returns nothing (D-OUT2's acceptance criterion). What
+//  outside this file returns nothing. What
 //  crosses the module boundary is the OPERATION, never the operands.
 //=============================================================================
 
@@ -686,7 +687,7 @@ static int output_comparePrologue(FILE* scratch, FILE* real, F_OFF prologueLen)
 //           real        = the existing output file
 //           prologueLen = length of the prologue in bytes
 //  Output:  0 when the two agree byte-for-byte, 1 otherwise.
-//  Purpose: D-OUT1 -- proves the existing file describes the same model before
+//  Purpose: proves the existing file describes the same model before
 //           this run appends to it.
 //
 //  A real file SHORTER than the prologue is a mismatch: it cannot be carrying
@@ -716,7 +717,7 @@ static int output_comparePrologue(FILE* scratch, FILE* real, F_OFF prologueLen)
 
 void output_flush(void)
 //
-//  Purpose: flushes the binary output file (TRITON, WP-1C requirement 4).
+//  Purpose: flushes the binary output file (TRITON).
 //
 //  Called from the coupled checkpoint path immediately before the state
 //  snapshot is written, so that the period count the snapshot carries is a
@@ -738,7 +739,7 @@ int output_positionForResume(char* errMsg, int errMsgLen)
 //  Input:   errMsg/errMsgLen = buffer receiving a refusal reason
 //  Output:  0 when the stream is positioned for the resumed segment,
 //           non-zero when the file cannot support the restored period count.
-//  Purpose: WP-1C chunk (3) -- position the .out so the resumed run's first
+//  Purpose: position the .out so the resumed run's first
 //           period lands at the offset a clean run would have used, and drop
 //           any partial or stale record beyond it.
 //
@@ -749,8 +750,8 @@ int output_positionForResume(char* errMsg, int errMsgLen)
 //
 //  Why the seek is derived from the RESTORED COUNT rather than from the file's
 //  length: a resume may restart from a checkpoint EARLIER than the previous
-//  exec's kill point, because the toolkit rewinds the resume index
-//  deliberately. The file's length is an upper bound on the correct position,
+//  exec's kill point, because a caller may deliberately resume from an
+//  earlier id. The file's length is an upper bound on the correct position,
 //  never the position. Deriving from the count also makes a torn final record
 //  harmless -- the seek lands at or before it and the truncation drops it.
 //
@@ -841,7 +842,7 @@ void output_end()
         return;
     }
 
-    // --- TRITON (WP-1C chunk 7, requirement 8): impose the final length, so
+    // --- TRITON: impose the final length, so
     //     the six-INT4 trailer just written is the LAST thing in the file.
     //
     //     BRANCH-INDEPENDENT AND OPERAND-FREE. It applies identically on the

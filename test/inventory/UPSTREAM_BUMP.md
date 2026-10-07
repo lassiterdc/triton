@@ -96,7 +96,7 @@ are different ones:
    committed declaration a reader can check, rather than a recomputation that
    verifies itself.
 
-6. **A `D-R6` handle reads `UNTRIAGED`.** Upstream added a `TFile`. The
+6. **A `TFILE-TRIAGE` handle reads `UNTRIAGED`.** Upstream added a `TFile`. The
    enumeration is keyed on the TYPE and not on a declaration site, so it found
    the new handle automatically; supply its row. An EMPTY admitted set is a
    passing result.

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Guard-predicate closure check over src/triton.h (WP-1B chunk 13).
+"""Guard-predicate closure check over src/triton.h.
 
 THE PROPERTY
 ------------
 *Every rank-0-guarded call into ``swmm_model`` guards on the same predicate.*
 
-Sec 4.6.1 states the operation verbatim::
+The operation this closes over, stated verbatim::
 
     grep -n "rank == 0 && swmm_model\\." src/triton.h
 

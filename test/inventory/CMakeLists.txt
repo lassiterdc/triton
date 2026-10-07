@@ -23,7 +23,7 @@
 # yet, and the remedy is to give it one.  Do not read the second as the first:
 # on an exit-3 red the vendored tree has not moved at all.
 #
-# The open-decision half is the design's closure-check mode (i), and it is
+# The open-decision half is closure-check mode (i), and it is
 # armed here deliberately.  It was disarmed for a while by an honest accident:
 # a round correctly surfaced a large set of untriaged quantities and correctly
 # committed them to the artifact, which emptied the diff -- so a diff-only
@@ -41,7 +41,7 @@ if(Python3_EXECUTABLE)
   set_tests_properties(SLOW-SNAPSHOT-INVENTORY-REGENERATION
                        PROPERTIES LABELS "slow")
 
-  # Criterion P's own assertions (WP-1B chunk 9).  FAST tier, deliberately:
+  # Criterion P's own assertions.  FAST tier, deliberately:
   # ~3 s, and it carries the ORDER-SENSITIVITY regression, which is the
   # assertion a builder editing the kill pass most needs to see immediately.
   # A regression that only runs under `ctest -L slow` is one nobody runs.
@@ -65,7 +65,7 @@ if(Python3_EXECUTABLE)
   set_tests_properties(SLOW-SNAPSHOT-INVENTORY-CLOSURE-MODES
                        PROPERTIES LABELS "slow")
 
-  # Sec 4.6.1's GUARD-PREDICATE closure check (WP-1B chunk 13).  Pure Python
+  # The GUARD-PREDICATE closure check.  Pure Python
   # over src/triton.h -- no build, no solver run.  FAST tier: it is a grep and a
   # set comparison, and its subject is a one-token divergence between a local
   # and a global node count that reads identically at a glance and fails
