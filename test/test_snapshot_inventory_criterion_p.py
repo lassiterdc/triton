@@ -293,8 +293,45 @@ def main(argv) -> int:
           all(n in R.TFILE_ADMITTED or n in R.TFILE_EXCLUDED for n in names),
           "untriaged: %s" % [n for n in names
                              if n not in R.TFILE_ADMITTED and n not in R.TFILE_EXCLUDED])
-    check("P7e the admitted set is EMPTY (a passing result)",
-          not R.TFILE_ADMITTED, "admitted=%s" % sorted(R.TFILE_ADMITTED))
+    # P7e WAS "the admitted set is EMPTY (a passing result)", and the output-
+    # continuity work supersedes it by flipping Fout to ADMITTED. The old
+    # wording came from
+    # the TFILE-TRIAGE pass's own note that an empty admitted set is a PASSING result
+    # -- which said that emptiness was ACCEPTABLE then, not that it was
+    # REQUIRED forever. Read as a permanent invariant it would forbid the
+    # design above.
+    #
+    # It is REPLACED rather than removed, and by a STRICTLY STRONGER pair. The
+    # old check constrained the set's SIZE; these two constrain its MEMBERSHIP
+    # and its CONSEQUENCE, so both admitting a second handle and admitting Fout
+    # in a way that captures a stream position now fail. A test edited to let a
+    # fix through is the one failure a downstream gate cannot see, so this
+    # edit's whole defence is that it rejects more than what it replaces.
+    check("P7e the admitted set is exactly {Fout}",
+          set(R.TFILE_ADMITTED) == {"Fout"},
+          "admitted=%s -- expected exactly ['Fout']" % sorted(R.TFILE_ADMITTED))
+
+    # P7f is NEW and has no predecessor. Admitting a TFILE-TRIAGE handle must not turn
+    # a stream POSITION into a captured quantity: the snapshot carries the
+    # period COUNT on the scalar axis, and output.c RE-DERIVES the position
+    # from it plus two statics it recomputes at open. The falsifier is a
+    # manifest entry naming the handle -- if one ever appears, the payload has
+    # grown a raw ftell offset, which is unrestorable across a process for the
+    # reason the original exclusion correctly gave.
+    import re as _re7
+    _snap_c7 = (solver / "snapshot.c").read_text(errors="replace")
+    _emitted7 = set(_re7.findall(
+        r'snap_name\(\s*c\s*,\s*"([A-Za-z_][A-Za-z0-9_.]*)"\s*,', _snap_c7))
+    check("P7f0 the TFILE-TRIAGE emit scan found a non-empty set",
+          bool(_emitted7),
+          "zero matches -- the scan regex no longer matches the emit form, so "
+          "P7f below would pass vacuously")
+    check("P7f no ADMITTED TFILE-TRIAGE handle contributes a serialized field",
+          not (set(R.TFILE_ADMITTED) & _emitted7),
+          "the serializer emits a field for handle(s) %s -- a TFILE-TRIAGE admission "
+          "must be carried by the scalar-axis period count, never by a "
+          "captured stream offset"
+          % sorted(set(R.TFILE_ADMITTED) & _emitted7))
 
     # --- P8: the two helper repairs ------------------------------------------
     check("P8a struct_fields returns all 20 TConduit fields (multi-declarator repair)",

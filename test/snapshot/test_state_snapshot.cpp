@@ -30,6 +30,37 @@
 #include "constants.h"
 #include "kokkos_utils.h"
 
+// ---------------------------------------------------------------------------
+// C LINKAGE for output_end -- AND THE POSITION OF THIS BLOCK IS LOAD-BEARING.
+//
+// funcs.h opens its `extern "C"` block partway down the file (`extern "C" {`
+// at :298, closing at :393), so every declaration outside that window -- which
+// includes `output_end` at funcs.h:163 -- takes C++ LANGUAGE LINKAGE in a C++
+// translation unit. output_end is defined at output.c:822, which CMake builds
+// as C, so T14's call below would emit a MANGLED reference against an
+// UNMANGLED definition and fail at LINK with an undefined reference. Measured
+// on the unrepaired TU shape: `nm -u` reports `U _Z10output_endv`; with this
+// block it reports `U output_end`.
+//
+// This declaration MUST precede `#include "swmm_triton.h"`, which is what
+// pulls funcs.h. Placed AFTER it -- for instance in the globals block below --
+// it is a second declaration giving a different language linkage to a name
+// already declared, which [dcl.link]p6 makes ill-formed and which g++ 13.3
+// rejects outright:
+//     error: conflicting declaration of 'void output_end()' with 'C' linkage
+//     note:  previous declaration with 'C++' linkage
+// Placed BEFORE, the later unadorned funcs.h declaration does not disturb the
+// linkage explicitly specified here -- the same rule read the other way.
+//
+// So the globals block below is NOT the model for this one, and the difference
+// is exactly what makes output_end a defect: those names have no prior
+// declaration to conflict with, because globals.h is never included here.
+// output_end has one. Do not fold this block into that one.
+// ---------------------------------------------------------------------------
+extern "C" {
+    void output_end(void);
+}
+
 #include "swmm_triton.h"
 
 #include <cstdint>
@@ -82,6 +113,13 @@ extern "C" {
     extern TOutfallStats* OutfallStats;
     extern double*    NodeInflow;
     extern double*    NodeOutflow;
+
+    // Nperiods is the output-period count the snapshot now carries; it
+    // is a globals.h `long`, NOT an int, which is the one type a reader would
+    // guess wrong. Fout is the binary output file handle the continuity work
+    // positions and truncates.
+    extern long       Nperiods;
+    extern TFile      Fout;
 }
 
 // ---------------------------------------------------------------------------
@@ -781,6 +819,194 @@ static void T8_single_writer_is_structural()
 }
 
 // ---------------------------------------------------------------------------
+// Full-window SWMM output continuity.
+//
+// WHAT THIS TIER CAN AND CANNOT REACH, stated rather than left implicit.
+// output.c's OutputStartPos and BytesPerPeriod are file-scope statics that
+// only output_open sets, and output_open needs an open .inp -- so at this tier
+// both are ZERO. That is not a defect in the tests below; it is their
+// operating point, and each one says which property it therefore reaches:
+//
+//   REACHED HERE  the graduated return code (T13); Nperiods' bit-exact round
+//                 trip (T3d); the refusal when the restored count exceeds the
+//                 periods on disk (T12); and the FINAL-LENGTH property, whose
+//                 arithmetic degenerates at a zero stride to "the trailer is
+//                 the whole file" -- which still exercises the truncation
+//                 primitive end to end against a real file (T14).
+//   NOT REACHED   the non-truncating open and the prologue comparison, which
+//                 have no callable entry point (output_openOutFile has
+//                 internal linkage); they are covered structurally by the
+//                 SOURCE-OUT-CONTINUITY node and behaviourally in Tier 2.
+//                 T14's second arm -- the vendored outfile validator returning
+//                 0 rather than 435 on a shortened run -- is Tier 2 for the
+//                 same reason: it needs a real .out.
+// ---------------------------------------------------------------------------
+
+// Opens a scratch file of `bytes` length and installs it as Fout. The caller
+// restores Fout and closes the handle itself.
+static std::string install_scratch_fout(const char* stem, long bytes)
+{
+    const std::string path = temp_path(stem);
+    FILE* f = std::fopen(path.c_str(), "w+b");
+    for (long i = 0; i < bytes; ++i) std::fputc(0, f);
+    std::fflush(f);
+    Fout.file = f;
+    return path;
+}
+
+static long file_size_of(const std::string& path)
+{
+    std::error_code ec;
+    const auto n = std::filesystem::file_size(path, ec);
+    return ec ? -1L : (long) n;
+}
+
+static void T3d_nperiods_roundtrips_bit_exactly()
+{
+    // The output-period count is what a resumed run's .out offsets, its
+    // trailer and report.c's four detail-table loops are all derived from, so
+    // a count that does not survive the round trip silently truncates three
+    // artifact families at once.
+    const std::string path = temp_path("t3d");
+    const long saved = Nperiods;
+
+    Nperiods = 1234567L;
+    CHECK_EQ_I(snapshot_save(path.c_str()), 0, "snapshot_save must succeed");
+
+    Nperiods = 0L;                       // what swmm_start leaves behind
+    char msg[512]; msg[0] = '\0';
+    CHECK_EQ_I(snapshot_load(path.c_str(), msg, (int) sizeof(msg)), SNAPSHOT_OK,
+               "snapshot_load must succeed");
+    CHECK_EQ_I(Nperiods, 1234567L,
+               "Nperiods must round-trip: without it the resumed run restarts "
+               "the period count at zero and the .out, the .rpt detail tables "
+               "and node{N}.out all cover only the post-resume tail");
+
+    Nperiods = saved;
+    std::error_code ec; std::filesystem::remove(path, ec);
+}
+
+static void T13_snapshot_load_return_is_graduated()
+{
+    char msg[512];
+
+    // ABSENT -- the one legitimate refusal, and the ONLY one the caller may
+    // fall back on.
+    msg[0] = '\0';
+    const std::string gone = temp_path("t13_does_not_exist");
+    CHECK_EQ_I(snapshot_load(gone.c_str(), msg, (int) sizeof(msg)), SNAPSHOT_ABSENT,
+               "a missing snapshot must return SNAPSHOT_ABSENT, because that is "
+               "the only value the caller is allowed to fall back on");
+
+    // UNREADABLE -- present and unusable. Falling back here would produce
+    // correct numbers slowly while hiding a build or corruption defect.
+    const std::string bad = temp_path("t13_bad_magic");
+    CHECK_EQ_I(snapshot_save(bad.c_str()), 0, "snapshot_save must succeed");
+    {
+        std::fstream io(bad, std::ios::binary | std::ios::in | std::ios::out);
+        int32_t junk = 0x4A554E4B;
+        io.seekp(0);
+        io.write(reinterpret_cast<const char*>(&junk), sizeof(junk));
+    }
+    msg[0] = '\0';
+    CHECK_EQ_I(snapshot_load(bad.c_str(), msg, (int) sizeof(msg)), SNAPSHOT_UNREADABLE,
+               "a corrupt snapshot must return SNAPSHOT_UNREADABLE, not ABSENT");
+
+    // A WRONG VERSION is the same class, and it is the one a routine pin bump
+    // produces, so it is asserted separately rather than assumed to follow.
+    const std::string oldv = temp_path("t13_old_version");
+    CHECK_EQ_I(snapshot_save(oldv.c_str()), 0, "snapshot_save must succeed");
+    {
+        std::fstream io(oldv, std::ios::binary | std::ios::in | std::ios::out);
+        int32_t v = 1;
+        io.seekp(sizeof(int32_t));
+        io.write(reinterpret_cast<const char*>(&v), sizeof(v));
+    }
+    msg[0] = '\0';
+    CHECK_EQ_I(snapshot_load(oldv.c_str(), msg, (int) sizeof(msg)), SNAPSHOT_UNREADABLE,
+               "a pre-item-4 snapshot must return SNAPSHOT_UNREADABLE");
+
+    // THE THREE VALUES MUST BE DISTINCT, or the graduation is decorative.
+    CHECK(SNAPSHOT_OK != SNAPSHOT_ABSENT && SNAPSHOT_ABSENT != SNAPSHOT_UNREADABLE
+          && SNAPSHOT_OK != SNAPSHOT_UNREADABLE,
+          "the three outcomes must be distinguishable by VALUE -- a message a "
+          "human reads is not a value a program branches on");
+
+    std::error_code ec;
+    std::filesystem::remove(bad, ec);
+    std::filesystem::remove(oldv, ec);
+}
+
+static void T12_resume_refuses_more_periods_than_the_file_holds()
+{
+    // REQUIREMENT 5, and the fixture is the one a builder would not invent
+    // from "flush before the snapshot" alone: a file SHORTER than the restored
+    // count claims, which is what a SIGKILL between the last flush and the
+    // checkpoint leaves behind. Without the refusal the resumed run seeks past
+    // end-of-file and the append creates a zero-filled hole that parses as
+    // valid data -- silent wrong numbers on exactly the kill path the snapshot
+    // exists to serve.
+    TFile saved_fout = Fout;
+    const long saved_np = Nperiods;
+
+    const std::string path = install_scratch_fout("t12_short", 64);
+    char msg[512]; msg[0] = '\0';
+
+    Nperiods = 5L;                       // a claim the file cannot back
+    CHECK(output_positionForResume(msg, (int) sizeof(msg)) != 0,
+          "a restored period count the .out cannot back must FAIL LOUD rather "
+          "than seek past EOF");
+    CHECK(std::string(msg).find("period") != std::string::npos,
+          "the refusal must name the period counts, not just fail");
+    CHECK_EQ_I(file_size_of(path), 64,
+               "a REFUSED positioning must not have truncated anything");
+
+    // The accepting branch, which also proves the truncation primitive works
+    // against a real file rather than merely compiling.
+    Nperiods = 0L;
+    msg[0] = '\0';
+    CHECK_EQ_I(output_positionForResume(msg, (int) sizeof(msg)), 0,
+               "a count the file can back must be accepted");
+    CHECK_EQ_I(file_size_of(path), 0,
+               "the stale tail beyond the resumed position must be dropped");
+
+    std::fclose(Fout.file);
+    Fout = saved_fout;
+    Nperiods = saved_np;
+    std::error_code ec; std::filesystem::remove(path, ec);
+}
+
+static void T14_output_end_leaves_the_trailer_last()
+{
+    // REQUIREMENT 8. An external .out reader does not locate the trailer from
+    // a stored offset -- it seeks -6*RECORDSIZE from SEEK_END and compares the
+    // trailing magic against the leading one, so ANY byte surviving past the
+    // trailer makes every reader refuse the file with error 435. The reachable
+    // case is a SHORTENED run writing its trailer above a longer previous
+    // exec's tail, which is exactly the fixture below.
+    TFile saved_fout = Fout;
+    const long saved_np = Nperiods;
+
+    const std::string path = install_scratch_fout("t14_long_tail", 4096);
+    Nperiods = 0L;                       // zero stride at this tier
+    std::fseek(Fout.file, 0, SEEK_SET);
+
+    output_end();
+
+    const long want = 6L * (long) sizeof(int);
+    CHECK_EQ_I(file_size_of(path), want,
+               "output_end must leave the six-INT4 trailer as the LAST bytes "
+               "of the file -- a surviving tail makes the trailing magic "
+               "disagree with the leading one and every external reader "
+               "refuses the file outright");
+
+    std::fclose(Fout.file);
+    Fout = saved_fout;
+    Nperiods = saved_np;
+    std::error_code ec; std::filesystem::remove(path, ec);
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
 struct test_entry { const char* name; void (*fn)(); };
@@ -795,6 +1021,11 @@ static const test_entry kTests[] = {
     { "T6_manifest_covers_committed_inventory",  &T6_manifest_covers_committed_inventory },
     { "T7_sizeof_guard_boundary_is_documented",  &T7_sizeof_guard_boundary_is_documented },
     { "T8_single_writer_is_structural",          &T8_single_writer_is_structural },
+    { "T3d_nperiods_roundtrips_bit_exactly",     &T3d_nperiods_roundtrips_bit_exactly },
+    { "T12_resume_refuses_more_periods_than_the_file_holds",
+                                                 &T12_resume_refuses_more_periods_than_the_file_holds },
+    { "T13_snapshot_load_return_is_graduated",   &T13_snapshot_load_return_is_graduated },
+    { "T14_output_end_leaves_the_trailer_last",  &T14_output_end_leaves_the_trailer_last },
 };
 
 int main(int argc, char** argv)

@@ -446,14 +446,39 @@ namespace Triton
     // that kills GPU jobs idle at 0% utilisation; each resume replays a longer
     // prefix, so the sequence does not converge.
     //
-    // The fallback is RETAINED rather than replaced: a checkpoint written
-    // before snapshots existed has none to load, and a resume from one must
-    // still work. try_restore_state_snapshot() never aborts -- every refusal
-    // returns false and lands here, because the replay is correct, only slow.
+    // The fallback is RETAINED for the ABSENT case only: a checkpoint written
+    // before snapshots existed has none to load, and one the keep-2 retention
+    // pruned has none either. Both are legitimate and the replay is correct
+    // for them, only slow.
+    //
+    // FAIL-FAST IS THE DEFAULT ON EVERY OTHER REFUSAL. A snapshot that is
+    // PRESENT and unusable means the file was written by a different build or
+    // is corrupt; falling back there produces correct numbers slowly while
+    // hiding a real defect. The cost is asymmetric and that is the whole
+    // ground: a wrongly aborting resume costs one job and a loud message, a
+    // wrongly falling-back resume costs a completed run whose numbers are
+    // wrong and whose every artifact reads healthy.
+    //
+    // The abort is MPI_Abort rather than exit(): this block runs under a
+    // rank-0 guard, and a rank-0-only exit() would leave every other rank
+    // blocked at the next collective, turning a loud failure into a hang.
     if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
       if (arglist.checkpoint_id > 0) {
-        if (!swmm_model.try_restore_state_snapshot(arglist.checkpoint_id, arglist.sim_start_time))
-          swmm_model.replay_exchange_history(arglist.sim_start_time);
+        using SR = SWMM_triton::swmm_triton::SnapshotRestore;
+        const SR sr = swmm_model.try_restore_state_snapshot(arglist.checkpoint_id,
+                                                            arglist.sim_start_time);
+        if (sr == SR::Absent) {
+          swmm_model.replay_exchange_history(
+              arglist.sim_start_time, arglist.checkpoint_id,
+              swmm_model.classify_missing_snapshot(arglist.checkpoint_id));
+        }
+        else if (sr != SR::Restored) {
+          std::cerr << ERROR "Coupled resume aborted: the SWMM state snapshot for "
+                       "checkpoint " << arglist.checkpoint_id
+                    << " could not be used and the exchange replay is not a safe "
+                       "substitute. See the preceding message." << std::endl;
+          MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+        }
       }
       else                            swmm_model.open_exchange_log_truncate();
     }
