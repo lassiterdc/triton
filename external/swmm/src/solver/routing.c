@@ -264,26 +264,72 @@ void routing_execute(int routingModel, double routingStep, double *exchange_q, d
     }
 
 	 //we need to copy the updated values to an array that can be read from TRITON
-	 // --- for each node with a definedinflow
-    inflow_id=0;
-	 for (i = 0; i < Nobjects[NODE]; i++)
+    routing_exportInflowNodeDepths(swmm_newDepth); //TRITON
+
+    // --- update mass balance totals over the current half time step
+    massbal_updateRoutingTotals(routingStep / 2.);
+}
+
+//=============================================================================
+
+void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
+//
+//  Input:   swmm_newDepth = TRITON-owned buffer, one slot per FLOW_INFLOW node
+//  Output:  none
+//  Purpose: publishes each inflow node's current depth into the array TRITON
+//           reads, in TRITON's index space and units.
+//
+//  This is the ONLY site that writes swmm_newDepth[].  It was factored out of
+//  routing_execute so the coupled-resume snapshot path can call it directly
+//  after restoring SWMM's state, rather than duplicating the loop.
+//
+//  Four properties depend on it staying the only enumeration:
+//
+//    1. The index space is DEFINED by this loop -- a running counter over
+//       Nobjects[NODE] restricted to nodes carrying a FLOW_INFLOW.  It is not
+//       the node index, and no mapping is stored anywhere; a second enumeration
+//       written to agree with this one would agree only until one of them
+//       changed, and nothing would report the divergence.
+//    2. The snapshot-restore path gets a result bitwise identical to what a
+//       replay leaves, because it is the identical arithmetic over the identical
+//       state rather than a reimplementation of it.
+//    3. No snapshot field is added.  These depths are DERIVED from
+//       Node[].newDepth, which the snapshot already restores; storing them too
+//       would be a second copy that could disagree with the first.
+//    4. It creates no SECOND dependency on the assumption that the .inp lists
+//       inflow nodes in the order TRITON expects.  That assumption is already
+//       load-bearing here; duplicating the loop would make it load-bearing in
+//       two places, only one of which is visible at any given call site.
+//
+//  Unit asymmetry, called out rather than tidied away: Node[].newDepth is in
+//  FEET (SWMM's internal unit) while swmm_newDepth[] is in METRES.  The /3.2808
+//  is that conversion, not a scale factor, and it is why this loop cannot be
+//  replaced by a memcpy.
+//
+{
+    int i;
+    int inflow_id;
+    TExtInflow* inflow;
+
+    if ( swmm_newDepth == NULL ) return;
+
+    // --- for each node with a defined inflow
+    inflow_id = 0;
+    for (i = 0; i < Nobjects[NODE]; i++)
     {
         // --- get flow inflow
         inflow = Node[i].extInflow;
         while ( inflow )
         {
-		      if ( inflow->type == FLOW_INFLOW )
+            if ( inflow->type == FLOW_INFLOW )
             {
-		      	swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
-			 		inflow_id++;//TRITON
+                swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
+                inflow_id++;
                 break;
             }
             else inflow = inflow->next;
-		 }
-	 }
-
-    // --- update mass balance totals over the current half time step
-    massbal_updateRoutingTotals(routingStep / 2.);
+        }
+    }
 }
 
 //=============================================================================
