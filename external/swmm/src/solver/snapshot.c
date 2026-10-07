@@ -106,7 +106,49 @@ extern double          TotalArea;
 //  Constants
 //-----------------------------------------------------------------------------
 #define SNAPSHOT_MAGIC    0x534E5331   // "SNS1"
-#define SNAPSHOT_VERSION  1
+
+// VERSION 2 adds the Criterion-P routing-state fields to the traversal, and two
+// dimensions (nConduit, nXnode) to the shape block.
+//
+// VERSION 3 adds the four Criterion-P GLOBAL ROUTING CLOCKS -- NewRoutingTime,
+// ReportTime, NewRuleTime and NextEvent.  It adds NO shape dimension: each is a
+// singleton, so the shape block is byte-identical between V2 and V3.
+//
+// VERSION 4 adds the two Criterion-P routing SENTINELS that closed on triage
+// rather than on measurement -- BetweenEvents (routing.c) and VariableStep
+// (dynwave.c).  Also singletons, so the shape block is again unchanged.
+//
+// THE VERSION NAMES THE FIELD SET, so it moves whenever the field set moves,
+// even twice in one working session.  V3 and V4 both exist on this branch, a
+// build from either could have written a file, and a V3 file met by a V4 reader
+// must say "version 3 against version 4" rather than blaming the vendored tree.
+// Collapsing the two bumps into one would save a constant and buy a wrong
+// message on exactly the file class the intermediate commit creates.
+//
+// A V1 FILE IS REFUSED, NOT MIS-STRIDED, AND THE REFUSAL IS THE EXACT-EQUALITY
+// TEST IN snapshot_load, NOT AN INFERENCE FROM THE BUMP.  The check is
+// `hdr[1] != SNAPSHOT_VERSION`, it runs BEFORE the shape block is read, and it
+// names both versions in the refusal.  Two properties make that sound: the test
+// is equality rather than `<`, so a V1 file cannot be accepted as an old-but-
+// compatible one; and it precedes the shape read, so the widened shape block is
+// never interpreted against a V1 file's narrower one.  The magic is deliberately
+// NOT bumped -- the format family is the same, and a version mismatch produces a
+// message naming the two versions, where a magic mismatch would only say the
+// file is foreign.
+//
+// WHY V2 -> V3 IS A BUMP WHEN THE REFUSAL DOES NOT NEED ONE.  A V2 file is
+// ALREADY refused without it, twice over: snapshot_load strcmp's the file's
+// EMBEDDED manifest against this build's, and the four names change that text;
+// and the payload is four doubles short, so the traversal's final fread fails.
+// Neither path can mis-stride.  The bump is not for the refusal -- it is for
+// WHAT THE REFUSAL SAYS.  The manifest path reports "the vendored EPA structs
+// changed between the writing and reading builds", which is FALSE here: EPA's
+// structs did not move, TRITON's admitted set grew.  That message sends an
+// operator to diff the vendored tree for a change that is not in it.  The
+// version test fires first and says "snapshot is version 2 but this build reads
+// version 3", which is true and actionable.  A bump costs one constant; a
+// refusal that blames the wrong party costs an investigation.
+#define SNAPSHOT_VERSION  4
 
 // Must match stats.c's private MAX_STATS. stats.c hands us its value at
 // runtime through stats_getSnapshotRefs(); this is only the compile-time
@@ -184,9 +226,24 @@ typedef struct
     int nNodes, nLinks, nSubcatch, nPollut;
     int nStorage, nOutfall, nPump;
     int maxStats, timeLevels, flowClasses;
+    // --- added at SNAPSHOT_VERSION 2, with the Criterion-P routing fields.
+    //
+    //     nConduit is Nlinks[CONDUIT]; the Conduit[] array is indexed
+    //     independently of Link[], so nLinks does not bound it.
+    //
+    //     nXnode is dynwave.c's extended nodal array length, which is
+    //     Nobjects[NODE] under dynamic-wave routing and 0 otherwise. Recording
+    //     it is what keeps a routing-model change from being silent: a snapshot
+    //     taken under DYNWAVE carries nXnode > 0 and is REFUSED by the shape
+    //     comparison if reloaded into a run with no Xnode, instead of having its
+    //     Xnode payload read at the wrong offset. The alternative -- always
+    //     emitting Nobjects[NODE] Xnode rows and zero-filling when the array is
+    //     absent -- keeps the payload length constant and is strictly worse,
+    //     because it restores zeros into a live Xnode without any refusal.
+    int nConduit, nXnode;
 } TSnapshotShape;
 
-#define SNAPSHOT_SHAPE_FIELDS 10
+#define SNAPSHOT_SHAPE_FIELDS 12
 
 static void snapshot_currentShape(TSnapshotShape* s, int maxStats)
 {
@@ -197,6 +254,8 @@ static void snapshot_currentShape(TSnapshotShape* s, int maxStats)
     s->nStorage    = Nnodes[STORAGE];
     s->nOutfall    = Nnodes[OUTFALL];
     s->nPump       = Nlinks[PUMP];
+    s->nConduit    = Nlinks[CONDUIT];
+    s->nXnode      = dynwave_getSnapshotCount();
     s->maxStats    = maxStats;
     s->timeLevels  = TIMELEVELS;
     s->flowClasses = MAX_FLOW_CLASSES;
@@ -300,9 +359,29 @@ static void snap_l(TSnapCtx* c, long* v)
     }
 }
 
+// char-valued slots (SWMM's boolean flags) go through the same double container
+// for the same reason the ints do: the file carries exactly one value width.
+static void snap_c(TSnapCtx* c, char* v)
+{
+    double d;
+    if ( c->error ) return;
+    c->count++;
+    if ( c->mode == SNAP_WRITE )
+    {
+        d = (double) *v;
+        if ( fwrite(&d, sizeof(double), 1, c->f) != 1 ) c->error = 1;
+    }
+    else if ( c->mode == SNAP_READ )
+    {
+        if ( fread(&d, sizeof(double), 1, c->f) != 1 ) c->error = 1;
+        else *v = (char) d;
+    }
+}
+
 #define SNAP_D(ctx, obj, s, f)  do { snap_name(ctx, obj, #f); snap_d(ctx, &((s).f)); } while (0)
 #define SNAP_I(ctx, obj, s, f)  do { snap_name(ctx, obj, #f); snap_i(ctx, &((s).f)); } while (0)
 #define SNAP_L(ctx, obj, s, f)  do { snap_name(ctx, obj, #f); snap_l(ctx, &((s).f)); } while (0)
+#define SNAP_C(ctx, obj, s, f)  do { snap_name(ctx, obj, #f); snap_c(ctx, &((s).f)); } while (0)
 
 //-----------------------------------------------------------------------------
 //  The traversal.
@@ -333,6 +412,16 @@ static TRoutingTotals _snapDummyRouting;
 static TLoadingTotals _snapDummyLoading;
 static double         _snapDummyScalar;
 static long           _snapDummyLong;
+static int            _snapDummyInt;
+// Criterion-P routing objects. Named ...Obj because _snapDummyNode,
+// _snapDummyLink, _snapDummyStorage and _snapDummyOutfall above are the *Stats*
+// structs, which are DIFFERENT TYPES under the same names. Dropping the suffix
+// on any of the four is a redefinition, not a shadow.
+static TNode          _snapDummyNodeObj;
+static TLink          _snapDummyLinkObj;
+static TConduit       _snapDummyConduit;
+static TOutfall       _snapDummyOutfallObj;
+static TStorage       _snapDummyStorageObj;
 
 #define SNAP_N(c, real)  ((c)->mode == SNAP_MANIFEST ? 1 : (real))
 #define SNAP_P(c, arr, i, dummy)  ((c)->mode == SNAP_MANIFEST ? &(dummy) : &((arr)[i]))
@@ -654,6 +743,228 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         ll = (c->mode == SNAP_MANIFEST) ? &_snapDummyLong : &TotalStepCount;
         snap_name(c, "TotalStepCount", "value");   snap_l(c, ll);
     }
+
+    // =====================================================================
+    // CRITERION P -- routing state LIVE ON ENTRY at swmm_step's boundary.
+    //
+    //  These enter through the SAME traversal as the report state above, so the
+    //  manifest, the writer and the reader follow automatically -- that is what
+    //  the one-traversal design buys and why adding them is not a three-site
+    //  edit.
+    //
+    //  THE FIELD SET IS THE ADMITTED COLUMN OF THE COMMITTED INVENTORY'S
+    //  CRITERION-P SECTION, not a list rewritten here from the same sources.
+    //  T6 asserts the correspondence in both directions: every ADMITTED row
+    //  appears below, and no EXCLUDED or KILLED row does.
+    //
+    //  ORDER IS THE PAYLOAD ORDER. Appending here, after every V1 field, is
+    //  deliberate: it keeps the V1 prefix of a V2 file byte-identical to a V1
+    //  file, which makes a hexdump diff of the two readable. It buys no
+    //  compatibility -- a V1 file is refused outright on the version test --
+    //  and it is not relied on for any.
+    // =====================================================================
+
+    // --- Node[]: the routing half of TNode.
+    //
+    //     Node.surDepth is NOT here, and its absence is load-bearing. It was
+    //     ADMITTED by the inventory as "surcharge depth carried across steps";
+    //     measured, its only writes are node.c's .inp readers (:143/:152/:179/
+    //     :192) and NO routing write exists anywhere in the tree, so it carries
+    //     nothing across steps. It is .inp CONFIGURATION, which is the ONE class
+    //     Criterion P excludes by triage rather than admitting freely, because a
+    //     stale snapshot of it silently overrides the model the operator is
+    //     running. The inventory row was corrected in the same commit that added
+    //     this block.
+    //
+    //     An earlier form of this note ALSO claimed its reads are confined to
+    //     dynwave.c. That was false: surDepth is read at dynwave.c:736/:799,
+    //     stats.c:617, link.c:450/:458 and node.c:216. The claim is removed
+    //     rather than softened, because the exclusion never rested on it -- the
+    //     write side is the whole argument, and a reader who checked the read
+    //     claim would have found it wrong and had no way to tell whether the
+    //     verdict went with it. It does not.
+    if ( c->mode != SNAP_MANIFEST && Nobjects[NODE] > 0 && !Node ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[NODE]); i++)
+    {
+        TNode* s = SNAP_P(c, Node, i, _snapDummyNodeObj);
+        SNAP_D(c, "Node", *s, inflow);
+        SNAP_D(c, "Node", *s, outflow);
+        SNAP_D(c, "Node", *s, losses);
+        SNAP_D(c, "Node", *s, newVolume);
+        SNAP_D(c, "Node", *s, overflow);
+        SNAP_D(c, "Node", *s, oldDepth);
+        SNAP_D(c, "Node", *s, newDepth);
+        SNAP_D(c, "Node", *s, newLatFlow);
+        SNAP_D(c, "Node", *s, oldFlowInflow);
+        SNAP_D(c, "Node", *s, oldNetInflow);
+        SNAP_C(c, "Node", *s, updated);
+    }
+
+    // --- Link[]: the routing half of TLink.
+    if ( c->mode != SNAP_MANIFEST && Nobjects[LINK] > 0 && !Link ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[LINK]); i++)
+    {
+        TLink* s = SNAP_P(c, Link, i, _snapDummyLinkObj);
+        SNAP_D(c, "Link", *s, newFlow);
+        SNAP_D(c, "Link", *s, newDepth);
+        SNAP_D(c, "Link", *s, newVolume);
+        SNAP_D(c, "Link", *s, setting);
+        SNAP_D(c, "Link", *s, targetSetting);
+        SNAP_D(c, "Link", *s, timeLastSet);
+        SNAP_D(c, "Link", *s, froude);
+        SNAP_D(c, "Link", *s, dqdh);
+        SNAP_I(c, "Link", *s, flowClass);
+        SNAP_C(c, "Link", *s, normalFlow);
+        SNAP_C(c, "Link", *s, inletControl);
+    }
+
+    // --- Conduit[]: indexed by Nlinks[CONDUIT], NOT by Nobjects[LINK].
+    if ( c->mode != SNAP_MANIFEST && Nlinks[CONDUIT] > 0 && !Conduit ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nlinks[CONDUIT]); i++)
+    {
+        TConduit* s = SNAP_P(c, Conduit, i, _snapDummyConduit);
+        SNAP_D(c, "Conduit", *s, a1);
+        SNAP_D(c, "Conduit", *s, q1);
+        SNAP_D(c, "Conduit", *s, q2);
+        SNAP_D(c, "Conduit", *s, evapLossRate);
+        SNAP_D(c, "Conduit", *s, seepLossRate);
+        SNAP_C(c, "Conduit", *s, capacityLimited);
+        SNAP_C(c, "Conduit", *s, fullState);
+    }
+
+    // --- Outfall[]: vRouted is a scalar; wRouted is a per-pollutant ARRAY, so
+    //     it contributes Nobjects[POLLUT] values per outfall and exactly one
+    //     manifest line (the manifest is a set of names, not of slots).
+    if ( c->mode != SNAP_MANIFEST && Nnodes[OUTFALL] > 0 && !Outfall ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nnodes[OUTFALL]); i++)
+    {
+        TOutfall* s = SNAP_P(c, Outfall, i, _snapDummyOutfallObj);
+        SNAP_D(c, "Outfall", *s, vRouted);
+        if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !s->wRouted )
+        { c->error = 1; return; }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Outfall", "wRouted");
+            snap_d(c, (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar
+                                                 : &s->wRouted[k]);
+        }
+    }
+
+    // --- Storage[]: indexed by Nnodes[STORAGE].
+    if ( c->mode != SNAP_MANIFEST && Nnodes[STORAGE] > 0 && !Storage ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nnodes[STORAGE]); i++)
+    {
+        TStorage* s = SNAP_P(c, Storage, i, _snapDummyStorageObj);
+        SNAP_D(c, "Storage", *s, hrt);
+        SNAP_D(c, "Storage", *s, evapLoss);
+        SNAP_D(c, "Storage", *s, exfilLoss);
+    }
+
+    // --- Xnode[]: dynwave.c's extended nodal array.
+    //
+    //     Reached ONLY through dynwave_getSnapshotRefs, because TXnode is
+    //     declared inside dynwave.c and appears in no header -- this file
+    //     cannot name the type, let alone reach the static. The count comes
+    //     from the same file and is 0 when routing is not dynamic wave, in
+    //     which case this loop emits nothing in write/read mode while the
+    //     manifest still names both fields.
+    for (i = 0; i < SNAP_N(c, dynwave_getSnapshotCount()); i++)
+    {
+        double* osa = &_snapDummyScalar;
+        double* dyd = &_snapDummyScalar;
+        if ( c->mode != SNAP_MANIFEST &&
+             !dynwave_getSnapshotRefs(i, &osa, &dyd) ) { c->error = 1; return; }
+        snap_name(c, "Xnode", "oldSurfArea"); snap_d(c, osa);
+        snap_name(c, "Xnode", "dYdT");        snap_d(c, dyd);
+    }
+
+    // --- the GLOBAL ROUTING CLOCKS (V3).
+    //
+    //     These are singletons, not per-object arrays, so they carry the same
+    //     "Name.value" shape the Criterion-R scalar accumulators above use --
+    //     the object column is the quantity's own name and the field column is
+    //     the literal "value". The committed inventory's Criterion-P section
+    //     spells a scalar row in the OPPOSITE column order (`-<TAB>Name`), and
+    //     T6 normalizes the two onto this one key; see the section-aware
+    //     normalization in test/snapshot/test_state_snapshot.cpp.
+    //
+    //     EVERY ONE IS RESET BY THE START PATH AND READ BEFORE THE STEP WRITES
+    //     IT. That pairing is what makes the liveness consequential: a clock
+    //     that were live but never reset would survive a resume by accident.
+    //     Deciding sites, from the committed inventory's ADMITTED rows:
+    //
+    //       NewRoutingTime  swmm_step's FIRST guarded statement reads it
+    //                       (swmm5.c:439) before anything in the step writes
+    //                       it; swmm_start sets it 0.0 at swmm5.c:354.
+    //       ReportTime      read at swmm5.c:596 before saveResults advances it
+    //                       at :618; its only PURE write is swmm_start's
+    //                       initialization at :355.
+    //       NewRuleTime     read at routing.c:191 before evaluateControlRules
+    //                       advances it at :374; routing_open resets it at
+    //                       :128.
+    //       NextEvent       `Event[NextEvent].end` read at routing.c:411
+    //                       before the `++` at :413; routing_open resets it at
+    //                       :126.
+    //
+    //     NOT CALLER-DRIVEN, and the doc comment says otherwise. swmm_step's
+    //     `elapsedTime` parameter is pure OUT: the function's first executable
+    //     statement is `*elapsedTime = 0.0` (swmm5.c:425), which discards
+    //     whatever the caller passed, and :458 writes it back from the internal
+    //     global. The comment directly above the signature reads
+    //     "Input: elapsedTime" and is wrong about the direction, which is why
+    //     "the caller drives these clocks" is a plausible misreading. It does
+    //     not hold, so the start-path zeroing governs unopposed.
+    //
+    //     NewRoutingTime and ReportTime are EXTERN doubles in globals.h and are
+    //     named directly. NewRuleTime and NextEvent are `static` in routing.c
+    //     and are reached through routing_getSnapshotRefs -- the same linkage
+    //     pattern stats.c and dynwave.c already use, not a new mechanism.
+    {
+        double* nrt = &_snapDummyScalar;
+        int*    nev = &_snapDummyInt;
+        int*    bev = &_snapDummyInt;
+        double* vst = &_snapDummyScalar;
+        double* dd;
+
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &NewRoutingTime;
+        snap_name(c, "NewRoutingTime", "value"); snap_d(c, dd);
+        dd = (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar : &ReportTime;
+        snap_name(c, "ReportTime", "value");     snap_d(c, dd);
+
+        if ( c->mode != SNAP_MANIFEST ) routing_getSnapshotRefs(&nrt, &nev, &bev);
+        snap_name(c, "NewRuleTime", "value");    snap_d(c, nrt);
+        snap_name(c, "NextEvent", "value");      snap_i(c, nev);
+
+        // --- the two routing SENTINELS (V4).
+        //
+        //     Both are read as a carried-over value before the step writes
+        //     them, and both are reset by the start path -- the same pair of
+        //     facts as the four clocks above. They are separated here only
+        //     because they closed on a call-order argument rather than on a
+        //     single function's statement order, which is what left them
+        //     untriaged after the clocks were settled.
+        //
+        //       BetweenEvents  read routing.c:166 (routing_getRoutingStep),
+        //                      written :235 (routing_execute); swmm5.c calls
+        //                      the two at :540 and :570 in that order, so the
+        //                      read precedes the write WITHIN a step.
+        //                      routing_open resets it at :127.
+        //       VariableStep   read dynwave.c:258, written :260/:264, all
+        //                      inside dynwave_getRoutingStep -- but the read is
+        //                      the FIRST reference on every path reaching it,
+        //                      so it consumes the PREVIOUS call's value.
+        //                      dynwave_init resets it at :176.
+        //
+        //     VariableStep's consequence is a SIDE EFFECT, not the routing step
+        //     TRITON discards at swmm5.c:546: the non-sentinel branch calls
+        //     getVariableStep -> stats_updateCriticalTimeCount, which
+        //     increments the timeCourantCritical counters this same snapshot
+        //     serializes under Criterion R.
+        snap_name(c, "BetweenEvents", "value");  snap_i(c, bev);
+
+        if ( c->mode != SNAP_MANIFEST ) dynwave_getVariableStepRef(&vst);
+        snap_name(c, "VariableStep", "value");   snap_d(c, vst);
+    }
 }
 
 //=============================================================================
@@ -821,6 +1132,11 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     SHAPE_CHECK(maxStats,    "critical-statistics slot(s)")
     SHAPE_CHECK(timeLevels,  "time-step level(s)")
     SHAPE_CHECK(flowClasses, "flow class(es)")
+    SHAPE_CHECK(nConduit,    "conduit link(s)")
+    // nXnode is 0 unless routing is dynamic wave, so this row also refuses a
+    // snapshot taken under a different routing model rather than reading its
+    // Xnode payload at the wrong offset.
+    SHAPE_CHECK(nXnode,      "dynamic-wave extended node(s)")
 #undef SHAPE_CHECK
 
     // --- the manifest must describe the field set this build serializes.

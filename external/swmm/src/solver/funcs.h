@@ -306,6 +306,28 @@ void    stats_getSnapshotRefs(TTimeStepStats** tss, TMaxStats** maxMassBalErrs,
         TMaxStats** maxNonConverged, double** sysOutfallFlow,
         int* maxStatsLen);                                                //TRITON
 
+// Hands snapshot.c the addresses of the two Xnode members Criterion P admits.
+// Xnode is `static` in dynwave.c AND its type TXnode appears in no header, so
+// handing out `double*` per member is the only opening that does not require
+// publishing the struct.  The count is zero when routing is not dynamic wave,
+// which is a correct answer and is recorded in the snapshot's shape block.
+int     dynwave_getSnapshotCount(void);                                   //TRITON
+int     dynwave_getSnapshotRefs(int j, double** oldSurfArea,
+        double** dYdT);                                                   //TRITON
+
+// Hands snapshot.c the addresses of the three routing statics Criterion P
+// admits that are `static` in routing.c and therefore unreachable by `extern`.
+// All three are plain scalars, so there is no private type to hide and no
+// count to report -- there is exactly one of each and all three always exist.
+void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
+        int** betweenEvents);                                             //TRITON
+
+// Hands snapshot.c the address of dynwave.c's VariableStep, the variable-step
+// carrier Criterion P admits.  Separate from dynwave_getSnapshotRefs because
+// that one is per-node indexed and gated on Xnode's allocation; VariableStep
+// is a singleton that always exists, so this accessor cannot fail.
+void    dynwave_getVariableStepRef(double** variableStep);                //TRITON
+
 // Writes SWMM's statistics and mass-balance accumulators at full double
 // precision.  Returns 0 on success.
 int     snapshot_save(const char* path);                                  //TRITON

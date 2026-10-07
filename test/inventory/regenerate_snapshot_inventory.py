@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
 """Regenerate the SWMM state-snapshot field inventory from EPA SWMM source.
 
-This script performs the OPERATION that defines the snapshot's contents:
+This script performs the TWO OPERATIONS that define the snapshot's contents,
+because the snapshot serves two requirements and one criterion cannot reach
+both:
 
-    A quantity is IN the snapshot iff some report-writing path reads it.
+    Criterion R (report state)  -- a quantity is IN the snapshot iff some
+                                   report-writing path reads it.
+    Criterion P (routing state) -- a quantity is IN the snapshot iff a step
+                                   beginning at t_k READS it before that step
+                                   writes it.
+
+Criterion R is the original and is documented immediately below; Criterion P was
+added after an earlier acceptance gate FAILED, because the snapshot captured report
+accumulators and no live routing state and the implementation had followed the
+only criterion it was given.  Criterion P's machinery, its order-sensitive kill
+pass and its own closure check live in a clearly-marked block further down, as
+does the TFILE-TRIAGE stream-position exclusion table.
 
 It is deliberately an OPERATION over source rather than a hand-maintained list.
 A hand-maintained list is what produces the documented failure: ``TNodeStats``
@@ -135,8 +148,995 @@ REPORT_BEARING_UNITS = ["stats.c", "statsrpt.c", "massbal.c", "report.c"]
 # The report-emitting roots the operation seeds on.
 SEED_ROOTS = ["stats_report", "statsrpt_writeReport", "massbal_report"]
 
+# =============================================================================
+# CRITERION P -- routing state live on entry at the step boundary
+# =============================================================================
+#
+# Criterion R above answers the REPORT requirement.  It cannot answer the
+# PHYSICS requirement, and that acceptance gate failed because the
+# implementation followed the only criterion it was given.  Criterion P is the
+# second criterion:
+#
+#     a quantity is IN the snapshot iff a step beginning at t_k READS it before
+#     that step writes it -- i.e. iff it is LIVE-ON-ENTRY at the step boundary
+#
+# and the step boundary is ``swmm_step``'s entry, NOT ``routing_execute``'s.
+#
+# The two criteria have OPPOSITE error costs.  Under R over-capture is harmful:
+# a second copy of a derived quantity is free to disagree with what it came
+# from.  Under P UNDER-capture is the wrong numbers and over-capture is merely a
+# maintenance cost -- EXCEPT for .inp configuration, where a stale snapshot
+# would silently override the model the operator is running.  So P admits state
+# freely and excludes configuration by triage.
+
+# The routing-step entry points the closure seeds on.
+ROUTING_SEED_ROOTS = [
+    "routing_execute",
+    "routeFlow",
+    "flowrout_execute",
+    "dynwave_execute",
+]
+
+# The step PROLOGUE, IN EXECUTION ORDER.  The kill pass is order-sensitive and a
+# FLAT kill set is UNSOUND: `Node.inflow` and `Node.outflow` are read by
+# `node_setOldHydState` BEFORE `node_initFlows` overwrites them, and
+# `Node.newLatFlow` is read one line before it is zeroed inside
+# `initSystemInflows`.  All three are LIVE; a flat pass reports all three
+# KILLED.  Order is therefore part of the operation, not an optimisation.
+# The step the criterion is defined over.  §4.6.1 declares the boundary at
+# ``swmm_step``'s entry, so the liveness stream is rooted there even though the
+# four SEED roots above are the ROUTING roots: a stream rooted at
+# ``routing_execute`` cannot see the pre-prologue read of ``Node[j].overflow``,
+# and a closure rooted only at the four cannot see ``ReportTime`` at all.
+STEP_ROOT = "swmm_step"
+
+ROUTING_PROLOGUE = [
+    "initSystemInflows",
+    "link_setOldHydState",
+    "node_setOldHydState",
+    "node_initFlows",
+    "initRoutingStep",
+    "initNodeStates",
+]
+
+# Translation units the MUTABLE-STATE PRE-FILTER excludes from the candidate
+# pool.  This is a COMMITTED DECLARATION, deliberately not a recomputation: the
+# script re-derives each unit's mutable-state verdict from source and reports
+# PREFILTER-VIOLATION for any member that declares mutable state at the current
+# pin.  That is closure-check failure mode (iv), and it is the mode a
+# translation-unit bound could not fail on.  A pre-filter that both computed and
+# checked itself would be self-consistent and blind -- the shape this design
+# calls a check that runs, returns a pass, and sees nothing.
+#
+# An excluded unit is still WALKED.  What the pre-filter removes is the unit's
+# own DECLARATIONS from the candidate pool, never the unit from the closure, so
+# state the unit reaches through a call is still found.
+PREFILTER_EXCLUDED_UNITS = [
+    "findroot.c",
+    "forcmain.c",
+    "xsect.c",
+]
+
+# Routing state ADMITTED by Criterion P: read by the step before the step writes
+# it, and therefore restored from the snapshot.
+ADMITTED_ROUTING_STATE = {
+    ("Conduit", "a1"):
+        "routing state: initRoutingStep copies a1 into a2 at the top of every step; the multi-declarator drop in struct_fields is the defect that would have hidden it",
+    ("Conduit", "capacityLimited"):
+        "routing state: per-step capacity flag read by the next step",
+    ("Conduit", "evapLossRate"):
+        "routing state: per-step loss rate; admitted because under P over-capture is a maintenance cost and under-capture is the wrong numbers",
+    ("Conduit", "fullState"):
+        "routing state: full-flow state carried across steps",
+    ("Conduit", "q1"):
+        "routing state: upstream flow carried across steps",
+    ("Conduit", "q2"):
+        "routing state: downstream flow carried across steps",
+    ("Conduit", "seepLossRate"):
+        "routing state: per-step loss rate; admitted on the same ground as evapLossRate",
+    ("Link", "dqdh"):
+        "routing state: the derivative the dynamic-wave solution carries across steps",
+    ("Link", "flowClass"):
+        "routing state: flow classification carried across steps",
+    ("Link", "froude"):
+        "routing state: Froude number carried across steps",
+    ("Link", "inletControl"):
+        "routing state: inlet-control flag carried across steps",
+    ("Link", "newDepth"):
+        "routing state: the depth the resumed step continues from",
+    ("Link", "newFlow"):
+        "routing state: the flow the resumed step continues from",
+    ("Link", "newVolume"):
+        "routing state: conduit volume carried across steps",
+    ("Link", "normalFlow"):
+        "routing state: normal-flow limiter state",
+    ("Link", "setting"):
+        "control state: evolved by control rules during the run, not re-derivable from the .inp",
+    ("Link", "targetSetting"):
+        "control state: evolved by control rules during the run, not re-derivable from the .inp",
+    ("Link", "timeLastSet"):
+        "control state: the time the last control action fired",
+    ("Node", "inflow"):
+        "routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it",
+    ("Node", "losses"):
+        "routing state: per-step evaporation and seepage losses",
+    ("Node", "newDepth"):
+        "routing state: the depth the resumed step continues from",
+    ("Node", "newLatFlow"):
+        "routing state: read one line before it is zeroed inside initSystemInflows",
+    ("Node", "newVolume"):
+        "routing state: reconstruction from restored primitives is bitwise only in the non-flooded branch, and the coupled case is the flooded branch",
+    ("Node", "oldDepth"):
+        "routing state: previous-step depth, read by the routing solution",
+    ("Node", "oldFlowInflow"):
+        "routing state: previous-step inflow, read by the steady-state test",
+    ("Node", "oldNetInflow"):
+        "routing state: previous-step net inflow, read by the steady-state test",
+    ("Node", "outflow"):
+        "routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it",
+    ("Node", "overflow"):
+        "routing state: read at massbal.c:635 by the opening massbal_updateRoutingTotals, before the prologue runs",
+    ("Node", "updated"):
+        "routing state: the per-step updated flag the dynamic-wave solution reads",
+    ("Outfall", "vRouted"):
+        "routing accumulator: volume routed to the outfall since t=0",
+    ("Outfall", "wRouted"):
+        "routing accumulator: mass routed to the outfall since t=0",
+    ("Storage", "evapLoss"):
+        "routing state: per-step evaporation loss",
+    ("Storage", "exfilLoss"):
+        "routing state: per-step exfiltration loss",
+    ("Storage", "hrt"):
+        "routing state: hydraulic residence time accumulated across steps",
+    ("Xnode", "dYdT"):
+        "routing state: depth derivative carried across Picard iterations and steps",
+    ("Xnode", "oldSurfArea"):
+        "routing state: written only in setNodeDepth's non-surcharged branch and read only in its surcharged branch, by design; appears in NO struct body in objects.h and is the single field that refuses a hand-written list",
+    # --- SCALAR AXIS: routing state ADMITTED by Criterion P ------------------
+    #
+    # These four are the cross-step CLOCKS and COUNTERS that swmm_start resets
+    # on every resume.  Each is read by the step before the step writes it --
+    # the criterion's own definition -- and each has its reset site named in
+    # its reason, because the reset is what makes a resume wrong without it.
+    #
+    # A read-modify-write (`+=`, `++`) counts as a READ here, per the kill
+    # pass's own rule: it consumes the value the previous step left.  That is
+    # why ReportTime, NewRuleTime and NextEvent are live despite being
+    # "assigned" every step -- their only PURE write is the start-path reset.
+    ("-", 'NewRoutingTime'):
+        "routing clock, live on entry: swmm_step's FIRST statement reads it "
+        '(swmm5.c:439, `if (NewRoutingTime < RoutingDuration)`) before '
+        'anything in the step writes it, and swmm_start sets it to 0.0 '
+        '(swmm5.c:354), so a resumed run restarts the routing clock at zero '
+        "without it. NOT driven by the caller: swmm_step's elapsedTime "
+        'parameter is an OUT parameter whose first executable statement is '
+        '`*elapsedTime = 0.0` (swmm5.c:425)',
+    ("-", 'NewRuleTime'):
+        'control-rule clock, live on entry: read at routing.c:191 inside '
+        'routing_getRoutingStep, which runs before evaluateControlRules '
+        'advances it by `NewRuleTime += 1000.0*RuleStep` (routing.c:374); '
+        'routing_open resets it to 0.0 (routing.c:128) on every swmm_start',
+    ("-", 'NextEvent'):
+        'event index, live on entry: isBetweenEvents reads '
+        'Event[NextEvent].end (routing.c:411) before incrementing it '
+        '(routing.c:413), so it carries the position in the event series '
+        'across steps; routing_open resets it to 0 (routing.c:126)',
+    ("-", 'ReportTime'):
+        'reporting clock, live on entry: read at swmm5.c:596 before '
+        'saveResults advances it by `ReportTime = ReportTime + '
+        '1000*ReportStep` (swmm5.c:618); its only PURE write is '
+        "swmm_start's initialization (swmm5.c:355), which is what a resume "
+        'would otherwise restart from',
+
+    # --- the two routing SENTINELS -------------------------------------------
+    #
+    # Same shape as the four clocks above -- read as a carried-over value
+    # before the step writes it, and reset by the start path -- but neither
+    # closes by reading ONE function's statement order, which is why both were
+    # left open when the clocks were settled.
+    #
+    # BetweenEvents needs a CALL-ORDER argument: its read and its write sit in
+    # two different functions and the verdict is a fact about the order the
+    # caller invokes them.  VariableStep needs a POSITIONAL one: all three of
+    # its references sit inside one function, so the shape that usually means
+    # "derived within the call" is present, and the refinement is that the read
+    # is the FIRST reference on every path reaching it.
+    ("-", 'BetweenEvents'):
+        'event-window flag, live on entry: routing_getRoutingStep READS it '
+        '(routing.c:166) and routing_execute WRITES it (routing.c:235), and '
+        "swmm5.c's execRouting calls the two in that order (:540 then :570), "
+        'so within one step the read precedes the write. routing_open resets '
+        'it to `(NumEvents > 0)` (routing.c:127), so a run resumed mid-event '
+        'restarts believing it is BETWEEN events and takes the large-step '
+        'branch. The ordering is across two functions, which is why reading '
+        'either one alone does not settle it',
+    ("-", 'VariableStep'):
+        'variable-step carrier, live on entry: read at dynwave.c:258 and '
+        'written at :260/:264, all three inside dynwave_getRoutingStep -- but '
+        'the read is the FIRST reference on every path that reaches it (the '
+        'early returns at :253/:254 do not touch it), so it consumes the '
+        "PREVIOUS call's value rather than one this call computed. A "
+        '"written-and-read within one call, therefore derived" rule fires on '
+        'this shape and is WRONG here; the refinement is the step-level kill '
+        "pass's own: a write kills only when it DOMINATES every read. "
+        'dynwave_init resets it to 0.0 (dynwave.c:176). The consequence is not '
+        'the routing step, which TRITON discards at swmm5.c:546, but the side '
+        'effect of the non-sentinel branch: getVariableStep calls '
+        'stats_updateCriticalTimeCount, which increments the '
+        'timeCourantCritical counters this same snapshot serializes under '
+        'Criterion R',
+}
+
+# Routing state EXCLUDED by Criterion P, every exclusion carrying its reason.
+EXCLUDED_ROUTING_STATE = {
+    # CORRECTED earlier, and its REASON corrected again here. The verdict
+    # was and remains EXCLUDE; what was wrong was the ground given for it.
+    #
+    # This was originally ADMITTED with the reason "routing state: surcharge
+    # depth carried across steps". The exclusion rests entirely on the WRITE
+    # side: every write to Node[].surDepth is in node.c's .inp readers
+    # (node_readParams and its per-type arms, :143/:152/:179/:192), and NO
+    # routing write exists anywhere in the tree. A field no routing step writes
+    # cannot carry state across steps, whatever reads it.
+    #
+    # The earlier reason ALSO said reads are confined to dynwave.c. That half
+    # was false and is removed rather than softened. Measured at this commit,
+    # surDepth is read at dynwave.c:736 and :799, stats.c:617, link.c:450 and
+    # :458, and node.c:216 -- six sites in four files, of which stats.c and
+    # link.c are unambiguously routing-side. (node.c:216 is the initDepth
+    # validation inside node.c's own reader, so the "written only by node.c"
+    # half covers it.) Those reads are consistent with the exclusion, because a
+    # config value is read by whatever consults the model; they are not evidence
+    # FOR it, and citing them as if they were invited the next reader to
+    # re-derive the verdict from a premise that does not hold.
+    #
+    # It is .inp CONFIGURATION, which is the one class Criterion P excludes by
+    # triage rather than admitting freely, because over-capture there lets a
+    # stale snapshot silently override the model the operator is running.
+    # Under-capture is the wrong numbers; THIS direction is the wrong model,
+    # which is worse and is why the exception exists.
+    ("Node", "surDepth"):
+        "config: .inp surcharge depth -- every write is in node.c's .inp readers "
+        "and no routing write exists anywhere in the tree, so it carries nothing "
+        "across steps; admitting it would let a stale snapshot override the "
+        "running model. (Read at dynwave.c:736/:799, stats.c:617, link.c:450/:458 "
+        "and node.c:216 -- reads do not bear on the verdict, which rests on the "
+        "write side.)",
+    ("Conduit", "barrels"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "beta"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "hasLosses"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "length"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "modLength"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "qMax"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "roughFactor"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "roughness"):
+        "config: re-read from the .inp at swmm_open",
+    ("Conduit", "slope"):
+        "config: re-read from the .inp at swmm_open",
+    ("Gage", "isUsed"):
+        "config: re-read from the .inp at swmm_open",
+    ("Gage", "pastRain"):
+        "runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)",
+    ("Gage", "rainfall"):
+        "runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)",
+    ("Link", "ID"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "cLossAvg"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "cLossInlet"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "cLossOutlet"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "direction"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "hasFlapGate"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "inlet"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "newQual"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Link", "node1"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "node2"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "offset1"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "offset2"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "oldQual"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Link", "qFull"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "qLimit"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "seepRate"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "subIndex"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "totalLoad"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Link", "type"):
+        "config: re-read from the .inp at swmm_open",
+    ("Link", "xsect"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "ID"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "apiExtInflow"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "crownElev"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "degree"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "dwfInflow"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "extInflow"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "fullDepth"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "fullVolume"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "inlet"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "invertElev"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "newQual"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Node", "oldQual"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Node", "pondedArea"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "qualInflow"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Node", "subIndex"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "treatment"):
+        "config: re-read from the .inp at swmm_open",
+    ("Node", "type"):
+        "config: re-read from the .inp at swmm_open",
+    ("Outfall", "fixedStage"):
+        "config: re-read from the .inp at swmm_open",
+    ("Outfall", "routeTo"):
+        "config: re-read from the .inp at swmm_open",
+    ("Outfall", "stageSeries"):
+        "config: re-read from the .inp at swmm_open",
+    ("Outfall", "tideCurve"):
+        "config: re-read from the .inp at swmm_open",
+    ("Outfall", "type"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "a0"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "a1"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "a2"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "aCurve"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "exfil"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "fEvap"):
+        "config: re-read from the .inp at swmm_open",
+    ("Storage", "shape"):
+        "config: re-read from the .inp at swmm_open",
+    ("Subcatch", "area"):
+        "config: re-read from the .inp at swmm_open",
+    ("Subcatch", "groundwater"):
+        "config: re-read from the .inp at swmm_open",
+    ("Subcatch", "infilPattern"):
+        "config: re-read from the .inp at swmm_open",
+    ("Subcatch", "lidArea"):
+        "config: re-read from the .inp at swmm_open",
+    ("Subcatch", "newQual"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Subcatch", "newRunoff"):
+        "runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)",
+    ("Subcatch", "oldQual"):
+        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+    ("Subcatch", "oldRunoff"):
+        "runoff state; not advanced in the coupled hydraulics-only configuration (the ground NewRunoffTime already carries)",
+    ("Subcatch", "outNode"):
+        "config: re-read from the .inp at swmm_open",
+    # --- SCALAR AXIS: state EXCLUDED by Criterion P --------------------------
+    #
+    # Four grounds appear below, applied in this ORDER, because the order is
+    # what makes the answers right.  CONFIG is read-only during a step, so a
+    # config value's first step event is always a READ and it looks live on
+    # entry -- "read before written" is therefore NOT sufficient for ADMIT and
+    # the config test must run first.  Admitting a config value is the WRONG
+    # MODEL direction the surDepth entry above records as worse than wrong
+    # numbers.
+    #
+    #   1. pointer/array name  -- the value is an allocation address
+    #   2. .inp configuration  -- every write is in the config-authorship set
+    #                             (setDefaults / project_readOption /
+    #                             project_readInput / project_validate)
+    #   3. derived in-step     -- the step writes it before it reads it, so
+    #                             nothing crosses the boundary
+    #   4. named individually  -- lifecycle flags, already-captured counters,
+    #                             and subsystems the coupled hydraulics-only
+    #                             configuration does not advance
+    #
+    # The "derived in-step" group is overwhelmingly C's scratch-parameter-block
+    # idiom: a module sets file-scope statics at the top of its public entry so
+    # its static helpers can read them without parameters.  SWMM says so in its
+    # own source -- inlet.c:1491 reads "a, W, Sx, Sw, SL, & n were from
+    # getConduitGeometry()".
+    ("-", 'Afull'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'AllowPonding'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Alpha'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'AvailEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Beta'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Beta1'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'C1'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'C2'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Cin'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'CourantFactor'):
+        'config: re-read from the .inp at swmm_open -- the same verdict '
+        'EXCLUDED_SCALARS records for it under Criterion R',
+    ("-", 'CrownCutoff'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'DateFormat'):
+        'report date formatting, set from configuration at start by '
+        'datetime_setDateFormat; it selects presentation, not state',
+    ("-", 'DeepFlowExpr'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'DoRouting'):
+        'derived at swmm_start from the .inp-derived object counts '
+        '(swmm5.c), so it is re-derived identically on resume',
+    ("-", 'DoRunoff'):
+        'derived at swmm_start from Nobjects[SUBCATCH], which the coupled '
+        'build forces to 0 (swmm5.c:377), so it is re-derived identically '
+        'on resume',
+    ("-", 'DryStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Dstore'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Dt'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'ElapsedTime'):
+        'derived within the step from NewRoutingTime, which IS admitted: '
+        'swmm_step assigns `ElapsedTime = NewRoutingTime / MSECperDAY` '
+        '(swmm5.c:454) and only then reads it back out. It is also NOT '
+        'caller-driven -- the elapsedTime parameter is an OUT parameter, '
+        'discarded by `*elapsedTime = 0.0` at swmm5.c:425 before any use',
+    ("-", 'EndDateTime'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'ErrCode'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'ErrorCode'):
+        'engine error state; a resumed run must begin clean, and restoring '
+        'a prior error code would abort it before its first step',
+    ("-", 'ExceptionCount'):
+        'engine lifecycle counter, reset by swmm_start; carrying a prior '
+        "segment's exception count would misreport the resumed run",
+    ("-", 'FirstInlet'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'ForceMainEqn'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'FracPerv'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Fumax'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'GWFlow'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'HeadTol'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Hgw'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Hstar'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Hsw'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'HydCon'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'IfaceFrac'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'IfaceNodes'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'IfacePolluts'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'IgnoreGwater'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreQuality'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreRainfall'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreRouting'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'IgnoreSnowmelt'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'InertDamping'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'InfilFactor'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'InletFlow'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'IsOpenFlag'):
+        'engine lifecycle flag; the resumed process genuinely is freshly '
+        'opened and swmm_open must set it',
+    ("-", 'IsStartedFlag'):
+        'engine lifecycle flag; the resumed process genuinely is freshly '
+        'started and swmm_start must set it',
+    ("-", 'J'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'LatFlowExpr'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'LatFlowTol'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'LidGroups'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'LidProcs'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'LowerEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'LowerLoss'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxGWFlowNeg'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxGWFlowPos'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MaxTrials'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'MaxUpperPerc'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'MinRouteStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'MinSurfArea'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'NativeInfil'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'NewIfaceDate'):
+        'routing-interface file cursor state; that file is not in use in '
+        'the coupled configuration (mode NO_FILE), the ground TFILE-TRIAGE already '
+        'records for Finflows/Foutflows',
+    ("-", 'NewIfaceValues'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'NewRunoffTime'):
+        'runoff clock; not advanced in the coupled hydraulics-only '
+        'configuration (swmm_start forces Nobjects[SUBCATCH]=0 at '
+        'swmm5.c:377) -- the same ground EXCLUDED_SCALARS already records '
+        'for it under Criterion R',
+    ("-", 'NonConvergeCount'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once',
+    ("-", 'NormalFlowLtd'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Nperiods'):
+        'period count of the binary output file, which D-R6 records as '
+        "unrestorable by ANY offset: output_openOutFile reopens Fout 'w+b' "
+        '(truncating) and output_open resets Nperiods = 0, so there is '
+        'nothing for a restored count to index',
+    ("-", 'Nsides'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'NumEvents'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'NumIfaceNodes'):
+        'routing-interface file node count; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'NumIfacePolluts'):
+        'routing-interface file pollutant count; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'NumRdiiNodes'):
+        'RDII interface file node count; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'NumThreads'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'OldIfaceDate'):
+        'routing-interface file cursor state; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'OldIfaceValues'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'OldRoutingTime'):
+        'derived within the step: evaluateControlRules sets `OldRoutingTime '
+        '= NewRoutingTime` (routing.c:369) from the admitted clock, at a '
+        'call site (routing.c:227) that precedes every read of it in the '
+        'step',
+    ("-", 'OldRunoffTime'):
+        'runoff clock; not advanced in the coupled hydraulics-only '
+        'configuration (the ground NewRunoffTime already carries)',
+    ("-", 'Omega'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Qfactor'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'Qfull'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'R'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'RdiiEndDate'):
+        'RDII interface file window end; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'RdiiFileType'):
+        'RDII interface file type; not in use in the coupled configuration '
+        '(mode NO_FILE)',
+    ("-", 'RdiiNodeFlow'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'RdiiNodeIndex'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'RdiiStartDate'):
+        'RDII interface file window start; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'RdiiStep'):
+        'RDII interface file time step; not in use in the coupled '
+        'configuration (mode NO_FILE)',
+    ("-", 'ReportStart'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'ReportStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'ReportStepCount'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once',
+    ("-", 'RouteModel'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'RouteStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'RoutingDuration'):
+        'derived at swmm_start from TotalDuration (swmm5.c:350), itself '
+        '.inp configuration',
+    ("-", 'RuleStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SL'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'SaveResultsFlag'):
+        "supplied by the caller as swmm_start's saveResults argument, so it "
+        'is re-established on every start by the caller, not carried',
+    ("-", 'SkipSteadyState'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SortedLinks'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'StartDateTime'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SurchargeMethod'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Sw'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'SweepEnd'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'SweepStart'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Sx'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'SysFlowTol'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'Tcrown'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    # Theta was left open because its ordering had never been established, not
+    # because it resisted the rule.  Established here, and it EXCLUDES on the
+    # dominance test VariableStep fails: the write at gwater.c:648
+    # (`Theta = theta;` inside getFluxes) precedes BOTH reads, which are reached
+    # only through getVariableValue -- itself reachable only as the callback
+    # mathexpr_eval is handed at gwater.c:659 and :669, both LATER in the same
+    # getFluxes body.  So no read of Theta can observe a value from a previous
+    # call, and the ordinary derived-within-the-call reason holds unmodified.
+    ("-", 'Theta'):
+        "derived within the call: the write at gwater.c:648 (`Theta = theta;` "
+        'in getFluxes) DOMINATES both reads -- gwater.c:865 in '
+        'getVariableValue, reachable only as the mathexpr_eval callback passed '
+        'at gwater.c:659 and :669, later in the same getFluxes body -- so no '
+        'value crosses the boundary. A second, independent ground: the coupled '
+        'build forces Nobjects[SUBCATCH] = 0 (swmm5.c:375) and groundwater is '
+        'per-subcatchment, so gwater never runs here at all',
+    ("-", 'TotalDepth'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'TotalDuration'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'TotalStepCount'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once',
+    ("-", 'UnitSystem'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'UpperEvap'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'UpperPerc'):
+        "derived within the step: the step's own execution order writes it "
+        'before it reads it, so no value crosses the boundary',
+    ("-", 'WetStep'):
+        'config: re-read from the .inp at swmm_open',
+    ("-", 'pXsect'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+    ("-", 'theSubarea'):
+        'pointer/array name: the value is a heap address produced during '
+        'open/init, meaningless to carry between processes; any state '
+        'behind it is carried on its own axis',
+
+    # =====================================================================
+    # THE ROWS THAT WERE OPEN BY IDENTITY, decided once the instrument could
+    # name the object each row refers to.
+    #
+    # Every one of these is a file-scope `static`, and each was left open by
+    # the round that surfaced it because the row's event set was a MIXTURE:
+    # the walk matched the bare name in bodies that cannot see the object the
+    # row names, so events from locals, parameters and prose were attributed
+    # to it.  Two instrument repairs, both above in this file, made each row
+    # refer to exactly one C object:
+    #
+    #   per-unit visibility   a file-scope static is invisible outside its own
+    #                         translation unit, so a match elsewhere is a
+    #                         different object.  See emit_p_section's
+    #                         unit_objects / unit_scalars.
+    #   comment blanking      a body taken verbatim carries its comments, and
+    #                         _REF matched identifiers in prose.  See
+    #                         blank_comments.
+    #
+    # FOUR of the verdicts below CHANGED DIRECTION under the second repair.
+    # T, a and n read first-event-READ with comments in the stream and
+    # first-event-WRITE without them, and GW went from 18 events to 2.  Read
+    # first, all four look live on entry; the read that made `a` look live was
+    # the word "a" in "before a flow routing step has been taken".  Under
+    # Criterion P over-capture is the harmful direction, so the uncorrected
+    # instrument pointed at exactly the mistake the criterion guards.
+    #
+    # After both repairs, 16 of the 17 have a PURE WRITE as their first event
+    # in step order and take the ordinary derived reason; the seventeenth,
+    # Xnode, reads first and is excluded as a pointer whose per-node state is
+    # already carried on its own axis.
+    # =====================================================================
+
+    # --- pointer/array names (rule 1) ------------------------------------
+    ("-", 'GW'):
+        'pointer/array name: `GW = Subcatch[j].groundwater` (gwater.c:494) is '
+        'a heap address into the .inp-derived subcatchment array, meaningless '
+        'to carry between processes; any state behind it is carried on its own '
+        'axis',
+    ("-", 'Xnode'):
+        'pointer/array name: `static TXnode* Xnode` (dynwave.c:85) is a heap '
+        'address allocated by dynwave_init, meaningless to carry between '
+        'processes. It is the one row here whose first step event is a READ, '
+        'and the pointer rule decides it rather than liveness: the state '
+        'BEHIND it is already carried on its own axis as the ADMITTED rows '
+        'Xnode.oldSurfArea and Xnode.dYdT',
+    ("-", 'xsect'):
+        'pointer/array name: `xsect = &Link[i].xsect` (inlet.c:486/:1160/'
+        ':1921) is an address into the .inp-derived link array; any state '
+        'behind it is carried on its own axis',
+
+    # --- a copy of a configuration object ---------------------------------
+    ("-", 'A'):
+        'config: `A = Aquifer[GW->aquifer]` (gwater.c:498) copies an '
+        '.inp-derived aquifer record into a scratch struct at the top of every '
+        'groundwater step, so it is re-read from the .inp at swmm_open and '
+        'carries nothing across steps',
+
+    # --- already captured under Criterion R -------------------------------
+    ("-", 'SysOutfallFlow'):
+        'already captured: SERIALIZED_SCALARS carries it under Criterion R, '
+        'and one quantity is restored once. Independently derived within the '
+        'step: stats_updateFlowStats zeroes it (stats.c:497) before the `+=` '
+        'at :659 and the read at :515',
+
+    # --- derived within the step (rule 3) ---------------------------------
+    #
+    # Each names the PURE WRITE that is the first step event on this row, so a
+    # reader can re-run the ordering rather than take the verdict on trust.
+    ("-", 'Area'):
+        "derived within the step: `Area = Subcatch[j].area` (gwater.c:503) is "
+        'the first step event on this row, so no value crosses the boundary',
+    ("-", 'EvapRate'):
+        "derived within the step: `EvapRate = Evap.rate` (lid.c:1636) is the "
+        'first step event on this row, so no value crosses the boundary',
+    ("-", 'Infil'):
+        "derived within the step: `Infil = infil` (gwater.c:508) is the first "
+        'step event on this row, so no value crosses the boundary',
+    ("-", 'MaxNativeInfil'):
+        'derived within the step: findNativeInfil writes it (lid.c:1727) '
+        'before evalLidUnit reads it, so no value crosses the boundary',
+    ("-", 'Q'):
+        "derived within the step: `Q = q` (treatmnt.c:222) copies the node "
+        'inflow parameter at the top of treatmnt_treat, so no value crosses '
+        'the boundary',
+    ("-", 'Steps'):
+        "derived within the step: `Steps = 0` (dynwave.c:285) opens "
+        "dynwave_execute's Picard loop before any read of it, so the iteration "
+        'count is per-step and no value crosses the boundary',
+    ("-", 'T'):
+        "derived within the step: `T = getFlowSpread(Q)` (inlet.c:1353) is the "
+        'first step event on this row. It read as live-on-entry until comments '
+        'were blanked -- the prior first event was the letter T in prose',
+    ("-", 'Tstep'):
+        "derived within the step: `Tstep = tStep` (gwater.c:509) copies the "
+        'step size from the parameter before getFluxes reads it, so no value '
+        'crosses the boundary',
+    ("-", 'V'):
+        "derived within the step: `V = v` (treatmnt.c:223) copies the node "
+        'volume parameter at the top of treatmnt_treat, so no value crosses '
+        'the boundary',
+    ("-", 'W'):
+        "derived within the step: `W = Street[t].gutterWidth` (inlet.c:1084) "
+        "is the first step event on this row -- getConduitGeometry reloads the "
+        "street geometry for each inlet before any capture calculation reads "
+        'it',
+    ("-", 'a'):
+        "derived within the step: `a = Street[t].gutterDepression` "
+        '(inlet.c:1083) is the first step event on this row. It read as '
+        'live-on-entry until comments were blanked -- the prior first event '
+        'was the English article "a" in a doc comment',
+    ("-", 'n'):
+        "derived within the step: `n = Street[t].roughness` (inlet.c:1085) is "
+        'the first step event on this row. It read as live-on-entry until '
+        'comments were blanked -- the prior first event was the letter n in '
+        'prose',
+}
+
+# Whole-object exclusion RULES.  An object appears here only when every field it
+# carries belongs to one class for one reason; a per-field entry above always
+# wins over the rule.  A rule does NOT weaken closure-check modes (i)/(iii): the
+# artifact lists every field the rule swallowed, so a field EPA adds to a
+# rule-excluded struct still changes the emitted text and still fails the diff.
+EXCLUDED_ROUTING_OBJECTS = {
+    "A":
+        "config: re-read from the .inp at swmm_open",
+    "Adjust":
+        "config: re-read from the .inp at swmm_open",
+    "Curve":
+        "config: re-read from the .inp at swmm_open",
+    "Divider":
+        "config: re-read from the .inp at swmm_open",
+    "Evap":
+        "config: recomputed every step by climate_setState from .inp-derived series",
+    "Event":
+        "config: re-read from the .inp at swmm_open",
+    "LidProcs":
+        "config: re-read from the .inp at swmm_open",
+    "Orifice":
+        "config: re-read from the .inp at swmm_open",
+    "Outlet":
+        "config: re-read from the .inp at swmm_open",
+    "Pattern":
+        "config: re-read from the .inp at swmm_open",
+    "Pollut":
+        "config: re-read from the .inp at swmm_open",
+    "Pump":
+        "config: re-read from the .inp at swmm_open",
+    "R":
+        "config: re-read from the .inp at swmm_open",
+    "RptFlags":
+        "config: re-read from the .inp at swmm_open",
+    "Street":
+        "config: re-read from the .inp at swmm_open",
+    "TimeStepStats":
+        "report accumulator; admitted by Criterion R above and restored by the same snapshot",
+    "Transect":
+        "config: re-read from the .inp at swmm_open",
+    "Weir":
+        "config: re-read from the .inp at swmm_open",
+    "pXsect":
+        "config: re-read from the .inp at swmm_open",
+    "xsect":
+        "config: re-read from the .inp at swmm_open",
+}
+
+# --- TFILE-TRIAGE: the non-field (stream-position) exclusion table -------------------
+#
+# A field-liveness closure cannot see a FILE STREAM POSITION, whatever axis it
+# is bounded on.  The enumeration is keyed on the TYPE ``TFile``, never on a
+# declaration site: a grep for the type over the solver headers returns exactly
+# two sites -- the ``EXTERN TFile`` block in globals.h introducing eleven
+# handles, and a ``TFile file;`` MEMBER of ``TTable``, one stream per external
+# time series.  Enumerating from the globals block alone is the obvious move and
+# it silently misses the per-time-series cursor, which is the same failure shape
+# as a hand-written field list missing a module static: the enumeration was
+# keyed on a PLACE rather than on the property that defines membership.
+#
+# The captured quantity would be uniform -- one ``long`` from ``ftell`` per
+# handle -- so the cost is O(1) in handle count either way.  An EMPTY admitted
+# set is a PASSING result: the deliverable of this pass is the table.
+TFILE_ADMITTED = {}
+
+TFILE_EXCLUDED = {
+    "Fclimate":
+        "climate file; the coupled hydraulics-only configuration does not advance the climate clock",
+    "Fhotstart1":
+        "hot-start INPUT file; read once at swmm_start and never re-read, so no cursor survives the call",
+    "Fhotstart2":
+        "hot-start OUTPUT file; written once at swmm_end, after the resumed segment has completed",
+    "Finflows":
+        "routing-interface inflow file; not in use in the coupled configuration (mode NO_FILE)",
+    "Finp":
+        "input file; re-read from the .inp at swmm_open, and the resumed process reopens it at position 0 by construction",
+    "Fout":
+        "unrestorable by ANY offset: output_openOutFile reopens it 'w+b', which TRUNCATES, and output_open resets Nperiods = 0, so there are no bytes to seek past -- and the 0..t_k period records were never written in the resumed process because saveResults() is never called for those steps",
+    "Foutflows":
+        "routing-interface outflow file; not in use in the coupled configuration (mode NO_FILE)",
+    "Frain":
+        "rainfall file; the coupled hydraulics-only configuration supplies inflows externally and does not read rainfall",
+    "Frdii":
+        "RDII interface file; not in use in the coupled configuration (mode NO_FILE)",
+    "Frpt":
+        "report file; the full-window hydraulics.rpt is produced by the replayed report path, not by a restored offset",
+    "Frunoff":
+        "runoff interface file; not in use in the coupled configuration (mode NO_FILE)",
+    "TTable.file":
+        "per-time-series cursor. It SELF-HEALS: table_tseriesLookup has two healing branches -- a degenerate bracket (x1 == x2) and a lookup falling left of it (x < x1) -- and both route to table_getFirstEntry, which rewinds and re-scans for a file-backed series (table.c:773-781). The design offered a SECOND ground, that admitting it is strictly worse than not because struct_fields dropped x1/y1 from `double x1, x2;` and a half-restored bracket interpolates against a bogus y1; THAT GROUND IS RETIRED, because this chunk repaired struct_fields and the helper now returns all four. The self-healing ground stands alone and is sufficient. Do not cite the repaired defect.",
+}
+
+
 _FUNC_DEF = re.compile(
-    r"^[A-Za-z_][A-Za-z0-9_ \t\*]*?\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^;{]*\)\s*$",
+    r"^[A-Za-z_][A-Za-z0-9_ \t\*]*?\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^;{]*\)\s*(?://.*)?$",
     re.MULTILINE,
 )
 _CALL = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(")
@@ -165,11 +1165,23 @@ def struct_fields(objects_h: str, type_name: str) -> list[str]:
         if not line or not line.endswith(";"):
             continue
         decl = line[:-1]
-        decl = decl.split("[")[0]  # drop array extents
-        toks = _IDENT.findall(decl)
+        # A C declaration may declare SEVERAL fields: `double x1, x2;`.  Taking
+        # only the last identifier of the whole line drops every declarator but
+        # the final one, with no diagnostic -- and because the regeneration
+        # check compares two outputs of THIS helper, a field neither side
+        # enumerates makes the check pass while blind.  `TConduit` uses the form
+        # three times (`a1`/`a2`, `q1`/`q2`, `q1Old`/`q2Old`) and `a1` is
+        # live-on-entry routing state, so Criterion P cannot tolerate the drop.
+        parts = decl.split(",")
+        first = parts[0].split("[")[0]
+        toks = _IDENT.findall(first)
         if len(toks) < 2:
             continue
         fields.append(toks[-1])
+        for extra in parts[1:]:
+            extra_toks = _IDENT.findall(extra.split("[")[0])
+            if extra_toks:
+                fields.append(extra_toks[-1])
     return fields
 
 
@@ -229,7 +1241,15 @@ def _signature_params(bodies, origin, solver: Path, fn: str) -> list[str]:
     if fn in _SIG_CACHE:
         return _SIG_CACHE[fn]
     params: list[str] = []
-    src = (solver / origin[fn]).read_text(errors="replace")
+    # BLANKED, and this call is load-bearing rather than tidiness. `bodies[fn]`
+    # comes from split_functions, which blanks comments; `src.find(body)` then
+    # searches the RAW text for a string that no longer occurs in it, returns
+    # -1, and the whole header parse below is skipped -- so `params` comes back
+    # EMPTY, the alias binding cannot propagate, and seven TimeStepStats fields
+    # silently flip read_by_report_path from yes to no. Measured exactly that
+    # when the blanking landed here without this line. Blanking BOTH sides also
+    # stops `header.rfind("(")` finding a parenthesis inside a doc comment.
+    src = blank_comments((solver / origin[fn]).read_text(errors="replace"))
     body = bodies[fn]
     at = src.find(body)
     if at > 0:
@@ -247,8 +1267,88 @@ def _signature_params(bodies, origin, solver: Path, fn: str) -> list[str]:
     return params
 
 
+def blank_comments(src: str) -> str:
+    """Replace every comment's characters with spaces, preserving OFFSETS.
+
+    WHY THE WHOLE INSTRUMENT NEEDED THIS.  ``state_events`` matches bare
+    identifiers with ``_REF`` over a function body taken verbatim from source,
+    and a body taken verbatim CONTAINS ITS COMMENTS.  So every English article
+    "a" in a doc comment, every "n" in "n iterations", every standalone "T" in
+    prose was emitted as an EVENT on the scalar row of that name.
+
+    That is not a cosmetic count error.  The kill pass and the triage both key
+    on WHICH EVENT COMES FIRST, so a comment can decide a verdict.  Measured at
+    this pin, over the step stream, comparing the same walk with and without
+    comments:
+
+        name   with comments        stripped
+        T      first=READ  (n=50)   first=WRITE (n=46)
+        a      first=READ  (n=89)   first=WRITE (n=38)
+        n      first=READ  (n=28)   first=WRITE (n= 6)
+        GW     first=READ  (n=18)   first=WRITE (n= 2)
+
+    All four flip.  `T`, `a` and `n` are inlet.c's HEC-22 street-geometry
+    scratch variables, written by getConduitGeometry at the top of each inlet's
+    computation and read afterwards -- plainly derived.  Read first, they look
+    live on entry, and the read that made them look live was the word "a" in
+    the sentence "before a flow routing step has been taken".  Over-capture is
+    the harmful direction under Criterion P, so this defect pushed three rows
+    toward exactly the mistake the criterion's configuration exception exists
+    to prevent.
+
+    OFFSETS ARE PRESERVED because ``state_events`` orders by character offset
+    and the kill pass consumes that order.  Deleting the bytes instead would
+    re-order nothing visibly and change nothing measurably -- until a body
+    whose comments sit between two references shifted one past the other.
+
+    STRING AND CHARACTER LITERALS ARE TRACKED, so a `"http://..."` inside a
+    body does not swallow the rest of its line.  Escapes are honoured.
+    """
+    out = []
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if c == '"' or c == "'":
+            quote = c
+            out.append(c)
+            i += 1
+            while i < n:
+                out.append(src[i])
+                if src[i] == "\\" and i + 1 < n:
+                    out.append(src[i + 1])
+                    i += 2
+                    continue
+                if src[i] == quote:
+                    i += 1
+                    break
+                i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "*":
+            j = src.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append("".join(" " if ch != "\n" else "\n" for ch in src[i:j]))
+            i = j
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] == "/":
+            j = src.find("\n", i)
+            j = n if j < 0 else j
+            out.append(" " * (j - i))
+            i = j
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def split_functions(src: str) -> dict[str, str]:
-    """Split a translation unit into ``{function name: body}`` by brace match."""
+    """Split a translation unit into ``{function name: body}`` by brace match.
+
+    Comments are BLANKED first (offsets preserved), so no consumer of a body
+    ever sees prose: not ``state_events``' identifier scan, not ``_CALL``'s
+    call-graph scan (a commented-out call is not a call), and not the brace
+    matcher (a brace inside a comment is not a brace).
+    """
+    src = blank_comments(src)
     out: dict[str, str] = {}
     for m in _FUNC_DEF.finditer(src):
         name = m.group(1)
@@ -271,6 +1371,758 @@ def split_functions(src: str) -> dict[str, str]:
             i += 1
         out.setdefault(name, src[brace : i + 1])
     return out
+
+
+# --- Criterion P machinery ---------------------------------------------------
+
+_STATIC_DECL = re.compile(
+    r"^static\s+(const\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(\**)\s*([^;(){}=]*?)\s*[;=]",
+    re.MULTILINE,
+)
+_FILE_SCOPE_DEF = re.compile(
+    r"^([A-Za-z_][A-Za-z0-9_]*)\s*(\**)\s+([A-Za-z_][A-Za-z0-9_][^;(){}=]*?)\s*;",
+    re.MULTILINE,
+)
+_C_KEYWORD = {
+    "return", "typedef", "struct", "union", "enum", "extern", "static", "const",
+    "void", "if", "else", "for", "while", "do", "switch", "case", "break",
+    "continue", "goto", "sizeof", "default",
+}
+
+
+def _strip_function_bodies(src: str) -> str:
+    """Return ``src`` with every brace-delimited block replaced by a blank.
+
+    File-scope declarations are what the pre-filter asks about.  Scanning the
+    raw text instead finds every local ``static`` and every local declaration
+    inside a function body, which is the wrong extent -- the same class of
+    error as counting fields over the whole header rather than the struct body.
+    """
+    out, depth = [], 0
+    for ch in src:
+        if ch == "{":
+            depth += 1
+            out.append(" ")
+        elif ch == "}":
+            depth = max(0, depth - 1)
+            out.append(" ")
+        else:
+            out.append(" " if depth else ch)
+    return "".join(out)
+
+
+def _declarator_names(blob: str) -> list[str]:
+    names = []
+    for part in blob.split(","):
+        toks = _IDENT.findall(part.split("[")[0])
+        if toks and toks[-1] not in _C_KEYWORD:
+            names.append(toks[-1])
+    return names
+
+
+def file_scope_mutable_state(src: str) -> tuple[list[str], list[str]]:
+    """Return ``(non-const file-scope statics, non-static file-scope globals)``.
+
+    ``const`` is the discriminator the pre-filter's own wording turns on and it
+    is the one a line-counting grep loses.  Measured at this pin, a
+    ``grep -cE '^static +[^(]*[;=]'`` returns 2 for ``massbal.c`` and both hits
+    are ``static const double MAX_*_BALANCE_ERR`` -- constants.  Under a
+    statics-only pre-filter ``massbal.c`` would be EXCLUDED and
+    ``Node[].overflow`` killed a second time, undoing the repair this criterion
+    exists to make.  ``massbal.c`` is admitted by the SECOND clause: it declares
+    mutable file-scope state as non-static globals (``FlowTotals``,
+    ``NodeInflow``, ``NodeOutflow``, ``TotalArea``) and writes through them.
+    """
+    head = _strip_function_bodies(src)
+    statics: list[str] = []
+    for m in _STATIC_DECL.finditer(head):
+        if m.group(1):  # const
+            continue
+        statics.extend(_declarator_names(m.group(4)))
+    globals_: list[str] = []
+    for m in _FILE_SCOPE_DEF.finditer(head):
+        if m.group(1) in _C_KEYWORD:
+            continue
+        globals_.extend(_declarator_names(m.group(3)))
+    return sorted(set(statics)), sorted(set(globals_))
+
+
+def extern_global_names(globals_h: str) -> set[str]:
+    """Every name the ``EXTERN`` blocks of globals.h declare, any type."""
+    out: set[str] = set()
+    cur: str | None = None
+    for raw in globals_h.splitlines():
+        line = raw.split("//")[0].rstrip()
+        if not line.strip():
+            continue
+        m = re.match(r"^EXTERN\s+([A-Za-z_][A-Za-z0-9_]*)\s*\**", line)
+        if m:
+            cur = m.group(1)
+            line = line[m.end():]
+        if cur is None:
+            continue
+        out.update(_declarator_names(line.rstrip(";")))
+        if ";" in raw:
+            cur = None
+    return out
+
+
+def all_solver_functions(solver: Path) -> dict[str, list[tuple[str, str]]]:
+    """``{function name: [(translation unit, body), ...]}`` over every ``*.c``.
+
+    Keyed as a MULTIMAP because seven names are defined in more than one unit at
+    this pin.  Collapsing them to the first definition attributes a body to the
+    wrong unit and silently drops the others from the walk.
+    """
+    defs: dict[str, list[tuple[str, str]]] = {}
+    for path in sorted(solver.glob("*.c")):
+        for name, body in split_functions(path.read_text(errors="replace")).items():
+            defs.setdefault(name, []).append((path.name, body))
+    return defs
+
+
+def routing_closure(defs, roots: list[str]) -> set[tuple[str, str]]:
+    """Transitive closure from ``roots`` with NO translation-unit restriction.
+
+    The retired form of this operation bounded the walk to nine named units.
+    That bound provably killed a provably-live field: ``routing_execute``'s
+    FIRST statement is ``massbal_updateRoutingTotals``, whose per-node loop
+    reads ``Node[j].overflow`` before anything in the step prologue runs, and
+    ``massbal.c`` was not among the nine.  A unit list does not separate
+    state-carrying from stateless, and it does not separate reachable from
+    unreachable -- most of the units outside the nine are entered by an ordinary
+    first-hop call.  The bound moved to the FIELD axis; the walk has none.
+    """
+    bodies = {(unit, name): body for name, v in defs.items() for unit, body in v}
+    reached: set[tuple[str, str]] = set()
+    stack = [(unit, name) for name in roots for unit, _ in defs.get(name, [])]
+    missing = [r for r in roots if r not in defs]
+    if missing:
+        raise SystemExit(f"routing seed root(s) not found in the solver tree: {missing}")
+    while stack:
+        key = stack.pop()
+        if key in reached:
+            continue
+        reached.add(key)
+        for callee in _CALL.findall(bodies[key]):
+            for unit2, _ in defs.get(callee, []):
+                if (unit2, callee) not in reached:
+                    stack.append((unit2, callee))
+    return reached
+
+
+_WRITE_AFTER = re.compile(r"^\s*(\+\+|--|(?:[-+*/%|&^]|<<|>>)=|=(?!=))")
+_PREFIX_INCDEC = re.compile(r"(\+\+|--)\s*$")
+
+
+def _classify(body: str, start: int, end: int) -> str:
+    """``'w'`` for a pure write, ``'r'`` otherwise.
+
+    A read-modify-write (``+=``, ``++``) counts as a READ, because it consumes
+    the value the previous step left.  Only a PURE assignment kills.
+    """
+    m = _WRITE_AFTER.match(body[end:end + 4])
+    if m:
+        op = m.group(1)
+        return "w" if op == "=" else "r"
+    if _PREFIX_INCDEC.search(body[max(0, start - 3):start]):
+        return "r"
+    return "r"
+
+
+_REF = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[[^\]\[]*\]\s*)?(?:(->|\.)\s*([A-Za-z_][A-Za-z0-9_]*))?"
+)
+
+
+def state_events(body: str, objects: frozenset, scalars: frozenset):
+    """Ordered ``(offset, kind, object, field)`` events in one span of source.
+
+    ``objects`` are struct-typed globals and file-scope statics reached through
+    ``[i].f`` / ``->f`` / ``.f``; ``scalars`` are bare names.  Order is the
+    character offset, which is the statement order the kill pass needs.
+
+    ONE combined pass rather than a regex per candidate: the candidate pool runs
+    to several hundred names and the step stream re-scans every inlined span, so
+    a per-name scan is quadratic in a way that does not finish.
+    """
+    events = []
+    for m in _REF.finditer(body):
+        name, arrow, field = m.group(1), m.group(2), m.group(3)
+        if arrow and name in objects:
+            events.append((m.start(), _classify(body, m.start(), m.end()), name, field))
+        elif not arrow and name in scalars:
+            events.append((m.start(), _classify(body, m.start(), m.end()), "-", name))
+    return events
+
+
+def step_event_stream(defs, reached, objects, scalars,
+                      unit_objects=None, unit_scalars=None):
+    """Events over the STEP, in execution order, from ``swmm_step``'s entry.
+
+    ``unit_objects`` / ``unit_scalars`` map a translation unit to the names
+    VISIBLE IN THAT UNIT.  When supplied they REPLACE ``objects`` / ``scalars``
+    per body, and a unit absent from the map falls back to the arguments, which
+    the caller passes as the globals-only sets.  This is the C visibility rule
+    and not a heuristic: a file-scope ``static`` is invisible outside its own
+    translation unit, so a bare-name match against it in another unit's body
+    names a DIFFERENT object -- a local, a parameter, a struct member that
+    happens to share the spelling.  Measured at the pin: attributing events
+    tree-wide gave the row for ``a`` 8,721 events from ``xsect.c`` alone, where
+    ``a`` is a local, against 89 from ``inlet.c``, which owns the static.  A
+    verdict on such a row is a statement about the wrong object.
+
+    ``objects`` / ``scalars`` remain the parameters rather than being derived
+    here because the caller has already computed the pre-filter verdict that
+    decides which units contribute statics at all.
+
+    The boundary is ``swmm_step``'s entry and NOT ``routing_execute``'s, and the
+    distinction is load-bearing rather than pedantic.  ``routing_execute``'s
+    FIRST statement is ``massbal_updateRoutingTotals``, whose per-node loop
+    reads ``Node[j].overflow`` -- so a stream that began at the prologue would
+    see only the later prologue zeroing and classify the field DEAD.  It is
+    LIVE.  Four pieces of the step run before ``routing_execute`` and one
+    (``saveResults``) runs after it; the same widening is what makes
+    ``ReportTime`` visible as ordinary live-on-entry state.
+
+    A callee is INLINED at its call site so the stream is EXECUTION order rather
+    than declaration order.  Recursion is guarded by the current path, so a
+    cycle terminates without truncating a sibling subtree.
+    """
+    bodies = {(unit, name): body for name, v in defs.items() for unit, body in v}
+    by_name: dict[str, str] = {}
+    unit_by_name: dict[str, str] = {}
+    for (unit, name), body in bodies.items():
+        if name not in by_name:
+            by_name[name] = body
+            unit_by_name[name] = unit
+
+    unit_objects = unit_objects or {}
+    unit_scalars = unit_scalars or {}
+
+    def visible(fn: str) -> tuple[frozenset, frozenset]:
+        unit = unit_by_name.get(fn)
+        return (unit_objects.get(unit, objects), unit_scalars.get(unit, scalars))
+
+    stream: list[tuple[str, str, str, str]] = []
+
+    def walk(name: str, path: frozenset) -> None:
+        if name in path or name not in by_name:
+            return
+        body = by_name[name]
+        obj_set, scal_set = visible(name)
+        path = path | {name}
+        marks = [
+            (m.start(), m.group(1))
+            for m in _CALL.finditer(body)
+            if m.group(1) in by_name and m.group(1) not in path
+        ]
+        cut = 0
+        for at, callee in marks:
+            for _off, kind, obj, field in state_events(body[cut:at], obj_set, scal_set):
+                stream.append((kind, obj, field, name))
+            walk(callee, path)
+            cut = at
+        for _off, kind, obj, field in state_events(body[cut:], obj_set, scal_set):
+            stream.append((kind, obj, field, name))
+
+    walk(STEP_ROOT, frozenset())
+    return stream
+
+
+def kill_pass(candidates, stream):
+    """Split ``candidates`` into ``(live, killed)`` by STEP execution order.
+
+    A field is KILLED only when a PURE WRITE performed by one of the six
+    PROLOGUE functions precedes EVERY read of it in the step's own execution
+    order.  Two halves of that rule each rule out a measured wrong answer:
+
+      * Only a PROLOGUE write kills.  The prologue's writes are unconditional
+        per-object loops; a write elsewhere in the step may sit inside a branch,
+        and treating a textually-earlier conditional write as a kill would
+        subtract a field the step can read first.
+
+      * Reads are counted over the WHOLE step, not the prologue.  The read of
+        ``Node[j].overflow`` at ``massbal.c:635`` happens before the prologue
+        begins, so a prologue-only read set would kill a live field.
+
+    A read-modify-write (``+=``, ``++``) counts as a READ: it consumes the value
+    the previous step left.  A FLAT kill set -- one that ignores order -- was
+    measured wrong on three fields: ``Node.inflow`` and ``Node.outflow`` are
+    read by ``node_setOldHydState`` BEFORE ``node_initFlows`` overwrites them,
+    and ``Node.newLatFlow`` is read one line before it is zeroed inside
+    ``initSystemInflows``.  All three are LIVE.
+    """
+    decided: dict[tuple[str, str], str] = {}
+    for kind, obj, field, fn in stream:
+        key = (obj, field)
+        if key in decided:
+            continue
+        if kind == "r":
+            decided[key] = "live"
+        elif fn in ROUTING_PROLOGUE:
+            decided[key] = "killed"
+        # a pure write outside the prologue decides nothing
+    killed = {k for k in candidates if decided.get(k) == "killed"}
+    return sorted(candidates - killed), sorted(killed)
+
+
+def prologue_order_holds(stream) -> list[str]:
+    """Return the prologue functions, in the order the step stream reaches them.
+
+    Closure-check mode (ii) asks whether a field marked killed has a kill site
+    preceding every read of it IN PROLOGUE ORDER.  That question is only
+    well-posed while the declared prologue order is the order the source
+    actually executes, so the order is re-derived here and compared against the
+    committed ``ROUTING_PROLOGUE`` rather than assumed.
+    """
+    seen: list[str] = []
+    for _kind, _obj, _field, fn in stream:
+        if fn in ROUTING_PROLOGUE and fn not in seen:
+            seen.append(fn)
+    return seen
+
+
+def _struct_typed_globals(globals_h: str) -> set[str]:
+    """``EXTERN`` names whose type is a SWMM struct (``T``-prefixed)."""
+    out: set[str] = set()
+    cur: str | None = None
+    for raw in globals_h.splitlines():
+        line = raw.split("//")[0].rstrip()
+        if not line.strip():
+            continue
+        m = re.match(r"^EXTERN\s+([A-Za-z_][A-Za-z0-9_]*)\s*\**", line)
+        if m:
+            cur = m.group(1)
+            line = line[m.end():]
+        if cur == "TFile":
+            # A stream handle is enumerated by the TFILE-TRIAGE table keyed on the TYPE,
+            # not as a field of a struct-typed global.  Leaving it in both pools
+            # would triage the same object twice under two different criteria.
+            if ";" in raw:
+                cur = None
+            continue
+        if cur is None or not re.fullmatch(r"T[A-Z][A-Za-z0-9_]*", cur):
+            if ";" in raw:
+                cur = None
+            continue
+        out.update(_declarator_names(line.rstrip(";")))
+        if ";" in raw:
+            cur = None
+    return out
+
+
+def _scalar_globals(globals_h: str) -> set[str]:
+    """``EXTERN`` names of plain scalar type -- the clock and counter class."""
+    out: set[str] = set()
+    cur: str | None = None
+    for raw in globals_h.splitlines():
+        line = raw.split("//")[0].rstrip()
+        if not line.strip():
+            continue
+        m = re.match(r"^EXTERN\s+([A-Za-z_][A-Za-z0-9_]*)\s*\**", line)
+        if m:
+            cur = m.group(1)
+            line = line[m.end():]
+        if cur is None:
+            continue
+        if cur in ("long", "double", "int", "DateTime"):
+            for part in line.rstrip(";").split(","):
+                if "[" in part:
+                    continue  # array: per-object config, not a scalar
+                names = _declarator_names(part)
+                out.update(names)
+        if ";" in raw:
+            cur = None
+    return out
+
+
+def emit_p_section(solver: Path, lines: list[str]) -> int:
+    """Append Criterion P's section to ``lines``; return the row count."""
+    globals_h = (solver / "globals.h").read_text(errors="replace")
+    objects_h = (solver / "objects.h").read_text(errors="replace")
+
+    defs = all_solver_functions(solver)
+    reached = routing_closure(defs, ROUTING_SEED_ROOTS)
+    reached_units = sorted({unit for unit, _ in reached})
+
+    # --- the mutable-state PRE-FILTER, recomputed from source ----------------
+    verdict: dict[str, tuple[bool, str]] = {}
+    unit_statics: dict[str, list[str]] = {}
+    ext_globals = extern_global_names(globals_h)
+    for unit in reached_units:
+        src = (solver / unit).read_text(errors="replace")
+        statics, file_globals = file_scope_mutable_state(src)
+        unit_statics[unit] = statics
+        writes_global = False
+        for name in sorted(ext_globals):
+            if re.search(
+                rf"\b{re.escape(name)}\b\s*(?:\[[^\]]*\]\s*)?(?:(?:->|\.)\s*[A-Za-z_][A-Za-z0-9_]*\s*)?"
+                rf"(?:\[[^\]]*\]\s*)?(?:[-+*/%|&^]|<<|>>)?=(?!=)",
+                src,
+            ):
+                writes_global = True
+                break
+        if statics:
+            verdict[unit] = (True, f"declares {len(statics)} non-const file-scope static(s)")
+        elif file_globals:
+            verdict[unit] = (True, f"defines {len(file_globals)} file-scope global(s)")
+        elif writes_global:
+            verdict[unit] = (True, "writes through a global")
+        else:
+            verdict[unit] = (False, "declares no mutable state and writes no global")
+
+    computed_excluded = sorted(u for u in reached_units if not verdict[u][0])
+    contributing = [u for u in reached_units if verdict[u][0]]
+
+    # --- candidate pool ------------------------------------------------------
+    struct_globals = _struct_typed_globals(globals_h)
+    scalar_globals = _scalar_globals(globals_h)
+    bodies = {(unit, name): body for name, v in defs.items() for unit, body in v}
+
+    objects = set(struct_globals)
+    scalars = set(scalar_globals)
+    for unit in contributing:
+        for name in unit_statics[unit]:
+            objects.add(name)
+            scalars.add(name)
+
+    objects = frozenset(objects)
+    scalars = frozenset(scalars)
+
+    # --- PER-UNIT VISIBILITY, which is a C language rule, not a heuristic ----
+    #
+    # `objects` and `scalars` above are the UNION over every contributing unit.
+    # Matching a bare name from that union against ANY unit's body attributes
+    # events from many distinct C objects to one row, because a file-scope
+    # `static` is invisible outside its own translation unit: a match on the
+    # same spelling elsewhere is a LOCAL, a PARAMETER, or a struct member.
+    #
+    # Measured at this pin, over the step stream, for the names this defect
+    # left untriaged:
+    #
+    #   a       owner inlet.c     8,721 events from xsect.c,  89 from inlet.c
+    #   n       owner inlet.c     6,750 events from xsect.c,  28 from inlet.c
+    #   xsect   owner inlet.c     3,208 events from xsect.c,  15 from inlet.c
+    #   S       owner mathexpr.c     18 events from xsect.c,   0 from mathexpr.c
+    #
+    # `S` is the sharpest: EVERY event on that row came from a unit that cannot
+    # see the object the row names.  A verdict there is a statement about the
+    # wrong object, which is why these rows were left open rather than guessed.
+    #
+    # The globals from globals.h stay visible everywhere -- that is what makes
+    # them globals -- so only the STATICS are scoped.
+    unit_objects = {u: frozenset(struct_globals | set(unit_statics[u]))
+                    for u in contributing}
+    unit_scalars = {u: frozenset(scalar_globals | set(unit_statics[u]))
+                    for u in contributing}
+    globals_only_objects = frozenset(struct_globals)
+    globals_only_scalars = frozenset(scalar_globals)
+
+    # A NAME OWNED BY TWO CONTRIBUTING UNITS WOULD STILL CONFLATE, because the
+    # row key is the bare name.  At this pin no name is -- measured below, not
+    # assumed -- so the bare name IS a unique key once foreign attribution is
+    # gone.  If that ever stops holding the census emitted into the artifact
+    # says so by name and counts as an open decision, rather than silently
+    # merging two objects into one verdict again.
+    static_owners: dict[str, list[str]] = {}
+    for unit in contributing:
+        for name in unit_statics[unit]:
+            static_owners.setdefault(name, []).append(unit)
+    scope_collisions = sorted(n for n, us in static_owners.items() if len(us) > 1)
+    shadowed = sorted(set(static_owners) & (set(scalar_globals) | set(struct_globals)))
+
+    # STRUCT-FIELD candidates come from the ROUTING closure (the four seed
+    # roots) restricted to contributing units.  SCALAR candidates come from the
+    # STEP stream instead, because §4.6.3 records that widening the boundary to
+    # swmm_step is what makes `ReportTime` visible as ordinary live-on-entry
+    # state -- and `ReportTime`, `Nperiods`, `TotalStepCount` and
+    # `ReportStepCount` are referenced nowhere in the four-root routing closure.
+    # Two bases rather than one because the two classes are reached by
+    # different halves of the same declaration.
+    candidates: set[tuple[str, str]] = set()
+    for unit, fn in sorted(reached):
+        if unit not in contributing:
+            continue
+        # The empty `scalars` set here is DELIBERATE and is not the defect this
+        # ordering once carried: the struct-field basis is the four-root routing
+        # closure, and scalars are added from the STEP stream immediately below,
+        # which is a different basis. Passing `scalars` here would merge the two.
+        for _, _kind, obj, field in state_events(
+                bodies[(unit, fn)],
+                unit_objects.get(unit, globals_only_objects),
+                frozenset()):
+            candidates.add((obj, field))
+
+    # SCALAR candidates, from the STEP stream. THE ORDER OF THESE TWO BLOCKS
+    # AGAINST THE VALIDATION LOOP BELOW IS LOAD-BEARING, and getting it wrong is
+    # what made the scalar basis dead code for its whole life.
+    #
+    # Until this commit, `stream` was built and the scalars were added to
+    # `candidates` AFTER the validation loop had already run, and the kill pass
+    # consumes `validated`, not `candidates`. So no ("-", name) tuple could exist
+    # when validation ran, the `if obj == "-"` branch inside it was unreachable by
+    # construction, and not one scalar ever reached the kill pass or the triage
+    # table. §4.6.3's F2 correction specifies Criterion P over TWO bases --
+    # struct fields from the four-root closure and scalar globals from the
+    # swmm_step statement stream -- and the second basis shipped as dead code.
+    #
+    # The unreachable `obj == "-"` branch in the validation loop is the evidence
+    # the split was INTENDED and merely mis-ordered: nobody writes a branch for a
+    # value that cannot occur.
+    #
+    # NOTHING ELSE CHANGES. These are the same two statements, moved.
+    stream = step_event_stream(defs, reached,
+                               globals_only_objects, globals_only_scalars,
+                               unit_objects, unit_scalars)
+    for _kind, obj, field, _fn in stream:
+        if obj == "-":
+            candidates.add((obj, field))
+
+    # A lexical match against a struct-typed global must name a REAL member of
+    # that struct, or it is a false positive the pool would carry forever.
+    # Scalars carry the sentinel object "-" and have no struct to check against,
+    # so they pass straight through -- that is what the first branch is for, and
+    # it is reachable now.
+    validated: set[tuple[str, str]] = set()
+    rejected: list[tuple[str, str]] = []
+    member_cache: dict[str, set[str]] = {}
+    for obj, field in sorted(candidates):
+        if obj == "-":
+            validated.add((obj, field))
+            continue
+        if obj not in member_cache:
+            member_cache[obj] = _members_of_global(objects_h, globals_h, obj)
+        members = member_cache[obj]
+        if not members or field in members:
+            validated.add((obj, field))
+        else:
+            rejected.append((obj, field))
+
+    live, killed = kill_pass(validated, stream)
+    prologue_seen = prologue_order_holds(stream)
+
+    # --- emit ----------------------------------------------------------------
+    lines.append("#")
+    lines.append("# " + "=" * 74)
+    lines.append("# CRITERION P -- routing state LIVE ON ENTRY at swmm_step's boundary")
+    lines.append("# " + "=" * 74)
+    lines.append("# Criterion: a quantity is IN the snapshot iff a step beginning at t_k READS")
+    lines.append("#            it before that step writes it.")
+    lines.append(f"# Seed roots: {', '.join(ROUTING_SEED_ROOTS)}")
+    lines.append("# Walk: UNRESTRICTED -- every solver translation unit the closure reaches.")
+    lines.append(f"# Functions reached: {len(reached)} across {len(reached_units)} translation unit(s)")
+    lines.append(f"# Step stream rooted at: {STEP_ROOT} (the declared boundary)")
+    lines.append(f"# Prologue, as declared: {' -> '.join(ROUTING_PROLOGUE)}")
+    lines.append(f"# Prologue, as the step stream reaches it: {' -> '.join(prologue_seen)}")
+    _declared_seen = [f for f in ROUTING_PROLOGUE if f in prologue_seen]
+    if prologue_seen != _declared_seen:
+        lines.append("#   PROLOGUE-ORDER-VIOLATION: the source order no longer matches the")
+        lines.append("#   declared order, so mode (ii) is not well-posed at this pin.")
+    _absent = [f for f in ROUTING_PROLOGUE if f not in prologue_seen]
+    if _absent:
+        lines.append(f"#   PROLOGUE-UNREACHED: {', '.join(_absent)}")
+    lines.append("#")
+    lines.append("# mutable-state pre-filter -- per reached unit:")
+    for unit in reached_units:
+        ok, why = verdict[unit]
+        lines.append(f"#   {'contributes' if ok else 'EXCLUDED   '} {unit}: {why}")
+    lines.append("#")
+    lines.append("# closure-check mode (iv) -- a pre-filter-EXCLUDED unit that declares")
+    lines.append("# mutable state at the current pin:")
+    violations = [u for u in PREFILTER_EXCLUDED_UNITS if u in verdict and verdict[u][0]]
+    stale = [u for u in PREFILTER_EXCLUDED_UNITS if u not in verdict]
+    newly = [u for u in computed_excluded if u not in PREFILTER_EXCLUDED_UNITS]
+    if violations:
+        for u in violations:
+            lines.append(f"#   PREFILTER-VIOLATION: {u} -- {verdict[u][1]}")
+    if stale:
+        for u in stale:
+            lines.append(f"#   PREFILTER-STALE: {u} is no longer reached by the walk")
+    if newly:
+        for u in newly:
+            lines.append(f"#   PREFILTER-UNDECLARED: {u} -- add to PREFILTER_EXCLUDED_UNITS")
+    if not (violations or stale or newly):
+        lines.append("#   none -- every declared exclusion holds at this pin")
+    lines.append("#")
+    # --- scalar-scope census -------------------------------------------------
+    #
+    # A scalar row's key is the BARE NAME, with "-" in the object column.  That
+    # key is unambiguous only while each name is owned by exactly ONE
+    # contributing unit, because a file-scope static is invisible outside its
+    # own translation unit and two units may legally declare the same spelling.
+    # Per-unit visibility (above) stops a FOREIGN body contributing events to a
+    # row; it cannot stop two OWNERS sharing one row.  So the property is
+    # measured here on every regeneration and counted as an open decision when
+    # it fails, rather than assumed and silently violated.
+    lines.append("# scalar-scope census -- a row key is the bare NAME:")
+    if scope_collisions:
+        for name in scope_collisions:
+            lines.append(f"#   SCALAR-SCOPE-COLLISION: {name} is a file-scope static in "
+                         f"{', '.join(static_owners[name])} -- one row, two objects")
+    if shadowed:
+        for name in shadowed:
+            lines.append(f"#   SCALAR-SCOPE-SHADOW: {name} is both a globals.h name and a "
+                         f"file-scope static in {', '.join(static_owners[name])}")
+    if not (scope_collisions or shadowed):
+        lines.append(f"#   none -- each of the {len(static_owners)} file-scope statics the "
+                     f"walk reaches is owned by exactly one unit, and none shadows a global")
+    lines.append(f"# SCALAR-SCOPE COLLISIONS: {len(scope_collisions) + len(shadowed)}")
+    lines.append("#")
+    if rejected:
+        lines.append("# lexical matches rejected as non-members of their struct:")
+        for obj, field in rejected:
+            lines.append(f"#   {obj}.{field}")
+        lines.append("#")
+    lines.append("# TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason")
+    rows = 0
+    untriaged = 0
+    for key in live:
+        obj, field = key
+        if key in ADMITTED_ROUTING_STATE:
+            lines.append(f"{obj}\t{field}\tLIVE\tADMITTED\t{ADMITTED_ROUTING_STATE[key]}")
+        elif key in EXCLUDED_ROUTING_STATE:
+            lines.append(f"{obj}\t{field}\tLIVE\tEXCLUDED\t{EXCLUDED_ROUTING_STATE[key]}")
+        elif obj in EXCLUDED_ROUTING_OBJECTS:
+            lines.append(f"{obj}\t{field}\tLIVE\tEXCLUDED\t{EXCLUDED_ROUTING_OBJECTS[obj]}")
+        else:
+            lines.append(f"{obj}\t{field}\tLIVE\tUNTRIAGED\t<-- add to ADMITTED_ROUTING_STATE or EXCLUDED_ROUTING_STATE")
+            untriaged += 1
+        rows += 1
+    lines.append("#")
+    lines.append("# KILLED by the prologue -- a PURE WRITE precedes every read, in order.")
+    for obj, field in killed:
+        lines.append(f"{obj}\t{field}\tKILLED\t-\tprologue writes before any read")
+        rows += 1
+    lines.append("#")
+    lines.append(f"# UNTRIAGED COUNT: {untriaged}")
+
+    # --- TFILE-TRIAGE: the TFile exclusion table -------------------------------------
+    handles = _tfile_handles(globals_h, objects_h)
+    lines.append("#")
+    lines.append("# " + "-" * 74)
+    lines.append("# TFILE-TRIAGE -- non-field (stream position) state, keyed on the TYPE TFile")
+    lines.append("# " + "-" * 74)
+    lines.append(f"# Declaration sites found by type: {len(handles)} handle(s)")
+    lines.append("# handle<TAB>site<TAB>disposition<TAB>reason")
+    dr6_untriaged = 0
+    for name, site in handles:
+        if name in TFILE_ADMITTED:
+            lines.append(f"{name}\t{site}\tADMITTED\t{TFILE_ADMITTED[name]}")
+        elif name in TFILE_EXCLUDED:
+            lines.append(f"{name}\t{site}\tEXCLUDED\t{TFILE_EXCLUDED[name]}")
+        else:
+            lines.append(f"{name}\t{site}\tUNTRIAGED\t<-- add to TFILE_ADMITTED or TFILE_EXCLUDED")
+            dr6_untriaged += 1
+        rows += 1
+    lines.append("#")
+    lines.append(f"# TFILE-TRIAGE ADMITTED: {len(TFILE_ADMITTED)} (an empty admitted set is a PASSING result)")
+    lines.append(f"# TFILE-TRIAGE UNTRIAGED COUNT: {dr6_untriaged}")
+    return rows
+
+
+def _members_of_global(objects_h: str, globals_h: str, obj: str) -> set[str]:
+    """Struct members of ``obj``'s type, or an empty set when not struct-typed."""
+    m = re.search(rf"EXTERN\s+(T[A-Za-z0-9_]*)\s*\**[^;]*\b{re.escape(obj)}\b", globals_h)
+    typ = m.group(1) if m else None
+    if typ is None:
+        m2 = re.search(rf"^static\s+(T[A-Za-z0-9_]*)\s*\**\s*{re.escape(obj)}\b", objects_h, re.M)
+        typ = m2.group(1) if m2 else None
+    if typ is None:
+        return set()
+    try:
+        return set(struct_fields(objects_h, typ))
+    except SystemExit:
+        return set()
+
+
+def _tfile_handles(globals_h: str, objects_h: str) -> list[tuple[str, str]]:
+    """Every ``TFile`` the TYPE-keyed enumeration returns.
+
+    Keyed on the type and never on a declaration site: enumerating from the
+    globals block alone silently misses the per-time-series cursor, which is the
+    same failure shape as a hand-written field list missing a module static.
+    Keying on the type stays complete when upstream adds a twelfth handle.
+    """
+    out: list[tuple[str, str]] = []
+    m = re.search(r"^EXTERN\s+TFile\b(.*?);", globals_h, re.S | re.M)
+    if m:
+        # Strip the trailing comment from EVERY line before splitting on commas.
+        # Splitting first leaves each chunk as `<comment>\n<next name>`, whose
+        # text BEFORE the `//` is whitespace -- so a comment-per-line block
+        # yields exactly one name, the first, and the enumeration silently
+        # returns 1 of 11 while looking like it worked.
+        blob = "\n".join(ln.split("//")[0] for ln in m.group(1).splitlines())
+        for raw in blob.split(","):
+            name = raw.strip()
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                out.append((name, "globals.h EXTERN TFile block"))
+    for mm in re.finditer(r"^\s*TFile\s+([A-Za-z_][A-Za-z0-9_]*)\s*;", objects_h, re.M):
+        owner = objects_h[: mm.start()]
+        typ = re.findall(r"\}\s*(T[A-Za-z0-9_]*)\s*;", objects_h[mm.end():])
+        owner_name = typ[0] if typ else "?"
+        out.append((f"{owner_name}.{mm.group(1)}", f"objects.h member of {owner_name}"))
+    return out
+
+
+# --- the --check verdict vocabulary ------------------------------------------
+#
+# ``--check`` answers TWO independent questions and a single non-zero status
+# cannot tell a maintainer which one went wrong.  They are different problems
+# with different remedies: DRIFT means the vendored EPA tree moved underneath a
+# committed artifact and the remedy is to regenerate and re-review; OPEN
+# DECISIONS mean the artifact is current and correct and some quantity it
+# surfaced has no verdict yet, and the remedy is to triage it.
+#
+# 3 rather than 2 for the open-decision status: argparse already exits 2 on a
+# usage error (this script requires --solver-dir), so 2 is taken and reusing it
+# would make "you forgot an argument" and "the inventory needs triage"
+# indistinguishable to any caller reading the status.
+EXIT_OK = 0
+EXIT_DRIFT = 1
+EXIT_UNTRIAGED = 3
+
+
+def open_triage_decisions(text: str) -> list[tuple[str, int]]:
+    """``[(axis, count), ...]`` read back from the GENERATED inventory text.
+
+    The counts are read from the artifact's own generated summary lines rather
+    than recomputed here.  That is deliberate and it is the whole point: a
+    second computation could disagree with the artifact a maintainer reads, and
+    then the gate and the artifact would be making different claims about the
+    same tree.  Reading the emitted line makes the two agree by construction.
+
+    Returns every axis, including the zero ones, so a caller can report the
+    full picture rather than only the axis that happens to be non-zero.
+    """
+    axes: list[tuple[str, int]] = []
+    # Criterion R's discovery pass has no counter line -- it emits one row per
+    # untriaged name -- so it is counted by row.
+    axes.append((
+        "Criterion R scalars (SERIALIZED_SCALARS / EXCLUDED_SCALARS)",
+        len(re.findall(r"^#   UNTRIAGED: ", text, re.M)),
+    ))
+    for label, pattern in (
+        ("Criterion P routing state (ADMITTED_ROUTING_STATE / EXCLUDED_ROUTING_STATE)",
+         r"^# UNTRIAGED COUNT: (\d+)$"),
+        ("TFILE-TRIAGE stream positions (TFILE_ADMITTED / TFILE_EXCLUDED)",
+         r"^# TFILE-TRIAGE UNTRIAGED COUNT: (\d+)$"),
+        # A scalar-scope collision is an open decision and not a drift: the
+        # tree has not moved, the row key has stopped being unambiguous, and
+        # the remedy is to re-key that row rather than to regenerate.  It is
+        # counted here so it cannot be read as clean.
+        ("Criterion P scalar-scope collisions (one row, two C objects)",
+         r"^# SCALAR-SCOPE COLLISIONS: (\d+)$"),
+    ):
+        m = re.search(pattern, text, re.M)
+        if m is None:
+            # A counter the emitter is supposed to produce has gone missing.
+            # Report it as an open decision rather than as a zero: a silently
+            # absent counter is the one state that must not read as clean.
+            axes.append((label + " [COUNTER LINE ABSENT]", 1))
+        else:
+            axes.append((label, int(m.group(1))))
+    return axes
 
 
 def main() -> int:
@@ -426,12 +2278,17 @@ def main() -> int:
 
     lines.append("#")
     lines.append(f"# TOTAL PAIRS: {total_pairs}")
+
+    # --- Criterion P: the routing half of the same artifact ------------------
+    p_rows = emit_p_section(solver, lines)
+    lines.append("#")
+    lines.append(f"# CRITERION P ROWS: {p_rows}")
     text = "\n".join(lines) + "\n"
 
     if args.check:
         if not inv_path.exists():
             print(f"FAIL: committed inventory not found at {inv_path}", file=sys.stderr)
-            return 1
+            return EXIT_DRIFT
         committed = inv_path.read_text()
         if committed != text:
             print("FAIL: regenerated inventory differs from the committed one.", file=sys.stderr)
@@ -452,9 +2309,43 @@ def main() -> int:
                 "match before committing the new inventory.",
                 file=sys.stderr,
             )
-            return 1
-        print(f"OK: regenerated inventory matches {inv_path} ({total_pairs} pairs)")
-        return 0
+            return EXIT_DRIFT
+        # DRIFT and OPEN DECISIONS are checked independently and reported with
+        # distinguishable statuses.  Drift is reported first and alone when
+        # both hold, because an open-decision count read off a stale artifact
+        # is not a number worth acting on -- triage it against the regenerated
+        # one.
+        axes = open_triage_decisions(text)
+        total_open = sum(n for _label, n in axes)
+        if total_open:
+            # WORDING IS LOAD-BEARING: this message must NOT contain the bare
+            # token "UNTRIAGED".  test_snapshot_inventory_closure_modes.py's
+            # M1/M2/M5 assert that a red run PRINTS that token, to establish
+            # the check fired for their mutation's reason rather than for some
+            # other one.  If this message carried it too, every red run would
+            # satisfy that assertion and those three subtests would stop
+            # discriminating -- green-looking, and blind.  Say "open triage
+            # decision" here and leave "UNTRIAGED" to the rows and the diff.
+            print(
+                f"FAIL: the inventory is current but carries {total_open} open "
+                f"triage decision(s).",
+                file=sys.stderr,
+            )
+            for label, n in axes:
+                print(f"  {n:>4}  {label}", file=sys.stderr)
+            print(
+                "\nEach one is a quantity the closure surfaced that has no verdict.\n"
+                "Give each a verdict in the table named beside its axis above, then\n"
+                "re-run without --check to refresh the artifact.  Leaving them open is\n"
+                "a RED tree on purpose: an empty diff over an artifact full of open\n"
+                "decisions is exactly the state this status exists to stop reading as\n"
+                "clean.",
+                file=sys.stderr,
+            )
+            return EXIT_UNTRIAGED
+        print(f"OK: regenerated inventory matches {inv_path} ({total_pairs} pairs)"
+              f" and carries no open triage decisions")
+        return EXIT_OK
 
     inv_path.write_text(text)
     print(f"wrote {inv_path} ({total_pairs} pairs, {len(reached)} functions reached)")
