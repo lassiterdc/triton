@@ -1,0 +1,16 @@
+#if !defined(KOKKOS_MACROS_HPP) || defined(KOKKOS_CORE_CONFIG_H)
+#error "Do not include KokkosCore_config.h directly; include Kokkos_Macros.hpp instead."
+#else
+#define KOKKOS_CORE_CONFIG_H
+#endif
+#define KOKKOS_VERSION 40599
+#define KOKKOS_VERSION_MAJOR 4
+#define KOKKOS_VERSION_MINOR 5
+#define KOKKOS_VERSION_PATCH 99
+#define KOKKOS_ENABLE_SERIAL
+#define KOKKOS_ENABLE_CXX17
+#define KOKKOS_ENABLE_LIBDL
+#define KOKKOS_ENABLE_COMPLEX_ALIGN
+#define KOKKOS_ENABLE_DEPRECATED_CODE_4
+#define KOKKOS_ENABLE_DEPRECATION_WARNINGS
+#define KOKKOS_ARCH_NATIVE
