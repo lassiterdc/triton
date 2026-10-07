@@ -1679,8 +1679,19 @@ namespace Output
 			// column so the row's arity stays fixed -- the downstream parser's
 			// Average-presence detector depends on that.  It is OUTSIDE the closure
 			// claim above: average(SWMM_STEP) is rank0/N, which halves as rank count
-			// doubles while the serial solve is constant.  The serial-solve cost is
-			// the MAX over Rank, not this mean.
+			// doubles while the serial solve is constant.  The number to read
+			// instead is the MAX over Rank, not this mean.
+			//
+			// AND READ THAT MAX FOR WHAT IT IS.  An earlier form of this note called
+			// it "the serial-solve cost"; it is not.  The SWMM_STEP bracket in
+			// triton.h::compute_new_state spans local_to_global + log_exchange_step
+			// + swmm_step + global_to_local, so the MAX over Rank is the BRACKET
+			// cost -- the serial solve PLUS two index remaps PLUS one buffered
+			// per-timestep file write.  It is an upper bound on the solve: correct
+			// for "what the coupling costs on the critical path", wrong for any
+			// claim about swmm_step() alone.  This function is the surface a
+			// downstream consumer opens, so the distinction is stated here and not
+			// only at the bracket.
 			output << std::setprecision(4) << "Average" << ", " << average(compute_time_all,size_) << ", " <<  average(mpi_time_all,size_) << ", " <<	 average(io_time_all,size_) << ", " << average(resize_time_all,size_) << ", " << average(swmm_time_all,size_) << ", "
 			<< average(swmm_xfer_time_all,size_) << ", " << average(swmm_mpi_time_all,size_) << ", " << average(swmm_step_time_all,size_) << ", " << average(swmm_other_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " <<  average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
 
