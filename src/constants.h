@@ -146,6 +146,38 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define BALANCING_MPI_TIME "balancing_mpi_time"    /**< Timer to get time needed for resizing and re-balancing */
 #define SWMM_TIME "swmm_time"    /**< Timer to get time needed for TRITON-SWMM coupling operations */
 
+// Children of SWMM_TIME.  The parent bracket is UNCHANGED, so the SWMM column
+// keeps reporting exactly the timer reading it reported before this split; these
+// three are measured INSIDE it, and a fourth column, SWMM_OTHER, is the residual
+// SWMM - (XFER + MPI + STEP), so the level closes exactly.
+//
+// SWMM_OTHER deliberately has NO macro here, exactly as the pre-existing `Other`
+// and `Init` residuals have none.  It is a derived local in output.h::write_times
+// and its column name lives only in the header literal.  The reason is a compiler
+// rather than a comment: super_timer::get_cat_index_ REGISTERS an absent category
+// instead of failing, so get_custom_time(SWMM_OTHER) would compile and silently
+// return 0.0 -- with no symbol declared, that call cannot be written at all.
+// The residual hole is that these parameters are std::string, so a bare literal
+// "swmm_other" still compiles; that is what the identity check exists to catch.
+//
+// These are STRING-valued and carry none of the ordering hazard of the SWMM_*
+// INDEX macros above (:107-111), whose values must track push order in
+// create_device_vectors.  They must, however, stay case-insensitively distinct
+// from every other timer category, because super_timer::timecats_ is keyed with
+// a ci_less comparator.
+#define SWMM_XFER "swmm_xfer"    /**< Timer for the coupling's host-device transfers and the exchange kernel. */
+#define SWMM_MPI "swmm_mpi"    /**< Timer for the coupling's MPI_Gatherv and MPI_Scatterv. */
+#define SWMM_STEP "swmm_step"    /**< Timer for the rank-0 serial SWMM solve, its local/global remaps, AND
+                                     the log_exchange_step append to the durable exchange-replay side-file.
+                                     That last item is FILE I/O inside a column named STEP, so SWMM_STEP is
+                                     NOT purely the solve: it carries one buffered write of
+                                     (dt, global_exchange_q) per timestep. Named here because the column
+                                     name does not say it and a reader comparing SWMM_STEP against a
+                                     standalone SWMM solve would otherwise attribute the difference to the
+                                     coupling. The cost is charged here rather than to IO_TIME deliberately:
+                                     the append is inseparable from the step it records, and moving it would
+                                     mean a bracket that is not a contiguous span. */
+
 
 #define TYPE_STATIC "static"    /**< Domain decomposition type: static*/
 #define TYPE_DYNAMIC "dynamic"    /**< Domain decomposition type: dynamic*/

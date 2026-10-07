@@ -2470,6 +2470,19 @@ namespace Triton
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
 
+      // SWMM_TIME is split into three MEASURED children plus a DERIVED residual
+      // (SWMM_OTHER, computed in output.h::write_times).  The parent bracket above
+      // and below is deliberately untouched, so the SWMM column reports the same
+      // timer reading it reported before the split, and the four columns close on
+      // it exactly: XFER + MPI + STEP + OTHER == SWMM on every per-rank row.
+      //
+      // What lands in the residual, and why that is correct rather than leftover:
+      // the two sizeof-scaled assignments just above, the `if (rank == 0)` branch
+      // test below -- which EVERY rank evaluates -- and the category-map lookups
+      // this instrumentation itself performs.  All of it is inside the parent and
+      // inside no child, which is what a residual term is for.
+      st.start(SWMM_XFER);
+
       // Copy new_depth from host to device (updated from previous SWMM step)
       gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuStreamSynchronize(streams);
@@ -2485,13 +2498,37 @@ namespace Triton
       gpuMemcpyAsync(host_vec[SWMM_Q], device_vec[SWMM_Q], nbytes_swmm, gpuMemcpyDeviceToHost, streams);
       gpuStreamSynchronize(streams);
 
+      st.stop(SWMM_XFER);
+
+      // SWMM_MPI takes TWO bracket pairs, not one, because its span is DISJOINT:
+      // the rank-0 solve sits between the gather and the scatter.  One bracket
+      // spanning both would swallow SWMM_STEP and double-count it, which is the
+      // one way to break the closure property.  super_timer accumulates per
+      // category (upd_time_ does `times_[catid] += time`), so two pairs sum.
+      st.start(SWMM_MPI);
       // Gather exchange_q from all ranks to rank 0
       MPI_Gatherv(host_vec[SWMM_Q], swmm_model.num_of_swmm_links, MPI_DATA_TYPE,
                   swmm_model.aux_global_exchange_q, swmm_model.counts, swmm_model.displs,
                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+      st.stop(SWMM_MPI);
 
       // Step SWMM forward on rank 0
       if (rank == 0) {
+        // The SWMM_STEP bracket sits INSIDE this guard, not around it.  Both
+        // placements are correct accounting and they differ in what a reader of a
+        // non-rank-0 row is told: outside, every other rank reports a small
+        // NONZERO SWMM_STEP for a branch test it evaluated and a solve it never
+        // performed; inside, it reports exactly 0.0 and the closure still holds on
+        // every rank.  The branch test's own cost stays in the residual, where it
+        // belongs, because every rank pays it.
+        //
+        // CONSEQUENCE, stated where it is created: SWMM_STEP is the first emitted
+        // column that is exactly zero on N-1 of N ranks, so its Average row entry
+        // is rank0/N -- a number that halves as rank count doubles while the serial
+        // solve is constant.  The PER-RANK rows are the truthful ones; the Average
+        // row is outside every claim this split makes.  The serial-solve cost is
+        // the MAX over Rank, which is what the downstream summary already takes.
+        st.start(SWMM_STEP);
         swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
                                     swmm_model.node_to_rank_dict);
         // Durably log this step's (dt, exchange_q) so a future resume can replay 0..t_k.
@@ -2499,12 +2536,15 @@ namespace Triton
         swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
+        st.stop(SWMM_STEP);
       }
 
+      st.start(SWMM_MPI);
       // Scatter new_depth from rank 0 to all ranks
       MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
                    MPI_DATA_TYPE, host_vec[SWMM_NEWD], swmm_model.num_of_swmm_links,
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+      st.stop(SWMM_MPI);
       st.stop(SWMM_TIME);
       st.start(COMPUTE_TIME);
     }
