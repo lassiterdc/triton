@@ -55,6 +55,65 @@ namespace ConfigUtils
 		T
 		manhole_diameter,	/**< A constant characteristic length for manholes in SWMM (either diameter or width) */
 		manhole_loss;	/**< Loss coefficient for manholes in SWMM links */
+
+		/// STEM SUPPRESSION. When true, init_swmm leaves snapshot_path_stem EMPTY,
+		/// which takes classify_missing_snapshot's FOURTH EXIT -- the one that fires
+		/// BEFORE any directory scan -- and yields the recorded reason `absent`. This
+		/// is the mechanism by which a caller FORCES the replay route deterministically,
+		/// instead of depending on whether the snapshot for the resumed checkpoint
+		/// happens to have survived retention.
+		///
+		/// The TYPE is bool and the READ is argsd(..., "0"), which composes the two
+		/// existing house forms rather than inventing a third: bool from the flag
+		/// group (time_series_flag, gpu_direct_flag) and the additive default from
+		/// the argsd group (checkpoint_id, it_count). Additive is REQUIRED -- every
+		/// cfg omitting this key must stay byte-equivalent, so a run that does not set
+		/// it behaves exactly as it did before the key existed.
+		///
+		/// THE KEY SELF-PROPAGATES ACROSS A RESUME. output_cfg seeds each
+		/// config_{k}.cfg from the verbatim parent cfg and rewrites only a closed
+		/// four-key set, copying every key it does not recognise -- so a run that
+		/// sets this key keeps it set through every subsequent hotstart resume
+		/// without the operator re-supplying it. A resumed run's route is therefore
+		/// fixed by the cfg the original run was launched from.
+		bool
+		swmm_snapshot_disable;
+
+		/// RETENTION OVERRIDE. When true, write_state_snapshot SKIPS its prune, so
+		/// every per-checkpoint snapshot survives for the life of the run instead of
+		/// only the current and the immediately previous one.
+		///
+		/// WHY A CFG KEY RATHER THAN A NEW DEFAULT. keep-2 is the settled default and
+		/// is NOT changed by this key. What keep-2 costs is that the ROUTE a resume
+		/// takes is wall-clock-dependent: whether the snapshot for the resumed
+		/// checkpoint still exists depends on how far the run advanced before the
+		/// interruption fell. Measured at this pin over 30 runs that all resumed at
+		/// checkpoint 108, the split was 22 snapshot / 8 replay -- and four
+		/// configurations split between their own two repeats on identical inputs, so
+		/// the route is not even a function of the configuration. Both routes are
+		/// CORRECT; the 8 were classified `retention-collision` and fell back as
+		/// designed. The key exists so a caller can ELECT uniform route coverage and
+		/// remove that variable when comparing one run against another.
+		///
+		/// The TYPE and the READ mirror swmm_snapshot_disable exactly: bool from the
+		/// flag group, argsd(..., "0") from the additive group. Additive is REQUIRED --
+		/// every cfg omitting this key must stay byte-equivalent in behaviour, because
+		/// the keep-2 path is the baseline every prior run used.
+		///
+		/// NOT a second spelling of swmm_snapshot_disable. The family is one axis per
+		/// key: `disable` governs whether the snapshot MECHANISM runs at all (it
+		/// leaves snapshot_path_stem empty), `keep_all` governs the RETENTION POLICY
+		/// of a mechanism that IS running. Setting both is coherent and inert: an
+		/// empty stem returns from write_state_snapshot before the prune is reached,
+		/// so keep_all then has nothing to suppress.
+		///
+		/// Declared as its own `bool` type-group rather than appended to the one above
+		/// with a comma. A comma form would rewrite the `swmm_snapshot_disable;` line
+		/// that SOURCE-SNAPSHOT-STEM-SUPPRESSION's X1 probe mutates by regex, and that
+		/// probe no-ops SILENTLY when its pattern misses -- reporting `not caught`
+		/// against a check that is in fact fine.
+		bool
+		swmm_snapshot_keep_all;
 #endif
 
 		std::string
@@ -487,6 +546,17 @@ namespace ConfigUtils
 		arglist.inp_filename = args("inp_filename", argmap);
 		arglist.manhole_diameter = atof((args("manhole_diameter", argmap)).c_str());
 		arglist.manhole_loss = atof((args("manhole_loss", argmap)).c_str());
+
+		// ADDITIVE: argsd with default "0", NOT args. The two siblings above use
+		// args because a coupled run cannot proceed without them; this key must
+		// leave every pre-existing cfg loading unchanged, so an absent key is a
+		// defined false rather than a consumer's problem.
+		arglist.swmm_snapshot_disable = atoi((argsd("swmm_snapshot_disable", argmap, "0")).c_str());
+
+		// ADDITIVE, for the same reason and in the same form as the sibling above:
+		// an absent key is a defined false, so every pre-existing cfg keeps loading
+		// and keeps the keep-2 retention it already had.
+		arglist.swmm_snapshot_keep_all = atoi((argsd("swmm_snapshot_keep_all", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());

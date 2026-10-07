@@ -427,7 +427,9 @@ namespace Triton
     swmm_local_elapsedTime = 0.0;
     swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
                           dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
-                          arglist.manhole_diameter, arglist.manhole_loss);
+                          arglist.manhole_diameter, arglist.manhole_loss,
+                          arglist.swmm_snapshot_disable,
+                          arglist.swmm_snapshot_keep_all);
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its
@@ -441,10 +443,11 @@ namespace Triton
     // replay as the fallback. That ordering is the point of the snapshot: the
     // replay is exact but its cost grows with t_k, and because the device
     // vectors are not created until create_device_vectors() below, the GPU is
-    // idle for its whole duration. Two production members exceeded a measured
-    // 11,107 s replay floor and were cancelled still replaying, on a cluster
-    // that kills GPU jobs idle at 0% utilisation; each resume replays a longer
-    // prefix, so the sequence does not converge.
+    // idle for its whole duration. A long run was measured spending 11,107 s
+    // replaying before the resumed segment began any work, and was cancelled
+    // still replaying -- an idle GPU for that whole period is also a job a
+    // scheduler may reclaim. Each successive resume replays a longer prefix,
+    // so the sequence does not converge.
     //
     // The fallback is RETAINED for the ABSENT case only: a checkpoint written
     // before snapshots existed has none to load, and one the keep-2 retention
