@@ -3,7 +3,56 @@
 # conflict with it on a shared branch.
 if(TRITON_ENABLE_SWMM)
   add_subdirectory(unit)
+  add_subdirectory(snapshot)
 endif()
+
+# Slow-tier inventory-regeneration check. Registered unconditionally:
+# it reads the vendored EPA source with Python and links nothing, so it is
+# meaningful in a non-coupled configuration too -- the inventory describes the
+# source tree, not the built binary.
+add_subdirectory(inventory)
+
+# Source-structural guards (WP-0B). Pure Python over src/triton.h: no build, no
+# GPU, no solver run and no SWMM, so they are registered UNCONDITIONALLY --
+# gating them on TRITON_ENABLE_SWMM would make the fence guard unreachable in
+# exactly the configuration a reviewer can run fastest, and the property it
+# holds is a property of the SOURCE rather than of any build.  The source path
+# is passed explicitly so a node id does not depend on the working directory.
+#
+# Three node ids, not one, and each holds a different line.  The first asserts
+# the property.  The second asserts that the first still HOLDS that property
+# against every conditional form it claims to catch.  The third pins the forms
+# it is DOCUMENTED NOT to catch, so the guard's blind-spot list and the guard's
+# behaviour cannot drift apart in either direction.  A guard with no guard of
+# its own can be weakened by a later edit and stay green, which is the condition
+# this change set repairs -- and an unregistered guard is the same
+# defect wearing a different hat, which is why all three are registered here
+# rather than left to be run by hand.
+add_test(
+    NAME SOURCE-FENCE-COMPUTE-TIMER
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_compute_timer_fence.py
+                ${CMAKE_SOURCE_DIR}/src/triton.h
+)
+
+add_test(
+    NAME SOURCE-FENCE-COMPUTE-TIMER-CONDITIONAL-FORMS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_compute_timer_fence_conditional_forms.py
+                ${CMAKE_SOURCE_DIR}/src/triton.h
+)
+
+# Characterization tripwire: PASSES today because the three forms it carries are
+# known, disclosed gaps in CHECK 2b.  It goes RED the day someone closes one
+# without updating the guard's blind-spot list, and its failure output names the
+# form and both files to update.  A red here is news that the guard improved,
+# not that it broke.
+add_test(
+    NAME SOURCE-FENCE-COMPUTE-TIMER-UNDETECTED-FORMS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_compute_timer_fence_undetected_forms.py
+                ${CMAKE_SOURCE_DIR}/src/triton.h
+)
 
 function(add_triton_test test_name cfg_name)
   file(COPY ${TRITON_SOURCE_DIR}/test/${cfg_name}

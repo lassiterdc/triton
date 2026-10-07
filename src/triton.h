@@ -2421,6 +2421,14 @@ namespace Triton
 #ifdef TRITON_SWMM
     // SWMM-TRITON coupling
     if (swmm_model.num_of_swmm_links > 0) {
+      // Fence before stopping COMPUTE_TIME. The hydro kernels launched above -- flux_x, flux_y,
+      // update_cells, update_runoff, compute_flow, the two exterior-boundary copies and
+      // compute_extbc_values -- are asynchronous on a device backend, so without this the first
+      // synchronous deep_copy inside SWMM_TIME (gpuMemcpyAsync below) drains them and charges
+      // TRITON's own GPU work to the SWMM column. Unconditional by design: triton::parallel_for
+      // is already synchronous on every Kokkos host backend, so this is a provable no-op there
+      // rather than a guarded special case.
+      gpuStreamSynchronize(streams);
       st.stop(COMPUTE_TIME);
       st.start(SWMM_TIME);
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
