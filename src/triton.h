@@ -455,12 +455,17 @@ namespace Triton
     // for them, only slow.
     //
     // FAIL-FAST IS THE DEFAULT ON EVERY OTHER REFUSAL. A snapshot that is
-    // PRESENT and unusable means the file was written by a different build or
-    // is corrupt; falling back there produces correct numbers slowly while
-    // hiding a real defect. The cost is asymmetric and that is the whole
-    // ground: a wrongly aborting resume costs one job and a loud message, a
-    // wrongly falling-back resume costs a completed run whose numbers are
-    // wrong and whose every artifact reads healthy.
+    // PRESENT and unusable means the file DISAGREES WITH THIS BUILD'S READER on
+    // a named quantity -- the refusal itself carries which one and by how much.
+    // A writer aborting mid-payload is one of the ways that happens, and it is
+    // the way the failure that produced this code path actually happened: the
+    // files were written by the build that read them and were not corrupt, they
+    // were short by exactly 18,296 bytes because a guard aborted the traversal.
+    // Falling back there produces correct numbers slowly while hiding a real
+    // defect. The cost is asymmetric and that is the whole ground: a wrongly
+    // aborting resume costs one job and a loud message, a wrongly falling-back
+    // resume costs a completed run whose numbers are wrong and whose every
+    // artifact reads healthy.
     //
     // The abort is MPI_Abort rather than exit(): this block runs under a
     // rank-0 guard, and a rank-0-only exit() would leave every other rank
@@ -483,7 +488,16 @@ namespace Triton
           MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
         }
       }
-      else                            swmm_model.open_exchange_log_truncate();
+      else {
+        // THE ONE DISPOSAL SITE for the killed-write markers, and the clean
+        // start is the one point at which a marker is PROVABLY no longer
+        // evidence: this branch consults no snapshot, so no ".part" or
+        // ".killed" can be telling it anything. Deliberately NOT disposed on
+        // the abort path above -- there the marker is the artifact that lets an
+        // operator see a killed write rather than a missing snapshot.
+        swmm_model.sweep_snapshot_markers();
+        swmm_model.open_exchange_log_truncate();
+      }
     }
 
     // replay_exchange_history() rebuilds SWMM's state and leaves rank 0's global_new_depth[] at the
@@ -2239,6 +2253,49 @@ namespace Triton
         st.stop(COMPUTE_TIME);
 
         st.start(IO_TIME);
+#ifdef TRITON_SWMM
+        // FIRST IN THE CHECKPOINT BLOCK, AND THE POSITION IS THE MECHANISM.
+        //
+        // This flush ties exchange-replay side-file durability to each
+        // checkpoint write, so a future resume from this checkpoint always has a
+        // complete 0..t_k series on disk. It runs BEFORE out.write_output and
+        // therefore before config_{print_id}.cfg exists, which is what makes the
+        // abort inside flush_exchange_log leave a RECOVERABLE predecessor: the
+        // resume picker returns the latest COMPLETE cfg, which on that path is
+        // config_{print_id-1}.cfg, whose series the invariant covers and whose
+        // snapshot is complete. Moving this call after the cfg write would make
+        // the same failure write a cfg over a dead series and turn one lost
+        // attempt into a poisoned remainder of the run.
+        //
+        // GLOBAL count, matching the sibling guard at :453.
+        //
+        // DO NOT restate the old form of this note as a reachable durability
+        // bug. It was carried as one -- "the log is written but never flushed,
+        // so a hard kill loses the tail" -- and that was FALSE as a description
+        // of a run you could reach. log_exchange_step() was called inside a
+        // per-step coupling block that opened on `if
+        // (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count -- so on the
+        // very decomposition that guard is about (rank 0 owns no manhole)
+        // nothing was ever appended and the file held only its header. Worse,
+        // that same block enclosed the MPI_Gatherv of the exchange flux and the
+        // MPI_Scatterv of the node depths over ENSIFY_COMM_WORLD, which rank 0
+        // then skipped while every manhole-owning rank entered them -- the run
+        // DEADLOCKED at the first coupled timestep, long before a checkpoint was
+        // reached. All three of that file's local/global inconsistencies are now
+        // repaired and all three guard on the global count, which is why the
+        // guard-predicate closure check asserts over the three classes rather
+        // than observing two of them.
+        //
+        // Now charged to IO_TIME. It is a file flush and belongs with the other
+        // file writes; its cost previously landed in the `Other` residual
+        // because the call sat between st.stop(IO_TIME) and #if
+        // WRITE_PERFORMANCE. That miscount is corrected here as a consequence of
+        // the move rather than as a drive-by: the call had to move for the
+        // recoverability property above, and leaving it outside the bracket at
+        // its new position would have been a deliberate choice to keep a known
+        // miscount.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
+#endif
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
 #ifdef TRITON_SWMM
         // Full-precision SWMM state snapshot for THIS checkpoint, so a resume
@@ -2261,55 +2318,6 @@ namespace Triton
           swmm_model.write_state_snapshot(print_id);
 #endif
         st.stop(IO_TIME);
-
-#ifdef TRITON_SWMM
-        // Tie exchange-replay side-file durability to each checkpoint write so a future
-        // resume from this checkpoint always has a complete 0..t_k series on disk.
-        //
-        // NOTE, and do not "tidy" it: this call sits between st.stop(IO_TIME)
-        // and #if WRITE_PERFORMANCE, so its cost lands in the `Other` residual
-        // rather than in IO_TIME. That is a pre-existing miscount, it is known,
-        // and moving it is a separate commit -- not a drive-by inside the
-        // package that happens to be editing the neighbouring lines.
-        // GLOBAL count, matching the sibling guard at :453.
-        //
-        // DO NOT restate this as a reachable durability bug. It was carried as
-        // one -- "the log is written but never flushed, so a hard kill loses the
-        // tail" -- and that is FALSE as a description of a run you can reach.
-        // log_exchange_step() was called INSIDE a per-step coupling block that
-        // opened on `if (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count --
-        // so on the very decomposition this guard is about (rank 0 owns no
-        // manhole) nothing was ever appended and the file held only its header.
-        // Worse, that same block enclosed the MPI_Gatherv of the exchange flux
-        // and the MPI_Scatterv of the node depths over ENSIFY_COMM_WORLD, which
-        // rank 0 then skipped while every manhole-owning rank entered them --
-        // the run DEADLOCKED at the first coupled timestep, long before a
-        // checkpoint was reached.
-        //
-        // The edit here was correct and required but was never sufficient on its
-        // own: it removed ONE of the THREE local/global inconsistencies this file
-        // carried, so the guard-predicate closure check passed. TWO remained, and
-        // they are named here rather than counted, because a count is what let the
-        // earlier form of this note say "the remaining inconsistency" in the
-        // singular while two were open:
-        //
-        //   * compute_new_state()'s per-step coupling block -- the two MPI
-        //     collectives above, the deadlock.
-        //   * simulate()'s end_swmm finalizer -- no collective, so no deadlock,
-        //     but an opened SWMM engine never closed and never reported. It was
-        //     unreachable only because the deadlock came first, so repairing the
-        //     collectives alone would have traded a loud hang for a silently
-        //     missing hydraulics.rpt on exactly those runs.
-        //
-        // Both are now repaired; both guard on the global count, and the collective
-        // site's buffers moved off the conditionally-appended host_vec entries at
-        // the same time. See the block comments at each site for why the predicate
-        // flip alone would have been undefined behaviour. This guard and those two
-        // are one predicate -- rank 0's local count is zero -- which is why the
-        // guard-predicate closure check now asserts over all three classes rather
-        // than observing two of them.
-        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
-#endif
 
         #if WRITE_PERFORMANCE
           // Synchronize before stopping timers to ensure all async operations complete

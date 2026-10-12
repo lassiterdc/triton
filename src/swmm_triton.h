@@ -229,15 +229,34 @@ namespace SWMM_triton
 		///                     ABORT -- and it must not fall back, because the
 		///                     accumulators are ALREADY restored and a replay
 		///                     on top of them would double-apply the prefix.
+		///   KilledWrite    -- a ".part" or ".killed" marker survives for this
+		///                     checkpoint and no published snapshot does, so the
+		///                     writer was killed inside the traversal. ABORT --
+		///                     and specifically NOT Absent, because Absent is
+		///                     the arm that enters the replay and the replay is
+		///                     measured not to converge at a high checkpoint
+		///                     index.
 		///
 		/// The cost asymmetry is what sets the default: a wrongly aborting
 		/// resume costs one job and a loud message; a wrongly falling-back
 		/// resume costs a completed run whose numbers are wrong and whose
 		/// every artifact reads healthy.
-		enum class SnapshotRestore { Restored, Absent, Unreadable, OutputMismatch };
+		enum class SnapshotRestore { Restored, Absent, Unreadable, OutputMismatch,
+		                             KilledWrite };
 
 		SnapshotRestore try_restore_state_snapshot(int checkpoint_id,
 		                                           value_t up_to_time);
+
+		/// Clean start only: remove every ".part" and ".killed" marker in the
+		/// snapshot directory.
+		///
+		/// This is the ONE point at which a marker is provably no longer
+		/// evidence, which is why the disposal lives here and nowhere else. A
+		/// clean start consults no snapshot, so no marker can be telling it
+		/// anything. On the ABORT path the marker is deliberately RETAINED --
+		/// there it is the artifact an operator needs in order to see that a
+		/// write was killed rather than that a snapshot was missing.
+		void sweep_snapshot_markers();
 
 		/// Classifies WHY no snapshot was available for this checkpoint, into
 		/// the three reason values the resume-event record carries. Rank 0.
@@ -300,6 +319,15 @@ namespace SWMM_triton
 		bool snapshot_keep_all = false;
 
 		std::string snapshot_path_for(int checkpoint_id) const;
+
+		/// The temporary snapshot_save writes before it publishes by rename, and
+		/// the marker a killed write leaves behind. Both carry a suffix on the
+		/// published name, which is what makes them invisible to
+		/// classify_missing_snapshot's ".snapshot"-extension filter and to the
+		/// retention prune -- so a partial or killed write is never counted as a
+		/// published snapshot and never pruned as one.
+		std::string snapshot_part_path_for(int checkpoint_id) const;
+		std::string snapshot_killed_path_for(int checkpoint_id) const;
 
 		/// Position the side-file for the live segment: validate the header,
 		/// walk records up to `up_to_time`, truncate any stale tail or partial
@@ -807,19 +835,95 @@ namespace SWMM_triton
 	}
 
 
+	// AN ORDERING GUARANTEE IS NOT A DURABILITY GUARANTEE, and the two functions
+	// below are where that distinction is enforced rather than assumed.
+	//
+	// is_open() IS RETAINED, and only as the NOT-INITIALISED sentinel it has
+	// always been -- a run with no SWMM surface nodes never opens this stream and
+	// must return silently. What is NOT retained is is_open() as the predicate
+	// governing the DURABILITY CLAIM: a stream can be open and failed at the same
+	// time, so `if (is_open()) flush();` asserts an invariant whose truth it never
+	// checks. Both functions now read the OUTCOME through good().
+	//
+	// A FAILURE ABORTS, and that is a bound disposition rather than a default.
+	// The three arms considered were abort, continue-anyway and disable-the-
+	// snapshot-route, and they are not three comparable options. ofstream failure
+	// state LATCHES, so under continue-anyway every later append fails too and
+	// every subsequent checkpoint becomes a resume point whose replay cannot
+	// reach it -- one message per coupled timestep for the rest of the run, and a
+	// poisoned series behind each one. Under abort, the flush now sits at the TOP
+	// of the checkpoint block (triton.h), BEFORE out.write_output, so a failure
+	// at checkpoint N terminates the exec BEFORE config_N.cfg is written; the
+	// resume picker then returns config_{N-1}.cfg, whose series the invariant
+	// covers and whose snapshot is complete. Abort therefore costs one attempt
+	// and leaves the member automatically recoverable at N-1.
+	//
+	// MPI_Abort AND NOT exit(). Both call sites are inside a rank-0 guard, so a
+	// rank-0-only exit() would leave every other rank blocked at the next
+	// collective -- a loud failure turned into a hang.
 	void swmm_triton::log_exchange_step(value_t dt, const value_t* gq)
 	{
 		if (rank_ != 0) return;
 		if (!exchange_log.is_open()) return;   // no SWMM surface nodes / not initialized
 		exchange_log.write(reinterpret_cast<const char*>(&dt), sizeof(value_t));
 		exchange_log.write(reinterpret_cast<const char*>(gq), sizeof(value_t) * exchange_num_nodes);
+		if (!exchange_log.good())
+		{
+			std::cerr << ERROR "Could not append to the SWMM exchange-replay side-file "
+			          << exchange_log_path << ".\n"
+			          << "         Aborting at this step rather than continuing. The "
+			             "stream's failure state latches, so continuing would write "
+			             "every later checkpoint over a dead series and make each one "
+			             "a resume point whose replay cannot reach it. The latest "
+			             "complete checkpoint remains resumable."
+			          << std::endl;
+			MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+		}
 	}
 
 
 	void swmm_triton::flush_exchange_log()
 	{
 		if (rank_ != 0) return;
-		if (exchange_log.is_open()) exchange_log.flush();
+		if (!exchange_log.is_open()) return;   // no SWMM surface nodes / not initialized
+		exchange_log.flush();
+		if (!exchange_log.good())
+		{
+			std::cerr << ERROR "Could not flush the SWMM exchange-replay side-file "
+			          << exchange_log_path << " at a checkpoint write.\n"
+			          << "         Aborting before this checkpoint's cfg is written, so "
+			             "the resume picker returns the previous checkpoint, whose "
+			             "series is covered and whose snapshot is complete."
+			          << std::endl;
+			MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+		}
+	}
+
+
+	void swmm_triton::sweep_snapshot_markers()
+	{
+		if (rank_ != 0) return;
+		if (snapshot_path_stem.empty()) return;
+
+		const std::filesystem::path stem(snapshot_path_stem);
+		const std::filesystem::path dir = stem.parent_path();
+		const std::string prefix = stem.filename().string() + "_cp";
+
+		std::error_code ec;
+		for (const auto& e : std::filesystem::directory_iterator(dir, ec))
+		{
+			if (ec) break;
+			const std::string name = e.path().filename().string();
+			if (name.rfind(prefix, 0) != 0) continue;
+			const std::string ext = e.path().extension().string();
+			if (ext != ".part" && ext != ".killed") continue;
+			std::error_code rec;
+			std::filesystem::remove(e.path(), rec);
+			if (rec)
+				std::cerr << WARN "Could not remove the stale snapshot marker "
+				          << e.path().string() << " (" << rec.message() << ")."
+				          << std::endl;
+		}
 	}
 
 
@@ -996,6 +1100,24 @@ namespace SWMM_triton
 	}
 
 
+	// The two marker paths. ".part" is snapshot_save's own temporary and must
+	// agree byte-for-byte with SNAPSHOT_PART_SUFFIX in snapshot.c -- that is the
+	// one cross-file literal this pair carries, and it is here because the
+	// consultation on the resume path has to find a file the writer named.
+	// ".killed" is what the consultation renames a surviving ".part" to, so the
+	// refusal is idempotent across repeated resumes at the same checkpoint.
+	std::string swmm_triton::snapshot_part_path_for(int checkpoint_id) const
+	{
+		return snapshot_path_for(checkpoint_id) + ".part";
+	}
+
+
+	std::string swmm_triton::snapshot_killed_path_for(int checkpoint_id) const
+	{
+		return snapshot_path_for(checkpoint_id) + ".killed";
+	}
+
+
 	void swmm_triton::write_state_snapshot(int checkpoint_id)
 	{
 		if (rank_ != 0) return;
@@ -1025,8 +1147,17 @@ namespace SWMM_triton
 			// and only if there IS a next resume. Aborting a live simulation
 			// over a failed write of a performance optimisation would trade a
 			// certain large loss for an uncertain small one.
+			//
+			// NOTHING IS PUBLISHED AT THIS POINT. snapshot_save writes a
+			// ".part" temporary, verifies its value count against the running
+			// model, and only then renames it into place -- so a non-zero
+			// return means no file exists at `path` and the next resume finds
+			// a legitimately ABSENT snapshot rather than a short one. The
+			// temporary is removed on this path; a leftover means remove
+			// ALSO failed, which snapshot_save reports separately.
 			std::cerr << WARN "Could not write SWMM state snapshot: " << path << "\n"
-			          << "         A resume from checkpoint " << checkpoint_id
+			          << "         Nothing was published under that name, so a "
+			             "resume from checkpoint " << checkpoint_id
 			          << " will fall back to replaying the exchange history."
 			          << std::endl;
 			return;
@@ -1140,6 +1271,113 @@ namespace SWMM_triton
 		if (snapshot_path_stem.empty()) return SnapshotRestore::Absent;
 
 		const std::string path = snapshot_path_for(checkpoint_id);
+
+		// ---------------------------------------------------------------------
+		// THE KILLED-WRITE CONSULTATION. THREE ARMS, AND THE ORDER IS THE
+		// MECHANISM: the PUBLISHED ARTIFACT IS CHECKED FIRST.
+		//
+		// Arm 1 exists because a marker's condition can LAPSE. Under the
+		// write-to-temp-then-rename publish a snapshot at N exists only after a
+		// complete write, so a published snapshot at N PROVES any marker at N is
+		// stale -- a later successful write at the same id superseded it. The
+		// staleness is drawn by the existence of the published artifact, which is
+		// precisely the thing whose ABSENCE made the marker meaningful. No
+		// timestamp, no counter, no second artifact.
+		//
+		// Arm 2 keys on ".part" OR ".killed", and the OR is what makes the
+		// refusal IDEMPOTENT. The rename was originally introduced to stop the
+		// consultation firing twice, which was correct when the remedy
+		// RECOVERED -- there a second firing would have undone the recovery. The
+		// remedy became a refusal and the suppression was carried without being
+		// re-derived, so a mechanism built to suppress a second RECOVERY was
+		// suppressing the second REFUSAL: the first resume refused, and every
+		// resume after it saw only a ".killed", fell through to Absent, and was
+		// placed into the replay with no refusal emitted at all. Keyed on both,
+		// every resume at N refuses with the same message and no attempt is ever
+		// silently entered into the replay.
+		//
+		// Arm 3 is the unchanged path.
+		{
+			const std::string part   = snapshot_part_path_for(checkpoint_id);
+			const std::string killed = snapshot_killed_path_for(checkpoint_id);
+			std::error_code   ec;
+
+			// Each of the three names is read EXACTLY ONCE, into a local. Two
+			// reads of one name inside one decision can disagree -- a concurrent
+			// writer can publish between them -- and then the arm taken and the
+			// message emitted would describe two different directory states.
+			const bool havePublished = std::filesystem::exists(path,   ec);
+			const bool havePart      = std::filesystem::exists(part,   ec);
+			const bool haveKilled    = std::filesystem::exists(killed, ec);
+
+			if (havePublished)
+			{
+				// ARM 1 -- the marker has LAPSED. Remove it where it is
+				// superseded rather than tolerating it or leaving it to a sweep
+				// on a route the operator may never take.
+				if (haveKilled) std::filesystem::remove(killed, ec);
+			}
+			else if (havePart || haveKilled)
+			{
+				// ARM 2 -- the marker is LIVE.
+				if (havePart)
+				{
+					std::error_code rec;
+					std::filesystem::rename(part, killed, rec);
+					if (rec)
+						std::cerr << WARN "Could not rename the killed-write marker "
+						          << part << " to " << killed << " (" << rec.message()
+						          << "); the refusal below still holds." << std::endl;
+				}
+
+				// FACT (b) -- the highest complete snapshot this run can
+				// actually FIND, by existence check rather than by assertion.
+				// Asserting cp{N-1} complete would be a false claim on two
+				// reachable inputs: at N=1 there is no predecessor at all
+				// (print_id starts at 0 and is incremented INSIDE the checkpoint
+				// block ahead of the write, so the first id ever written is 1 and
+				// "..._cp0.snapshot" is a name no run produces), and under the
+				// keep-2 retention the predecessor may have been pruned. The
+				// branch condition here guarantees no published snapshot exists
+				// at N, so this search cannot name the file it is declining to
+				// load and cannot pass over a better checkpoint.
+				int highest = -1;
+				for (int cid = checkpoint_id - 1; cid >= 1; --cid)
+				{
+					std::error_code sec;
+					if (std::filesystem::exists(snapshot_path_for(cid), sec))
+					{ highest = cid; break; }
+				}
+
+				std::cerr << ERROR "Coupled resume refused at checkpoint "
+				          << checkpoint_id << ": the SWMM state snapshot write "
+				             "for this checkpoint was KILLED before it completed.\n"
+				          << "         The marker " << killed << " survives and no "
+				             "snapshot was ever published at " << path << ". That "
+				             "is a measured cause, not an inference: nothing but an "
+				             "interrupted write leaves this pair of states.\n";
+
+				if (highest >= 1)
+					std::cerr << "         The highest COMPLETE snapshot found below "
+					             "this checkpoint is " << snapshot_path_for(highest)
+					          << " (checkpoint " << highest << "); resuming this "
+					             "member from there is the cheap route.\n";
+				else
+					std::cerr << "         NO complete snapshot exists below this "
+					             "checkpoint, so a clean start (checkpoint_id=0) is "
+					             "the only route.\n";
+
+				std::cerr << "         The exchange replay is NOT offered as a "
+				             "substitute. It was measured at 11,107 s on a run that "
+				             "was cancelled still replaying, and each successive "
+				             "resume replays a longer prefix, so the sequence does "
+				             "not converge."
+				          << std::endl;
+
+				return SnapshotRestore::KilledWrite;
+			}
+		}
+
 		char msg[512];
 		msg[0] = '\0';
 
@@ -1148,10 +1386,26 @@ namespace SWMM_triton
 		{
 			// GRADUATED, and this is where fail-fast becomes the default. An
 			// ABSENT snapshot is legitimate and degrades to the replay. Anything
-			// else means the file was written by a different build or is
-			// corrupt, and falling back there would produce correct numbers
+			// else means the file DISAGREES WITH THIS BUILD'S READER on a named
+			// quantity, and falling back there would produce correct numbers
 			// slowly while HIDING a real defect, which is exactly the failure
 			// mode this change exists to remove.
+			//
+			// NO CAUSE IS NAMED HERE, and the omission is the repair. This
+			// comment and the message below both read the retired cause
+			// "written by a different build or is corrupt"
+			// -- kept on ONE LINE on purpose, because a quoted phrase wrapped
+			// across comment lines is invisible to a line-anchored grep, which
+			// is how a post-condition certifying this phrase absent came to
+			// read 0 on a file that still carried it. That cause was FALSE on
+			// the failure that produced this package:
+			// 45 per-model logs showed restored=0 and replayed=0,
+			// the files were written by the build that read them, and they were
+			// not corrupt -- they were SHORT, by exactly 18,296 bytes, because
+			// the writer's own guard aborted the traversal. The quantity that
+			// disagreed is in `msg`, which every refusal arm in snapshot_load
+			// fills with its own number. A writer aborting mid-payload is one of
+			// the ways a file comes to disagree, and this run is the proof.
 			if (rc == SNAPSHOT_ABSENT)
 			{
 				std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"
@@ -1161,13 +1415,16 @@ namespace SWMM_triton
 			}
 			std::cerr << ERROR "SWMM state snapshot is present but UNUSABLE ("
 			          << msg << ").\n"
-			          << "         Refusing to continue. This is not a missing "
-			             "snapshot -- the file exists and cannot be read, which "
-			             "means it was written by a different build or is "
-			             "corrupt.\n"
-			          << "         Re-run from a clean start (checkpoint_id=0), "
-			             "or remove " << path << " to resume via the exchange "
-			             "replay." << std::endl;
+			          << "         Refusing to continue. The file exists and "
+			             "disagrees with this build's reader; the parenthesis "
+			             "above carries the specific quantity that disagreed, "
+			             "and no cause is asserted here.\n"
+			          << "         Re-run from a clean start (checkpoint_id=0). "
+			             "The exchange replay is an exit only where a replay "
+			             "side-file covering this checkpoint survives, and the "
+			             "campaign that produced this code path measured "
+			             "replayed=0 across all 45 of its per-model logs -- so "
+			             "do not count on it without checking." << std::endl;
 			return SnapshotRestore::Unreadable;
 		}
 

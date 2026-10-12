@@ -77,4 +77,36 @@ if(Python3_EXECUTABLE)
     COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_SOURCE_DIR}/test/test_swmm_guard_predicate_closure.py
             ${CMAKE_SOURCE_DIR})
+
+  # The snapshot TRAVERSAL-GUARD source check.  Pure Python over
+  # external/swmm/src/solver/snapshot.c -- no build, no solver run, so it sits
+  # in the fast tier like its SOURCE-* siblings and carries no `slow` label.
+  #
+  # It exists because NOTHING in the suite could detect a revert of the
+  # traversal-guard repair.  Measured: the two nearest inventory checks carry
+  # zero references to wRouted, routeTo, SNAP_MANIFEST or Nobjects[POLLUT],
+  # and their verdict output is byte-identical on the pre-fix and post-fix
+  # trees -- a test that never names a predicate cannot discriminate a change
+  # to it.
+  #
+  # Three assertions, and they are NOT all the same kind: two are detectors
+  # keyed on what the repair changed (the per-element guard's routeTo conjunct;
+  # SNAPSHOT_VERSION 6 where pre-fix carries 5), and one is an anti-narrowing
+  # invariant keyed on what the repair deliberately did NOT change (the
+  # pre-loop guard still admits the counting mode).  Expect the third to be
+  # green on a pre-fix tree -- that is correct, not a broken assertion.
+  #
+  # Narrowing the pre-loop guard is what it exists to stop: the per-element
+  # s->routeTo load is safe only because that guard already fired, so the
+  # observable of removing it is a null dereference forming an element address
+  # at (nil), exit 139.
+  #
+  # Measured on the tree as landed: exit 0.  On a `git archive 031ea42b`
+  # pre-fix export: exit 1 on the two detectors.  On an out-of-tree mutant with
+  # the pre-loop guard narrowed: exit 1 on the invariant.
+  add_test(
+    NAME SOURCE-SNAPSHOT-TRAVERSAL-GUARD
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/test/test_snapshot_traversal_guard_source.py
+            ${CMAKE_SOURCE_DIR})
 endif()
