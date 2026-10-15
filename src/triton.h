@@ -2421,6 +2421,10 @@ namespace Triton
 #ifdef TRITON_SWMM
     // SWMM-TRITON coupling
     if (swmm_model.num_of_swmm_links > 0) {
+      // The hydro kernels above are asynchronous on a device backend; without this fence the
+      // first synchronous operation inside SWMM_TIME drains them and charges TRITON's GPU
+      // work to the SWMM column. A no-op on host backends, where parallel_for is synchronous.
+      gpuStreamSynchronize(streams);
       st.stop(COMPUTE_TIME);
       st.start(SWMM_TIME);
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
