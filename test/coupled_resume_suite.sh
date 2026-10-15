@@ -272,14 +272,15 @@ if [ -s "$P" ]; then
     || bad "G performance header missing child columns"
   python3 - "$P" <<'EOF' && ok "G SWMM_OTHER >= 0 on every row (residual sign)" || bad "G SWMM_OTHER negative"
 import csv, sys
-rows = list(csv.reader(open(sys.argv[1])))
-hdr = rows[0]
+rows = [[c.strip() for c in r] for r in csv.reader(open(sys.argv[1]))]
+hdr = rows[0][1:]   # drop '%Rank' so header indices line up with the numeric cells
 i_other = hdr.index('SWMM_OTHER'); i_x = hdr.index('SWMM_XFER'); i_m = hdr.index('SWMM_MPI')
 i_s = hdr.index('SWMM_STEP'); i_p = hdr.index('SWMM')
 for r in rows[1:]:
     v = [float(x) for x in r[1:]]
     assert v[i_other] >= 0.0, r
-    assert abs(v[i_x]+v[i_m]+v[i_s]+v[i_other] - v[i_p]) < 1e-6, r
+    # the file prints 4 significant digits, so the identity holds only to that precision
+    assert abs(v[i_x]+v[i_m]+v[i_s]+v[i_other] - v[i_p]) < 0.05, r
 EOF
 else
   bad "G performance.txt not found"
