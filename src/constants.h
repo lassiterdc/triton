@@ -151,9 +151,12 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 // column, SWMM_OTHER, is the residual SWMM - (XFER + MPI + STEP) derived in
 // output.h::write_times and carries no macro, exactly like the pre-existing
 // Other/Init residuals.
-#define SWMM_XFER "swmm_xfer"    /**< Timer for the coupling's host-device transfers and the exchange kernel (plus the per-step append to the exchange-replay side-file). */
+#define SWMM_XFER "swmm_xfer"    /**< Timer for the coupling's host-device transfers and the exchange kernel. */
 #define SWMM_MPI "swmm_mpi"    /**< Timer for the coupling's MPI_Gatherv and MPI_Scatterv. */
-#define SWMM_STEP "swmm_step"    /**< Timer for the rank-0 serial SWMM solve and its local/global remaps. */
+#define SWMM_STEP "swmm_step"    /**< Timer for the rank-0 serial SWMM solve, its local/global remaps, and
+                                     the per-step append to the exchange-replay side-file (the append is
+                                     inseparable from the step it records, so it is charged here, not to
+                                     IO_TIME -- SWMM_STEP is an upper bound on the solve itself). */
 
 
 #define TYPE_STATIC "static"    /**< Domain decomposition type: static*/
