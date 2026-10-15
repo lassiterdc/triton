@@ -64,4 +64,12 @@ else()
 
 endif()
 
+# Tier-1 unit tests and the snapshot-inventory tooling. The unit tests include
+# swmm_triton.h directly, so they exist only in a coupled configuration.
+if(TRITON_ENABLE_SWMM)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/test/unit ${CMAKE_BINARY_DIR}/test/unit)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/test/snapshot ${CMAKE_BINARY_DIR}/test/snapshot)
+endif()
+add_subdirectory(${CMAKE_SOURCE_DIR}/test/inventory ${CMAKE_BINARY_DIR}/test/inventory)
+
 
