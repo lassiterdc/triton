@@ -147,7 +147,11 @@ namespace SWMM_triton
 		// (global exchange flux + dt). We durably log them every step and, on resume,
 		// fast-replay 0..t_k so SWMM's .out/stats rebuild the full window.
 		void open_exchange_log_truncate();                       ///< clean start: fresh side-file + header
-		void replay_exchange_history(value_t up_to_time);        ///< resume: replay 0..t_k, truncate, reopen for append
+		/// Resume: replay 0..t_k, truncate, reopen for append. `reason` (the
+		/// classify_missing_snapshot verdict) is carried into the resume-event
+		/// log record, not used for control flow.
+		void replay_exchange_history(value_t up_to_time, int checkpoint_id = 0,
+		                             const char* reason = "absent");        ///< resume: replay 0..t_k, truncate, reopen for append
 		void log_exchange_step(value_t dt, const value_t* gq);   ///< append one step's (dt, exchange_q) record
 		void flush_exchange_log();                               ///< flush (called at each checkpoint write)
 		void close_exchange_log();                               ///< close (called at end_swmm)
@@ -165,9 +169,23 @@ namespace SWMM_triton
 		void write_state_snapshot(int checkpoint_id);
 
 		/// Resume: restore SWMM's state from this checkpoint's snapshot.
-		/// Returns true if it engaged; false means the caller must run the replay
-		/// fallback. Never exits -- every refusal degrades to the replay.
-		bool try_restore_state_snapshot(int checkpoint_id, value_t up_to_time);
+		/// The return is graduated: Restored -- continue on the snapshot;
+		/// Absent -- legitimate (a checkpoint predating snapshots, or one the
+		/// keep-2 retention pruned), run the replay fallback; Unreadable --
+		/// present but written by a different build or corrupt, ABORT (a
+		/// wrongly falling-back resume hides a real defect behind correct
+		/// numbers delivered slowly); OutputMismatch -- the snapshot loaded
+		/// but the .out holds fewer periods than it claims, ABORT and do not
+		/// fall back: the accumulators are already restored and a replay on
+		/// top of them would double-apply the 0..t_k prefix.
+		enum class SnapshotRestore { Restored, Absent, Unreadable, OutputMismatch };
+
+		SnapshotRestore try_restore_state_snapshot(int checkpoint_id, value_t up_to_time);
+
+		/// Classifies WHY no snapshot was available for this checkpoint
+		/// (pre-snapshot-checkpoint / retention-collision / absent), for the
+		/// resume-event record. Rank 0.
+		const char* classify_missing_snapshot(int checkpoint_id) const;
 
 		void local_to_global(value_t*  local, value_t*  global, int* dict);
 		void global_to_local(value_t*  global, value_t*  local, int* dict);
@@ -690,12 +708,19 @@ namespace SWMM_triton
 	}
 
 
-	void swmm_triton::replay_exchange_history(value_t up_to_time)
+	void swmm_triton::replay_exchange_history(value_t up_to_time, int checkpoint_id,
+	                                          const char* reason)
 	{
 		if (rank_ != 0) return;
 		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/true);
+		// The text through "t=" and the number after it stay byte-identical to
+		// the pre-sentence form; the [resume-event ...] fields are appended so
+		// existing parsers and matchers keep working.
 		std::cerr << IN "SWMM exchange history replayed to t=" << up_to_time
-		          << " s (" << rec_count << " steps); resuming live segment" << std::endl;
+		          << " s (" << rec_count << " steps); resuming live segment"
+		          << " [resume-event checkpoint=" << checkpoint_id
+		          << " path=replay reason=" << (reason ? reason : "absent") << "]"
+		          << std::endl;
 	}
 
 
@@ -834,6 +859,12 @@ namespace SWMM_triton
 		if (rank_ != 0) return;
 		if (snapshot_path_stem.empty()) return;   // no SWMM surface nodes / not initialized
 
+		// Flush the .out first so the period count the snapshot is about to
+		// record is a claim about bytes on disk: fwrite is stdio-buffered, and a
+		// hard kill after the snapshot write would otherwise leave the resumed
+		// run seeking past EOF into a zero-filled hole that parses as data.
+		output_flush();
+
 		const std::string path = snapshot_path_for(checkpoint_id);
 		if (snapshot_save(path.c_str()) != 0)
 		{
@@ -856,21 +887,33 @@ namespace SWMM_triton
 	}
 
 
-	bool swmm_triton::try_restore_state_snapshot(int checkpoint_id, value_t up_to_time)
+	swmm_triton::SnapshotRestore
+	swmm_triton::try_restore_state_snapshot(int checkpoint_id, value_t up_to_time)
 	{
-		if (rank_ != 0) return false;
-		if (snapshot_path_stem.empty()) return false;
+		if (rank_ != 0) return SnapshotRestore::Absent;
+		if (snapshot_path_stem.empty()) return SnapshotRestore::Absent;
 
 		const std::string path = snapshot_path_for(checkpoint_id);
 		char msg[512];
 		msg[0] = '\0';
 
-		if (snapshot_load(path.c_str(), msg, (int)sizeof(msg)) != 0)
+		const int rc = snapshot_load(path.c_str(), msg, (int)sizeof(msg));
+		if (rc != SNAPSHOT_OK)
 		{
-			std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"
-			          << "         Falling back to replaying the exchange history."
-			          << std::endl;
-			return false;
+			if (rc == SNAPSHOT_ABSENT)
+			{
+				std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"
+				          << "         Falling back to replaying the exchange history."
+				          << std::endl;
+				return SnapshotRestore::Absent;
+			}
+			std::cerr << ERROR "SWMM state snapshot is present but UNUSABLE ("
+			          << msg << ").\n"
+			          << "         Refusing to continue: the file exists and cannot be read,\n"
+			          << "         which means it was written by a different build or is corrupt.\n"
+			          << "         Re-run from a clean start (checkpoint_id=0), or remove\n"
+			          << "         " << path << " to resume via the exchange replay." << std::endl;
+			return SnapshotRestore::Unreadable;
 		}
 
 		// The snapshot restored SWMM's accumulators and routing state, but the
@@ -885,11 +928,63 @@ namespace SWMM_triton
 		// replaying: the state those steps would have produced is already restored.
 		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/false);
 
+		// Position the .out for the resumed segment from the restored Nperiods.
+		// A failure here cannot fall back: the accumulators are already restored
+		// and a replay on top of them would double-apply the 0..t_k prefix.
+		{
+			char pmsg[512];
+			pmsg[0] = '\0';
+			if (output_positionForResume(pmsg, (int)sizeof(pmsg)) != 0)
+			{
+				std::cerr << ERROR "SWMM state snapshot loaded but the binary output "
+				             "file cannot carry the resumed segment (" << pmsg << ").\n"
+				          << "         Refusing to continue: falling back to the exchange replay\n"
+				          << "         would re-apply the 0..t_k prefix on top of restored state.\n"
+				          << "         Re-run from a clean start (checkpoint_id=0)." << std::endl;
+				return SnapshotRestore::OutputMismatch;
+			}
+		}
+
 		// Same "...to t=" shape as the replay marker so one matcher discriminates both.
 		std::cerr << IN "SWMM state restored from snapshot to t=" << up_to_time
 		          << " s (" << rec_count << " steps skipped); resuming live segment"
+		          << " [resume-event checkpoint=" << checkpoint_id
+		          << " path=snapshot]"
 		          << std::endl;
-		return true;
+		return SnapshotRestore::Restored;
+	}
+
+
+	const char* swmm_triton::classify_missing_snapshot(int checkpoint_id) const
+	{
+		if (rank_ != 0 || snapshot_path_stem.empty()) return "absent";
+
+		// All three verdicts ground out in the same errno; the discriminator is
+		// the shape of the snapshot series on disk: no snapshot at all means the
+		// run predates the mechanism, a snapshot for a HIGHER id means keep-2
+		// pruned the one this resume wants, anything else is a plain miss.
+		const std::filesystem::path stem(snapshot_path_stem);
+		const std::filesystem::path dir = stem.parent_path();
+		const std::string prefix = stem.filename().string() + "_cp";
+
+		bool any = false, higher = false;
+		std::error_code ec;
+		for (const auto& e : std::filesystem::directory_iterator(dir, ec))
+		{
+			if (ec) break;
+			const std::string name = e.path().filename().string();
+			if (name.rfind(prefix, 0) != 0) continue;
+			if (e.path().extension() != ".snapshot") continue;
+			const std::string idtxt =
+				name.substr(prefix.size(), name.size() - prefix.size() - 9);
+			if (idtxt.empty() ||
+			    idtxt.find_first_not_of("0123456789") != std::string::npos) continue;
+			any = true;
+			if (std::stol(idtxt) > (long)checkpoint_id) higher = true;
+		}
+		if (!any)   return "pre-snapshot-checkpoint";
+		if (higher) return "retention-collision";
+		return "absent";
 	}
 
 

@@ -442,8 +442,23 @@ namespace Triton
     // resume with a truncated .rpt/.out whose header still shows the full window).
     if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
       if (arglist.checkpoint_id > 0) {
-        if (!swmm_model.try_restore_state_snapshot(arglist.checkpoint_id, arglist.sim_start_time))
-          swmm_model.replay_exchange_history(arglist.sim_start_time);
+        using SR = SWMM_triton::swmm_triton::SnapshotRestore;
+        const SR sr = swmm_model.try_restore_state_snapshot(arglist.checkpoint_id,
+                                                            arglist.sim_start_time);
+        if (sr == SR::Absent) {
+          swmm_model.replay_exchange_history(
+              arglist.sim_start_time, arglist.checkpoint_id,
+              swmm_model.classify_missing_snapshot(arglist.checkpoint_id));
+        }
+        else if (sr != SR::Restored) {
+          // Abort, not exit(): this block runs under a rank-0 guard and a
+          // rank-0-only exit would hang every other rank at the next collective.
+          std::cerr << ERROR "Coupled resume aborted: the SWMM state snapshot for "
+                       "checkpoint " << arglist.checkpoint_id
+                    << " could not be used and the exchange replay is not a safe "
+                       "substitute. See the preceding message." << std::endl;
+          MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+        }
       }
       else                            swmm_model.open_exchange_log_truncate();
     }

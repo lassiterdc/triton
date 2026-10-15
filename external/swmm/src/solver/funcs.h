@@ -315,9 +315,20 @@ void    dynwave_getVariableStepRef(double** variableStep);                //TRIT
 
 // Write/restore SWMM's state at full double precision; snapshot_load refuses
 // with a reason naming the mismatching quantity. Caller frees the manifest.
+// SNAPSHOT_ABSENT is the legitimate fall-back-to-replay case; anything else
+// means the file exists but is unusable.
+#define SNAPSHOT_OK          0                                            //TRITON
+#define SNAPSHOT_ABSENT      1  // no such file -- fall back to the replay //TRITON
+#define SNAPSHOT_UNREADABLE  2  // present but unusable -- ABORT           //TRITON
 int     snapshot_save(const char* path);                                  //TRITON
 int     snapshot_load(const char* path, char* errMsg, int errMsgLen);     //TRITON
 char*   snapshot_buildManifest(long* nFields);                            //TRITON
+
+// Binary-output (.out) series continuity across a resume: flush the stdio
+// buffer at each checkpoint, and position the file at the payload end the
+// snapshot's Nperiods implies (refusing if the file holds fewer periods).
+void    output_flush(void);                                               //TRITON
+int     output_positionForResume(char* errMsg, int errMsgLen);            //TRITON
 
 // The only writer of swmm_newDepth[]: factored out of routing_execute so the
 // snapshot-restore path can reuse the loop that defines TRITON's inflow-node
