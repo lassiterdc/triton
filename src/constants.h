@@ -146,6 +146,15 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 #define BALANCING_MPI_TIME "balancing_mpi_time"    /**< Timer to get time needed for resizing and re-balancing */
 #define SWMM_TIME "swmm_time"    /**< Timer to get time needed for TRITON-SWMM coupling operations */
 
+// Children of SWMM_TIME, measured inside the parent bracket (which is
+// unchanged, so the SWMM column keeps reporting the same reading); the fourth
+// column, SWMM_OTHER, is the residual SWMM - (XFER + MPI + STEP) derived in
+// output.h::write_times and carries no macro, exactly like the pre-existing
+// Other/Init residuals.
+#define SWMM_XFER "swmm_xfer"    /**< Timer for the coupling's host-device transfers and the exchange kernel (plus the per-step append to the exchange-replay side-file). */
+#define SWMM_MPI "swmm_mpi"    /**< Timer for the coupling's MPI_Gatherv and MPI_Scatterv. */
+#define SWMM_STEP "swmm_step"    /**< Timer for the rank-0 serial SWMM solve and its local/global remaps. */
+
 
 #define TYPE_STATIC "static"    /**< Domain decomposition type: static*/
 #define TYPE_DYNAMIC "dynamic"    /**< Domain decomposition type: dynamic*/

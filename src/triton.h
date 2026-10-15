@@ -2444,6 +2444,11 @@ namespace Triton
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
 
+      // SWMM_TIME split: three measured children inside the untouched parent
+      // bracket (SWMM_OTHER is the residual, derived in output.h), so the
+      // columns close exactly: XFER + MPI + STEP + OTHER == SWMM per rank.
+      st.start(SWMM_XFER);
+
       // Copy new_depth from host to device (updated from previous SWMM step)
       gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuStreamSynchronize(streams);
@@ -2459,13 +2464,22 @@ namespace Triton
       gpuMemcpyAsync(host_vec[SWMM_Q], device_vec[SWMM_Q], nbytes_swmm, gpuMemcpyDeviceToHost, streams);
       gpuStreamSynchronize(streams);
 
+      st.stop(SWMM_XFER);
+      // SWMM_MPI takes two bracket pairs: the rank-0 solve sits between the
+      // gather and the scatter, and super_timer accumulates per category, so
+      // two pairs sum without swallowing SWMM_STEP.
+      st.start(SWMM_MPI);
+
       // Gather exchange_q from all ranks to rank 0
       MPI_Gatherv(host_vec[SWMM_Q], swmm_model.num_of_swmm_links, MPI_DATA_TYPE,
                   swmm_model.aux_global_exchange_q, swmm_model.counts, swmm_model.displs,
                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+      st.stop(SWMM_MPI);
 
-      // Step SWMM forward on rank 0
+      // Step SWMM forward on rank 0. SWMM_STEP sits inside the guard so a
+      // non-zero rank reports exactly 0.0 for a solve it never performs.
       if (rank == 0) {
+        st.start(SWMM_STEP);
         swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
                                     swmm_model.node_to_rank_dict);
         // Durably log this step's (dt, exchange_q) so a future resume can replay 0..t_k.
@@ -2473,12 +2487,16 @@ namespace Triton
         swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
+        st.stop(SWMM_STEP);
       }
+
+      st.start(SWMM_MPI);
 
       // Scatter new_depth from rank 0 to all ranks
       MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
                    MPI_DATA_TYPE, host_vec[SWMM_NEWD], swmm_model.num_of_swmm_links,
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+      st.stop(SWMM_MPI);
       st.stop(SWMM_TIME);
       st.start(COMPUTE_TIME);
     }
