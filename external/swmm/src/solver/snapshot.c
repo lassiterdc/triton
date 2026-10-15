@@ -778,7 +778,7 @@ int snapshot_save(const char* path)
          fwrite(shp, sizeof(int), SNAPSHOT_SHAPE_FIELDS, f) != SNAPSHOT_SHAPE_FIELDS ||
          (mlen > 0 && fwrite(manifest, 1, (size_t) mlen, f) != (size_t) mlen) )
     {
-        fclose(f); free(manifest); return 1;
+        fclose(f); free(manifest); remove(path); return 1;
     }
     free(manifest);
 
@@ -787,8 +787,13 @@ int snapshot_save(const char* path)
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
 
-    if ( fclose(f) != 0 ) return 1;
-    return c.error;
+    // Remove the file on any failure: a header-only or partial snapshot left
+    // behind would be classified UNREADABLE (abort) at the next resume instead
+    // of ABSENT (replay fallback), breaking the contract that a failed
+    // snapshot write only costs a replay.
+    if ( fclose(f) != 0 ) { remove(path); return 1; }
+    if ( c.error ) { remove(path); return 1; }
+    return SNAPSHOT_OK;
 }
 
 //=============================================================================
