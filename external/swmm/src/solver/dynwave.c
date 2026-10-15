@@ -114,6 +114,42 @@ static double getNodeStep(double tMin, int *minNode);
 
 //=============================================================================
 
+int dynwave_getSnapshotCount()                                            //TRITON
+//
+//  Input:   none
+//  Output:  returns the number of Xnode entries a snapshot should carry
+//  Purpose: reports whether this file's extended nodal array is live, without
+//           exposing TXnode. Zero is a correct answer (not an error): Xnode is
+//           allocated by dynwave_init(), so a non-DYNWAVE run never has one.
+//           The caller records the count in the snapshot's shape block.
+//
+{
+    if ( Xnode == NULL ) return 0;
+    return Nobjects[NODE];
+}
+
+//=============================================================================
+
+int dynwave_getSnapshotRefs(int j, double** oldSurfArea, double** dYdT)   //TRITON
+//
+//  Input:   j = node index; pointers receiving the addresses of Xnode[j]'s
+//           cross-step-live members
+//  Output:  returns 1 if the addresses were handed out, 0 otherwise
+//  Purpose: hands the snapshot serializer access to Xnode's cross-step-live
+//           members. Xnode is `static` here and TXnode appears in no header,
+//           so handing out double* per member is the only opening that does
+//           not require publishing the struct.
+//
+{
+    if ( Xnode == NULL ) return 0;
+    if ( j < 0 || j >= Nobjects[NODE] ) return 0;
+    if ( oldSurfArea ) *oldSurfArea = &Xnode[j].oldSurfArea;
+    if ( dYdT )        *dYdT        = &Xnode[j].dYdT;
+    return 1;
+}
+
+//=============================================================================
+
 void dynwave_init()
 //
 //  Input:   none
@@ -920,4 +956,20 @@ double getNodeStep(double tMin, int *minNode)
         }
     }
     return tNode;
+}
+
+//=============================================================================
+
+void dynwave_getVariableStepRef(double** variableStep)                    //TRITON
+//
+//  Input:   variableStep = pointer receiving the address of VariableStep
+//  Output:  none
+//  Purpose: hands the snapshot serializer access to VariableStep, a `static`
+//           first-call sentinel read at the top of dynwave_getRoutingStep
+//           before the step writes it. Restored as 0.0, the first post-resume
+//           call would take the MinRouteStep branch, skip getVariableStep and
+//           silently lose one step's timeCourantCritical tally.
+//
+{
+    if ( variableStep ) *variableStep = &VariableStep;
 }

@@ -99,6 +99,34 @@ static void stats_updateMaxStats(TMaxStats maxStats[], int i, int j, double x);
 
 //=============================================================================
 
+void stats_getSnapshotRefs(TTimeStepStats** tss, TMaxStats** maxMassBalErrs,
+                           TMaxStats** maxCourantCrit, TMaxStats** maxFlowTurns,
+                           TMaxStats** maxNonConverged, double** sysOutfallFlow,
+                           int* maxStatsLen)                              //TRITON
+//
+//  Input:   pointers receiving the addresses of this file's private state
+//  Output:  none
+//  Purpose: hands the coupled-resume snapshot serializer access to the
+//           report-bearing accumulators that are `static` in this file.
+//
+//  Six report-bearing accumulators here have internal linkage (TimeStepStats,
+//  the four TMaxStats arrays, SysOutfallFlow); this accessor is the narrowest
+//  opening through which snapshot.c can reach them -- it hands out addresses
+//  and nothing else, so ownership stays in this file.  maxStatsLen carries
+//  this file's private MAX_STATS out; the caller refuses a disagreement.
+//
+{
+    if ( tss )             *tss             = &TimeStepStats;
+    if ( maxMassBalErrs )  *maxMassBalErrs  = MaxMassBalErrs;
+    if ( maxCourantCrit )  *maxCourantCrit  = MaxCourantCrit;
+    if ( maxFlowTurns )    *maxFlowTurns    = MaxFlowTurns;
+    if ( maxNonConverged ) *maxNonConverged = MaxNonConverged;
+    if ( sysOutfallFlow )  *sysOutfallFlow  = &SysOutfallFlow;
+    if ( maxStatsLen )     *maxStatsLen     = MAX_STATS;
+}
+
+//=============================================================================
+
 int  stats_open()
 //
 //  Input:   none

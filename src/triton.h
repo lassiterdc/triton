@@ -430,14 +430,21 @@ namespace Triton
                           arglist.manhole_diameter, arglist.manhole_loss);
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
-    // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its
-    // .out/stats cover the full window before the live segment runs.
+    // on a resume, rebuild SWMM's state for 0..t_k so its .out/stats cover the full
+    // window before the live segment runs. On a resume the full-precision state
+    // snapshot is tried first (constant-time restore) with the exchange replay as
+    // the fallback (exact, but its cost grows with t_k and the GPU sits idle for
+    // its whole duration); every snapshot refusal degrades to the replay, which
+    // also covers checkpoints written before snapshots existed.
     // Guard on the GLOBAL node count: num_of_swmm_links is rank 0's *local* (subdomain) count, so
     // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
     // resume with a truncated .rpt/.out whose header still shows the full window).
     if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
-      if (arglist.checkpoint_id > 0) swmm_model.replay_exchange_history(arglist.sim_start_time);
+      if (arglist.checkpoint_id > 0) {
+        if (!swmm_model.try_restore_state_snapshot(arglist.checkpoint_id, arglist.sim_start_time))
+          swmm_model.replay_exchange_history(arglist.sim_start_time);
+      }
       else                            swmm_model.open_exchange_log_truncate();
     }
 
@@ -2195,6 +2202,13 @@ namespace Triton
 
         st.start(IO_TIME);
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
+#ifdef TRITON_SWMM
+        // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
+        // it restores in constant time instead of replaying 0..t_k. Charged to
+        // IO_TIME with the other checkpoint writes.
+        if (rank == 0 && swmm_model.num_of_swmm_links > 0)
+          swmm_model.write_state_snapshot(print_id);
+#endif
         st.stop(IO_TIME);
 
 #ifdef TRITON_SWMM

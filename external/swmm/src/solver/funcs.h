@@ -282,6 +282,52 @@ int     stats_open(void);
 void    stats_close(void);
 void    stats_report(void);
 
+//-----------------------------------------------------------------------------
+//   Coupled-resume state snapshot (TRITON-owned; see snapshot.c)
+//-----------------------------------------------------------------------------
+// C linkage: swmm_triton.h and the unit tests are C++ TUs that include this
+// header while the definitions compile as C; without this block the C++ callers
+// emit mangled references that fail at link.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Addresses of the report-bearing accumulators that are `static` in stats.c;
+// maxStatsLen carries that file's private MAX_STATS out.
+void    stats_getSnapshotRefs(TTimeStepStats** tss, TMaxStats** maxMassBalErrs,
+        TMaxStats** maxCourantCrit, TMaxStats** maxFlowTurns,
+        TMaxStats** maxNonConverged, double** sysOutfallFlow,
+        int* maxStatsLen);                                                //TRITON
+
+// dynwave.c's static extended nodal array: count is 0 unless routing is
+// dynamic wave; TXnode appears in no header, so per-member double* is the only
+// opening that does not publish the struct.
+int     dynwave_getSnapshotCount(void);                                   //TRITON
+int     dynwave_getSnapshotRefs(int j, double** oldSurfArea,
+        double** dYdT);                                                   //TRITON
+
+// Addresses of three scalar statics in routing.c.
+void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
+        int** betweenEvents);                                             //TRITON
+
+// Address of dynwave.c's static VariableStep sentinel.
+void    dynwave_getVariableStepRef(double** variableStep);                //TRITON
+
+// Write/restore SWMM's state at full double precision; snapshot_load refuses
+// with a reason naming the mismatching quantity. Caller frees the manifest.
+int     snapshot_save(const char* path);                                  //TRITON
+int     snapshot_load(const char* path, char* errMsg, int errMsgLen);     //TRITON
+char*   snapshot_buildManifest(long* nFields);                            //TRITON
+
+// The only writer of swmm_newDepth[]: factored out of routing_execute so the
+// snapshot-restore path can reuse the loop that defines TRITON's inflow-node
+// index space instead of duplicating it.
+void    routing_exportInflowNodeDepths(double *swmm_newDepth);            //TRITON
+
+#ifdef __cplusplus
+}
+#endif
+
 void    stats_updateCriticalTimeCount(int node, int link);
 void    stats_updateFlowStats(double tStep, DateTime aDate);
 void    stats_updateTimeStepStats(double tStep, int trialsCount, int steadyState);

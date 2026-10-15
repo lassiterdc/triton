@@ -152,6 +152,23 @@ namespace SWMM_triton
 		void flush_exchange_log();                               ///< flush (called at each checkpoint write)
 		void close_exchange_log();                               ///< close (called at end_swmm)
 
+		// --- full-precision state snapshot (bounds the resume cost) ---------
+		// The replay above is exact but its cost grows with t_k, and the GPU sits
+		// idle for its whole duration (no device vector exists until it returns).
+		// The snapshot makes the restore cost independent of t_k; the replay is
+		// retained as the fallback for checkpoints that have no snapshot.
+
+		/// Write the full-precision SWMM state snapshot for this checkpoint.
+		/// Rank 0 only, charged to IO_TIME by the caller. A failure warns and does
+		/// not abort: a missing snapshot costs a replay at the next resume, which
+		/// is slow but correct.
+		void write_state_snapshot(int checkpoint_id);
+
+		/// Resume: restore SWMM's state from this checkpoint's snapshot.
+		/// Returns true if it engaged; false means the caller must run the replay
+		/// fallback. Never exits -- every refusal degrades to the replay.
+		bool try_restore_state_snapshot(int checkpoint_id, value_t up_to_time);
+
 		void local_to_global(value_t*  local, value_t*  global, int* dict);
 		void global_to_local(value_t*  global, value_t*  local, int* dict);
 
@@ -192,6 +209,23 @@ namespace SWMM_triton
 		std::string exchange_log_path;   /**< path to the durable exchange-replay side-file */
 		std::ofstream exchange_log;      /**< append stream for live exchange records (rank 0) */
 		int exchange_num_nodes = 0;      /**< number of global SWMM surface nodes per record */
+
+		/// Stem for the per-checkpoint state snapshots (checkpoint id appended).
+		/// Keyed per checkpoint rather than rolling, so a resume from an OLDER
+		/// checkpoint cannot silently load a LATER state -- it finds no file for
+		/// its id and takes the replay.
+		std::string snapshot_path_stem;
+
+		std::string snapshot_path_for(int checkpoint_id) const;
+
+		/// Position the side-file for the live segment: validate the header, walk
+		/// records up to up_to_time, truncate any stale tail or partial
+		/// kill-record, reopen for append. With replay_steps true each record is
+		/// pushed through swmm_step (the replay); with it false the records are
+		/// only counted (the snapshot path has already restored their state).
+		/// Both routes share this function so they agree exactly on where the
+		/// live segment starts.
+		long position_exchange_log(value_t up_to_time, bool replay_steps);
 
 		int calc_swmm_node_col(value_t  node_x, value_t  xllc, value_t  cell_size_);
 
@@ -579,6 +613,9 @@ namespace SWMM_triton
 			// hotstart-resumed allocation can fast-replay 0..t_k and rebuild a full-window
 			// hydraulics.rpt/.out instead of a truncated post-checkpoint segment.
 			exchange_log_path = output_dir_swmm + filenameWithoutExtension + "_exchange_replay.bin";
+			// Per-checkpoint state snapshots live beside the side-file in the same
+			// swmm/ subtree, so anything that preserves one preserves the other.
+			snapshot_path_stem = output_dir_swmm + filenameWithoutExtension + "_state";
 			exchange_num_nodes = global_num_of_swmm_links;
 
 			swmm_open(inp_filename.c_str(), report_filename.c_str(), binary_filename.c_str());
@@ -656,6 +693,15 @@ namespace SWMM_triton
 	void swmm_triton::replay_exchange_history(value_t up_to_time)
 	{
 		if (rank_ != 0) return;
+		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/true);
+		std::cerr << IN "SWMM exchange history replayed to t=" << up_to_time
+		          << " s (" << rec_count << " steps); resuming live segment" << std::endl;
+	}
+
+
+	long swmm_triton::position_exchange_log(value_t up_to_time, bool replay_steps)
+	{
+		if (rank_ != 0) return 0;
 
 		const std::size_t header_bytes = EXCHANGE_LOG_HEADER_BYTES;
 		const std::size_t record_bytes = sizeof(value_t) * (1 + exchange_num_nodes);
@@ -709,7 +755,12 @@ namespace SWMM_triton
 			exit(EXIT_FAILURE);
 		}
 
-		// --- fast-replay records 0..up_to_time through swmm_step (SWMM-only, rank 0) ---
+		// --- walk records 0..up_to_time (SWMM-only, rank 0) ---
+		// With replay_steps each record is pushed through swmm_step, rebuilding
+		// SWMM's state and its .out/stats for the full window. Without it the
+		// records are only counted: the snapshot has already restored the state
+		// those steps would have produced, and the walk exists solely to find
+		// where the live segment starts.
 		std::vector<value_t> q(exchange_num_nodes);
 		value_t dt;
 		double elapsed = 0.0;          // swmm_step writes elapsed days here; not used by TRITON
@@ -723,7 +774,7 @@ namespace SWMM_triton
 			in.read(reinterpret_cast<char*>(q.data()), sizeof(value_t) * exchange_num_nodes);
 			if (in.gcount() != (std::streamsize)(sizeof(value_t) * exchange_num_nodes)) break; // partial -> stop
 			if (cum >= up_to_time - EPS) break;                                               // reached t_k
-			swmm_step(&elapsed, q.data(), global_new_depth, dt);
+			if (replay_steps) swmm_step(&elapsed, q.data(), global_new_depth, dt);
 			cum += dt;
 			rec_count++;
 		}
@@ -731,8 +782,8 @@ namespace SWMM_triton
 
 		if (cum < up_to_time - EPS)
 		{
-			std::cerr << ERROR "Exchange-replay side-file is incomplete for this checkpoint: replayed\n"
-			          << "         up to " << cum << " s but checkpoint_id requires " << up_to_time
+			std::cerr << ERROR "Exchange-replay side-file is incomplete for this checkpoint: reached\n"
+			          << "         t=" << cum << " s but checkpoint_id requires " << up_to_time
 			          << " s (side-file/checkpoint mismatch, e.g. truncated by a hard kill).\n"
 			          << "         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
 			          << std::endl;
@@ -749,7 +800,10 @@ namespace SWMM_triton
 			exit(EXIT_FAILURE);
 		}
 
-		// --- reopen for append: the live segment continues the series after the replayed records ---
+		// --- reopen for append: the live segment continues the series after the
+		//     records walked above. The side-file stays a complete 0..end series
+		//     whichever path positioned it, so a later resume can still take the
+		//     replay fallback if its snapshot is missing. ---
 		exchange_log.close();
 		exchange_log.open(exchange_log_path, std::ios::binary | std::ios::app);
 		if (!exchange_log.is_open())
@@ -759,8 +813,83 @@ namespace SWMM_triton
 			exit(EXIT_FAILURE);
 		}
 
-		std::cerr << IN "SWMM exchange history replayed to t=" << cum
-		          << " s (" << rec_count << " steps); resuming live segment" << std::endl;
+		return rec_count;
+	}
+
+
+	// ---------------------------------------------------------------------------
+	// Full-precision state snapshot: one file per checkpoint id, keyed rather
+	// than rolling (see snapshot_path_stem) so a resume from an older checkpoint
+	// takes the replay instead of loading a state from the future of its t_k.
+	// ---------------------------------------------------------------------------
+
+	std::string swmm_triton::snapshot_path_for(int checkpoint_id) const
+	{
+		return snapshot_path_stem + "_cp" + std::to_string(checkpoint_id) + ".snapshot";
+	}
+
+
+	void swmm_triton::write_state_snapshot(int checkpoint_id)
+	{
+		if (rank_ != 0) return;
+		if (snapshot_path_stem.empty()) return;   // no SWMM surface nodes / not initialized
+
+		const std::string path = snapshot_path_for(checkpoint_id);
+		if (snapshot_save(path.c_str()) != 0)
+		{
+			// Not fatal: a snapshot that fails to write costs a replay at the next
+			// resume -- slow, but correct.
+			std::cerr << WARN "Could not write SWMM state snapshot: " << path << "\n"
+			          << "         A resume from checkpoint " << checkpoint_id
+			          << " will fall back to replaying the exchange history."
+			          << std::endl;
+			return;
+		}
+
+		// Keep at most the current and the immediately previous snapshot; the
+		// exchange side-file remains the unbounded-history fallback.
+		if (checkpoint_id >= 2)
+		{
+			std::error_code ec;
+			std::filesystem::remove(snapshot_path_for(checkpoint_id - 2), ec);
+		}
+	}
+
+
+	bool swmm_triton::try_restore_state_snapshot(int checkpoint_id, value_t up_to_time)
+	{
+		if (rank_ != 0) return false;
+		if (snapshot_path_stem.empty()) return false;
+
+		const std::string path = snapshot_path_for(checkpoint_id);
+		char msg[512];
+		msg[0] = '\0';
+
+		if (snapshot_load(path.c_str(), msg, (int)sizeof(msg)) != 0)
+		{
+			std::cerr << INFO "SWMM state snapshot not used (" << msg << ").\n"
+			          << "         Falling back to replaying the exchange history."
+			          << std::endl;
+			return false;
+		}
+
+		// The snapshot restored SWMM's accumulators and routing state, but the
+		// array TRITON reads is filled at exactly one site inside routing_execute,
+		// which no restore passes through. Call the factored-out writer rather
+		// than duplicating the loop that defines the inflow-node index space.
+		// The replay fallback must NOT call it: its steps have already left
+		// global_new_depth[] at exactly these values.
+		routing_exportInflowNodeDepths(global_new_depth);
+
+		// Position the side-file so the live segment appends after t_k without
+		// replaying: the state those steps would have produced is already restored.
+		const long rec_count = position_exchange_log(up_to_time, /*replay_steps=*/false);
+
+		// Same "...to t=" shape as the replay marker so one matcher discriminates both.
+		std::cerr << IN "SWMM state restored from snapshot to t=" << up_to_time
+		          << " s (" << rec_count << " steps skipped); resuming live segment"
+		          << std::endl;
+		return true;
 	}
 
 

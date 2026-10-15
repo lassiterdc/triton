@@ -264,26 +264,51 @@ void routing_execute(int routingModel, double routingStep, double *exchange_q, d
     }
 
 	 //we need to copy the updated values to an array that can be read from TRITON
-	 // --- for each node with a definedinflow
-    inflow_id=0;
-	 for (i = 0; i < Nobjects[NODE]; i++)
+    routing_exportInflowNodeDepths(swmm_newDepth); //TRITON
+
+    // --- update mass balance totals over the current half time step
+    massbal_updateRoutingTotals(routingStep / 2.);
+}
+
+//=============================================================================
+
+void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
+//
+//  Input:   swmm_newDepth = TRITON-owned buffer, one slot per FLOW_INFLOW node
+//  Output:  none
+//  Purpose: publishes each inflow node's current depth into the array TRITON
+//           reads, in TRITON's index space and units.
+//
+//  The ONLY site that writes swmm_newDepth[].  The index space is defined by
+//  this loop (a running counter over Nobjects[NODE] restricted to FLOW_INFLOW
+//  nodes, in metres where Node[].newDepth is in feet); the snapshot-restore
+//  path calls this same function rather than duplicating it, which is what
+//  keeps its result bitwise identical to what a replay leaves.
+//
+{
+    int i;
+    int inflow_id;
+    TExtInflow* inflow;
+
+    if ( swmm_newDepth == NULL ) return;
+
+    // --- for each node with a defined inflow
+    inflow_id = 0;
+    for (i = 0; i < Nobjects[NODE]; i++)
     {
         // --- get flow inflow
         inflow = Node[i].extInflow;
         while ( inflow )
         {
-		      if ( inflow->type == FLOW_INFLOW )
+            if ( inflow->type == FLOW_INFLOW )
             {
-		      	swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
-			 		inflow_id++;//TRITON
+                swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
+                inflow_id++;
                 break;
             }
             else inflow = inflow->next;
-		 }
-	 }
-
-    // --- update mass balance totals over the current half time step
-    massbal_updateRoutingTotals(routingStep / 2.);
+        }
+    }
 }
 
 //=============================================================================
@@ -982,6 +1007,26 @@ void sortEvents()
     {
         if ( Event[i].end > Event[i+1].start ) Event[i].end = Event[i+1].start;
     }
+}
+
+//=============================================================================
+
+void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
+                             int** betweenEvents)                        //TRITON
+//
+//  Input:   pointers receiving the addresses of this file's private statics
+//  Output:  none
+//  Purpose: hands the snapshot serializer access to the routing clocks that
+//           are `static` here (NewRuleTime, NextEvent, BetweenEvents). Each is
+//           reset by the start path and read before the step writes it, so a
+//           resume must carry them or the control-rule clock, the event series
+//           and the between-events flag restart from their start-path values
+//           while the rest of the model continues from t_k.
+//
+{
+    if ( newRuleTime )   *newRuleTime   = &NewRuleTime;
+    if ( nextEvent )     *nextEvent     = &NextEvent;
+    if ( betweenEvents ) *betweenEvents = &BetweenEvents;
 }
 
 //=============================================================================
