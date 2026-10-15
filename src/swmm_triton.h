@@ -137,7 +137,7 @@ namespace SWMM_triton
 *  @param rank_ Subdomain id
 *  @param size_ Number of subdomain
 */
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss);
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all);
 
 
 		void end_swmm(std::string output_dir);
@@ -234,6 +234,10 @@ namespace SWMM_triton
 		/// its id and takes the replay.
 		std::string snapshot_path_stem;
 
+		/// Latched from the cfg key of the same name in initialize(); consumed
+		/// by write_state_snapshot, which runs long after initialize returns.
+		bool snapshot_keep_all = false;
+
 		std::string snapshot_path_for(int checkpoint_id) const;
 
 		/// Position the side-file for the live segment: validate the header, walk
@@ -254,7 +258,7 @@ namespace SWMM_triton
 
 		void process_swmm_node_locations(const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd);
 
-		void init_swmm(std::string project_dir, std::string inp_filename);
+		void init_swmm(std::string project_dir, std::string inp_filename, const bool swmm_snapshot_disable);
 
 
 		int rank_;
@@ -276,16 +280,17 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all)
 	{
 		rank_=rank;
 		size_=size;
 		units=0;
 		this->output_folder = output_folder;
+		this->snapshot_keep_all = swmm_snapshot_keep_all;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
-		init_swmm(project_dir, inp_filename);
+		init_swmm(project_dir, inp_filename, swmm_snapshot_disable);
 	}
 
 
@@ -540,7 +545,7 @@ namespace SWMM_triton
 	}
 
 
-	void swmm_triton::init_swmm(std::string project_dir, std::string inp_filename)
+	void swmm_triton::init_swmm(std::string project_dir, std::string inp_filename, const bool swmm_snapshot_disable)
 	{
 
 		//initialize to zero all the exchange_q values and new_depth values
@@ -633,7 +638,20 @@ namespace SWMM_triton
 			exchange_log_path = output_dir_swmm + filenameWithoutExtension + "_exchange_replay.bin";
 			// Per-checkpoint state snapshots live beside the side-file in the same
 			// swmm/ subtree, so anything that preserves one preserves the other.
-			snapshot_path_stem = output_dir_swmm + filenameWithoutExtension + "_state";
+			// An empty stem (swmm_snapshot_disable, or no surface nodes) is the
+			// single signal both the writer and the restore path test.
+			if (!swmm_snapshot_disable)
+			{
+				snapshot_path_stem = output_dir_swmm + filenameWithoutExtension + "_state";
+			}
+			else
+			{
+				std::cerr << WARN "SWMM state snapshots DISABLED by cfg "
+				             "(swmm_snapshot_disable=1).\n"
+				          << "         Any hotstart resume will take the exchange-replay "
+				             "fallback and record reason `absent`."
+				          << std::endl;
+			}
 			exchange_num_nodes = global_num_of_swmm_links;
 
 			swmm_open(inp_filename.c_str(), report_filename.c_str(), binary_filename.c_str());
@@ -879,7 +897,9 @@ namespace SWMM_triton
 
 		// Keep at most the current and the immediately previous snapshot; the
 		// exchange side-file remains the unbounded-history fallback.
-		if (checkpoint_id >= 2)
+		// swmm_snapshot_keep_all skips the prune (which route a resume takes
+		// then no longer depends on how far the run advanced).
+		if (!snapshot_keep_all && checkpoint_id >= 2)
 		{
 			std::error_code ec;
 			std::filesystem::remove(snapshot_path_for(checkpoint_id - 2), ec);

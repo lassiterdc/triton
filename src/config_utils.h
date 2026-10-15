@@ -55,6 +55,17 @@ namespace ConfigUtils
 		T
 		manhole_diameter,	/**< A constant characteristic length for manholes in SWMM (either diameter or width) */
 		manhole_loss;	/**< Loss coefficient for manholes in SWMM links */
+
+		/**< Disable the SWMM state snapshot: resumes deterministically take the
+		*   exchange-replay fallback. Additive (absent key = false). */
+		bool
+		swmm_snapshot_disable;
+
+		/**< Keep every per-checkpoint snapshot instead of the default keep-2
+		*   retention (under keep-2, which route a resume takes depends on how
+		*   far the run advanced before the interruption). Additive. */
+		bool
+		swmm_snapshot_keep_all;
 #endif
 
 		std::string
@@ -487,6 +498,8 @@ namespace ConfigUtils
 		arglist.inp_filename = args("inp_filename", argmap);
 		arglist.manhole_diameter = atof((args("manhole_diameter", argmap)).c_str());
 		arglist.manhole_loss = atof((args("manhole_loss", argmap)).c_str());
+		arglist.swmm_snapshot_disable = atoi((argsd("swmm_snapshot_disable", argmap, "0")).c_str());
+		arglist.swmm_snapshot_keep_all = atoi((argsd("swmm_snapshot_keep_all", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
