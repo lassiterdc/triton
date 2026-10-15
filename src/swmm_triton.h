@@ -192,9 +192,13 @@ namespace SWMM_triton
 
 		std::string get_output_folder() const { return output_folder; }
 
-		int num_of_swmm_links; /**< Number of SWMM nodes connected to the surface per subdomain */
-		int num_of_swmm_nodes; /**< Number of SWMM total nodes */
-		int global_num_of_swmm_links; /**< Number of total (full domain) SWMM nodes connected to the surface */
+		int num_of_swmm_links = 0; /**< Number of SWMM nodes connected to the surface per subdomain */
+		int num_of_swmm_nodes = 0; /**< Number of SWMM total nodes */
+		int global_num_of_swmm_links = 0; /**< Number of (full domain) SWMM nodes connected to the surface */
+
+		/// Zero-initialised so a coupled build running a cfg with no inp_filename
+		/// (a non-coupled case) leaves every node-count guard on its uncoupled
+		/// branch instead of reading indeterminate values.
 		int units; /**< IS units (0) or imperial units (1) */
 		std::vector<value_t> x;
 		std::vector<value_t> y;

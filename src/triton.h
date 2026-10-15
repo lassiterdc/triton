@@ -423,13 +423,25 @@ namespace Triton
     process_runoff();
 
 #ifdef TRITON_SWMM
-    // Initialize SWMM coupling
+    // Initialize SWMM coupling. A coupled build running a non-coupled cfg (no
+    // inp_filename; args() returns an empty string for an absent key) is a
+    // supported configuration: without this test, read_inp_file("") fails and
+    // exits before the simulation starts. The node counts are zero-initialised
+    // at their declarations, so every downstream node-count guard correctly
+    // takes its uncoupled branch.
     swmm_local_elapsedTime = 0.0;
-    swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
-                          dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
-                          arglist.manhole_diameter, arglist.manhole_loss,
-                          arglist.swmm_snapshot_disable,
-                          arglist.swmm_snapshot_keep_all);
+    if (!arglist.inp_filename.empty())
+    {
+      swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
+                            dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
+                            arglist.manhole_diameter, arglist.manhole_loss,
+                            arglist.swmm_snapshot_disable,
+                            arglist.swmm_snapshot_keep_all);
+    }
+    else if (rank == 0)
+    {
+      std::cerr << WARN "No inp_filename in the cfg -- running uncoupled in a coupled build." << std::endl;
+    }
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, rebuild SWMM's state for 0..t_k so its .out/stats cover the full
