@@ -2205,8 +2205,10 @@ namespace Triton
 #ifdef TRITON_SWMM
         // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
         // it restores in constant time instead of replaying 0..t_k. Charged to
-        // IO_TIME with the other checkpoint writes.
-        if (rank == 0 && swmm_model.num_of_swmm_links > 0)
+        // IO_TIME with the other checkpoint writes. Global count: SWMM is opened
+        // on rank 0 whenever the model has any node, whether or not rank 0's own
+        // strip holds a manhole.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0)
           swmm_model.write_state_snapshot(print_id);
 #endif
         st.stop(IO_TIME);
@@ -2214,7 +2216,7 @@ namespace Triton
 #ifdef TRITON_SWMM
         // Tie exchange-replay side-file durability to each checkpoint write so a future
         // resume from this checkpoint always has a complete 0..t_k series on disk.
-        if (rank == 0 && swmm_model.num_of_swmm_links > 0) swmm_model.flush_exchange_log();
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
 
         #if WRITE_PERFORMANCE
@@ -2275,8 +2277,12 @@ namespace Triton
     }
 
 #ifdef TRITON_SWMM
-    // Finalize SWMM coupling
-    if (swmm_model.num_of_swmm_links > 0) {
+    // Finalize SWMM coupling. Global count, and it must land with the
+    // collective-site repair in compute_new_state(): init_swmm opens SWMM on
+    // rank 0 whenever the model has any node, so under the old local-count
+    // guard a rank 0 owning no manhole left an opened engine never closed and
+    // never reported (no hydraulics.rpt) -- a failure the deadlock used to hide.
+    if (swmm_model.global_num_of_swmm_links > 0) {
       std::string output_dir_swmm = project_dir + "/" + swmm_model.get_output_folder() + "/swmm/";
       swmm_model.end_swmm(output_dir_swmm);
     }
@@ -2433,8 +2439,19 @@ namespace Triton
     // (wet_dry sees pre-exchange depth, wet_dry_qy_halo sees post-exchange depth), which breaks
     // serial/parallel byte-for-byte reproducibility.
 #ifdef TRITON_SWMM
-    // SWMM-TRITON coupling
-    if (swmm_model.num_of_swmm_links > 0) {
+    // SWMM-TRITON coupling. Guard on the GLOBAL count: this block encloses an
+    // MPI_Gatherv and an MPI_Scatterv over ENSIFY_COMM_WORLD, so it is a
+    // collective region every rank enters or none may. num_of_swmm_links is
+    // this rank's LOCAL count, and under the row-striped decomposition a rank
+    // whose strip holds no manhole (the minimum-population strip is rank 0's)
+    // has a local count of zero -- the old guard made such a rank skip the
+    // collectives every other rank entered, deadlocking the first coupled
+    // timestep. The collectives take swmm_model.exchange_q.data()/.new_depth.data()
+    // rather than host_vec[SWMM_*]: those entries are appended only when the
+    // local count is positive (host_vec[SWMM_Q] is an out-of-range operator[] on
+    // a zero-local-link rank) and they go stale under domain_decomposition=dynamic,
+    // where create_host_vectors() rebuilds host_vec without re-appending them.
+    if (swmm_model.global_num_of_swmm_links > 0) {
       // The hydro kernels above are asynchronous on a device backend; without this fence the
       // first synchronous operation inside SWMM_TIME drains them and charges TRITON's GPU
       // work to the SWMM column. A no-op on host backends, where parallel_for is synchronous.
@@ -2447,31 +2464,38 @@ namespace Triton
       // SWMM_TIME split: three measured children inside the untouched parent
       // bracket (SWMM_OTHER is the residual, derived in output.h), so the
       // columns close exactly: XFER + MPI + STEP + OTHER == SWMM per rank.
-      st.start(SWMM_XFER);
+      //
+      // Per-rank device work, guarded on the LOCAL count: the buffers indexed
+      // here come from the conditionally-appended SWMM_* range of host_vec/
+      // device_vec, which a zero-local-link rank does not have, and the kernel's
+      // trip count is the local count.
+      if (swmm_model.num_of_swmm_links > 0) {
+        st.start(SWMM_XFER);
 
-      // Copy new_depth from host to device (updated from previous SWMM step)
-      gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
-      gpuStreamSynchronize(streams);
+        // Copy new_depth from host to device (updated from previous SWMM step)
+        gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+        gpuStreamSynchronize(streams);
 
-      // Compute SWMM-TRITON exchange on device
-      SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_links, cell_size, global_dt,
-                                                  device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
-                                                  device_vec_int[SWMMP], device_vec[SWMM_LOSS],
-                                                  device_vec[SWMM_DIAMETER], device_vec[SWMM_MAXD],
-                                                  device_vec[SWMM_NEWD], device_vec[SWMM_Q]);
+        // Compute SWMM-TRITON exchange on device
+        SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_links, cell_size, global_dt,
+                                                    device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
+                                                    device_vec_int[SWMMP], device_vec[SWMM_LOSS],
+                                                    device_vec[SWMM_DIAMETER], device_vec[SWMM_MAXD],
+                                                    device_vec[SWMM_NEWD], device_vec[SWMM_Q]);
 
-      // Copy exchange_q from device to host
-      gpuMemcpyAsync(host_vec[SWMM_Q], device_vec[SWMM_Q], nbytes_swmm, gpuMemcpyDeviceToHost, streams);
-      gpuStreamSynchronize(streams);
+        // Copy exchange_q from device to host
+        gpuMemcpyAsync(host_vec[SWMM_Q], device_vec[SWMM_Q], nbytes_swmm, gpuMemcpyDeviceToHost, streams);
+        gpuStreamSynchronize(streams);
 
-      st.stop(SWMM_XFER);
+        st.stop(SWMM_XFER);
+      }
       // SWMM_MPI takes two bracket pairs: the rank-0 solve sits between the
       // gather and the scatter, and super_timer accumulates per category, so
       // two pairs sum without swallowing SWMM_STEP.
       st.start(SWMM_MPI);
 
       // Gather exchange_q from all ranks to rank 0
-      MPI_Gatherv(host_vec[SWMM_Q], swmm_model.num_of_swmm_links, MPI_DATA_TYPE,
+      MPI_Gatherv(swmm_model.exchange_q.data(), swmm_model.num_of_swmm_links, MPI_DATA_TYPE,
                   swmm_model.aux_global_exchange_q, swmm_model.counts, swmm_model.displs,
                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
@@ -2494,7 +2518,7 @@ namespace Triton
 
       // Scatter new_depth from rank 0 to all ranks
       MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
-                   MPI_DATA_TYPE, host_vec[SWMM_NEWD], swmm_model.num_of_swmm_links,
+                   MPI_DATA_TYPE, swmm_model.new_depth.data(), swmm_model.num_of_swmm_links,
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
       st.stop(SWMM_TIME);
