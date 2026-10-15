@@ -7,3 +7,10 @@ doc/_build
 *.swp
 doc/doxygen_output
 doc/api
+
+# >>> local agent entrypoints (generated, do not edit) >>>
+# Files that local agent tooling writes into this checkout; not part of the project.
+# This block is rewritten automatically, so edits inside it are discarded.
+/AGENTS.md
+/CLAUDE.md
+# <<< local agent entrypoints <<<
