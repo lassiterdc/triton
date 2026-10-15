@@ -70,12 +70,16 @@ make_cfg() {
 }
 
 # resume <case-dir> <outname> <cpid>: clone output, point cfg at clone, resume
+# RESUME_LAUNCHER: set before calling resume() for MPI cases (e.g.
+# "mpirun --allow-run-as-root --oversubscribe -np 8"); a resume must run with
+# the SAME rank count as the leg that wrote the checkpoints.
+RESUME_LAUNCHER=""
 resume() {
   local dir=$1 out=$2 cpid=$3
   rm -rf "$dir/${out}_res$cpid"
   cp -r "$dir/$out" "$dir/${out}_res$cpid"
   sed -i "s|^output_folder=.*|output_folder=\"${out}_res$cpid\"|" "$dir/${out}_res$cpid/cfg/config_$cpid.cfg"
-  ( cd "$dir" && ./build/triton.exe "${out}_res$cpid/cfg/config_$cpid.cfg" > "res$cpid.log" 2>&1 )
+  ( cd "$dir" && $RESUME_LAUNCHER ./build/triton.exe "${out}_res$cpid/cfg/config_$cpid.cfg" > "res$cpid.log" 2>&1 )
 }
 
 # compare <clean-out> <resumed-out> <resumed-log>: bin/, side-file, .out.
@@ -156,6 +160,7 @@ D="$ROOT/mpi8"; run_case mpi8 true
 make_cfg "$D/case_ka.cfg" out_ka8 swmm_snapshot_keep_all=1
 ( cd "$D" && mpirun --allow-run-as-root --oversubscribe -np 8 ./build/triton.exe case_ka.cfg > ka.log 2>&1 ) \
   || bad "B clean leg"
+RESUME_LAUNCHER="mpirun --allow-run-as-root --oversubscribe -np 8"
 resume "$D" out_ka8 36
 grep -aq "path=snapshot" "$D/res36.log" && ok "B resume@36 np8 SEQ: snapshot route" || bad "B route"
 compare mpi8/out_ka8 mpi8/out_ka8_res36 "$ROOT/mpi8/res36.log"
@@ -166,6 +171,7 @@ compare mpi8/out_ka8 mpi8/out_ka8_res36 "$ROOT/mpi8/res36.log"
 make_cfg "$D/case_par.cfg" out_par8 swmm_snapshot_keep_all=1
 sed -i "s|^output_option=.*|output_option=PAR|" "$D/case_par.cfg"
 ( cd "$D" && mpirun --allow-run-as-root --oversubscribe -np 8 ./build/triton.exe case_par.cfg > par.log 2>&1 )
+RESUME_LAUNCHER="mpirun --allow-run-as-root --oversubscribe -np 8"
 resume "$D" out_par8 36
 if grep -aq "Simulation ends" "$D/res36.log"; then
   bad "B2 PAR resume unexpectedly completed -- pre-existing defect may be fixed; update this case"
