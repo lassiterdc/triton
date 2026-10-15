@@ -105,6 +105,7 @@ mkdir -p "$ROOT"
 say "=== coupled resume suite: binary=$BIN_ABS root=$ROOT ==="
 
 # ---------- A. serial np1, SEQ ----------
+RESUME_LAUNCHER=""
 say "--- A: serial, 1 rank, SEQ output, live SWMM ---"
 D="$ROOT/serial"; run_case serial true
 make_cfg "$D/case_ka.cfg"  out_ka  swmm_snapshot_keep_all=1
@@ -155,7 +156,8 @@ grep -aq "path=replay reason=retention-collision" "$D/res36.log" \
 compare serial/out_k2 serial/out_k2_res36 "$ROOT/serial/res36.log"
 
 # ---------- B. MPI np8 ----------
-say "--- B: MPI, 8 ranks, SEQ output (PAR resume is a pre-existing defect, B2) ---"
+RESUME_LAUNCHER=""
+say "--- B: MPI, 8 ranks, SEQ and PAR output ---"
 D="$ROOT/mpi8"; run_case mpi8 true
 make_cfg "$D/case_ka.cfg" out_ka8 swmm_snapshot_keep_all=1
 ( cd "$D" && mpirun --allow-run-as-root --oversubscribe -np 8 ./build/triton.exe case_ka.cfg > ka.log 2>&1 ) \
@@ -165,19 +167,14 @@ resume "$D" out_ka8 36
 grep -aq "path=snapshot" "$D/res36.log" && ok "B resume@36 np8 SEQ: snapshot route" || bad "B route"
 compare mpi8/out_ka8 mpi8/out_ka8_res36 "$ROOT/mpi8/res36.log"
 
-# B2: PAR checkpoints + resume at np>1 is a PRE-EXISTING defect (the hotstart
-# reader's dims do not line up with the per-rank PAR rasters; code untouched by
-# the snapshot integration). Assert it fails LOUDLY rather than pretending.
+# B2: PAR checkpoints + resume at np>1 (resumes from per-rank rasters).
 make_cfg "$D/case_par.cfg" out_par8 swmm_snapshot_keep_all=1
 sed -i "s|^output_option=.*|output_option=PAR|" "$D/case_par.cfg"
 ( cd "$D" && mpirun --allow-run-as-root --oversubscribe -np 8 ./build/triton.exe case_par.cfg > par.log 2>&1 )
 RESUME_LAUNCHER="mpirun --allow-run-as-root --oversubscribe -np 8"
 resume "$D" out_par8 36
-if grep -aq "Simulation ends" "$D/res36.log"; then
-  bad "B2 PAR resume unexpectedly completed -- pre-existing defect may be fixed; update this case"
-else
-  ok "B2 PAR resume at np8 fails loudly (pre-existing, documented)"
-fi
+grep -aq "path=snapshot" "$D/res36.log" && ok "B2 resume@36 np8 PAR: snapshot route" || bad "B2 route"
+compare mpi8/out_par8 mpi8/out_par8_res36 "$ROOT/mpi8/res36.log"
 
 # ---------- C. OMP binary, 1 rank ----------
 if ldd "$BIN_ABS" 2>/dev/null | grep -q "gomp"; then
@@ -192,6 +189,7 @@ else
 fi
 
 # ---------- D. np16 deadlock regression ----------
+RESUME_LAUNCHER=""
 say "--- D: np16, rank 0 strip holds no manhole ---"
 D="$ROOT/np16"; run_case np16 true
 make_cfg "$D/case.cfg" out16
@@ -205,6 +203,7 @@ else
 fi
 
 # ---------- E. degraded SWMM, baseline regression ----------
+RESUME_LAUNCHER=""
 say "--- E: degraded SWMM (no dats/), baseline regression ---"
 D="$ROOT/degraded"; mkdir -p "$D/build"
 for f in elevation_3.50m.dem mannings_3.50m.dem strmflow extbc cid; do cp -r "$SRC/$f" "$D/" 2>/dev/null; done
@@ -227,6 +226,7 @@ grep -aq "path=replay" "$D/res36.log" \
   || bad "E degraded resume@36"
 
 # ---------- F. failure semantics ----------
+RESUME_LAUNCHER=""
 say "--- F: failure semantics ---"
 D="$ROOT/serial"
 # F1: missing side-file
