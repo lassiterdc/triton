@@ -109,19 +109,11 @@ void stats_getSnapshotRefs(TTimeStepStats** tss, TMaxStats** maxMassBalErrs,
 //  Purpose: hands the coupled-resume snapshot serializer access to the
 //           report-bearing accumulators that are `static` in this file.
 //
-//  THIS IS THE ONLY REASON snapshot.c LIVES IN THE VENDORED TREE.
-//
-//  Six report-bearing accumulators here have internal linkage: TimeStepStats,
-//  the four TMaxStats arrays, and SysOutfallFlow.  `extern` cannot reach a
-//  `static`, so a snapshot module outside this translation unit cannot see them
-//  -- and they carry the duration counts and critical-statistics rankings a
-//  coupled resume must not lose.  This accessor is the narrowest opening that
-//  works: it hands out addresses and nothing else, so the accumulators stay
-//  owned by this file and no caller can be written against a copy of them.
-//
-//  maxStatsLen carries MAX_STATS out because that is a #define local to this
-//  file too.  The caller checks it against its own bound and refuses on a
-//  disagreement, rather than indexing an array whose length it had to guess.
+//  Six report-bearing accumulators here have internal linkage (TimeStepStats,
+//  the four TMaxStats arrays, SysOutfallFlow); this accessor is the narrowest
+//  opening through which snapshot.c can reach them -- it hands out addresses
+//  and nothing else, so ownership stays in this file.  maxStatsLen carries
+//  this file's private MAX_STATS out; the caller refuses a disagreement.
 //
 {
     if ( tss )             *tss             = &TimeStepStats;

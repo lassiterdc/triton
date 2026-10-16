@@ -33,6 +33,7 @@
 #  define SWMM_OUTPUT_DEPRECATED_NO_EXPORT SWMM_OUTPUT_NO_EXPORT SWMM_OUTPUT_DEPRECATED
 #endif
 
+/* NOLINTNEXTLINE(readability-avoid-unconditional-preprocessor-if) */
 #if 0 /* DEFINE_NO_DEPRECATED */
 #  ifndef SWMM_OUTPUT_NO_DEPRECATED
 #    define SWMM_OUTPUT_NO_DEPRECATED

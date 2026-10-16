@@ -1574,26 +1574,16 @@ namespace Output
 		T io_time = st.get_custom_time(IO_TIME);
 		T resize_time = st.get_custom_time(RESIZE_TIME);
 		T swmm_time = st.get_custom_time(SWMM_TIME);
-		// The three MEASURED children of SWMM_TIME.  Their brackets sit inside the
-		// parent's in triton.h, so each is already a PART of swmm_time rather than
-		// an addition to it.
+		// Children of SWMM_TIME, measured inside its bracket.
 		T swmm_xfer_time = st.get_custom_time(SWMM_XFER);
 		T swmm_mpi_time = st.get_custom_time(SWMM_MPI);
 		T swmm_step_time = st.get_custom_time(SWMM_STEP);
 		T simulation_time = st.get_custom_time(SIMULATION_TIME);
 		T total_time = st.get_custom_time(TOTAL_TIME);
-		// UNCHANGED, and deliberately so.  other_time is the SIMULATION-level
-		// residual and subtracts the PARENT swmm_time; the three children are
-		// already contained in it.  Subtracting them here as well would double
-		// count and would stop the Simulation level closing.
+		// other_time subtracts the PARENT swmm_time only: the children are already
+		// contained in it, and subtracting them here as well would double-count.
 		T other_time = simulation_time - compute_time - mpi_time - io_time - resize_time - swmm_time;
-		// The SWMM-level residual, derived exactly as other_time and init_time are
-		// and, like them, carrying no timer macro of its own.  This subtraction is
-		// what makes the new level close: by construction
-		// swmm_xfer + swmm_mpi + swmm_step + swmm_other == swmm_time.  It absorbs
-		// the two sizeof-scaled assignments at the top of the coupling block, the
-		// `if (rank == 0)` branch test that EVERY rank evaluates, and the category
-		// lookups the instrumentation itself performs.
+		// SWMM-level residual, derived exactly like other_time and init_time.
 		T swmm_other_time = swmm_time - swmm_xfer_time - swmm_mpi_time - swmm_step_time;
 		T init_time = total_time - simulation_time;
 
@@ -1663,11 +1653,11 @@ namespace Output
 				filedir = outdir + "performance.txt";	
 			}
 			std::ofstream output(filedir);
-			// The four new columns sit immediately after their parent, so a reader
-			// meets SWMM and then its decomposition.  SWMM_OTHER is the residual and
-			// carries no timer of its own; SWMM_MPI is distinct from the pre-existing
-			// MPI column, which times TRITON's own halo exchange rather than the
-			// coupling's gather/scatter.
+			// The four SWMM child columns sit immediately after their parent.
+			// SWMM_OTHER is the residual; SWMM_MPI is distinct from the MPI column,
+			// which times TRITON's own halo exchange. The Average row is a plain
+			// mean over ranks: SWMM_STEP is rank-0-only, so its Average entry is
+			// rank0/N -- read the per-rank rows for that column.
 			output << "%Rank, Compute, MPI, IO, Resize, SWMM, SWMM_XFER, SWMM_MPI, SWMM_STEP, SWMM_OTHER, Other, Simulation, Init, Total" << std::endl;
 
 			for(int j=0;j<size_;j++){
@@ -1675,25 +1665,8 @@ namespace Output
 				<< swmm_xfer_time_all[j] << ", " << swmm_mpi_time_all[j] << ", " << swmm_step_time_all[j] << ", " << swmm_other_time_all[j] << ", " << other_time_all[j] << ", "
 				<< simulation_time_all[j] << ", " << init_time_all[j] <<  ", " << total_time_all[j] << std::endl;
 			}
-			// The Average row is an arithmetic mean over ranks, emitted for every
-			// column so the row's arity stays fixed -- the downstream parser's
-			// Average-presence detector depends on that.  It is OUTSIDE the closure
-			// claim above: average(SWMM_STEP) is rank0/N, which halves as rank count
-			// doubles while the serial solve is constant.  The number to read
-			// instead is the MAX over Rank, not this mean.
-			//
-			// AND READ THAT MAX FOR WHAT IT IS.  An earlier form of this note called
-			// it "the serial-solve cost"; it is not.  The SWMM_STEP bracket in
-			// triton.h::compute_new_state spans local_to_global + log_exchange_step
-			// + swmm_step + global_to_local, so the MAX over Rank is the BRACKET
-			// cost -- the serial solve PLUS two index remaps PLUS one buffered
-			// per-timestep file write.  It is an upper bound on the solve: correct
-			// for "what the coupling costs on the critical path", wrong for any
-			// claim about swmm_step() alone.  This function is the surface a
-			// downstream consumer opens, so the distinction is stated here and not
-			// only at the bracket.
 			output << std::setprecision(4) << "Average" << ", " << average(compute_time_all,size_) << ", " <<  average(mpi_time_all,size_) << ", " <<	 average(io_time_all,size_) << ", " << average(resize_time_all,size_) << ", " << average(swmm_time_all,size_) << ", "
-			<< average(swmm_xfer_time_all,size_) << ", " << average(swmm_mpi_time_all,size_) << ", " << average(swmm_step_time_all,size_) << ", " << average(swmm_other_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " <<  average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
+			<< average(swmm_xfer_time_all,size_) << ", " << average(swmm_mpi_time_all,size_) << ", " << average(swmm_step_time_all,size_) << ", " << average(swmm_other_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " << average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
 
 			output.close();
 		}

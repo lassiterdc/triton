@@ -151,9 +151,6 @@ void    runoff_close(void);
 int     routing_open(void);
 double  routing_getRoutingStep(int routingModel, double fixedStep);
 void    routing_execute(int routingModel, double routingStep, double *exchange_q, double *swmm_newDepth); //TRITON
-// routing_exportInflowNodeDepths -- the only writer of swmm_newDepth[] -- is
-// declared further down, inside the C-linkage block, because the coupled-resume
-// snapshot path calls it from C++.
 void    routing_close(int routingModel);
 
 //-----------------------------------------------------------------------------
@@ -288,105 +285,54 @@ void    stats_report(void);
 //-----------------------------------------------------------------------------
 //   Coupled-resume state snapshot (TRITON-owned; see snapshot.c)
 //-----------------------------------------------------------------------------
-// These are declared with C linkage because swmm_triton.h and the tier-1 unit
-// tests are C++ translation units that include this header, while the
-// definitions are compiled as C into libswmm5. The rest of funcs.h carries no
-// such guard and does not need one: nothing outside the C solver calls it.
-// Without this block the C++ callers emit mangled references and the link
-// fails with an undefined symbol whose name looks nothing like the function.
+// C linkage: swmm_triton.h and the unit tests are C++ TUs that include this
+// header while the definitions compile as C; without this block the C++ callers
+// emit mangled references that fail at link.
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Hands snapshot.c the addresses of the report-bearing accumulators that are
-// `static` in stats.c and therefore unreachable by `extern`.  It is the only
-// reason the snapshot module lives inside the vendored tree.
+// Addresses of the report-bearing accumulators that are `static` in stats.c;
+// maxStatsLen carries that file's private MAX_STATS out.
 void    stats_getSnapshotRefs(TTimeStepStats** tss, TMaxStats** maxMassBalErrs,
         TMaxStats** maxCourantCrit, TMaxStats** maxFlowTurns,
         TMaxStats** maxNonConverged, double** sysOutfallFlow,
         int* maxStatsLen);                                                //TRITON
 
-// Hands snapshot.c the addresses of the two Xnode members Criterion P admits.
-// Xnode is `static` in dynwave.c AND its type TXnode appears in no header, so
-// handing out `double*` per member is the only opening that does not require
-// publishing the struct.  The count is zero when routing is not dynamic wave,
-// which is a correct answer and is recorded in the snapshot's shape block.
+// dynwave.c's static extended nodal array: count is 0 unless routing is
+// dynamic wave; TXnode appears in no header, so per-member double* is the only
+// opening that does not publish the struct.
 int     dynwave_getSnapshotCount(void);                                   //TRITON
 int     dynwave_getSnapshotRefs(int j, double** oldSurfArea,
         double** dYdT);                                                   //TRITON
 
-// Hands snapshot.c the addresses of the three routing statics Criterion P
-// admits that are `static` in routing.c and therefore unreachable by `extern`.
-// All three are plain scalars, so there is no private type to hide and no
-// count to report -- there is exactly one of each and all three always exist.
+// Addresses of three scalar statics in routing.c.
 void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
         int** betweenEvents);                                             //TRITON
 
-// Hands snapshot.c the address of dynwave.c's VariableStep, the variable-step
-// carrier Criterion P admits.  Separate from dynwave_getSnapshotRefs because
-// that one is per-node indexed and gated on Xnode's allocation; VariableStep
-// is a singleton that always exists, so this accessor cannot fail.
+// Address of dynwave.c's static VariableStep sentinel.
 void    dynwave_getVariableStepRef(double** variableStep);                //TRITON
 
-// THE GRADUATED REFUSAL CODE.
-//
-// snapshot_load returned a uniform 1 for every one of its eleven refusal
-// sites, distinguishing them only in the errMsg buffer -- and a message a
-// human reads is not a value a program branches on. The caller's disposition
-// differs by CAUSE and could not be written: an ABSENT snapshot is a
-// legitimate state (a checkpoint predating snapshots, or one the keep-2
-// retention pruned) and must fall back to the exchange replay, while an
-// UNREADABLE one means the file was written by a different build or is
-// corrupt, and falling back there produces correct numbers slowly while
-// hiding a real defect.
-//
-// The costs are asymmetric and that is what sets the default: a wrongly
-// aborting resume costs one job and a loud message; a wrongly falling-back
-// resume costs a completed run whose numbers are wrong and whose every
-// artifact reads healthy.
+// Write/restore SWMM's state at full double precision; snapshot_load refuses
+// with a reason naming the mismatching quantity. Caller frees the manifest.
+// SNAPSHOT_ABSENT is the legitimate fall-back-to-replay case; anything else
+// means the file exists but is unusable.
 #define SNAPSHOT_OK          0                                            //TRITON
 #define SNAPSHOT_ABSENT      1  // no such file -- fall back to the replay //TRITON
 #define SNAPSHOT_UNREADABLE  2  // present but unusable -- ABORT           //TRITON
-
-// Writes SWMM's statistics and mass-balance accumulators at full double
-// precision.  Returns 0 on success.
 int     snapshot_save(const char* path);                                  //TRITON
-
-// Restores them, refusing loudly and specifically on any mismatch between the
-// snapshot and the running model.  Returns 0 on success; on refusal errMsg
-// receives a reason naming the mismatching quantity.
 int     snapshot_load(const char* path, char* errMsg, int errMsgLen);     //TRITON
-
-// Emits the FIELD MANIFEST -- the {object, field} names the serializer writes,
-// in write order, newline-separated.  Caller frees.  Generated by the same
-// traversal that writes the payload, so it cannot describe a different set.
 char*   snapshot_buildManifest(long* nFields);                            //TRITON
 
-// Flushes the binary output file. Called from the
-// coupled checkpoint path immediately BEFORE the state snapshot is written, so
-// the period count the snapshot carries is a claim about bytes that are on
-// disk rather than about bytes still in a stdio buffer. Declared here rather
-// than beside the other output_* entry points because the caller is C++.
+// Binary-output (.out) series continuity across a resume: flush the stdio
+// buffer at each checkpoint, and position the file at the payload end the
+// snapshot's Nperiods implies (refusing if the file holds fewer periods).
 void    output_flush(void);                                               //TRITON
-
-// Positions the binary output file for a resumed segment, and
-// refuses when the restored period count exceeds the complete periods the file
-// actually holds. RESTORE PATH ONLY -- the replay fallback restores no period
-// count, so the arithmetic has no operand there and needs none.
-//
-// The two operands (the payload start offset and the bytes-per-period stride)
-// stay file-scope statics in output.c: what crosses this boundary is the
-// OPERATION, so the product is computed in exactly one place and no caller can
-// grow a second copy of it.
 int     output_positionForResume(char* errMsg, int errMsgLen);            //TRITON
 
-// The ONLY writer of swmm_newDepth[].  Factored out of routing_execute so the
-// coupled-resume snapshot path can reuse it rather than duplicating the loop
-// that DEFINES TRITON's inflow-node index space.  routing.c states why a second
-// enumeration is not an acceptable substitute.  Declared HERE, inside the C
-// linkage block, rather than beside routing_execute, because the snapshot path
-// calls it from C++ -- one declaration serving both callers, since a second
-// name for one function is the very duplication this function exists to avoid.
+// The only writer of swmm_newDepth[]: factored out of routing_execute so the
+// snapshot-restore path can reuse the loop that defines TRITON's inflow-node
+// index space instead of duplicating it.
 void    routing_exportInflowNodeDepths(double *swmm_newDepth);            //TRITON
 
 #ifdef __cplusplus

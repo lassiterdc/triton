@@ -423,48 +423,37 @@ namespace Triton
     process_runoff();
 
 #ifdef TRITON_SWMM
-    // Initialize SWMM coupling
+    // Initialize SWMM coupling. A coupled build running a non-coupled cfg (no
+    // inp_filename; args() returns an empty string for an absent key) is a
+    // supported configuration: without this test, read_inp_file("") fails and
+    // exits before the simulation starts. The node counts are zero-initialised
+    // at their declarations, so every downstream node-count guard correctly
+    // takes its uncoupled branch.
     swmm_local_elapsedTime = 0.0;
-    swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
-                          dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
-                          arglist.manhole_diameter, arglist.manhole_loss,
-                          arglist.swmm_snapshot_disable,
-                          arglist.swmm_snapshot_keep_all);
+    if (!arglist.inp_filename.empty())
+    {
+      swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
+                            dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
+                            arglist.manhole_diameter, arglist.manhole_loss,
+                            arglist.swmm_snapshot_disable,
+                            arglist.swmm_snapshot_keep_all);
+    }
+    else if (rank == 0)
+    {
+      std::cerr << WARN "No inp_filename in the cfg -- running uncoupled in a coupled build." << std::endl;
+    }
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
-    // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its
-    // .out/stats cover the full window before the live segment runs.
+    // on a resume, rebuild SWMM's state for 0..t_k so its .out/stats cover the full
+    // window before the live segment runs. On a resume the full-precision state
+    // snapshot is tried first (constant-time restore) with the exchange replay as
+    // the fallback (exact, but its cost grows with t_k and the GPU sits idle for
+    // its whole duration); every snapshot refusal degrades to the replay, which
+    // also covers checkpoints written before snapshots existed.
     // Guard on the GLOBAL node count: num_of_swmm_links is rank 0's *local* (subdomain) count, so
     // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
     // resume with a truncated .rpt/.out whose header still shows the full window).
-    //
-    // On a resume the FULL-PRECISION STATE SNAPSHOT is tried first, with the
-    // replay as the fallback. That ordering is the point of the snapshot: the
-    // replay is exact but its cost grows with t_k, and because the device
-    // vectors are not created until create_device_vectors() below, the GPU is
-    // idle for its whole duration. A long run was measured spending 11,107 s
-    // replaying before the resumed segment began any work, and was cancelled
-    // still replaying -- an idle GPU for that whole period is also a job a
-    // scheduler may reclaim. Each successive resume replays a longer prefix,
-    // so the sequence does not converge.
-    //
-    // The fallback is RETAINED for the ABSENT case only: a checkpoint written
-    // before snapshots existed has none to load, and one the keep-2 retention
-    // pruned has none either. Both are legitimate and the replay is correct
-    // for them, only slow.
-    //
-    // FAIL-FAST IS THE DEFAULT ON EVERY OTHER REFUSAL. A snapshot that is
-    // PRESENT and unusable means the file was written by a different build or
-    // is corrupt; falling back there produces correct numbers slowly while
-    // hiding a real defect. The cost is asymmetric and that is the whole
-    // ground: a wrongly aborting resume costs one job and a loud message, a
-    // wrongly falling-back resume costs a completed run whose numbers are
-    // wrong and whose every artifact reads healthy.
-    //
-    // The abort is MPI_Abort rather than exit(): this block runs under a
-    // rank-0 guard, and a rank-0-only exit() would leave every other rank
-    // blocked at the next collective, turning a loud failure into a hang.
     if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
       if (arglist.checkpoint_id > 0) {
         using SR = SWMM_triton::swmm_triton::SnapshotRestore;
@@ -476,6 +465,8 @@ namespace Triton
               swmm_model.classify_missing_snapshot(arglist.checkpoint_id));
         }
         else if (sr != SR::Restored) {
+          // Abort, not exit(): this block runs under a rank-0 guard and a
+          // rank-0-only exit would hang every other rank at the next collective.
           std::cerr << ERROR "Coupled resume aborted: the SWMM state snapshot for "
                        "checkpoint " << arglist.checkpoint_id
                     << " could not be used and the exchange replay is not a safe "
@@ -2241,22 +2232,11 @@ namespace Triton
         st.start(IO_TIME);
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
 #ifdef TRITON_SWMM
-        // Full-precision SWMM state snapshot for THIS checkpoint, so a resume
-        // from it restores in constant time instead of replaying 0..t_k.
-        //
-        // CHARGED TO IO_TIME, deliberately and INSIDE the existing bracket.
-        // It is a file write and belongs with the other file writes; leaving it
-        // outside would drop its cost into the `Other` residual, which is where
-        // flush_exchange_log's cost already falls (that is a separate, known
-        // miscount -- see the note below -- and adding a second one to keep it
-        // company is not a reason).
-        // GLOBAL count, matching the sibling guard at :453 whose comment already
-        // states the rule. num_of_swmm_links is rank 0's *local* (subdomain)
-        // count, so on a decomposition where rank 0's top strip holds no manhole
-        // this guard is false and no snapshot is written -- silently. SWMM is
-        // opened and started on rank 0 unconditionally (swmm_triton.h:605), so
-        // the engine state serialized here exists whether or not rank 0 owns a
-        // node, and the global predicate is the one that matches what is written.
+        // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
+        // it restores in constant time instead of replaying 0..t_k. Charged to
+        // IO_TIME with the other checkpoint writes. Global count: SWMM is opened
+        // on rank 0 whenever the model has any node, whether or not rank 0's own
+        // strip holds a manhole.
         if (rank == 0 && swmm_model.global_num_of_swmm_links > 0)
           swmm_model.write_state_snapshot(print_id);
 #endif
@@ -2265,49 +2245,6 @@ namespace Triton
 #ifdef TRITON_SWMM
         // Tie exchange-replay side-file durability to each checkpoint write so a future
         // resume from this checkpoint always has a complete 0..t_k series on disk.
-        //
-        // NOTE, and do not "tidy" it: this call sits between st.stop(IO_TIME)
-        // and #if WRITE_PERFORMANCE, so its cost lands in the `Other` residual
-        // rather than in IO_TIME. That is a pre-existing miscount, it is known,
-        // and moving it is a separate commit -- not a drive-by inside the
-        // package that happens to be editing the neighbouring lines.
-        // GLOBAL count, matching the sibling guard at :453.
-        //
-        // DO NOT restate this as a reachable durability bug. It was carried as
-        // one -- "the log is written but never flushed, so a hard kill loses the
-        // tail" -- and that is FALSE as a description of a run you can reach.
-        // log_exchange_step() was called INSIDE a per-step coupling block that
-        // opened on `if (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count --
-        // so on the very decomposition this guard is about (rank 0 owns no
-        // manhole) nothing was ever appended and the file held only its header.
-        // Worse, that same block enclosed the MPI_Gatherv of the exchange flux
-        // and the MPI_Scatterv of the node depths over ENSIFY_COMM_WORLD, which
-        // rank 0 then skipped while every manhole-owning rank entered them --
-        // the run DEADLOCKED at the first coupled timestep, long before a
-        // checkpoint was reached.
-        //
-        // The edit here was correct and required but was never sufficient on its
-        // own: it removed ONE of the THREE local/global inconsistencies this file
-        // carried, so the guard-predicate closure check passed. TWO remained, and
-        // they are named here rather than counted, because a count is what let the
-        // earlier form of this note say "the remaining inconsistency" in the
-        // singular while two were open:
-        //
-        //   * compute_new_state()'s per-step coupling block -- the two MPI
-        //     collectives above, the deadlock.
-        //   * simulate()'s end_swmm finalizer -- no collective, so no deadlock,
-        //     but an opened SWMM engine never closed and never reported. It was
-        //     unreachable only because the deadlock came first, so repairing the
-        //     collectives alone would have traded a loud hang for a silently
-        //     missing hydraulics.rpt on exactly those runs.
-        //
-        // Both are now repaired; both guard on the global count, and the collective
-        // site's buffers moved off the conditionally-appended host_vec entries at
-        // the same time. See the block comments at each site for why the predicate
-        // flip alone would have been undefined behaviour. This guard and those two
-        // are one predicate -- rank 0's local count is zero -- which is why the
-        // guard-predicate closure check now asserts over all three classes rather
-        // than observing two of them.
         if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
 
@@ -2369,20 +2306,11 @@ namespace Triton
     }
 
 #ifdef TRITON_SWMM
-    // Finalize SWMM coupling.
-    //
-    // GUARD ON THE GLOBAL COUNT, for the same reason as the per-step coupling block in
-    // compute_new_state(), and it MUST land with that repair rather than after it. end_swmm() is
-    // internally rank_ == 0-guarded around close_exchange_log/swmm_end/swmm_report/swmm_close, so
-    // it encloses no collective and could never deadlock -- but SWMM is opened on rank 0 whenever
-    // the model has any node at all (init_swmm guards swmm_open/swmm_start on rank_ == 0 and
-    // nothing else), so on a decomposition where rank 0's strip holds no manhole the former
-    // local-count guard left an OPENED SWMM engine never closed and never reported: no
-    // hydraulics.rpt, no flushed .out, silently. That decomposition previously deadlocked in
-    // compute_new_state() before ever reaching here, so repairing that site alone would have
-    // converted a loud hang into a missing report file on exactly the runs the repair rescues.
-    // Because end_swmm() is internally rank-0-guarded there is no sizing consequence to widening
-    // the predicate here.
+    // Finalize SWMM coupling. Global count, and it must land with the
+    // collective-site repair in compute_new_state(): init_swmm opens SWMM on
+    // rank 0 whenever the model has any node, so under the old local-count
+    // guard a rank 0 owning no manhole left an opened engine never closed and
+    // never reported (no hydraulics.rpt) -- a failure the deadlock used to hide.
     if (swmm_model.global_num_of_swmm_links > 0) {
       std::string output_dir_swmm = project_dir + "/" + swmm_model.get_output_folder() + "/swmm/";
       swmm_model.end_swmm(output_dir_swmm);
@@ -2540,82 +2468,36 @@ namespace Triton
     // (wet_dry sees pre-exchange depth, wet_dry_qy_halo sees post-exchange depth), which breaks
     // serial/parallel byte-for-byte reproducibility.
 #ifdef TRITON_SWMM
-    // SWMM-TRITON coupling.
-    //
-    // GUARD ON THE GLOBAL COUNT. num_of_swmm_links is this rank's LOCAL (subdomain) count;
-    // global_num_of_swmm_links is the whole-domain count. This block encloses an MPI_Gatherv and
-    // an MPI_Scatterv over ENSIFY_COMM_WORLD, so it is a COLLECTIVE region: every rank enters it
-    // or none may. Under the row-striped decomposition (mpi_utils.h::create_local_dims) a rank
-    // whose strip holds no manhole has a local count of zero, so the former local-count guard made
-    // that rank skip two collectives every other rank entered, and the run DEADLOCKED at the first
-    // coupled timestep. The minimum-population band is rank 0's, which is why this and the
-    // end_swmm guard in simulate() fail together on one predicate: rank 0's local count is zero.
-    //
-    // FLIPPING THE PREDICATE ALONE WOULD BE UNDEFINED BEHAVIOUR, which is why the collective
-    // buffers changed with it. create_host_vectors()/create_device_vectors() push the 23
-    // unconditional entries; the SWMM entries at indices SWMM_LOSS..SWMM_Q (23..27) are appended
-    // by a SEPARATE block in initialize() that is itself guarded on the LOCAL count. On a
-    // zero-local-link rank host_vec[SWMM_Q] is an out-of-range operator[] on a 23-entry vector,
-    // with no bounds check. MPI does not dereference a buffer at count 0, so the one-token
-    // predicate flip LOOKS correct while being UB. The collectives below therefore take
-    // swmm_model.exchange_q.data() and swmm_model.new_depth.data(), which on every link-owning
-    // rank are POINTER-IDENTICAL to what that block appended -- the same two expressions, and the
-    // only size-mutating operation on either vector (the resize in
-    // swmm_triton.h::process_swmm_node_locations) runs before the append. The .data() form is
-    // additionally correct where the index form is not: create_host_vectors() rebuilds host_vec
-    // from empty and is called a second time from new_domain_decomposition() under
-    // domain_decomposition=dynamic, while the SWMM append block is not re-run, so under that
-    // setting the SWMM indices are already stale on every rank. The precedent is
-    // swmm_triton.h::init_swmm, which has always called MPI_Gatherv(vec.data(), local_count, ...)
-    // unconditionally on every rank with NULL-initialised counts/displs off root.
-    //
-    // The host/device transfers and the exchange kernel keep an INNER local-count guard: those are
-    // the operations that genuinely index the conditionally-appended vectors, and they are
-    // per-rank work, not collective.
+    // SWMM-TRITON coupling. Guard on the GLOBAL count: this block encloses an
+    // MPI_Gatherv and an MPI_Scatterv over ENSIFY_COMM_WORLD, so it is a
+    // collective region every rank enters or none may. num_of_swmm_links is
+    // this rank's LOCAL count, and under the row-striped decomposition a rank
+    // whose strip holds no manhole (the minimum-population strip is rank 0's)
+    // has a local count of zero -- the old guard made such a rank skip the
+    // collectives every other rank entered, deadlocking the first coupled
+    // timestep. The collectives take swmm_model.exchange_q.data()/.new_depth.data()
+    // rather than host_vec[SWMM_*]: those entries are appended only when the
+    // local count is positive (host_vec[SWMM_Q] is an out-of-range operator[] on
+    // a zero-local-link rank) and they go stale under domain_decomposition=dynamic,
+    // where create_host_vectors() rebuilds host_vec without re-appending them.
     if (swmm_model.global_num_of_swmm_links > 0) {
-      // Fence before stopping COMPUTE_TIME. The hydro kernels launched above -- flux_x, flux_y,
-      // update_cells, update_runoff, compute_flow, the two exterior-boundary copies and
-      // compute_extbc_values -- are asynchronous on a device backend, so without this the first
-      // synchronous deep_copy inside SWMM_TIME (gpuMemcpyAsync below) drains them and charges
-      // TRITON's own GPU work to the SWMM column. Unconditional by design: triton::parallel_for
-      // is already synchronous on every Kokkos host backend, so this is a provable no-op there
-      // rather than a guarded special case.
+      // The hydro kernels above are asynchronous on a device backend; without this fence the
+      // first synchronous operation inside SWMM_TIME drains them and charges TRITON's GPU
+      // work to the SWMM column. A no-op on host backends, where parallel_for is synchronous.
       gpuStreamSynchronize(streams);
       st.stop(COMPUTE_TIME);
       st.start(SWMM_TIME);
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
 
-      // SWMM_TIME is split into three MEASURED children plus a DERIVED residual
-      // (SWMM_OTHER, computed in output.h::write_times).  The parent bracket above
-      // and below is deliberately untouched, so the SWMM column reports the same
-      // timer reading it reported before the split.
+      // SWMM_TIME split: three measured children inside the untouched parent
+      // bracket (SWMM_OTHER is the residual, derived in output.h), so the
+      // columns close exactly: XFER + MPI + STEP + OTHER == SWMM per rank.
       //
-      // DO NOT CITE `XFER + MPI + STEP + OTHER == SWMM` AS EVIDENCE THE BRACKETS
-      // ARE RIGHT.  SWMM_OTHER is DERIVED by subtracting the three measured
-      // children from the parent, so that identity is an algebraic TAUTOLOGY over
-      // the emitted row: it holds for any values the three children take,
-      // including values no correct bracket placement could produce.  What
-      // falsifies a bracket fault is the residual's SIGN -- a child that escaped
-      // the parent, or two children that overlap, drive SWMM_OTHER NEGATIVE while
-      // leaving the sum exact to the last digit.  Check `SWMM_OTHER >= 0`.
-      //
-      // What lands in the residual, and why that is correct rather than leftover:
-      // the two sizeof-scaled assignments just above, the `if (rank == 0)` branch
-      // test below and the local-count branch test immediately below -- both of
-      // which EVERY rank inside this block evaluates -- and the category-map
-      // lookups this instrumentation itself performs.  All of it is inside the
-      // parent and inside no child, which is what a residual term is for.
-
-      // Per-rank device work, guarded on the LOCAL count. Every buffer indexed here comes from
-      // the conditionally-appended SWMM_* range of host_vec/device_vec, which a zero-local-link
-      // rank does not have; and the kernel's own trip count is the local count, so the guard
-      // removes an out-of-range index rather than skipping any work. The SWMM_XFER bracket sits
-      // INSIDE the guard for the same reason SWMM_STEP sits inside the rank-0 guard below: a rank
-      // that performs none of this work reports exactly 0.0 rather than a small nonzero reading
-      // for a branch test, and the branch test's own cost falls to the residual, keeping
-      // SWMM_OTHER non-negative on that rank -- which is the falsifiable property, not the
-      // tautological sum. See the residual note above.
+      // Per-rank device work, guarded on the LOCAL count: the buffers indexed
+      // here come from the conditionally-appended SWMM_* range of host_vec/
+      // device_vec, which a zero-local-link rank does not have, and the kernel's
+      // trip count is the local count.
       if (swmm_model.num_of_swmm_links > 0) {
         st.start(SWMM_XFER);
 
@@ -2636,47 +2518,20 @@ namespace Triton
 
         st.stop(SWMM_XFER);
       }
-
-      // SWMM_MPI takes TWO bracket pairs, not one, because its span is DISJOINT:
-      // the rank-0 solve sits between the gather and the scatter.  One bracket
-      // spanning both would swallow SWMM_STEP and double-count it, which is the
-      // one way to break the closure property.  super_timer accumulates per
-      // category (upd_time_ does `times_[catid] += time`), so two pairs sum.
+      // SWMM_MPI takes two bracket pairs: the rank-0 solve sits between the
+      // gather and the scatter, and super_timer accumulates per category, so
+      // two pairs sum without swallowing SWMM_STEP.
       st.start(SWMM_MPI);
+
       // Gather exchange_q from all ranks to rank 0
       MPI_Gatherv(swmm_model.exchange_q.data(), swmm_model.num_of_swmm_links, MPI_DATA_TYPE,
                   swmm_model.aux_global_exchange_q, swmm_model.counts, swmm_model.displs,
                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
 
-      // Step SWMM forward on rank 0
+      // Step SWMM forward on rank 0. SWMM_STEP sits inside the guard so a
+      // non-zero rank reports exactly 0.0 for a solve it never performs.
       if (rank == 0) {
-        // The SWMM_STEP bracket sits INSIDE this guard, not around it.  Both
-        // placements are correct accounting and they differ in what a reader of a
-        // non-rank-0 row is told: outside, every other rank reports a small
-        // NONZERO SWMM_STEP for a branch test it evaluated and a solve it never
-        // performed; inside, it reports exactly 0.0 and the closure still holds on
-        // every rank.  The branch test's own cost stays in the residual, where it
-        // belongs, because every rank pays it.
-        //
-        // CONSEQUENCE, stated where it is created: SWMM_STEP is the first emitted
-        // column that is exactly zero on N-1 of N ranks, so its Average row entry
-        // is rank0/N -- a number that halves as rank count doubles while the serial
-        // solve is constant.  The PER-RANK rows are the truthful ones; the Average
-        // row is outside every claim this split makes.
-        //
-        // WHAT THE MAX OVER RANK IS, stated precisely because an earlier form of
-        // this note called it "the serial-solve cost" and that is not what this
-        // bracket measures.  MAX over Rank of SWMM_STEP is the whole BRACKET's
-        // cost: the serial solve PLUS the two index remaps (local_to_global,
-        // global_to_local) PLUS one buffered per-timestep file write
-        // (log_exchange_step, two ofstream::write calls).  All four are inside
-        // the bracket, two lines below this comment, where anyone can see them.
-        // The bracket cost is an UPPER BOUND on the serial solve and is the right
-        // number for "what does the coupling cost on the critical path"; it is the
-        // WRONG number for any claim about swmm_step() itself, and separating the
-        // solve from its scaffolding would take a fourth child bracket, which this
-        // split deliberately does not add.
         st.start(SWMM_STEP);
         swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
                                     swmm_model.node_to_rank_dict);
@@ -2689,6 +2544,7 @@ namespace Triton
       }
 
       st.start(SWMM_MPI);
+
       // Scatter new_depth from rank 0 to all ranks
       MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
                    MPI_DATA_TYPE, swmm_model.new_depth.data(), swmm_model.num_of_swmm_links,

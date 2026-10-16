@@ -279,32 +279,11 @@ void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
 //  Purpose: publishes each inflow node's current depth into the array TRITON
 //           reads, in TRITON's index space and units.
 //
-//  This is the ONLY site that writes swmm_newDepth[].  It was factored out of
-//  routing_execute so the coupled-resume snapshot path can call it directly
-//  after restoring SWMM's state, rather than duplicating the loop.
-//
-//  Four properties depend on it staying the only enumeration:
-//
-//    1. The index space is DEFINED by this loop -- a running counter over
-//       Nobjects[NODE] restricted to nodes carrying a FLOW_INFLOW.  It is not
-//       the node index, and no mapping is stored anywhere; a second enumeration
-//       written to agree with this one would agree only until one of them
-//       changed, and nothing would report the divergence.
-//    2. The snapshot-restore path gets a result bitwise identical to what a
-//       replay leaves, because it is the identical arithmetic over the identical
-//       state rather than a reimplementation of it.
-//    3. No snapshot field is added.  These depths are DERIVED from
-//       Node[].newDepth, which the snapshot already restores; storing them too
-//       would be a second copy that could disagree with the first.
-//    4. It creates no SECOND dependency on the assumption that the .inp lists
-//       inflow nodes in the order TRITON expects.  That assumption is already
-//       load-bearing here; duplicating the loop would make it load-bearing in
-//       two places, only one of which is visible at any given call site.
-//
-//  Unit asymmetry, called out rather than tidied away: Node[].newDepth is in
-//  FEET (SWMM's internal unit) while swmm_newDepth[] is in METRES.  The /3.2808
-//  is that conversion, not a scale factor, and it is why this loop cannot be
-//  replaced by a memcpy.
+//  The ONLY site that writes swmm_newDepth[].  The index space is defined by
+//  this loop (a running counter over Nobjects[NODE] restricted to FLOW_INFLOW
+//  nodes, in metres where Node[].newDepth is in feet); the snapshot-restore
+//  path calls this same function rather than duplicating it, which is what
+//  keeps its result bitwise identical to what a replay leaves.
 //
 {
     int i;
@@ -1035,54 +1014,14 @@ void sortEvents()
 void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
                              int** betweenEvents)                        //TRITON
 //
-//  Input:   pointers receiving the addresses of this file's cross-step-live
-//           file-scope statics (any may be NULL)
+//  Input:   pointers receiving the addresses of this file's private statics
 //  Output:  none
-//  Purpose: hands the coupled-resume snapshot serializer access to the three
-//           routing statics Criterion P admits.
-//
-//  SAME LINKAGE PROBLEM AS stats_getSnapshotRefs.  All three are `static` here,
-//  so `extern` cannot reach them from snapshot.c.  Unlike dynwave's Xnode there
-//  is no private TYPE to hide -- all three are plain scalars -- so the accessor
-//  hands out their addresses directly, and there is no count to report because
-//  there is exactly one of each and all three always exist.
-//
-//  PLACED AT THE END OF THE FILE ON PURPOSE, not beside routing_close where it
-//  reads better.  Eleven committed citations name routing.c line numbers --
-//  :126, :128, :191, :227, :369, :374, :411, :413 in the inventory artifact and
-//  in the generator's hand-written triage-reason tables -- and NOTHING checks
-//  them, so an insertion above them would silently falsify all eleven.  Append
-//  here; do not tidy this up the file.
-//
-//  WHY THEY ARE IN THE SNAPSHOT.  routing_open resets both unconditionally
-//  (`NextEvent = 0` at :126 and `NewRuleTime = 0.0` at :128), and the step
-//  READS both before it writes them:
-//
-//    NewRuleTime  read at :191 inside routing_getRoutingStep, which swmm5.c's
-//                 execRouting calls at :540, BEFORE evaluateControlRules
-//                 advances it by `NewRuleTime += 1000.0*RuleStep` at :374.
-//    NextEvent    read as `Event[NextEvent].end` at :411 before the `++` at
-//                 :413, so it carries the position in the event series.
-//
-//  BetweenEvents is the same shape, and its ordering is ACROSS TWO FUNCTIONS
-//  rather than inside one, which is why it took a call-order argument rather
-//  than a reading of either function alone:
-//
-//    read   :166, inside routing_getRoutingStep (:152-:199)
-//    write  :235, inside routing_execute        (:203-:271)
-//    order  swmm5.c's execRouting calls routing_getRoutingStep at :540 and
-//           routing_execute at :570, straight-line, one after the other. So
-//           within ONE step the read precedes the write and the value is
-//           genuinely live on entry.
-//
-//    routing_open resets it at :127 to `(NumEvents > 0)`, i.e. TRUE whenever
-//    the model declares any [EVENTS] at all -- so a run resumed mid-event
-//    restarts believing it is BETWEEN events and takes the large-step branch
-//    at :166.
-//
-//  Without these a resumed run restarts the control-rule clock, the event
-//  series and the between-events flag from their start-path values while the
-//  rest of the model continues from t_k.
+//  Purpose: hands the snapshot serializer access to the routing clocks that
+//           are `static` here (NewRuleTime, NextEvent, BetweenEvents). Each is
+//           reset by the start path and read before the step writes it, so a
+//           resume must carry them or the control-rule clock, the event series
+//           and the between-events flag restart from their start-path values
+//           while the rest of the model continues from t_k.
 //
 {
     if ( newRuleTime )   *newRuleTime   = &NewRuleTime;

@@ -36,12 +36,8 @@
   #include <io.h>
   #define F_OFF __int64
   #define F_SEEK _fseeki64
-  // TRITON: the truncation primitive the close-time truncate needs and that the
-  // vendored tree did not carry. It lives in THIS block because it is the same
-  // class of call the block already exists for -- Windows and POSIX diverge on
-  // the file-positioning layer -- and it is declared once here so no call site
-  // names a platform. Both arms take a file DESCRIPTOR, so the FILE* is lowered
-  // with _fileno/fileno; both return 0 on success.
+  // TRITON: descriptor-level truncate for the close-time trim; both arms
+  // return 0 on success.
   #define F_TELL _ftelli64
   #define F_FILENO _fileno
   #define F_TRUNC(fd, len) _chsize_s((fd), (__int64)(len))
@@ -87,18 +83,10 @@ static INT4      NumNodes;             // number of nodes reported on
 static INT4      NumLinks;             // number of links reported on
 static INT4      NumPolluts;           // number of pollutants reported on
 
-// TRITON: how output_openOutFile learns that this exec is continuing
-// an existing .out. The signal is EXISTENCE-KEYED and is therefore set by
-// output_openOutFile itself from Fout.name -- nothing outside this file sets
-// it, nothing outside this file reads it, and no new EPA entry point is added
-// for it (avoiding a fourth vendored addition to the EPA entry-point set).
-//
-// It discriminates file-present from file-absent rather than resume from
-// clean, and the two places that matters are both closed here rather than
-// argued away: a WRONG-MODEL file is refused by the prologue comparison below
-// (see output_comparePrologue), and a STALE TAIL from a longer previous exec
-// is removed by the close-time truncate in output_end. A clean re-run into a
-// dirty tree therefore lands on a correct file rather than on a plausible one.
+// TRITON: set by output_openOutFile when the .out existed and was reopened
+// non-truncating. Existence-keyed, private to this file. A wrong-model file is
+// refused by the prologue comparison; a stale tail from a longer previous exec
+// is removed by the close-time truncate in output_end.
 static int       OutputReopened;       // 1 when the .out was opened non-truncating
 
 static REAL4     SysResults[MAX_SYS_RESULTS];    // values of system output vars.
@@ -222,24 +210,11 @@ int output_open()
         return ErrorCode;
     }
 
-    // --- TRITON: on a reopened file the prologue is
-    //     COMPARED rather than rewritten, and a disagreement is refused loudly
-    //     instead of being written over a payload the old prologue describes.
-    //
-    //     The comparison is byte-exact and the prologue-writing code below is
-    //     untouched: the stream it writes to is swapped for a scratch file, so
-    //     every fwrite, every output_saveID and all three ftell offsets run
-    //     verbatim against a fresh stream starting at 0 -- which makes the
-    //     scratch bytes and the offsets identical to what a clean run would
-    //     produce. Buffering the prologue any other way would mean either
-    //     knowing its length before writing it (it is not known until the last
-    //     write) or re-reading bytes we had already overwritten.
-    //
-    //     A rewrite-in-place alternative was available and is refused: it is
-    //     idempotent ONLY while the model is unchanged, and against an .out
-    //     written from a different .inp it writes a NEW prologue over a payload
-    //     the OLD one describes -- a silently corrupt file where the prologue
-    //     acceptance criterion requires a loud refusal.
+    // --- TRITON: on a reopened file the prologue is COMPARED rather than
+    //     rewritten: the stream is diverted to a scratch file so the untouched
+    //     prologue-writing code below runs verbatim from position 0, and the
+    //     scratch bytes are compared against the existing file's. A mismatch
+    //     (a different model's .out) is refused rather than overwritten.
     if ( OutputReopened )
     {
         realFout = Fout.file;
@@ -455,22 +430,18 @@ int output_open()
     k = ReportStep;
     if ( fwrite(&k, sizeof(INT4), 1, Fout.file) < 1)
     {
-        // TRITON: the diversion must be undone on EVERY exit from the region,
-        // or Fout.file leaves this function pointing at a closed scratch file.
+        // TRITON: undo the diversion on every exit, or Fout.file points at a
+        // closed scratch file.
         if ( realFout != NULL ) { fclose(Fout.file); Fout.file = realFout; }
         report_writeErrorMsg(ERR_OUT_WRITE, "");
         return ErrorCode;
     }
     OutputStartPos = ftell(Fout.file);
 
-    // --- TRITON: compare, then adopt. On a match NOTHING is written
-    //     to the real file -- requirement 1's "no byte below the retained
-    //     prefix is rewritten with a different value" is satisfied by writing
-    //     no byte at all -- and the stream is simply positioned where a clean
-    //     run's first period begins. That position is also what makes the
-    //     REPLAY-fallback branch correct with no positioning call of its own:
-    //     output_saveResults writes sequentially from here, so its period p
-    //     lands at OutputStartPos + (p-1)*BytesPerPeriod, the clean-run offset.
+    // --- TRITON: on a match nothing is rewritten; the stream is positioned
+    //     where a clean run's first period begins (the replay fallback needs no
+    //     positioning of its own: output_saveResults writes sequentially from
+    //     here at the clean-run offsets).
     if ( realFout != NULL )
     {
         const int mismatch = output_comparePrologue(Fout.file, realFout,
@@ -540,17 +511,12 @@ void output_openOutFile()
 
     // --- try to open the file
     //
-    //     TRITON: "w+b" TRUNCATES, and on a resume that discards periods
-    //     1..t_k that no resumed process ever re-writes -- which is the whole
-    //     defect this change exists to close. report.c rebuilds the .rpt
-    //     detail tables and the node{N}.out family by reading those periods
-    //     back, so any consumer that reduces over the series reads a MISSING
-    //     INPUT rather than computing a bad reduction.
-    //
-    //     The mode is keyed on the file EXISTING: "r+b" preserves the
-    //     bytes and "w+b" creates. "r+b" cannot create, which is precisely why
-    //     the existence test is the condition rather than a separate flag.
+    //     TRITON: "w+b" TRUNCATES, which on a snapshot resume discards periods
+    //     1..t_k that nothing ever re-writes (the replay resume masked this by
+    //     re-running those periods). The mode is therefore keyed on the file
+    //     EXISTING: "r+b" preserves the bytes and cannot create, "w+b" creates.
     {
+
         FILE* probe = fopen(Fout.name, "rb");
         OutputReopened = 0;
         if ( probe != NULL )
@@ -561,11 +527,8 @@ void output_openOutFile()
         }
         else Fout.file = NULL;
 
-        // Falls back to the create-and-truncate mode when the file is absent,
-        // and ALSO when the non-truncating open failed for any other reason:
-        // a resume that cannot re-open is no worse off than a clean start, and
-        // the prologue comparison below is what refuses a file that is present
-        // but wrong.
+        // Absent file (or failed non-truncating open): fall back to create.
+        // A present-but-wrong file is refused by the prologue comparison.
         if ( Fout.file == NULL )
         {
             OutputReopened = 0;
@@ -640,13 +603,9 @@ void output_saveResults(double reportTime)
 //=============================================================================
 
 //=============================================================================
-//  TRITON -- the .out continuity helpers.
-//
-//  THE ARITHMETIC HAS EXACTLY ONE ROOT. output_payloadEndPos() is the only
-//  place OutputStartPos and BytesPerPeriod are multiplied out for a resume or
-//  a truncation, and both statics stay file-scope: a grep for BytesPerPeriod
-//  outside this file returns nothing. What
-//  crosses the module boundary is the OPERATION, never the operands.
+//  TRITON -- the .out continuity helpers. output_payloadEndPos() is the single
+//  place the payload-start offset and the per-period byte count are multiplied
+//  out; both stay file-scope.
 //=============================================================================
 
 static F_OFF output_payloadEndPos(void)
@@ -667,11 +626,8 @@ static int output_truncateAt(F_OFF length)
 //  Output:  0 on success, non-zero on failure.
 //  Purpose: imposes a final length on the open output file.
 //
-//  The stream is flushed FIRST and always. The truncation acts on the file
-//  DESCRIPTOR while stdio holds its own buffer, and output_close() performs no
-//  flush -- the only one in the vendored tree is the implicit flush inside
-//  fclose(), which runs after every caller of this function. Without the flush
-//  here the truncation would act on bytes that are not yet in the file.
+//  Flushes first: the truncation acts on the descriptor while stdio holds its
+//  own buffer, and without the flush it would act on bytes not yet in the file.
 //
 {
     if ( Fout.file == NULL ) return 1;
@@ -690,7 +646,7 @@ static int output_comparePrologue(FILE* scratch, FILE* real, F_OFF prologueLen)
 //  Purpose: proves the existing file describes the same model before
 //           this run appends to it.
 //
-//  A real file SHORTER than the prologue is a mismatch: it cannot be carrying
+//  A real file shorter than the prologue is a mismatch: it cannot be carrying
 //  a payload this prologue describes.
 //
 {
@@ -719,14 +675,10 @@ void output_flush(void)
 //
 //  Purpose: flushes the binary output file (TRITON).
 //
-//  Called from the coupled checkpoint path immediately before the state
-//  snapshot is written, so that the period count the snapshot carries is a
-//  claim about bytes that are ON DISK. fwrite is stdio-buffered; without this
-//  a SIGKILL between the snapshot write and the next flush leaves the snapshot
-//  claiming periods the file does not contain, and the resumed run would then
-//  seek PAST end-of-file and append across a zero-filled hole that parses as
-//  valid data. That is a silent-wrong-numbers failure on exactly the kill path
-//  the snapshot exists to serve.
+//  Called before each state-snapshot write so the period count the snapshot
+//  carries is a claim about bytes on disk: without the flush, a hard kill
+//  between snapshot and next flush would leave the resumed run seeking past
+//  EOF and appending across a zero-filled hole that parses as valid data.
 //
 {
     if ( Fout.file != NULL ) fflush(Fout.file);
@@ -743,17 +695,12 @@ int output_positionForResume(char* errMsg, int errMsgLen)
 //           period lands at the offset a clean run would have used, and drop
 //           any partial or stale record beyond it.
 //
-//  RESTORE PATH ONLY. The replay-fallback branch has no restored Nperiods, so
-//  the expression below has no operand there -- and it needs none: output_open
+//  Restore path only (the replay fallback needs no positioning: output_open
 //  leaves the stream at OutputStartPos and output_saveResults writes
-//  sequentially, which is already the clean-run offset for every period.
-//
-//  Why the seek is derived from the RESTORED COUNT rather than from the file's
-//  length: a resume may restart from a checkpoint EARLIER than the previous
-//  exec's kill point, because a caller may deliberately resume from an
-//  earlier id. The file's length is an upper bound on the correct position,
-//  never the position. Deriving from the count also makes a torn final record
-//  harmless -- the seek lands at or before it and the truncation drops it.
+//  sequentially at the clean-run offsets). The seek is derived from the
+//  RESTORED Nperiods, never from the file length: a resume may restart from a
+//  checkpoint earlier than the previous exec's kill point, the file length is
+//  only an upper bound, and a torn final record is dropped by the truncation.
 //
 {
     F_OFF want, fileLen;
@@ -776,11 +723,8 @@ int output_positionForResume(char* errMsg, int errMsgLen)
     }
     fileLen = (F_OFF)F_TELL(Fout.file);
 
-    // Requirement 5: refuse rather than seek past EOF. A count the file cannot
-    // back means the periods it names were never flushed (a hard kill between
-    // the snapshot write and the flush) or the file was replaced underneath
-    // the snapshot. Appending anyway would leave a zero-filled hole that every
-    // reader parses as data.
+    // Refuse rather than seek past EOF: appending anyway would leave a
+    // zero-filled hole that every reader parses as data.
     complete = (fileLen > OutputStartPos && BytesPerPeriod > 0)
              ? (long)((fileLen - OutputStartPos) / BytesPerPeriod)
              : 0L;
@@ -842,30 +786,13 @@ void output_end()
         return;
     }
 
-    // --- TRITON: impose the final length, so
-    //     the six-INT4 trailer just written is the LAST thing in the file.
-    //
-    //     BRANCH-INDEPENDENT AND OPERAND-FREE. It applies identically on the
-    //     restore path and on the replay-fallback path because output_end
-    //     knows the final position on both.
-    //
-    //     WHY IT IS NEEDED AT ALL: an external reader does not locate the
-    //     trailer from a stored offset -- it seeks -6*RECORDSIZE from SEEK_END
-    //     and then compares the trailing magic against the leading one. Any
-    //     byte surviving past the trailer makes that comparison fail and every
-    //     external reader refuses the file outright. The case is narrow but
-    //     real: a SHORTENED resumed run writes its trailer above a longer
-    //     previous exec's tail. This makes that impossible rather than
-    //     diagnosable.
-    //
-    //     WHY IT IS HERE AND NOT AT THE fclose SITE. This is the last write to
-    //     Fout.file anywhere in the solver, so the position is trailer-end by
-    //     construction and no captured length is needed. Between here and
-    //     fclose, swmm_report's four detail-table loops call
-    //     output_readDateTime, which seeks ABSOLUTELY into the payload -- so at
-    //     the fclose site the reported position is deep inside the data and a
-    //     truncation there would cut the file mid-record. That would be
-    //     strictly worse than the stale tail it was meant to fix.
+    // --- TRITON: impose the final length so the trailer just written is the
+    //     last thing in the file -- an external reader seeks -6*RECORDSIZE from
+    //     SEEK_END and compares the trailing magic against the leading one, so
+    //     any byte surviving past it (a shortened resumed run above a longer
+    //     previous exec's tail) makes every reader refuse the file. Done here,
+    //     the last write to Fout.file, where the position is trailer-end by
+    //     construction (swmm_report's readers seek into the payload afterwards).
     if ( output_truncateAt(output_payloadEndPos() + 6 * (F_OFF)sizeof(INT4)) != 0 )
     {
         report_writeErrorMsg(ERR_OUT_WRITE,
