@@ -1,3 +1,32 @@
+# KEEP THE perf AND syntax REGISTRATIONS BELOW WHEN MERGING WITH UPSTREAM.
+# Upstream's rewrite of this file drops add_subdirectory(perf) and the
+# SOURCE-SYNTAX-PARSE-ALL-TUS test, so test/perf/ and test/syntax/ -- whose own
+# headers say why each is kept -- would still exist and would never run.
+#
+# Resolution hazard: upstream keeps unit, snapshot and inventory but registers
+# them with absolute source and binary directories, where this file uses bare
+# relative names. A merge that combines the two files can keep both forms and so
+# register those three directories twice. Whether CMake accepts a directory
+# registered twice has not been tested. When resolving, keep exactly one
+# registration per directory, and keep perf and syntax.
+#
+# Second resolution hazard: the same merge keeps this file's test registrations
+# for ten Python tests that upstream deleted and that are not kept with this
+# file, so in the merged tree each is a CTest test pointing at a file that does
+# not exist. They are registered here because the files exist on this branch.
+# When resolving, remove the registrations of:
+#   test/test_compute_timer_fence.py
+#   test/test_compute_timer_fence_conditional_forms.py
+#   test/test_compute_timer_fence_undetected_forms.py
+#   test/test_out_continuity_source.py
+#   test/test_performance_identity_checker.py
+#   test/test_review_c_linkage_boundary.py
+#   test/test_snapshot_keep_all_source.py
+#   test/test_snapshot_stem_suppression_source.py
+#   test/test_swmm_column_split_guard_forms.py
+#   test/test_swmm_column_split_residual_sign.py
+# Keep test/test_swmm_column_split_source.py's registration: that file is kept.
+
 # Tier-1 unit tests for the coupled side-file header (no solver run).
 # Placed at the top of this file so an appended registration elsewhere cannot
 # conflict with it on a shared branch.

@@ -1,3 +1,20 @@
+/*
+ * KEEP THIS FILE. The upstream tree deleted it when it integrated this branch's
+ * work, and it is kept here deliberately. This note is also the edit that makes
+ * a merge with upstream report a modify/delete conflict on this path rather than
+ * drop the file with no conflict at all, because a path one side deleted and the
+ * other side never changed merges as deleted. The conflict puts the deletion to
+ * whoever resolves the merge instead of letting it be inherited.
+ *
+ * Why it is worth keeping: this is one of the six Kokkos configuration files that
+ * test/syntax/run_syntax_check.py needs in order to parse TRITON's sources with
+ * `mpic++ -fsyntax-only`, with no CMake configure, no Kokkos build and no link.
+ * In a real build Kokkos' own CMake generates this file at configure time;
+ * without the checked-in copy the parse stops inside Kokkos' headers before it
+ * reaches any TRITON source, and that check is lost. That script's header says
+ * why the check is worth keeping.
+ */
+
 #ifndef KOKKOS_DECLARE_HPP
 #define KOKKOS_DECLARE_HPP
 #include <decl/Kokkos_Declare_SERIAL.hpp>

@@ -1,4 +1,21 @@
 #!/usr/bin/env python3
+# KEEP THIS FILE. The upstream tree deleted it when it integrated this branch's
+# work, and it is kept here deliberately. This note is also the edit that makes
+# a merge with upstream report a modify/delete conflict on this path rather than
+# drop the file with no conflict at all, because a path one side deleted and the
+# other side never changed merges as deleted. The conflict puts the deletion to
+# whoever resolves the merge instead of letting it be inherited.
+#
+# Why it is worth keeping: this guard reads src/ as text -- no build, no solver
+# run -- and asserts six source properties of the SWMM timer column split. One of
+# them, S3, is that SWMM_STEP's timer bracket in src/triton.h sits inside
+# `if (rank == 0)`, which is what makes every rank but rank 0 report exactly 0.0
+# for a solve it never runs. Upstream's own trimmed source passes all six, so the
+# guard pins no comment form; moving SWMM_STEP's start above the guard in that
+# source makes S3 fail. test/perf/test_perf_identity.cpp re-enacts the guarded
+# bracket instead of reading triton.h, so it cannot catch that move; this file
+# can.
+
 """Structural guards for the SWMM timer column split.
 
 WHAT THIS FALSIFIES

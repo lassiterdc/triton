@@ -1,3 +1,25 @@
+/*
+ * KEEP THIS FILE. The upstream tree deleted it when it integrated this branch's
+ * work, and it is kept here deliberately. This note is also the edit that makes
+ * a merge with upstream report a modify/delete conflict on this path rather than
+ * drop the file with no conflict at all, because a path one side deleted and the
+ * other side never changed merges as deleted. The conflict puts the deletion to
+ * whoever resolves the merge instead of letting it be inherited.
+ *
+ * Why it is worth keeping: test_perf_identity drives the real SuperTimer and the
+ * real Output::write_times in the order src/triton.h uses them, on one rank and,
+ * where CMake finds an MPI launcher, on four, and asserts from the emitted
+ * performance.txt that SWMM_STEP is exactly 0.0 on every rank but rank 0 and that
+ * SWMM_XFER + SWMM_MPI + SWMM_STEP + SWMM_OTHER == SWMM on every per-rank row.
+ * The upstream tree carries no test that SWMM_STEP is 0.0 off rank 0 (its only
+ * SWMM_STEP check, section G of test/coupled_resume_suite.sh, tests the column
+ * identity and the residual's sign on a serial run), and this test asserts it on
+ * the emitted file through the real timer and emitter. It re-enacts triton.h's
+ * guarded bracket rather than reading triton.h, so it does not detect the
+ * bracket moving; the placement itself is read by
+ * test/test_swmm_column_split_source.py's S3, re-incorporated in the same set.
+ */
+
 /** @file test_perf_identity.cpp
  *  @brief Runtime construction check for the SWMM timer column split:
  *         XFER + MPI + STEP + OTHER == SWMM on every emitted per-rank

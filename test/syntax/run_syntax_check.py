@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# KEEP THIS FILE. The upstream tree deleted it when it integrated this branch's
+# work, and it is kept here deliberately. This note is also the edit that makes
+# a merge with upstream report a modify/delete conflict on this path rather than
+# drop the file with no conflict at all, because a path one side deleted and the
+# other side never changed merges as deleted. The conflict puts the deletion to
+# whoever resolves the merge instead of letting it be inherited.
+#
+# Why it is worth keeping: test/syntax/run_syntax_check.py parses every C++
+# translation unit in the tree with `mpic++ -fsyntax-only` against the six Kokkos
+# configuration files in test/syntax/kokkos-shim/. It needs no CMake configure,
+# no Kokkos build, no link and no solver run, so it costs seconds where a build
+# costs a Kokkos compile first, and it is registered as the CTest node
+# SOURCE-SYNTAX-PARSE-ALL-TUS in test/CMakeLists.txt. It has already caught one
+# real symbol redefinition in this code: two snapshot dummy objects that
+# redefined the existing *Stats* dummies in the vendored SWMM solver.
+
 """Fast-tier syntax check: every C++ translation unit must PARSE.
 
 WHAT THIS IS
