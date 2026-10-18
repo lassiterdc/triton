@@ -150,6 +150,18 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
+# No swmm_open, swmm_start or swmm_step call in src/ discards its return code.
+# SWMM reports a rejected input only through those codes; discarded, the coupled
+# run completes against a sewer that never moves. Pure Python over src/, so
+# registered unconditionally. The test also runs its predicate on a discarding
+# and a capturing snippet, so a predicate that can no longer go red fails it.
+add_test(
+    NAME SOURCE-SWMM-RETURN-CODES
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_return_codes_source.py
+                ${CMAKE_SOURCE_DIR}
+)
+
 # Source-structural guards (WP-0B). Pure Python over src/triton.h: no build, no
 # GPU, no solver run and no SWMM, so they are registered UNCONDITIONALLY --
 # gating them on TRITON_ENABLE_SWMM would make the fence guard unreachable in

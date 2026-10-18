@@ -198,6 +198,7 @@ namespace SWMM_triton
 
 
 		void end_swmm(std::string output_dir);
+		void stop_on_swmm_error(int code, const char* call, const char* when);   ///< rank 0: MPI_Abort with SWMM's own message when a SWMM API call returns non-zero
 
 		// --- TRITON->SWMM exchange-series persist/replay (hotstart-resume support) ---
 		// The SWMM trajectory is a deterministic function of its per-step inputs
@@ -872,12 +873,44 @@ namespace SWMM_triton
 				          << std::endl;
 			}
 
+			// SWMM reports a rejected input -- a missing external time-series file, a bad
+			// [OPTIONS] keyword, any error its own validation finds after TRITON's
+			// read_inp_file has passed -- only through these two return codes. Ignored,
+			// SWMM stays in its error state and every later step returns at once without
+			// routing, so the coupled run would complete against a sewer that never moves.
+			// The open call starts its own line so the stem-suppression probe X5
+			// (test_snapshot_stem_suppression_source.py), which inserts text before
+			// that line by its leading three tabs, still finds it.
+			const int swmm_open_rc =
 			swmm_open(inp_filename.c_str(), report_filename.c_str(), binary_filename.c_str());
-			swmm_start(TRUE);
+			stop_on_swmm_error(swmm_open_rc, "swmm_open", "while reading and validating the SWMM input");
+			stop_on_swmm_error(swmm_start(TRUE), "swmm_start", "while starting the SWMM analysis");
 
 			std::cerr << IN "SWMM initialized" << std::endl;
 		}
 
+	}
+
+	// Stop the whole run when a SWMM API call returns non-zero, printing SWMM's own
+	// code and message. Called on rank 0 only (init_swmm's rank-0 block, the
+	// per-step solve under triton.h's rank-0 guard, the rank-0 replay walk), so the
+	// stop is MPI_Abort AND NOT exit(): a rank-0-only exit() would leave every other
+	// rank blocked at the next collective, turning a loud failure into a hang. A
+	// zero code returns at once, so a healthy run takes no new branch and prints
+	// nothing new.
+	void swmm_triton::stop_on_swmm_error(int code, const char* call, const char* when)
+	{
+		if (code == 0) return;
+		char swmm_msg[MAXMSG + 1];
+		swmm_msg[0] = '\0';
+		swmm_getError(swmm_msg, MAXMSG);
+		std::cerr << ERROR "SWMM " << call << " returned error code " << code << " " << when << ":\n"
+		          << "         " << swmm_msg << "\n"
+		          << "         Stopping the run. With SWMM in an error state every later swmm_step\n"
+		          << "         returns at once without routing, so continuing would complete the\n"
+		          << "         coupled simulation against a sewer that never moves."
+		          << std::endl;
+		MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 	}
 
 	void swmm_triton::end_swmm(std::string output_dir)
@@ -1248,7 +1281,9 @@ namespace SWMM_triton
 			in.read(reinterpret_cast<char*>(q.data()), sizeof(value_t) * exchange_num_nodes);
 			if (in.gcount() != (std::streamsize)(sizeof(value_t) * exchange_num_nodes)) break; // partial -> stop
 			if (cum >= up_to_time - EPS) break;                                               // reached t_k
-			if (replay_steps) swmm_step(&elapsed, q.data(), global_new_depth, dt);
+			if (replay_steps)
+				stop_on_swmm_error(swmm_step(&elapsed, q.data(), global_new_depth, dt), "swmm_step",
+				                   "while replaying the exchange history for this resume");
 			cum += dt;
 			rec_count++;
 		}
