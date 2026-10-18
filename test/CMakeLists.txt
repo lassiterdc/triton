@@ -447,6 +447,33 @@ else()
                   --test ${CMAKE_BINARY_DIR}/test/output_allatoona/asc
   )
 
+  # ORDER EACH COMPARATOR AFTER ITS OWN SIMULATION, FROM AN EMPTY OUTPUT DIRECTORY.
+  # CTest schedules by cost, so under `ctest -jN` each cheap BIT4BIT comparator
+  # starts beside its expensive simulation and finishes first: on a fresh build
+  # that is a red, and on a REUSED build it compares the PREVIOUS run's rasters
+  # and passes -- measured passing while its simulation had failed. The clean
+  # node also stops a leftover raster from a longer earlier run being picked by
+  # the comparator's lexicographically-last file selection.
+  foreach(_case PARABOLOID CIRCULAR-DAMBREAK ALLATOONA)
+    if(_case STREQUAL "PARABOLOID")
+      set(_out output_paraboloid)
+    elseif(_case STREQUAL "CIRCULAR-DAMBREAK")
+      set(_out output_circular_dambreak)
+    else()
+      set(_out output_allatoona)
+    endif()
+    add_test(NAME CLEAN-OUTPUT-${_case}
+             COMMAND ${CMAKE_COMMAND} -E remove_directory ${_out})
+    set_tests_properties(CLEAN-OUTPUT-${_case} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test"
+                         FIXTURES_SETUP ${_case}_CLEAN)
+    set_tests_properties(${_case} PROPERTIES
+                         FIXTURES_REQUIRED ${_case}_CLEAN
+                         FIXTURES_SETUP ${_case}_OUTPUT)
+    set_tests_properties(BIT4BIT-${_case} PROPERTIES
+                         FIXTURES_REQUIRED ${_case}_OUTPUT)
+  endforeach()
+
 endif()
 
 

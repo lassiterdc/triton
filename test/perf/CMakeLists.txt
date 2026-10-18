@@ -61,6 +61,13 @@ foreach(_t IN LISTS TRITON_PERF_IDENTITY_TESTS)
   add_test(NAME PERF-IDENTITY-1RANK-${_t}
            COMMAND test_perf_identity ${_t})
 endforeach()
+# P6 compares two WALL-CLOCK readings of the same sleep-driven work at a 10 %
+# tolerance -- about 0.65 ms on ranks 1-3. A concurrent ctest neighbour (any
+# co-scheduled work; oversubscription is not required) delays a wakeup by more than that, so the node must
+# run alone. Measured: 13 of 15 `ctest -j4` repeats red without this, 0 of 15
+# with it; the other PERF nodes assert exact arithmetic and need no isolation.
+set_tests_properties(PERF-IDENTITY-1RANK-P6_parent_equals_an_unsplit_measurement
+                     PROPERTIES RUN_SERIAL TRUE)
 
 # MULTI rank: P4 and P5 are specifically about the ranks that are NOT rank 0, and
 # P3's Average-is-rank0/N assertion needs size_ > 1. A single-rank run cannot
@@ -73,6 +80,8 @@ if(TRITON_MPIEXEC)
     add_test(NAME PERF-IDENTITY-4RANK-${_t}
              COMMAND ${TRITON_MPIEXEC} -n 4 $<TARGET_FILE:test_perf_identity> ${_t})
   endforeach()
+  set_tests_properties(PERF-IDENTITY-4RANK-P6_parent_equals_an_unsplit_measurement
+                       PROPERTIES RUN_SERIAL TRUE)
 else()
   message(STATUS "No mpiexec/mpirun/srun found: the multi-rank PERF-IDENTITY "
                  "arm is NOT registered. The single-rank arm cannot hold the "

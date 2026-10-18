@@ -102,6 +102,7 @@
 #include "output.h"
 
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -505,26 +506,38 @@ static void P6_parent_equals_an_unsplit_measurement()
     // executably: a parent bracket around the SAME work, with and without the
     // three inner brackets, must agree to within the instrumentation cost --
     // which is bounded here well below the work itself.
-    SuperTimer::super_timer a, b;
+    // MINIMUM OF K TRIALS. Each trial runs the unsplit bracket (a) and then the
+    // split bracket (b), in that order every time. Each reading is wall-clock time of
+    // sleeps, and a single late wakeup -- from a co-scheduled process of any kind,
+    // measured to need no oversubscription -- moves one reading by more than the
+    // 10 % budget. A systematic shift (the defect this test guards: the parent
+    // absorbing work outside its brackets) is present in EVERY trial and survives
+    // the minimum; a one-off oversleep is present in one and does not. Measured:
+    // 0 red in 200 unloaded runs across 2 nodes, and 120 of 120 red with +1000 us
+    // injected into the split bracket.
+    double unsplit = 1e300, split = 1e300;
+    for (int k = 0; k < 5; ++k) {
+        SuperTimer::super_timer a, b;
 
-    a.start(SWMM_TIME);
-    busy_us(1500);
-    busy_us(3000);
-    busy_us(1000);
-    if (g_rank == 0) busy_us(5000);
-    busy_us(1000);
-    a.stop(SWMM_TIME);
+        a.start(SWMM_TIME);
+        busy_us(1500);
+        busy_us(3000);
+        busy_us(1000);
+        if (g_rank == 0) busy_us(5000);
+        busy_us(1000);
+        a.stop(SWMM_TIME);
 
-    b.start(SWMM_TIME);
-    busy_us(1500);
-    b.start(SWMM_XFER); busy_us(3000); b.stop(SWMM_XFER);
-    b.start(SWMM_MPI);  busy_us(1000); b.stop(SWMM_MPI);
-    if (g_rank == 0) { b.start(SWMM_STEP); busy_us(5000); b.stop(SWMM_STEP); }
-    b.start(SWMM_MPI);  busy_us(1000); b.stop(SWMM_MPI);
-    b.stop(SWMM_TIME);
+        b.start(SWMM_TIME);
+        busy_us(1500);
+        b.start(SWMM_XFER); busy_us(3000); b.stop(SWMM_XFER);
+        b.start(SWMM_MPI);  busy_us(1000); b.stop(SWMM_MPI);
+        if (g_rank == 0) { b.start(SWMM_STEP); busy_us(5000); b.stop(SWMM_STEP); }
+        b.start(SWMM_MPI);  busy_us(1000); b.stop(SWMM_MPI);
+        b.stop(SWMM_TIME);
 
-    const double unsplit = a.get_custom_time(SWMM_TIME);
-    const double split = b.get_custom_time(SWMM_TIME);
+        unsplit = std::min(unsplit, a.get_custom_time(SWMM_TIME));
+        split = std::min(split, b.get_custom_time(SWMM_TIME));
+    }
     const double rel = std::fabs(split - unsplit) / (unsplit > 0 ? unsplit : 1.0);
     std::fprintf(stderr, "  rank %d: unsplit SWMM=%.6g split SWMM=%.6g rel=%.4f\n",
                  g_rank, unsplit, split, rel);
