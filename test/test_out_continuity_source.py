@@ -156,7 +156,17 @@ def p_caller_aborts_on_unreadable(triton_h: str) -> bool:
 def p_resume_event_has_four_fields(swmm_h: str) -> bool:
     """Chunk (5): checkpoint id, resume time, path, and (replay only) reason --
     appended AFTER the `to t=` token so the existing numeric parse cannot move."""
-    restore = _func_body(swmm_h, "swmm_triton::try_restore_state_snapshot")
+    # The restore-side checks read the restore marker's OWN STATEMENT, not the
+    # whole function body. The function also prints other resume-event lines
+    # (the killed-write directive before the marker, the step-back
+    # confirmation after it), so a first-occurrence test over the whole body
+    # passes or fails on those lines rather than on the marker; and a slice
+    # running from the marker to the end of the body would start at "to t="
+    # (making the order test true by construction) and let the confirmation
+    # line supply a field the marker itself had lost.
+    restore = _own_statement(
+        _func_body(swmm_h, "swmm_triton::try_restore_state_snapshot"),
+        "SWMM state restored from snapshot to t=")
     replay = _func_body(swmm_h, "swmm_triton::replay_exchange_history")
     ok_r = ("SWMM state restored from snapshot to t=" in restore
             and "resume-event checkpoint=" in restore
@@ -215,6 +225,45 @@ def _strip_comments(src: str) -> str:
             continue
         out.append(c); i += 1
     return "".join(out)
+
+
+def _own_statement(body: str, literal: str) -> str:
+    """The C++ statement in `body` that contains `literal`, or '' when absent.
+
+    `body` is comment-blanked text, as _func_body returns. The statement starts
+    immediately after the nearest `;`, `{` or `}` before the literal and ends at
+    the first `;` after it, inclusive. All three opening delimiters are needed:
+    the restore marker's statement is preceded by the `}` that closes the
+    output-positioning block, not by a `;`. A delimiter inside a string literal
+    is not a delimiter -- the marker's own text carries `); resuming`.
+    """
+    at = body.find(literal)
+    if at < 0:
+        return ""
+    in_str = [False] * len(body)
+    i, n = 0, len(body)
+    while i < n:
+        c = body[i]
+        if c == '"' or c == "'":
+            q, j = c, i + 1
+            while j < n and body[j] != q:
+                j += 2 if body[j] == "\\" else 1
+            for k in range(i, min(j + 1, n)):
+                in_str[k] = True
+            i = j + 1
+            continue
+        i += 1
+    start = 0
+    for k in range(at - 1, -1, -1):
+        if body[k] in ";{}" and not in_str[k]:
+            start = k + 1
+            break
+    end = n
+    for k in range(at, n):
+        if body[k] == ";" and not in_str[k]:
+            end = k + 1
+            break
+    return body[start:end]
 
 
 def _func_body(src: str, name: str) -> str:

@@ -429,7 +429,8 @@ namespace Triton
                           dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                           arglist.manhole_diameter, arglist.manhole_loss,
                           arglist.swmm_snapshot_disable,
-                          arglist.swmm_snapshot_keep_all);
+                          arglist.swmm_snapshot_keep_all,
+                          arglist.swmm_snapshot_keep_previous);
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its
@@ -489,13 +490,23 @@ namespace Triton
         }
       }
       else {
-        // THE ONE DISPOSAL SITE for the killed-write markers, and the clean
-        // start is the one point at which a marker is PROVABLY no longer
-        // evidence: this branch consults no snapshot, so no ".part" or
-        // ".killed" can be telling it anything. Deliberately NOT disposed on
-        // the abort path above -- there the marker is the artifact that lets an
-        // operator see a killed write rather than a missing snapshot.
-        swmm_model.sweep_snapshot_markers();
+        // THE ONE DISPOSAL SITE for the EARLIER run's snapshot artifacts --
+        // published snapshots and ".part", ".killed" and ".failed" markers --
+        // and the clean start is the one point at which none of them is
+        // evidence this run needs: this branch consults no snapshot. Removed by
+        // default, or renamed and kept under swmm_snapshot_keep_previous=1; a
+        // ".failed" is kept either way. Deliberately NOT disposed on the abort
+        // path above -- there a marker is the artifact that lets an operator
+        // see a killed or failed write rather than a missing snapshot.
+        //
+        // A NON-EMPTY RETURN STOPS THE RUN here, before its first write. It
+        // names an earlier-run published snapshot that could not be disposed
+        // of, and left in place that file could be loaded by a later resume of
+        // this run at the same checkpoint. The disposal has already printed the
+        // error naming it. MPI_Abort rather than exit(), for the reason the
+        // resume branch above gives: this block runs under a rank-0 guard.
+        if (!swmm_model.sweep_snapshot_markers().empty())
+          MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
         swmm_model.open_exchange_log_truncate();
       }
     }

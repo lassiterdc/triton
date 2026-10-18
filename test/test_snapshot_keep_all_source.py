@@ -772,16 +772,18 @@ def main(argv: list[str]) -> int:
         # the parameter loses its const: compiles, and the next reader reads a
         # threaded value as mutable in-function
         ("X3 -> S3", lambda: p_threaded_through_initialize(
-            swmm_h.replace("const bool %s)" % KEY, "bool %s)" % KEY, 1))),
+            swmm_h.replace("const bool %s" % KEY, "bool %s" % KEY, 1))),
         ("X3b -> S3b", lambda: p_call_site_passes_the_arglist_field(
             triton_h.replace("arglist." + KEY, "false", 1))),
         # the guarded region closes BEFORE the forwarded argument: the shape a
         # reflow or a merge of that call's continuation lines would produce,
         # which breaks only the configuration nothing here parses
+        # anchored on the line that CARRIES the argument, not on its trailing
+        # punctuation, so an argument appended after this one cannot make the
+        # mutation a no-op
         ("X8 -> S8", lambda: p_call_site_is_inside_a_swmm_ifdef(
-            triton_h.replace("                          arglist." + KEY + ");",
-                             "#endif" + "\n"
-                             "                          arglist." + KEY + ");", 1))),
+            re.sub(r"^([ \t]*arglist\.%s\b)" % re.escape(KEY), "#endif\n\\1",
+                   triton_h, count=1, flags=re.M))),
         # THE BALANCED DRIFT, which is the one no other instrument in this tree
         # sees.  The read is RELOCATED below the region's existing `#endif`
         # rather than having an `#endif` inserted above it: the directives stay

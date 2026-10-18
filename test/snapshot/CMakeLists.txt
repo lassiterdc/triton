@@ -59,7 +59,25 @@ set(TRITON_SNAPSHOT_TESTS
   T18_killed_part_beside_a_complete_prior_snapshot_is_refused
   T19_the_killed_write_refusal_names_cause_fallback_and_replay_cost
   T20_the_part_is_renamed_killed_and_the_classifier_returns_an_existing_token
-  T21_a_clean_start_disposes_both_markers)
+  T21_a_clean_start_disposes_both_markers
+  # THE STEP-BACK LINES, THE FAILED-WRITE STOP AND THE CLEAN-START DISPOSAL.
+  # One node per DoD-10 command (e)-(l) and (k1)-(k4), for the same reason as
+  # above: a result names which property it carries.
+  T22_a_killed_write_with_a_published_snapshot_below_emits_the_step_back_line
+  T23_no_published_snapshot_below_emits_the_clean_start_line_with_its_reason
+  T24_a_failed_write_with_a_published_snapshot_below_emits_the_stop_line
+  T25_the_step_back_line_is_identical_on_a_second_resume
+  T26_the_step_back_confirmation_scan_reads_only_live_markers
+  T27_a_clean_start_keeps_a_failed_marker_under_one_directory_wide_k
+  T28_a_clean_start_without_keep_previous_removes_the_earlier_run
+  T29_a_clean_start_with_keep_previous_keeps_every_artifact
+  T30_an_undisposable_published_snapshot_refuses_the_clean_start
+  T31_an_undisposable_marker_warns_and_the_clean_start_continues
+  T32_a_failed_snapshot_write_keeps_its_marker_and_says_the_resume_will_stop
+  # DoD 10 (l2) and (m): the count-pass refusal's marker, and the resume stop
+  # it causes.
+  T33_a_count_pass_refusal_leaves_a_one_line_failed_marker
+  T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line)
 
 foreach(_t IN LISTS TRITON_SNAPSHOT_TESTS)
   add_test(NAME UNIT-SNAPSHOT-${_t}

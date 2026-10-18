@@ -114,6 +114,22 @@ namespace ConfigUtils
 		/// against a check that is in fact fine.
 		bool
 		swmm_snapshot_keep_all;
+
+		/// CLEAN-START RETENTION. When true, a clean start renames the earlier
+		/// run's snapshot artifacts -- published snapshots and every ".part",
+		/// ".killed" and ".failed" marker -- to "{name}.prev{k}" and keeps them.
+		/// When false, which is what an absent key means, it removes the earlier
+		/// run's published snapshots, ".part" and ".killed", and still keeps any
+		/// ".failed", because that file is the evidence for a stopped restart.
+		/// Removal is the default because a surviving earlier-run snapshot can be
+		/// loaded by a later resume of the new run whose own write at that
+		/// checkpoint failed, with no error.
+		///
+		/// Same type and read form as the two keys above (bool; argsd with "0"),
+		/// and its own type-group for the same reason swmm_snapshot_keep_all has
+		/// one.
+		bool
+		swmm_snapshot_keep_previous;
 #endif
 
 		std::string
@@ -557,6 +573,10 @@ namespace ConfigUtils
 		// an absent key is a defined false, so every pre-existing cfg keeps loading
 		// and keeps the keep-2 retention it already had.
 		arglist.swmm_snapshot_keep_all = atoi((argsd("swmm_snapshot_keep_all", argmap, "0")).c_str());
+
+		// ADDITIVE, same form again: an absent key is a defined false, which is
+		// the clean start's removal default.
+		arglist.swmm_snapshot_keep_previous = atoi((argsd("swmm_snapshot_keep_previous", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());

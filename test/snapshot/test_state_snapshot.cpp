@@ -1342,7 +1342,9 @@ static void T17_a_refused_save_publishes_nothing()
           "past the written extent -- which is indistinguishable from a build "
           "mismatch and sends the operator to the wrong diagnosis");
     CHECK(!std::filesystem::exists(part),
-          "the temporary must not survive a refused save");
+          "a refused save must leave no .part, because a surviving .part reads "
+          "at the next resume as a write cut off by a kill; the length-check "
+          "arm keeps its bytes under .failed instead, which T32 asserts");
 
     free_pollutant_model();
 
@@ -1363,6 +1365,7 @@ static void T17_a_refused_save_publishes_nothing()
     std::error_code ec;
     std::filesystem::remove(path, ec);
     std::filesystem::remove(part, ec);
+    std::filesystem::remove(path + ".failed", ec);
     std::filesystem::remove(ok, ec);
     std::filesystem::remove(okPt, ec);
 }
@@ -1698,6 +1701,12 @@ static void T21_a_clean_start_disposes_both_markers()
     // deliberately RETAINED, because there it is the artifact that lets an
     // operator see a killed write rather than a missing snapshot. So this node
     // asserts disposal at the clean start and nowhere else.
+    //
+    // The third assertion was INVERTED when the clean start began disposing of
+    // the earlier run's PUBLISHED snapshots too: left in place, one of them
+    // would be loaded by a later resume of the new run whose own write at that
+    // checkpoint failed, with no error. With the keep-previous policy unset
+    // (the default this node runs under) the published snapshot is removed.
     const std::string stem = make_snapshot_stem("t21");
 
     const std::string part   = snapshot_path_at(stem, 1) + ".part";
@@ -1707,10 +1716,10 @@ static void T21_a_clean_start_disposes_both_markers()
     CHECK(std::filesystem::exists(part) && std::filesystem::exists(killed),
           "the fixture must stand up both marker kinds");
 
-    // A published snapshot that must SURVIVE the sweep. Without it the node
-    // would pass for a disposal step that deleted the whole directory.
+    // A published snapshot from the EARLIER run, which the clean start must
+    // now dispose of as well.
     CHECK(publish_complete_snapshot(stem, 5),
-          "the fixture must publish a snapshot the sweep must not touch");
+          "the fixture must publish an earlier-run snapshot");
 
     SwmmTriton obj;
     arrange_rank0_with_stem(obj, stem);
@@ -1726,13 +1735,780 @@ static void T21_a_clean_start_disposes_both_markers()
     {
         CHECK(!std::filesystem::exists(part),   "a clean start must leave no .part");
         CHECK(!std::filesystem::exists(killed), "a clean start must leave no .killed");
-        CHECK(std::filesystem::exists(snapshot_path_at(stem, 5)),
-              "and it must leave the PUBLISHED snapshots alone -- the disposal "
-              "is scoped to markers, not to the snapshot directory");
+        CHECK(!std::filesystem::exists(snapshot_path_at(stem, 5)),
+              "and with keep-previous unset it must leave the earlier run's "
+              "PUBLISHED snapshot ABSENT at its name -- a survivor would be "
+              "loaded by a later resume of the new run at that checkpoint");
     }
 
     std::error_code ec;
     std::filesystem::remove_all(std::filesystem::path(stem).parent_path(), ec);
+}
+
+// ===========================================================================
+// THE STEP-BACK LINES, THE FAILED-WRITE STOP, AND THE CLEAN-START DISPOSAL.
+// ===========================================================================
+//
+// WHAT IS BEING TESTED. Three behaviours added together:
+//   1. on a resume at a checkpoint whose snapshot write was cut off or failed,
+//      the refusal prints ONE machine-readable line telling the orchestration
+//      what to do next -- resume from an earlier published snapshot, stop, or
+//      start clean -- and a resume that restored from a snapshot below a
+//      still-marked checkpoint prints a confirmation naming both ids;
+//   2. a snapshot write that fails the writer's own length check keeps its
+//      bytes as "{name}.failed", and a resume there STOPS;
+//   3. a clean start disposes of the earlier run's published snapshots and
+//      markers -- removing them, or renaming them to "{name}.prev{k}" when the
+//      keep-previous policy is set -- and keeps a ".failed" either way.
+//
+// The machine-readable lines are a contract another repository parses, so the
+// tests below spell each one out in full rather than matching a fragment: a
+// reworded line is a broken contract even when every fragment survives.
+//
+// TWO-TREE RULE, carried from the nodes above. Every new entry point is called
+// through a detection template, so this file still COMPILES against a tree
+// that lacks it and the missing behaviour shows up as a failed assertion
+// rather than as a build failure that would also hide every other node.
+// ---------------------------------------------------------------------------
+#include <utility>
+#include <csignal>
+#include <sys/resource.h>
+
+template <typename T, typename = void>
+struct has_dispose : std::false_type {};
+template <typename T>
+struct has_dispose<T, std::void_t<decltype(std::declval<T&>().dispose_snapshot_artifacts(true))>>
+    : std::true_type {};
+
+template <typename T>
+static bool dispose_if_present(T& obj, bool keep_previous, std::string* refused)
+{
+    refused->clear();
+    if constexpr (has_dispose<T>::value) { *refused = obj.dispose_snapshot_artifacts(keep_previous); return true; }
+    else { (void) obj; (void) keep_previous; return false; }
+}
+
+template <typename T, typename = void>
+struct has_live_marker_scan : std::false_type {};
+template <typename T>
+struct has_live_marker_scan<T, std::void_t<decltype(std::declval<const T&>().highest_live_marker_above(0))>>
+    : std::true_type {};
+
+// Returns -2 when this build has no scan at all, so a caller can tell "no
+// marker found" (-1) from "nothing to call".
+template <typename T>
+static int live_marker_scan_if_present(const T& obj, int checkpoint_id)
+{
+    if constexpr (has_live_marker_scan<T>::value) return obj.highest_live_marker_above(checkpoint_id);
+    else { (void) obj; (void) checkpoint_id; return -2; }
+}
+
+static std::string read_bytes(const std::string& p)
+{
+    std::ifstream f(p, std::ios::binary);
+    std::ostringstream o;
+    o << f.rdbuf();
+    return o.str();
+}
+
+static void write_bytes(const std::string& p, const std::string& s)
+{
+    std::ofstream f(p, std::ios::binary);
+    f << s;
+}
+
+static std::string dir_of(const std::string& stem)
+{
+    return std::filesystem::path(stem).parent_path().string();
+}
+
+static std::set<std::string> listing(const std::string& dir)
+{
+    std::set<std::string> names;
+    std::error_code ec;
+    for (const auto& e : std::filesystem::directory_iterator(dir, ec))
+        names.insert(e.path().filename().string());
+    return names;
+}
+
+static std::size_t occurrences(const std::string& hay, const std::string& needle)
+{
+    std::size_t n = 0;
+    for (std::size_t at = hay.find(needle); at != std::string::npos;
+         at = hay.find(needle, at + needle.size()))
+        ++n;
+    return n;
+}
+
+// The three KilledWrite lines and the confirmation line, spelled in full.
+static std::string row_step_back(int n, int m)
+{
+    return "SWMM snapshot step-back required: checkpoint " + std::to_string(n)
+         + " unusable [resume-event checkpoint=" + std::to_string(n)
+         + " path=step-back reason=killed-write target=" + std::to_string(m) + "]";
+}
+static std::string row_stop(int n, int m)
+{
+    return "SWMM snapshot stop: checkpoint " + std::to_string(n)
+         + " unusable [resume-event checkpoint=" + std::to_string(n)
+         + " path=stop reason=write-failed target=" + std::to_string(m) + "]";
+}
+static std::string row_clean_start(int n, const char* reason)
+{
+    return "SWMM snapshot step-back impossible: checkpoint " + std::to_string(n)
+         + " unusable, no published snapshot below it [resume-event checkpoint="
+         + std::to_string(n) + " path=clean-start reason=" + reason + " target=0]";
+}
+
+static std::string resume_and_capture(const std::string& stem, int n)
+{
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, stem);
+    std::string out;
+    { CerrCapture cap; (void) obj.try_restore_state_snapshot(n, (value_t) 0.0); out = cap.str(); }
+    return out;
+}
+
+// True when the test is NOT running as root. Permission-based fixtures do not
+// bind for root, so under root they would pass without testing anything; the
+// nodes that rely on them assert this first and fail loudly instead.
+static bool permissions_bind()
+{
+    return geteuid() != 0;
+}
+
+static void T22_a_killed_write_with_a_published_snapshot_below_emits_the_step_back_line()
+{
+    // DoD 10(e).
+    // Property: a ".part" at cp{N} beside a published cp{N-1} prints the
+    //   step-back line naming N-1 as the target, exactly once, and the
+    //   existing human refusal text is unchanged.
+    // Class: NEW CAPABILITY. A plausible wrong implementation prints the line
+    //   with the stale "write-failed" reason or prints it twice (once per
+    //   marker); both make the count-of-one check red.
+    // Why required: the orchestration relaunches from the named target; a
+    //   missing or duplicated line is a relaunch from the wrong checkpoint or
+    //   none.
+    // What kills it: deleting the step-back branch, or changing any byte of the
+    //   line, reds the first check.
+    // A second correct implementation that still passes: building the line
+    //   with one snprintf instead of stream insertions, or emitting it before
+    //   the human text rather than after.
+    const int N = 5;
+    const std::string stem = make_snapshot_stem("t22");
+    CHECK(publish_complete_snapshot(stem, N - 1), "the fixture must publish cp{N-1}");
+    touch_marker(snapshot_path_at(stem, N) + ".part");
+
+    const std::string out = resume_and_capture(stem, N);
+    CHECK_EQ_I(occurrences(out, row_step_back(N, N - 1)), 1,
+               "the step-back line naming N-1 must appear exactly once");
+    CHECK(out.find("was KILLED before it completed.") != std::string::npos,
+          "the human refusal text must still name the killed write");
+    CHECK(out.find("highest COMPLETE snapshot found below") != std::string::npos,
+          "and still name the complete snapshot below");
+    CHECK(out.find(snapshot_path_at(stem, N - 1)) != std::string::npos,
+          "and still name it by path");
+    CHECK(out.find("each successive resume replays a longer prefix") != std::string::npos,
+          "and still state the replay cost");
+    if (occurrences(out, row_step_back(N, N - 1)) != 1)
+        std::fprintf(stderr, "  note: captured stderr was:\n%s\n", out.c_str());
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+static void T23_no_published_snapshot_below_emits_the_clean_start_line_with_its_reason()
+{
+    // DoD 10(f), both arms.
+    // Property: with no published snapshot below N the line says only a clean
+    //   start remains, and its reason names the marker found -- killed-write
+    //   for a ".part", write-failed for a ".failed".
+    // Class: NEW CAPABILITY. A plausible wrong implementation hard-codes
+    //   reason=killed-write; the ".failed" arm reds.
+    // Why required: the orchestration raises a different alarm for a failed
+    //   write than for a killed one, keyed on this token.
+    // What kills it: dropping the ".failed" case from the reason choice.
+    // A second correct implementation that still passes: deciding the reason
+    //   from a single precedence function shared with the human text.
+    const int N = 3;
+    const std::string stemA = make_snapshot_stem("t23a");
+    touch_marker(snapshot_path_at(stemA, N) + ".part");
+    const std::string outA = resume_and_capture(stemA, N);
+    CHECK_EQ_I(occurrences(outA, row_clean_start(N, "killed-write")), 1,
+               "a .part with nothing published below must print the clean-start "
+               "line with reason=killed-write");
+
+    const std::string stemB = make_snapshot_stem("t23b");
+    touch_marker(snapshot_path_at(stemB, N) + ".failed");
+    const std::string outB = resume_and_capture(stemB, N);
+    CHECK_EQ_I(occurrences(outB, row_clean_start(N, "write-failed")), 1,
+               "a .failed with nothing published below must print the clean-start "
+               "line with reason=write-failed");
+    CHECK(outB.find("This resume STOPS") != std::string::npos,
+          "and the human text must state the stop");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stemA), ec);
+    std::filesystem::remove_all(dir_of(stemB), ec);
+}
+
+static void T24_a_failed_write_with_a_published_snapshot_below_emits_the_stop_line()
+{
+    // DoD 10(g).
+    // Property: a ".failed" at cp{N} beside a published cp{N-1} prints the
+    //   STOP line exactly once, prints no step-back line, states the stop in
+    //   the human text without offering the earlier snapshot as a route, keeps
+    //   the ".failed", and prints the identical stop line on a second resume.
+    // Class: NEW CAPABILITY. A plausible wrong implementation treats ".failed"
+    //   like ".killed" and prints the step-back line; checks 1 and 2 red.
+    // Why required: a failed write is ruled a stop, so a line telling the
+    //   orchestration to step back would relaunch past a live fault.
+    // What kills it: removing ".failed" from the precedence, or from Arm 2's
+    //   key (then the resume reaches the snapshot load and returns Absent).
+    // A second correct implementation that still passes: printing the human
+    //   stop text after the machine line rather than before it.
+    const int N = 6;
+    const std::string stem = make_snapshot_stem("t24");
+    CHECK(publish_complete_snapshot(stem, N - 1), "the fixture must publish cp{N-1}");
+    const std::string failed = snapshot_path_at(stem, N) + ".failed";
+    touch_marker(failed);
+
+    const std::string out = resume_and_capture(stem, N);
+    CHECK_EQ_I(occurrences(out, row_stop(N, N - 1)), 1,
+               "the stop line naming N-1 for information must appear exactly once");
+    CHECK(out.find("SWMM snapshot step-back required") == std::string::npos,
+          "a failed write must not print a step-back line");
+    CHECK(out.find("This resume STOPS") != std::string::npos,
+          "the human text must state the stop");
+    CHECK(out.find("the cheap route") == std::string::npos,
+          "and must not offer the earlier snapshot as a route");
+    CHECK(std::filesystem::exists(failed), "the .failed marker must survive the resume");
+
+    const std::string out2 = resume_and_capture(stem, N);
+    CHECK_EQ_I(occurrences(out2, row_stop(N, N - 1)), 1,
+               "a second resume at N must print the identical stop line");
+    if (occurrences(out, row_stop(N, N - 1)) != 1)
+        std::fprintf(stderr, "  note: captured stderr was:\n%s\n", out.c_str());
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+static void T25_the_step_back_line_is_identical_on_a_second_resume()
+{
+    // DoD 10(h).
+    // Property: the second resume at N, which now finds a ".killed" rather
+    //   than a ".part", prints the byte-identical step-back line.
+    // Class: NEW CAPABILITY. A plausible wrong implementation reads the
+    //   reason from which marker was renamed and so prints a different line,
+    //   or none, on the second resume.
+    // Why required: every relaunch reads the line from the most recent log
+    //   only; a second resume printing nothing would strand the run.
+    // What kills it: keying the line on havePart alone.
+    // A second correct implementation that still passes: not renaming the
+    //   ".part" at all and keying on it alone across both resumes -- the line
+    //   is the same either way.
+    const int N = 4;
+    const std::string stem = make_snapshot_stem("t25");
+    CHECK(publish_complete_snapshot(stem, N - 1), "the fixture must publish cp{N-1}");
+    touch_marker(snapshot_path_at(stem, N) + ".part");
+
+    const std::string out1 = resume_and_capture(stem, N);
+    CHECK(std::filesystem::exists(snapshot_path_at(stem, N) + ".killed"),
+          "the first resume must leave a .killed, so the second sees a different marker");
+    const std::string out2 = resume_and_capture(stem, N);
+    CHECK_EQ_I(occurrences(out1, row_step_back(N, N - 1)), 1, "first resume prints the line once");
+    CHECK_EQ_I(occurrences(out2, row_step_back(N, N - 1)), 1,
+               "the second resume prints the identical line once");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+static void T26_the_step_back_confirmation_scan_reads_only_live_markers()
+{
+    // DoD 10(i).
+    // Property: the scan returns the highest checkpoint above M carrying an
+    //   EXACT marker name with no published name at that id; a marker made
+    //   stale by a later publication, and a retained "*.prev{k}" name, are not
+    //   live.
+    // Class: NEW CAPABILITY. A plausible wrong implementation matches
+    //   ".failed" or ".killed" as a substring; the retained ".prev1" names at
+    //   7 and 8 then win over 5 and the first check reds.
+    // Why required: the confirmation line's from= is read as the checkpoint
+    //   the resume stepped over; a wrong id raises a false mismatch alarm.
+    // What kills it: dropping the published-name check (then the second check
+    //   returns 5), or substring matching (then the first returns 8).
+    // A second correct implementation that still passes: probing each id from
+    //   a known upper bound downward by exact-name existence instead of
+    //   listing the directory.
+    const int M = 2;
+    const std::string stem = make_snapshot_stem("t26");
+    CHECK(publish_complete_snapshot(stem, M), "the fixture must publish cp{M}");
+    touch_marker(snapshot_path_at(stem, 5) + ".killed");
+    touch_marker(snapshot_path_at(stem, 7) + ".failed.prev1");
+    touch_marker(snapshot_path_at(stem, 8) + ".killed.prev1");
+
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, stem);
+    const int first = live_marker_scan_if_present(obj, M);
+    CHECK(first != -2, "this build must carry the live-marker scan");
+    CHECK_EQ_I(first, 5, "a live .killed at 5 above M must be returned, and the "
+                         "retained .prev1 names at 7 and 8 must not be");
+
+    CHECK(publish_complete_snapshot(stem, 5), "publish cp5 so its marker lapses");
+    CHECK_EQ_I(live_marker_scan_if_present(obj, M), -1,
+               "with cp5 published its .killed has lapsed and nothing is live");
+
+    touch_marker(snapshot_path_at(stem, 9) + ".failed");
+    CHECK_EQ_I(live_marker_scan_if_present(obj, M), 9,
+               "an exact .failed with nothing published at its id is live");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+// The fixture DoD 10(j) names: a ".failed" with two retained names on the SAME
+// base, and the directory maximum on a DIFFERENT base, so one fixture catches
+// a string maximum (picks 10 and overwrites the same-base .prev10) and a
+// per-base maximum (picks 11).
+static void j_fixture(const std::string& stem, int k, std::string* failed, std::string* x)
+{
+    *failed = snapshot_path_at(stem, k) + ".failed";
+    *x = dir_of(stem) + "/x.prev12";
+    write_bytes(*failed, "failed-bytes");
+    write_bytes(*failed + ".prev9", "prev9-bytes");
+    write_bytes(*failed + ".prev10", "prev10-bytes");
+    write_bytes(*x, "x-bytes");
+}
+
+static void T27_a_clean_start_keeps_a_failed_marker_under_one_directory_wide_k()
+{
+    // DoD 10(j), under both keep-previous policies.
+    // Property: the ".failed" is renamed to ".prev13" (one more than the
+    //   directory-wide maximum 12), byte-identical, nothing else changes, and
+    //   no file is lost.
+    // Class: NEW CAPABILITY. Plausible wrong implementations: a string maximum
+    //   picks 10 and replaces the existing .prev10 (checks 2, 3, 4 red); a
+    //   per-base maximum picks 11 (check 2 red); removing the .failed when the
+    //   policy is unset (checks 2 and 4 red on the first fixture).
+    // Why required: the .failed is the evidence for a ruled stop, and the
+    //   operator's response to that stop is this clean start.
+    // What kills it: any of the three wrong implementations above.
+    // A second correct implementation that still passes: computing k by
+    //   probing ".prev1", ".prev2", ... until a free number is found ABOVE
+    //   every existing one, instead of parsing the maximum.
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        const bool keep = (pass == 1);
+        const int K = 4;
+        const std::string stem = make_snapshot_stem(keep ? "t27k" : "t27n");
+        std::string failed, x;
+        j_fixture(stem, K, &failed, &x);
+        const std::size_t before = listing(dir_of(stem)).size();
+
+        SwmmTriton obj;
+        arrange_rank0_with_stem(obj, stem);
+        std::string refused, out;
+        bool ran;
+        { CerrCapture cap; ran = dispose_if_present(obj, keep, &refused); out = cap.str(); }
+        CHECK(ran, "this build must carry the clean-start disposal");
+        CHECK(refused.empty(), "nothing here should refuse the clean start");
+
+        CHECK(!std::filesystem::exists(failed), "no file may remain under the .failed name");
+        CHECK(read_bytes(failed + ".prev13") == "failed-bytes",
+              "the former marker must be kept as .prev13, byte-identical "
+              "(.prev10 is the string-maximum answer and .prev11 the per-base one)");
+        CHECK(read_bytes(failed + ".prev9") == "prev9-bytes"
+              && read_bytes(failed + ".prev10") == "prev10-bytes"
+              && read_bytes(x) == "x-bytes",
+              "the existing retained names must be byte-unchanged");
+        CHECK_EQ_I(listing(dir_of(stem)).size(), before, "no file may be lost");
+
+        std::error_code ec;
+        std::filesystem::remove_all(dir_of(stem), ec);
+    }
+}
+
+// The fixture DoD 10(k1)-(k3) share: an earlier-run published snapshot, one
+// marker of each kind, and a retained name carrying the directory maximum.
+struct KFixture { std::string stem, published, part, killed, failed, x; };
+
+static KFixture k_fixture(const char* tag)
+{
+    KFixture f;
+    f.stem      = make_snapshot_stem(tag);
+    f.published = snapshot_path_at(f.stem, 3);
+    f.part      = snapshot_path_at(f.stem, 5) + ".part";
+    f.killed    = snapshot_path_at(f.stem, 6) + ".killed";
+    f.failed    = snapshot_path_at(f.stem, 7) + ".failed";
+    f.x         = dir_of(f.stem) + "/x.prev12";
+    write_bytes(f.published, "published-bytes");
+    write_bytes(f.part, "part-bytes");
+    write_bytes(f.killed, "killed-bytes");
+    write_bytes(f.failed, "failed-bytes");
+    write_bytes(f.x, "x-bytes");
+    return f;
+}
+
+static void T28_a_clean_start_without_keep_previous_removes_the_earlier_run()
+{
+    // DoD 10(k1).
+    // Property: with the policy unset, the earlier run's published snapshot,
+    //   ".part" and ".killed" are removed, the ".failed" is kept as ".prev13",
+    //   the retained name is untouched, and exactly three files go.
+    // Class: REGRESSION for the published snapshot (the pre-change sweep left
+    //   it in place) and NEW CAPABILITY for the ".failed" rename.
+    // Why required: a surviving earlier-run snapshot is loaded by a later
+    //   resume of the new run whose own write at that checkpoint failed.
+    // What kills it: skipping published names, or removing the ".failed".
+    // A second correct implementation that still passes: processing all
+    //   entries in one loop with the published ones sorted first.
+    const KFixture f = k_fixture("t28");
+    const std::size_t before = listing(dir_of(f.stem)).size();
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, f.stem);
+    std::string refused;
+    bool ran;
+    { CerrCapture cap; ran = dispose_if_present(obj, false, &refused); }
+    CHECK(ran, "this build must carry the clean-start disposal");
+    CHECK(refused.empty(), "nothing here should refuse");
+    CHECK(!std::filesystem::exists(f.published), "the earlier-run published snapshot must be removed");
+    CHECK(!std::filesystem::exists(f.part), "the .part must be removed");
+    CHECK(!std::filesystem::exists(f.killed), "the .killed must be removed");
+    CHECK(read_bytes(f.failed + ".prev13") == "failed-bytes" && !std::filesystem::exists(f.failed),
+          "the .failed must be kept as .prev13, byte-identical");
+    CHECK(read_bytes(f.x) == "x-bytes", "the retained name must be untouched");
+    CHECK_EQ_I((long) before - (long) listing(dir_of(f.stem)).size(), 3,
+               "exactly three files must be removed");
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(f.stem), ec);
+}
+
+static void T29_a_clean_start_with_keep_previous_keeps_every_artifact()
+{
+    // DoD 10(k2).
+    // Property: with the policy set, all four earlier-run artifacts are
+    //   renamed to "{name}.prev13" under ONE k, byte-identical, and nothing is
+    //   lost.
+    // Class: NEW CAPABILITY. A plausible wrong implementation recomputes k per
+    //   file, so the second rename uses 14; the per-file checks red.
+    // Why required: the policy exists so an operator debugging a run can keep
+    //   every earlier artifact together under one suffix.
+    // What kills it: removing instead of renaming any class, or a per-file k.
+    // A second correct implementation that still passes: copying each file to
+    //   its retained name and then removing the original.
+    const KFixture f = k_fixture("t29");
+    const std::size_t before = listing(dir_of(f.stem)).size();
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, f.stem);
+    std::string refused;
+    bool ran;
+    { CerrCapture cap; ran = dispose_if_present(obj, true, &refused); }
+    CHECK(ran, "this build must carry the clean-start disposal");
+    CHECK(refused.empty(), "nothing here should refuse");
+    CHECK(read_bytes(f.published + ".prev13") == "published-bytes", "published kept as .prev13");
+    CHECK(read_bytes(f.part + ".prev13") == "part-bytes", ".part kept as .prev13");
+    CHECK(read_bytes(f.killed + ".prev13") == "killed-bytes", ".killed kept as .prev13");
+    CHECK(read_bytes(f.failed + ".prev13") == "failed-bytes", ".failed kept as .prev13");
+    CHECK(!std::filesystem::exists(f.published) && !std::filesystem::exists(f.part)
+          && !std::filesystem::exists(f.killed) && !std::filesystem::exists(f.failed),
+          "no artifact may remain under its original name");
+    CHECK(read_bytes(f.x) == "x-bytes", "the retained name must be untouched");
+    CHECK_EQ_I(listing(dir_of(f.stem)).size(), before, "no file may be lost");
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(f.stem), ec);
+}
+
+static void T30_an_undisposable_published_snapshot_refuses_the_clean_start()
+{
+    // DoD 10(k3), under both policies.
+    // Property: when the earlier-run published snapshot cannot be disposed
+    //   of, the call returns its path and touches no entry at all.
+    // Class: NEW CAPABILITY. A plausible wrong implementation warns and
+    //   continues, returning success; the refusal check reds.
+    // Why required: the caller stops the run on this return, because a
+    //   surviving earlier-run snapshot is the cross-run hazard.
+    // What kills it: treating a published-name failure like a marker failure.
+    // A second correct implementation that still passes: checking write
+    //   permission on the directory up front and refusing before any attempt.
+    // The caller's stop is in src/triton.h and is checked at source, because
+    // an abort ends the process.
+    CHECK(permissions_bind(),
+          "this node must not run as root: a read-only directory does not bind "
+          "for root, so the refusal would never be exercised");
+    if (!permissions_bind()) return;
+
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        const bool keep = (pass == 1);
+        const KFixture f = k_fixture(keep ? "t30k" : "t30n");
+        const std::string dir = dir_of(f.stem);
+        const std::set<std::string> before = listing(dir);
+        std::error_code pec;
+        std::filesystem::permissions(dir, std::filesystem::perms::owner_read
+                                        | std::filesystem::perms::owner_exec,
+                                     std::filesystem::perm_options::replace, pec);
+        SwmmTriton obj;
+        arrange_rank0_with_stem(obj, f.stem);
+        std::string refused;
+        bool ran;
+        { CerrCapture cap; ran = dispose_if_present(obj, keep, &refused); }
+        std::filesystem::permissions(dir, std::filesystem::perms::owner_all,
+                                     std::filesystem::perm_options::replace, pec);
+        CHECK(ran, "this build must carry the clean-start disposal");
+        CHECK(refused == f.published, "the refusal must name the published snapshot");
+        CHECK(listing(dir) == before, "no entry may be renamed or removed");
+
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+    }
+}
+
+static void T31_an_undisposable_marker_warns_and_the_clean_start_continues()
+{
+    // DoD 10(k4).
+    // Property: a ".part" name that cannot be removed (it is a non-empty
+    //   directory) produces a warning naming it, the call still succeeds, and
+    //   the published snapshot is removed.
+    // Class: REGRESSION guard. The pre-change sweep already warned on a marker
+    //   it could not remove; this keeps that property while the published
+    //   snapshot is now also removed (that half is red on the pre-change tree).
+    // Why required: no marker is ever loaded as state, so stopping a clean
+    //   start over one would cost a run for nothing.
+    // What kills it: returning the marker's path as a refusal.
+    // A second correct implementation that still passes: checking whether the
+    //   marker name is a directory first and warning without attempting the
+    //   removal at all.
+    const std::string stem = make_snapshot_stem("t31");
+    const std::string published = snapshot_path_at(stem, 3);
+    const std::string partDir   = snapshot_path_at(stem, 5) + ".part";
+    write_bytes(published, "published-bytes");
+    std::error_code mec;
+    std::filesystem::create_directories(partDir, mec);
+    write_bytes(partDir + "/occupant", "x");
+
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, stem);
+    std::string refused, out;
+    bool ran;
+    { CerrCapture cap; ran = dispose_if_present(obj, false, &refused); out = cap.str(); }
+    CHECK(ran, "this build must carry the clean-start disposal");
+    CHECK(refused.empty(), "a marker failure must not refuse the clean start");
+    CHECK(out.find(partDir) != std::string::npos, "the warning must name the marker");
+    CHECK(!std::filesystem::exists(published), "the published snapshot must still be removed");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+static void T32_a_failed_snapshot_write_keeps_its_marker_and_says_the_resume_will_stop()
+{
+    // DoD 10(l1), plus the no-marker counterpart of the warning.
+    // Property: a write whose payload fails to reach the disk lands in the
+    //   writer's length-check arm, publishes nothing, keeps "{path}.failed",
+    //   and the warning says the next resume will STOP; a write that fails
+    //   before anything is written (the directory is read-only) keeps no
+    //   marker and the warning says the resume starts from an earlier snapshot
+    //   or replays.
+    // Class: NEW CAPABILITY. A plausible wrong implementation keeps the old
+    //   single warning text, which claims a replay for both; arm 1's text
+    //   check reds, and the old writer removed the temporary, so its marker
+    //   check reds too.
+    // Why required: the operator reads this warning while the run is still
+    //   going; a text promising a replay for a write that will stop the resume
+    //   is a false statement about the next job.
+    // What kills it: removing the temporary on the length-check arm, or
+    //   printing one text regardless of the marker.
+    // A second correct implementation that still passes: deciding the text
+    //   from snapshot_save's return value if it distinguished the arms, rather
+    //   than from the marker's existence.
+    //
+    // HOW ARM 1 REACHES THE LENGTH-CHECK ARM, and why it is not T17's input. A
+    // model with a missing array is refused by the COUNT pass that runs before
+    // the temporary is even opened -- every structural guard is gated on the
+    // mode being other than the manifest pass, so the count pass refuses
+    // exactly as the write pass would -- and snapshot_save returns before
+    // writing any snapshot bytes (it leaves a one-line ".failed" instead, which
+    // T33 asserts). The length-check arm is reached only when the WRITE
+    // itself fails after the header. So arm 1 lowers the process's file-size
+    // limit to one double short of a complete snapshot of the same model: the
+    // header and manifest fit, the payload does not. SIGXFSZ is ignored for
+    // the duration so the oversize write fails with an error instead of
+    // ending the process.
+    const int N = 3;
+    {
+        const std::string stem = make_snapshot_stem("t32a");
+        const std::string path = snapshot_path_at(stem, N);
+
+        // Measure a complete snapshot of the same (empty) model first.
+        const std::string probe = dir_of(stem) + "/probe.snapshot";
+        CHECK_EQ_I(snapshot_save(probe.c_str()), 0, "the probe save must succeed");
+        const long full = file_size_of(probe);
+        std::error_code rmec;
+        std::filesystem::remove(probe, rmec);
+        CHECK(full > 8, "the probe snapshot must carry a payload");
+
+        struct rlimit old_lim;
+        getrlimit(RLIMIT_FSIZE, &old_lim);
+        struct rlimit low_lim = old_lim;
+        low_lim.rlim_cur = (rlim_t) (full - 8);
+        void (*old_handler)(int) = std::signal(SIGXFSZ, SIG_IGN);
+        const bool limited = setrlimit(RLIMIT_FSIZE, &low_lim) == 0;
+        CHECK(limited, "the test must be able to lower its own file-size limit");
+
+        SwmmTriton obj;
+        arrange_rank0_with_stem(obj, stem);
+        std::string out;
+        { CerrCapture cap; obj.write_state_snapshot(N); out = cap.str(); }
+
+        setrlimit(RLIMIT_FSIZE, &old_lim);
+        std::signal(SIGXFSZ, old_handler);
+
+        CHECK(!std::filesystem::exists(path), "a refused write must publish nothing");
+        CHECK(std::filesystem::exists(path + ".failed"), "the length-check arm must keep {path}.failed");
+        {
+            const std::string kept = read_bytes(path + ".failed");
+            CHECK(kept.size() > 16 && kept.rfind("SNAPSHOT REFUSED BEFORE WRITE", 0) != 0,
+                  "and that .failed must hold the partial snapshot bytes, not the "
+                  "count-pass refusal line");
+        }
+        CHECK(!std::filesystem::exists(path + ".part"), "and leave no .part behind");
+        CHECK(out.find("will STOP with an error naming it") != std::string::npos,
+              "the warning must say the resume will stop");
+        CHECK(out.find("step back") == std::string::npos,
+              "and must not say step back");
+        std::error_code ec;
+        std::filesystem::remove_all(dir_of(stem), ec);
+    }
+
+    CHECK(permissions_bind(),
+          "this node must not run as root: a read-only directory does not bind "
+          "for root, so the open failure would never be exercised");
+    if (!permissions_bind()) return;
+    {
+        const std::string stem = make_snapshot_stem("t32b");
+        const std::string dir  = dir_of(stem);
+        const std::string path = snapshot_path_at(stem, N);
+        std::error_code pec;
+        std::filesystem::permissions(dir, std::filesystem::perms::owner_read
+                                        | std::filesystem::perms::owner_exec,
+                                     std::filesystem::perm_options::replace, pec);
+        SwmmTriton obj;
+        arrange_rank0_with_stem(obj, stem);
+        std::string out;
+        { CerrCapture cap; obj.write_state_snapshot(N); out = cap.str(); }
+        std::filesystem::permissions(dir, std::filesystem::perms::owner_all,
+                                     std::filesystem::perm_options::replace, pec);
+
+        CHECK(!std::filesystem::exists(path) && !std::filesystem::exists(path + ".part")
+              && !std::filesystem::exists(path + ".failed"),
+              "a write that could not open its temporary must leave no file at all");
+        CHECK(out.find("no marker was kept") != std::string::npos,
+              "the warning must say no marker was kept");
+        CHECK(out.find("itself replays the exchange history") != std::string::npos,
+              "and name the replay for a launch at this checkpoint");
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+    }
+}
+
+// The one line a count-pass refusal writes into its ".failed" marker. Spelled
+// out here rather than taken from snapshot.c, so a reworded line reds the
+// test instead of moving with it.
+static const char* const kRefusedLine =
+    "SNAPSHOT REFUSED BEFORE WRITE: a structural guard rejected the model state in the count pass";
+
+static void T33_a_count_pass_refusal_leaves_a_one_line_failed_marker()
+{
+    // DoD 10(l2).
+    // Property: a save the COUNT pass refuses (a routed outfall whose wRouted
+    //   array is missing) publishes nothing, writes no .part, and leaves
+    //   "{path}.failed" holding exactly the refusal line; the warning says
+    //   the next resume will STOP.
+    // Class: NEW CAPABILITY. The plausible wrong implementation is the prior
+    //   one -- return before anything exists -- under which the refusal
+    //   reaches the next resume as an unmarked missing snapshot and is
+    //   resumed past silently; checks 3 and 4 red.
+    // Why required: a structural refusal is a defect in the model or the
+    //   writer, and the resume must stop on it, which it does only for a
+    //   checkpoint carrying ".failed".
+    // What kills it: dropping the marker creation, writing it as ".part", or
+    //   writing snapshot bytes into it.
+    // A second correct implementation that still passes: writing the marker
+    //   to a temporary name and renaming it into place.
+    const int N = 4;
+    const std::string stem = make_snapshot_stem("t33");
+    const std::string path = snapshot_path_at(stem, N);
+    build_pollutant_model(2, 0);
+    std::free(Outfall[0].wRouted);
+    Outfall[0].wRouted = nullptr;
+
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, stem);
+    std::string out;
+    { CerrCapture cap; obj.write_state_snapshot(N); out = cap.str(); }
+    free_pollutant_model();
+
+    CHECK(!std::filesystem::exists(path), "a refused save must publish nothing");
+    CHECK(!std::filesystem::exists(path + ".part"), "and create no .part");
+    CHECK(std::filesystem::exists(path + ".failed"),
+          "a count-pass refusal must leave {path}.failed");
+    CHECK(read_bytes(path + ".failed") == std::string(kRefusedLine) + "\n",
+          "holding exactly the refusal line");
+    CHECK(out.find("will STOP with an error naming it") != std::string::npos,
+          "the warning must say the resume will stop");
+    if (read_bytes(path + ".failed") != std::string(kRefusedLine) + "\n")
+        std::fprintf(stderr, "  note: marker held '%s'\n", read_bytes(path + ".failed").c_str());
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+static void T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line()
+{
+    // DoD 10(m).
+    // Property: a count-pass ".failed" at cp{N} beside a published cp{N-1}
+    //   makes the consultation return KilledWrite and print the STOP line
+    //   (reason=write-failed) exactly once, under the same assertions as
+    //   DoD 10 (g): no step-back line, the stop stated, no earlier snapshot
+    //   offered, the marker kept, and the identical line on a second resume.
+    // Class: NEW CAPABILITY. A plausible wrong implementation reads the
+    //   marker's content and treats a text marker as stale; checks 1-2 red.
+    // Why required: the refused checkpoint must stop the restart whichever
+    //   writer arm left the marker.
+    // What kills it: removing ".failed" from Arm 2's key, or discriminating on
+    //   the marker's content.
+    // A second correct implementation that still passes: a consultation that
+    //   reads the marker's first line to choose the human text, provided it
+    //   still returns KilledWrite and prints the same machine line.
+    const int N = 6;
+    const std::string stem = make_snapshot_stem("t34");
+    CHECK(publish_complete_snapshot(stem, N - 1), "the fixture must publish cp{N-1}");
+    const std::string failed = snapshot_path_at(stem, N) + ".failed";
+    write_bytes(failed, std::string(kRefusedLine) + "\n");
+
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, stem);
+    SnapRestore sr;
+    std::string out;
+    { CerrCapture cap; sr = obj.try_restore_state_snapshot(N, (value_t) 0.0); out = cap.str(); }
+    CHECK(sr == SnapRestore::KilledWrite, "the consultation must return KilledWrite");
+    CHECK_EQ_I(occurrences(out, row_stop(N, N - 1)), 1,
+               "the stop line naming N-1 for information must appear exactly once");
+    CHECK(out.find("SWMM snapshot step-back required") == std::string::npos,
+          "a refused write must not print a step-back line");
+    CHECK(out.find("This resume STOPS") != std::string::npos, "the human text must state the stop");
+    CHECK(out.find("the cheap route") == std::string::npos,
+          "and must not offer the earlier snapshot as a route");
+    CHECK(read_bytes(failed) == std::string(kRefusedLine) + "\n",
+          "the marker must survive the resume unchanged");
+    const std::string out2 = resume_and_capture(stem, N);
+    CHECK_EQ_I(occurrences(out2, row_stop(N, N - 1)), 1,
+               "a second resume at N must print the identical stop line");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
 }
 
 // ---------------------------------------------------------------------------
@@ -1767,6 +2543,32 @@ static const test_entry kTests[] = {
     { "T20_the_part_is_renamed_killed_and_the_classifier_returns_an_existing_token",
                                                  &T20_the_part_is_renamed_killed_and_the_classifier_returns_an_existing_token },
     { "T21_a_clean_start_disposes_both_markers", &T21_a_clean_start_disposes_both_markers },
+    { "T22_a_killed_write_with_a_published_snapshot_below_emits_the_step_back_line",
+                                                 &T22_a_killed_write_with_a_published_snapshot_below_emits_the_step_back_line },
+    { "T23_no_published_snapshot_below_emits_the_clean_start_line_with_its_reason",
+                                                 &T23_no_published_snapshot_below_emits_the_clean_start_line_with_its_reason },
+    { "T24_a_failed_write_with_a_published_snapshot_below_emits_the_stop_line",
+                                                 &T24_a_failed_write_with_a_published_snapshot_below_emits_the_stop_line },
+    { "T25_the_step_back_line_is_identical_on_a_second_resume",
+                                                 &T25_the_step_back_line_is_identical_on_a_second_resume },
+    { "T26_the_step_back_confirmation_scan_reads_only_live_markers",
+                                                 &T26_the_step_back_confirmation_scan_reads_only_live_markers },
+    { "T27_a_clean_start_keeps_a_failed_marker_under_one_directory_wide_k",
+                                                 &T27_a_clean_start_keeps_a_failed_marker_under_one_directory_wide_k },
+    { "T28_a_clean_start_without_keep_previous_removes_the_earlier_run",
+                                                 &T28_a_clean_start_without_keep_previous_removes_the_earlier_run },
+    { "T29_a_clean_start_with_keep_previous_keeps_every_artifact",
+                                                 &T29_a_clean_start_with_keep_previous_keeps_every_artifact },
+    { "T30_an_undisposable_published_snapshot_refuses_the_clean_start",
+                                                 &T30_an_undisposable_published_snapshot_refuses_the_clean_start },
+    { "T31_an_undisposable_marker_warns_and_the_clean_start_continues",
+                                                 &T31_an_undisposable_marker_warns_and_the_clean_start_continues },
+    { "T32_a_failed_snapshot_write_keeps_its_marker_and_says_the_resume_will_stop",
+                                                 &T32_a_failed_snapshot_write_keeps_its_marker_and_says_the_resume_will_stop },
+    { "T33_a_count_pass_refusal_leaves_a_one_line_failed_marker",
+                                                 &T33_a_count_pass_refusal_leaves_a_one_line_failed_marker },
+    { "T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line",
+                                                 &T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line },
 };
 
 int main(int argc, char** argv)

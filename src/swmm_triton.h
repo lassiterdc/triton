@@ -190,7 +190,11 @@ namespace SWMM_triton
 *  @param rank_ Subdomain id
 *  @param size_ Number of subdomain
 */
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all);
+		/// `swmm_snapshot_keep_previous` is the cfg key of the same name, consumed
+		/// only by the clean-start disposal. It DEFAULTS to false so a caller
+		/// that does not yet pass it gets the removal behaviour, which is what
+		/// an unset key means.
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false);
 
 
 		void end_swmm(std::string output_dir);
@@ -222,9 +226,10 @@ namespace SWMM_triton
 
 		/// Write the full-precision SWMM state snapshot for this checkpoint.
 		/// Charged to IO_TIME by the caller. Rank 0 only. A failure warns and
-		/// does not abort: a missing snapshot costs a replay at the next resume,
-		/// which is slow but correct, and losing a live run to a failed
-		/// optimisation write is the worse trade.
+		/// does not abort the live run, which is worth more than one
+		/// checkpoint's snapshot. The cost lands at the next resume from this
+		/// checkpoint: a stop when the writer kept a ".failed" marker, otherwise
+		/// a resume from an earlier snapshot or a replay.
 		void write_state_snapshot(int checkpoint_id);
 
 		/// Resume: restore SWMM's state from this checkpoint's snapshot.
@@ -249,13 +254,18 @@ namespace SWMM_triton
 		///                     ABORT -- and it must not fall back, because the
 		///                     accumulators are ALREADY restored and a replay
 		///                     on top of them would double-apply the prefix.
-		///   KilledWrite    -- a ".part" or ".killed" marker survives for this
-		///                     checkpoint and no published snapshot does, so the
-		///                     writer was killed inside the traversal. ABORT --
-		///                     and specifically NOT Absent, because Absent is
-		///                     the arm that enters the replay and the replay is
-		///                     measured not to converge at a high checkpoint
-		///                     index.
+		///   KilledWrite    -- a ".part", ".killed" or ".failed" marker survives
+		///                     for this checkpoint and no published snapshot
+		///                     does, so the write was cut off (".part"/".killed")
+		///                     or failed the writer's own check (".failed").
+		///                     ABORT -- and specifically NOT Absent, because
+		///                     Absent is the arm that enters the replay and the
+		///                     replay is measured not to converge at a high
+		///                     checkpoint index. One machine-readable line names
+		///                     what the caller's orchestration should do next:
+		///                     resume from an earlier published snapshot (a cut
+		///                     off write), stop (a failed write), or start clean
+		///                     (no published snapshot below).
 		///
 		/// The cost asymmetry is what sets the default: a wrongly aborting
 		/// resume costs one job and a loud message; a wrongly falling-back
@@ -267,18 +277,58 @@ namespace SWMM_triton
 		SnapshotRestore try_restore_state_snapshot(int checkpoint_id,
 		                                           value_t up_to_time);
 
-		/// Clean start only: remove every ".part" and ".killed" marker in the
-		/// snapshot directory.
+		/// Clean start only: dispose of the EARLIER run's snapshot artifacts --
+		/// every published snapshot and every ".part", ".killed" and ".failed"
+		/// marker in the snapshot directory -- with the keep-previous policy
+		/// latched from the cfg at initialize(). Returns the path of a published
+		/// snapshot that could not be disposed of, or an empty string on success;
+		/// the caller must stop the run on a non-empty return, before its first
+		/// write.
 		///
-		/// A clean start consults no snapshot, so no marker can be telling it
-		/// anything, which is what makes disposal provably safe here. This is
-		/// NOT the only such point: try_restore_state_snapshot also removes a
-		/// surviving ".killed" when a PUBLISHED snapshot exists at the same id,
-		/// because the published artifact proves that marker stale. On the ABORT
-		/// path the marker is deliberately RETAINED -- there it is the artifact
-		/// an operator needs in order to see that a write was killed rather than
-		/// that a snapshot was missing.
-		void sweep_snapshot_markers();
+		/// Why published snapshots go too: a clean start removes the earlier
+		/// run's checkpoint configurations but would otherwise leave its
+		/// snapshots, and if the new run's write at some checkpoint then failed,
+		/// a resume there would load the WRONG run's SWMM state with no error.
+		/// A clean start consults no snapshot, so nothing it disposes of can be
+		/// evidence it needs. On a RESUME nothing is disposed of except a
+		/// ".killed" made stale by a published snapshot at the same id. On the
+		/// ABORT path every marker is deliberately RETAINED -- there it is the
+		/// artifact an operator needs in order to see that a write was killed
+		/// or failed rather than that a snapshot was missing.
+		std::string sweep_snapshot_markers();
+
+		/// The disposal itself, with the policy passed in rather than read from
+		/// the latched member, so it can be exercised for both policies without
+		/// a cfg.
+		///
+		///   keep_previous true  -- every published name and marker is RENAMED
+		///                          to "{name}.prev{k}" and kept.
+		///   keep_previous false -- published names, ".part" and ".killed" are
+		///                          REMOVED; a ".failed" is still renamed and
+		///                          kept, because it is the evidence for a
+		///                          stop and the operator's natural response
+		///                          to that stop is exactly this clean start.
+		///
+		/// k is ONE integer for the whole call: one more than the largest j of
+		/// any "*.prev{j}" name already in the directory, whatever its base, or
+		/// 1 if there is none. A per-base or string maximum would let a rename
+		/// land on an existing name, and rename(2) onto an existing file
+		/// replaces it.
+		///
+		/// Published names are handled FIRST, and the first one that cannot be
+		/// disposed of stops the call with its path returned and no marker
+		/// touched: a surviving earlier-run snapshot is the hazard above. A
+		/// marker that cannot be disposed of is a warning and the call goes on,
+		/// because no marker is ever loaded as state.
+		std::string dispose_snapshot_artifacts(bool keep_previous);
+
+		/// The highest checkpoint id ABOVE `checkpoint_id` carrying a LIVE
+		/// marker -- an exact "{published name}.part", ".killed" or ".failed"
+		/// with no published name at that id -- or -1 if there is none.
+		/// Directory names only, so it says nothing it did not read. Used after
+		/// a successful restore to name the unusable checkpoint the resume
+		/// stepped over.
+		int highest_live_marker_above(int checkpoint_id) const;
 
 		/// Classifies WHY no snapshot was available for this checkpoint, into
 		/// the three reason values the resume-event record carries. Rank 0.
@@ -340,6 +390,12 @@ namespace SWMM_triton
 		/// object retains the keep-2 default rather than an indeterminate one.
 		bool snapshot_keep_all = false;
 
+		/// Latched from the cfg key `swmm_snapshot_keep_previous` in
+		/// initialize(), for the same reason as snapshot_keep_all: its consumer,
+		/// the clean-start disposal, runs after initialize returns. False keeps
+		/// the removal default.
+		bool snapshot_keep_previous = false;
+
 		std::string snapshot_path_for(int checkpoint_id) const;
 
 		/// The temporary snapshot_save writes before it publishes by rename, and
@@ -350,6 +406,10 @@ namespace SWMM_triton
 		/// published snapshot and never pruned as one.
 		std::string snapshot_part_path_for(int checkpoint_id) const;
 		std::string snapshot_killed_path_for(int checkpoint_id) const;
+		/// The marker snapshot_save leaves when its count pass refuses the model
+		/// state (one text line) or its length check fails after the write (the
+		/// written bytes). Carries the same suffix property as the two above.
+		std::string snapshot_failed_path_for(int checkpoint_id) const;
 
 		/// Position the side-file for the live segment: validate the header,
 		/// walk records up to `up_to_time`, truncate any stale tail or partial
@@ -395,13 +455,14 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous)
 	{
 		rank_=rank;
 		size_=size;
 		units=0;
 		this->output_folder = output_folder;
 		this->snapshot_keep_all = swmm_snapshot_keep_all;
+		this->snapshot_keep_previous = swmm_snapshot_keep_previous;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
@@ -925,30 +986,145 @@ namespace SWMM_triton
 	}
 
 
-	void swmm_triton::sweep_snapshot_markers()
+	std::string swmm_triton::sweep_snapshot_markers()
 	{
-		if (rank_ != 0) return;
-		if (snapshot_path_stem.empty()) return;
+		return dispose_snapshot_artifacts(snapshot_keep_previous);
+	}
+
+
+	// Splits a snapshot-directory entry name into its checkpoint id and the
+	// suffix after ".snapshot", when the name is exactly
+	// "{prefix}{digits}.snapshot{suffix}". Returns false for every other name,
+	// including a retained "*.prev{k}" (its suffix is not one of the four this
+	// mechanism writes) -- which is how a retained file stays invisible to both
+	// readers below.
+	static bool parse_snapshot_entry_name(const std::string& name,
+	                                      const std::string& prefix,
+	                                      long* id_out, std::string* suffix_out)
+	{
+		if (name.rfind(prefix, 0) != 0) return false;
+		const std::size_t digits_at = prefix.size();
+		std::size_t i = digits_at;
+		while (i < name.size() && name[i] >= '0' && name[i] <= '9') ++i;
+		if (i == digits_at) return false;
+		static const std::string kExt = ".snapshot";
+		if (name.compare(i, kExt.size(), kExt) != 0) return false;
+		const std::string suffix = name.substr(i + kExt.size());
+		if (suffix != "" && suffix != ".part" && suffix != ".killed" && suffix != ".failed")
+			return false;
+		*id_out = std::stol(name.substr(digits_at, i - digits_at));
+		*suffix_out = suffix;
+		return true;
+	}
+
+
+	std::string swmm_triton::dispose_snapshot_artifacts(bool keep_previous)
+	{
+		if (rank_ != 0) return std::string();
+		if (snapshot_path_stem.empty()) return std::string();   // snapshots disabled by cfg
 
 		const std::filesystem::path stem(snapshot_path_stem);
 		const std::filesystem::path dir = stem.parent_path();
 		const std::string prefix = stem.filename().string() + "_cp";
 
+		// Collect first, act second: renaming or removing entries while a
+		// directory_iterator is open over the same directory leaves it
+		// unspecified whether the iterator sees the renamed name again.
+		std::vector<std::filesystem::path> published, markers;
+		long max_prev = 0;
+		{
+			std::error_code ec;
+			for (const auto& e : std::filesystem::directory_iterator(dir, ec))
+			{
+				if (ec) break;
+				const std::string name = e.path().filename().string();
+
+				// k scans EVERY "*.prev{j}" in the directory, not only this
+				// stem's, because the rename target must not exist anywhere a
+				// later k could reach it.
+				const std::size_t p = name.rfind(".prev");
+				if (p != std::string::npos && p + 5 < name.size() &&
+				    name.find_first_not_of("0123456789", p + 5) == std::string::npos)
+				{
+					const long j = std::stol(name.substr(p + 5));
+					if (j > max_prev) max_prev = j;
+					continue;
+				}
+
+				long id = 0;
+				std::string suffix;
+				if (!parse_snapshot_entry_name(name, prefix, &id, &suffix)) continue;
+				(suffix.empty() ? published : markers).push_back(e.path());
+			}
+		}
+		const std::string prev_suffix = ".prev" + std::to_string(max_prev + 1);
+
+		auto keep = [&](const std::filesystem::path& from, std::error_code& rec) {
+			std::filesystem::rename(from, from.string() + prev_suffix, rec);
+		};
+
+		// Published names first. A survivor here is the cross-run hazard this
+		// function exists to remove, so it stops the clean start.
+		for (const auto& f : published)
+		{
+			std::error_code rec;
+			if (keep_previous) keep(f, rec);
+			else               std::filesystem::remove(f, rec);
+			if (rec)
+			{
+				std::cerr << ERROR "Clean start refused: the earlier run's SWMM state "
+				             "snapshot " << f.string() << " could not be "
+				          << (keep_previous ? "renamed" : "removed")
+				          << " (" << rec.message() << ").\n"
+				          << "         Left in place, a later resume of this run at "
+				             "that checkpoint could load the earlier run's SWMM state. "
+				             "Remove or move it by hand, then start again."
+				          << std::endl;
+				return f.string();
+			}
+		}
+
+		for (const auto& f : markers)
+		{
+			const bool is_failed = f.extension() == ".failed";
+			std::error_code rec;
+			if (keep_previous || is_failed) keep(f, rec);
+			else                            std::filesystem::remove(f, rec);
+			if (rec)
+				std::cerr << WARN "Could not dispose of the earlier run's snapshot "
+				             "marker " << f.string() << " (" << rec.message()
+				          << "); it is not a snapshot and is never loaded, so the "
+				             "clean start continues." << std::endl;
+		}
+		return std::string();
+	}
+
+
+	int swmm_triton::highest_live_marker_above(int checkpoint_id) const
+	{
+		if (snapshot_path_stem.empty()) return -1;
+
+		const std::filesystem::path stem(snapshot_path_stem);
+		const std::filesystem::path dir = stem.parent_path();
+		const std::string prefix = stem.filename().string() + "_cp";
+
+		long highest = -1;
 		std::error_code ec;
 		for (const auto& e : std::filesystem::directory_iterator(dir, ec))
 		{
 			if (ec) break;
-			const std::string name = e.path().filename().string();
-			if (name.rfind(prefix, 0) != 0) continue;
-			const std::string ext = e.path().extension().string();
-			if (ext != ".part" && ext != ".killed") continue;
-			std::error_code rec;
-			std::filesystem::remove(e.path(), rec);
-			if (rec)
-				std::cerr << WARN "Could not remove the stale snapshot marker "
-				          << e.path().string() << " (" << rec.message() << ")."
-				          << std::endl;
+			long id = 0;
+			std::string suffix;
+			if (!parse_snapshot_entry_name(e.path().filename().string(), prefix, &id, &suffix))
+				continue;
+			if (suffix.empty() || id <= (long) checkpoint_id || id <= highest) continue;
+			// A marker beside a published name at the same id has lapsed: the
+			// later write at that id succeeded.
+			std::error_code sec;
+			if (std::filesystem::exists(snapshot_path_for((int) id), sec)) continue;
+			highest = id;
 		}
+		return (int) highest;
 	}
 
 
@@ -1153,6 +1329,16 @@ namespace SWMM_triton
 	}
 
 
+	// ".failed" is the WRITER's marker -- snapshot_save creates it holding one
+	// text line when its count pass refuses the model state, and renames its
+	// temporary to it when its length check fails after the write -- and must
+	// agree byte-for-byte with SNAPSHOT_FAILED_SUFFIX in snapshot.c.
+	std::string swmm_triton::snapshot_failed_path_for(int checkpoint_id) const
+	{
+		return snapshot_path_for(checkpoint_id) + ".failed";
+	}
+
+
 	void swmm_triton::write_state_snapshot(int checkpoint_id)
 	{
 		if (rank_ != 0) return;
@@ -1177,24 +1363,46 @@ namespace SWMM_triton
 		const std::string path = snapshot_path_for(checkpoint_id);
 		if (snapshot_save(path.c_str()) != 0)
 		{
-			// NOT fatal, and the asymmetry is deliberate. A snapshot that fails
-			// to write costs a replay at the next resume -- slow, but correct,
-			// and only if there IS a next resume. Aborting a live simulation
-			// over a failed write of a performance optimisation would trade a
-			// certain large loss for an uncertain small one.
+			// NOT fatal, and the asymmetry is deliberate. A failed write costs
+			// something only at the NEXT resume from this checkpoint, and only if
+			// there is one: a stop when the writer kept a ".failed" marker, and
+			// otherwise a resume from an earlier published snapshot or a replay.
+			// Aborting a live simulation over one checkpoint's snapshot would
+			// trade a certain large loss for an uncertain small one.
 			//
 			// NOTHING IS PUBLISHED AT THIS POINT. snapshot_save writes a
 			// ".part" temporary, verifies its value count against the running
 			// model, and only then renames it into place -- so a non-zero
-			// return means no file exists at `path` and the next resume finds
-			// a legitimately ABSENT snapshot rather than a short one. The
-			// temporary is removed on this path; a leftover means remove
-			// ALSO failed, which snapshot_save reports separately.
-			std::cerr << WARN "Could not write SWMM state snapshot: " << path << "\n"
-			          << "         Nothing was published under that name, so a "
-			             "resume from checkpoint " << checkpoint_id
-			          << " will fall back to replaying the exchange history."
-			          << std::endl;
+			// return means no file exists at `path`. The temporary is removed on
+			// every failure arm except the length-check arm, which keeps it as
+			// "{path}.failed" so the bytes that failed can be inspected; a
+			// leftover ".part" means remove ALSO failed, which snapshot_save
+			// reports separately. A refusal in the count pass, before any
+			// temporary exists, writes "{path}.failed" holding one text line
+			// that names the refusal, so a structural rejection stops the next
+			// resume just as a failed write does.
+			//
+			// THE TWO TEXTS ARE KEYED ON ONE READ of whether that marker exists,
+			// because the next resume's behaviour differs on exactly that fact:
+			// it stops on a ".failed", and on a missing snapshot with no marker
+			// the orchestration resumes from the newest published snapshot below
+			// this checkpoint (a launch at this checkpoint itself replays).
+			const std::string failed = snapshot_failed_path_for(checkpoint_id);
+			std::error_code fec;
+			const bool haveFailed = std::filesystem::exists(failed, fec);
+			std::cerr << WARN "Could not write SWMM state snapshot: " << path << "\n";
+			if (haveFailed)
+				std::cerr << "         Nothing was published under that name. The "
+				             "writer refused the model state or failed its own length "
+				             "check, and kept " << failed << ", so a resume from "
+				             "checkpoint " << checkpoint_id << " will STOP with an "
+				             "error naming it." << std::endl;
+			else
+				std::cerr << "         Nothing was published under that name and no "
+				             "marker was kept. A resume should start from the newest "
+				             "published snapshot below checkpoint " << checkpoint_id
+				          << "; a resume launched at checkpoint " << checkpoint_id
+				          << " itself replays the exchange history." << std::endl;
 			return;
 		}
 
@@ -1329,30 +1537,36 @@ namespace SWMM_triton
 		// resume after it saw only a ".killed", fell through to Absent, and was
 		// placed into the replay with no refusal emitted at all. Keyed on both,
 		// every resume at N refuses with the same message and no attempt is ever
-		// silently entered into the replay.
+		// silently entered into the replay. The writer's ".failed" is a third
+		// alternative in the same OR, so a failed write refuses on every resume
+		// at N for the same reason.
 		//
 		// Arm 3 is the unchanged path.
 		{
 			const std::string part   = snapshot_part_path_for(checkpoint_id);
 			const std::string killed = snapshot_killed_path_for(checkpoint_id);
+			const std::string failed = snapshot_failed_path_for(checkpoint_id);
 			std::error_code   ec;
 
-			// Each of the three names is read EXACTLY ONCE, into a local. Two
+			// Each of the four names is read EXACTLY ONCE, into a local. Two
 			// reads of one name inside one decision can disagree -- a concurrent
 			// writer can publish between them -- and then the arm taken and the
 			// message emitted would describe two different directory states.
 			const bool havePublished = std::filesystem::exists(path,   ec);
 			const bool havePart      = std::filesystem::exists(part,   ec);
 			const bool haveKilled    = std::filesystem::exists(killed, ec);
+			const bool haveFailed    = std::filesystem::exists(failed, ec);
 
 			if (havePublished)
 			{
 				// ARM 1 -- the marker has LAPSED. Remove it where it is
 				// superseded rather than tolerating it or leaving it to a sweep
-				// on a route the operator may never take.
+				// on a route the operator may never take. A ".failed" is NOT
+				// removed here: it is the evidence of a writer failure, and only
+				// a clean start disposes of it.
 				if (haveKilled) std::filesystem::remove(killed, ec);
 			}
-			else if (havePart || haveKilled)
+			else if (havePart || haveKilled || haveFailed)
 			{
 				// ARM 2 -- the marker is LIVE.
 				if (havePart)
@@ -1385,30 +1599,95 @@ namespace SWMM_triton
 					{ highest = cid; break; }
 				}
 
-				std::cerr << ERROR "Coupled resume refused at checkpoint "
-				          << checkpoint_id << ": the SWMM state snapshot write "
-				             "for this checkpoint was KILLED before it completed.\n"
-				          << "         The marker " << killed << " survives and no "
-				             "snapshot was ever published at " << path << ". That "
-				             "is a measured cause, not an inference: nothing but an "
-				             "interrupted write leaves this pair of states.\n";
-
-				if (highest >= 1)
-					std::cerr << "         The highest COMPLETE snapshot found below "
-					             "this checkpoint is " << snapshot_path_for(highest)
-					          << " (checkpoint " << highest << "); resuming this "
-					             "member from there is the cheap route.\n";
+				// WHICH CAUSE DECIDES. When several markers exist for this id the
+				// precedence is ".failed" over ".killed" over ".part": ".failed"
+				// is the writer's own verified-negative result and so the most
+				// specific diagnosis, and a failed write STOPS the run where a
+				// cut-off write may resume from an earlier snapshot. The losing
+				// markers stay on disk; the precedence only selects the text.
+				if (haveFailed)
+				{
+					// A FAILED OR REFUSED WRITE STOPS, with or without an earlier
+					// snapshot. The marker comes from one of two writer arms: the
+					// count pass refusing the model state (a structural defect;
+					// the marker then holds one text line naming it), or the
+					// written bytes failing the writer's own check (a full disk,
+					// a short close; the marker then holds those bytes). Either
+					// cause would still be present on a resume from an earlier
+					// snapshot: a full disk fails the next write too, and a
+					// structural defect would carry the run past a live fault. So
+					// this text deliberately offers no earlier snapshot as a
+					// route.
+					std::cerr << ERROR "Coupled resume refused at checkpoint "
+					          << checkpoint_id << ": the SWMM state snapshot write "
+					             "for this checkpoint was REFUSED by the writer or "
+					             "FAILED its own length check.\n"
+					          << "         The marker " << failed << " survives and "
+					             "no snapshot was ever published at " << path << ". "
+					             "A marker holding one text line records a refusal of "
+					             "the model state; one holding snapshot bytes records "
+					             "a write that did not match what the running model "
+					             "requires.\n"
+					          << "         This resume STOPS, and it does not continue "
+					             "from an earlier snapshot, because the cause may still "
+					             "be present. Inspect the marker and clear the cause "
+					             "before relaunching." << std::endl;
+				}
 				else
-					std::cerr << "         NO complete snapshot exists below this "
-					             "checkpoint, so a clean start (checkpoint_id=0) is "
-					             "the only route.\n";
+				{
+					std::cerr << ERROR "Coupled resume refused at checkpoint "
+					          << checkpoint_id << ": the SWMM state snapshot write "
+					             "for this checkpoint was KILLED before it completed.\n"
+					          << "         The marker " << killed << " survives and no "
+					             "snapshot was ever published at " << path << ". That "
+					             "is a measured cause, not an inference: nothing but an "
+					             "interrupted write leaves this pair of states.\n";
 
-				std::cerr << "         The exchange replay is NOT offered as a "
-				             "substitute. It was measured at 11,107 s on a run that "
-				             "was cancelled still replaying, and each successive "
-				             "resume replays a longer prefix, so the sequence does "
-				             "not converge."
-				          << std::endl;
+					if (highest >= 1)
+						std::cerr << "         The highest COMPLETE snapshot found below "
+						             "this checkpoint is " << snapshot_path_for(highest)
+						          << " (checkpoint " << highest << "); resuming this "
+						             "member from there is the cheap route.\n";
+					else
+						std::cerr << "         NO complete snapshot exists below this "
+						             "checkpoint, so a clean start (checkpoint_id=0) is "
+						             "the only route.\n";
+
+					std::cerr << "         The exchange replay is NOT offered as a "
+					             "substitute. It was measured at 11,107 s on a run that "
+					             "was cancelled still replaying, and each successive "
+					             "resume replays a longer prefix, so the sequence does "
+					             "not converge."
+					          << std::endl;
+				}
+
+				// THE MACHINE-READABLE LINE, one per resume at this checkpoint,
+				// for the orchestration that relaunches the run. Its text is a
+				// cross-repository contract (the toolkit parses the bracketed
+				// fields), so it is printed with no colour prefix and must not be
+				// reworded. Exactly one of three:
+				//   a cut-off write with a published snapshot below: step back to it;
+				//   a failed write with a published snapshot below: stop, and the
+				//     snapshot below is named for information only;
+				//   no published snapshot below: only a clean start remains, and
+				//     the reason still says which kind of marker was found.
+				if (highest >= 1 && !haveFailed)
+					std::cerr << "SWMM snapshot step-back required: checkpoint "
+					          << checkpoint_id << " unusable [resume-event checkpoint="
+					          << checkpoint_id << " path=step-back reason=killed-write"
+					             " target=" << highest << "]" << std::endl;
+				else if (highest >= 1)
+					std::cerr << "SWMM snapshot stop: checkpoint " << checkpoint_id
+					          << " unusable [resume-event checkpoint=" << checkpoint_id
+					          << " path=stop reason=write-failed target=" << highest
+					          << "]" << std::endl;
+				else
+					std::cerr << "SWMM snapshot step-back impossible: checkpoint "
+					          << checkpoint_id << " unusable, no published snapshot "
+					             "below it [resume-event checkpoint=" << checkpoint_id
+					          << " path=clean-start reason="
+					          << (haveFailed ? "write-failed" : "killed-write")
+					          << " target=0]" << std::endl;
 
 				return SnapshotRestore::KilledWrite;
 			}
@@ -1527,6 +1806,21 @@ namespace SWMM_triton
 		          << " [resume-event checkpoint=" << checkpoint_id
 		          << " path=snapshot]"
 		          << std::endl;
+
+		// THE STEP-BACK CONFIRMATION. When a later checkpoint still carries a
+		// live marker, this resume was launched below it -- the orchestration
+		// stepped back over an unusable checkpoint -- and this line puts both
+		// facts, which checkpoint was unusable and which one was used, into the
+		// log of the launch that actually resumes. The launch that found the
+		// unusable checkpoint may have had its log overwritten by the relaunch.
+		// Same cross-repository contract as the KilledWrite line: no colour
+		// prefix, and not to be reworded.
+		const int stepped_from = highest_live_marker_above(checkpoint_id);
+		if (stepped_from >= 1)
+			std::cerr << "SWMM snapshot step-back taken: resumed from checkpoint "
+			          << checkpoint_id << " [resume-event checkpoint=" << checkpoint_id
+			          << " path=step-back-taken from=" << stepped_from << "]"
+			          << std::endl;
 		return SnapshotRestore::Restored;
 	}
 
