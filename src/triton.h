@@ -425,12 +425,24 @@ namespace Triton
 #ifdef TRITON_SWMM
     // Initialize SWMM coupling
     swmm_local_elapsedTime = 0.0;
+    // Run-gate the coupling, not only compile-gate it: a TRITON_ENABLE_SWMM=ON
+    // binary must still run a non-coupled cfg, i.e. one with no inp_filename.
+    // Skipping initialize leaves both SWMM counts at their in-class zero, so every
+    // downstream coupling site (each guarded on num_of_swmm_links or
+    // global_num_of_swmm_links) no-ops. Without this a coupled build running a
+    // TRITON-only cfg calls read_inp_file("") and exits on every rank.
+    if (!arglist.inp_filename.empty()) {
     swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
                           dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                           arglist.manhole_diameter, arglist.manhole_loss,
                           arglist.swmm_snapshot_disable,
                           arglist.swmm_snapshot_keep_all,
                           arglist.swmm_snapshot_keep_previous);
+
+    }
+    else if (rank == 0) {
+      std::cerr << WARN "No inp_filename in the configuration file: SWMM coupling is compiled in but disabled for this run" << std::endl;
+    }
 
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, fast-replay the recorded 0..t_k exchange series through SWMM so its

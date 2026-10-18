@@ -339,9 +339,9 @@ namespace SWMM_triton
 
 		std::string get_output_folder() const { return output_folder; }
 
-		int num_of_swmm_links; /**< Number of SWMM nodes connected to the surface per subdomain */
+		int num_of_swmm_links = 0; /**< Number of SWMM nodes connected to the surface per subdomain */
 		int num_of_swmm_nodes; /**< Number of SWMM total nodes */
-		int global_num_of_swmm_links; /**< Number of total (full domain) SWMM nodes connected to the surface */
+		int global_num_of_swmm_links = 0; /**< Number of total (full domain) SWMM nodes connected to the surface */
 		int units; /**< IS units (0) or imperial units (1) */
 		std::vector<value_t> x;
 		std::vector<value_t> y;
