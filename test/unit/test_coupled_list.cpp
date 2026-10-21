@@ -282,6 +282,49 @@ static void R1_rim_rule()
     CHECK(coupled_node_rim(0.0, 0.0) == 0.0, "a pump-only junction recorded 0 stays 0");
 }
 
+// ---------------------------------------------------------------------------
+// US-unit models (item 12).
+// Class: SWMM's six flow units. SWMM's length unit follows its flow unit, so the
+// three US flow units (CFS, GPM, MGD) mean feet. Killed by recognising CFS only
+// (the old FLOW UNITS check's reach), or by a range that admits CMS.
+// Second correct implementation: a switch over the six swmm_FlowUnitsProperty values.
+// ---------------------------------------------------------------------------
+static void U1_us_flow_units_mean_feet()
+{
+    CHECK(swmm_flow_units_are_us(swmm_CFS) && swmm_flow_units_are_us(swmm_GPM) && swmm_flow_units_are_us(swmm_MGD),
+          "CFS, GPM and MGD are US units");
+    CHECK(!swmm_flow_units_are_us(swmm_CMS) && !swmm_flow_units_are_us(swmm_LPS) && !swmm_flow_units_are_us(swmm_MLD),
+          "CMS, LPS and MLD are SI units");
+}
+
+// Class: engine lengths in a US model and in an SI model. A US length is multiplied by
+// 0.3048, the factor SWMM's getters apply to every length of an SI model, so the result
+// is bit for bit what the SI twin's getter returns; an SI length is unchanged. Killed by
+// no conversion, by any other feet-to-metres factor, or by converting SI lengths too.
+// Second correct implementation: multiplying by SWMM's own MperFT macro.
+static void U2_engine_length_in_metres()
+{
+    const double ft = 1.6404199475065615;   // 0.5 m written in feet at %.17g
+    CHECK(swmm_engine_length_m(ft, true) == ft * 0.3048, "a US length is its SI twin's getter value, ft * 0.3048");
+    CHECK(std::fabs(swmm_engine_length_m(ft, true) - 0.5) < 1e-15, "0.5 m written in feet comes back as 0.5 m");
+    CHECK(swmm_engine_length_m(0.0, true) == 0.0, "zero stays zero");
+    CHECK(swmm_engine_length_m(1.5, false) == 1.5, "an SI length is unchanged");
+}
+
+// Class: a coupled node's rim in a US model, where the [JUNCTIONS] token is in feet.
+// Killed by keeping the token when it equals SWMM's value (the SI rule applied to a US
+// model gives a rim in feet), or by converting only one branch. Second correct
+// implementation: convert the engine depth first, then take it unconditionally in US.
+static void U3_us_rim_never_keeps_the_token()
+{
+    const double ft = 1.6404199475065615;   // 0.5 m in feet
+    CHECK(coupled_node_rim_m(ft, ft, true) == ft * 0.3048, "a US token equal to SWMM's depth is not kept: the rim is in metres");
+    const double crown_ft = 1.0 / 0.3048;   // a 1.0 m crown in feet
+    CHECK(coupled_node_rim_m(0.0, crown_ft, true) == crown_ft * 0.3048, "a US node raised to its crown has the crown in metres");
+    CHECK(coupled_node_rim_m(1.5, 1.5000000000000002, false) == 1.5, "the SI token-keep rule is unchanged");
+    CHECK(coupled_node_rim_m(0.0, 1.2, false) == 1.2, "an SI recorded 0 still takes SWMM's depth");
+}
+
 struct test_entry { const char* name; void (*fn)(); };
 static const test_entry kTests[] = {
     {"P1_standard_input_gives_todays_list", P1_standard_input_gives_todays_list},
@@ -299,6 +342,9 @@ static const test_entry kTests[] = {
     {"E1_error_line_matcher", E1_error_line_matcher},
     {"E2_echo_over_a_report", E2_echo_over_a_report},
     {"R1_rim_rule", R1_rim_rule},
+    {"U1_us_flow_units_mean_feet", U1_us_flow_units_mean_feet},
+    {"U2_engine_length_in_metres", U2_engine_length_in_metres},
+    {"U3_us_rim_never_keeps_the_token", U3_us_rim_never_keeps_the_token},
 };
 
 int main(int argc, char** argv)
