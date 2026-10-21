@@ -46,10 +46,17 @@
 // SWMM API header
 #include "swmm5.h"
 
+// Defined in the vendored routing.c beside routing_exportInflowNodeDepths, and
+// declared here rather than in funcs.h so the declaration sits with its only
+// caller. It reports whether node j's external inflows include a FLOW inflow --
+// the same predicate addExternalInflows uses to give a node an exchange slot.
+extern "C" int routing_nodeHasFlowInflow(int j);
+
 #include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <cctype>
 #include <cmath>
 #include <vector>
 #include <cstdint>
@@ -180,6 +187,259 @@ namespace SWMM_triton
 		return exchange_header_status::ok;
 	}
 
+	// --- The coupled-node list, read as SWMM reads the same input ------------------
+	// TRITON and SWMM pair coupled nodes by POSITION, not by name: SWMM consumes the
+	// exchange array and fills the depth array over its FLOW-inflow nodes in node
+	// (file) order. A coupled list that differs from SWMM's -- a node missing, an
+	// extra node, or the same nodes in another order -- therefore hands each surface
+	// cell some other node's sewer flow, with no error. These helpers reproduce SWMM's
+	// own section rule, tokenizer and FLOW test (input.c getTokens and match,
+	// inflow.c), and init_swmm then checks the result against the running engine
+	// rather than trusting the reproduction.
+
+	/** @brief Splits one .inp line into tokens exactly as SWMM's getTokens does.
+	 *
+	 *  Text from the first ';' onward is dropped, even inside quotes; tokens are
+	 *  separated by space, tab, CR or LF; a token that opens with '"' runs to the next
+	 *  '"' (or the end of the line) and excludes both quotes.
+	 */
+	static inline std::vector<std::string> swmm_inp_tokens(const std::string& line)
+	{
+		const std::string s = line.substr(0, line.find(';'));
+		const char* sep = " \t\n\r";
+		std::vector<std::string> toks;
+		std::size_t i = 0;
+		while (i < s.size()) {
+			if (std::strchr(sep, s[i]) != nullptr) { ++i; continue; }
+			const bool quoted = (s[i] == '"');
+			const std::size_t start = quoted ? i + 1 : i;
+			std::size_t end = quoted ? s.find_first_of("\"\n", start) : s.find_first_of(sep, start);
+			if (end == std::string::npos) end = s.size();
+			toks.push_back(s.substr(start, end - start));
+			i = end + 1;
+		}
+		return toks;
+	}
+
+	/** @brief ASCII upper case, the folding SWMM applies when it compares names and
+	 *  keywords (UCHAR in hash.c), so two spellings SWMM treats as one name compare
+	 *  equal here too. */
+	static inline std::string swmm_upper(std::string s)
+	{
+		for (char& c : s) if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 32);
+		return s;
+	}
+
+	/** @brief What parse_inp_coupled_list reads from an .inp file. */
+	struct inp_coupled_list_t
+	{
+		std::vector<std::string> names;              ///< coupled nodes, in SWMM node order
+		std::vector<std::string> junction_names;     ///< [JUNCTIONS] data lines, file order
+		std::vector<double>      junction_max_depth; ///< each junction's third token (0 if absent)
+		std::vector<std::string> coord_names;        ///< [COORDINATES] data lines, file order
+		std::vector<double>      coord_x;
+		std::vector<double>      coord_y;
+	};
+
+	/** @brief Reads the coupled-node list, the junction depths and the node coordinates.
+	 *
+	 *  A section starts at any line whose first token begins with '[' and runs to the
+	 *  next such line, wherever the line is indented and whatever comment follows it,
+	 *  and every occurrence of a section is read -- as SWMM reads its input. A node is
+	 *  coupled when an [INFLOWS] line's second token is not a [POLLUTANTS] name and
+	 *  begins, case-insensitively, with FLOW (SWMM's own test), at most once per node.
+	 *  The list is ordered by each node's position in [JUNCTIONS], because that is the
+	 *  order SWMM numbers nodes and walks its FLOW inflows; a node absent from
+	 *  [JUNCTIONS] keeps its relative place after them, and init_swmm refuses it.
+	 *  Node names are compared case-insensitively, as SWMM compares them.
+	 */
+	static inline inp_coupled_list_t parse_inp_coupled_list(std::istream& in)
+	{
+		inp_coupled_list_t r;
+		std::vector<std::pair<std::string, std::string>> inflow_lines;
+		std::vector<std::string> pollutants;
+		enum { OTHER, JUNCTIONS, COORDINATES, INFLOWS, POLLUTANTS } sect = OTHER;
+		std::string line;
+		while (std::getline(in, line)) {
+			const std::vector<std::string> tok = swmm_inp_tokens(line);
+			if (tok.empty()) continue;
+			if (tok[0][0] == '[') {
+				const std::string h = swmm_upper(tok[0]);
+				// SWMM's section keywords (text.h), which SWMM matches as a case-insensitive
+				// prefix of the header token (findmatch in input.c), so "[INFLOW]" opens [INFLOWS].
+				if      (h.rfind("[JUNC", 0) == 0)       sect = JUNCTIONS;
+				else if (h.rfind("[COORDINATE", 0) == 0) sect = COORDINATES;
+				else if (h.rfind("[INFLOW", 0) == 0)     sect = INFLOWS;
+				else if (h.rfind("[POLLUT", 0) == 0)     sect = POLLUTANTS;
+				else                                       sect = OTHER;
+				continue;
+			}
+			if (sect == JUNCTIONS && tok.size() >= 2) {
+				r.junction_names.push_back(tok[0]);
+				r.junction_max_depth.push_back(tok.size() >= 3 ? std::strtod(tok[2].c_str(), nullptr) : 0.0);
+			}
+			else if (sect == COORDINATES && tok.size() >= 3) {
+				r.coord_names.push_back(tok[0]);
+				r.coord_x.push_back(std::strtod(tok[1].c_str(), nullptr));
+				r.coord_y.push_back(std::strtod(tok[2].c_str(), nullptr));
+			}
+			else if (sect == INFLOWS && tok.size() >= 2) {
+				inflow_lines.emplace_back(tok[0], tok[1]);
+			}
+			else if (sect == POLLUTANTS) {
+				pollutants.push_back(swmm_upper(tok[0]));
+			}
+		}
+
+		// Pollutants are collected before any inflow line is classified, because the
+		// [POLLUTANTS] section may follow [INFLOWS] in the file.
+		std::vector<std::string> coupled, coupled_upper;
+		for (const auto& fl : inflow_lines) {
+			const std::string param = swmm_upper(fl.second);
+			if (std::find(pollutants.begin(), pollutants.end(), param) != pollutants.end()) continue;
+			if (param.rfind("FLOW", 0) != 0) continue;
+			const std::string node = swmm_upper(fl.first);
+			if (std::find(coupled_upper.begin(), coupled_upper.end(), node) != coupled_upper.end()) continue;
+			coupled.push_back(fl.first);
+			coupled_upper.push_back(node);
+		}
+
+		std::vector<std::string> junction_upper;
+		for (const auto& j : r.junction_names) junction_upper.push_back(swmm_upper(j));
+		std::vector<std::pair<std::size_t, std::size_t>> key;  // (sort key, list position)
+		for (std::size_t i = 0; i < coupled.size(); ++i) {
+			const auto it = std::find(junction_upper.begin(), junction_upper.end(), coupled_upper[i]);
+			const std::size_t k = (it != junction_upper.end())
+			                          ? static_cast<std::size_t>(it - junction_upper.begin())
+			                          : junction_upper.size() + i;
+			key.emplace_back(k, i);
+		}
+		std::sort(key.begin(), key.end());
+		for (const auto& k : key) r.names.push_back(coupled[k.second]);
+		return r;
+	}
+
+	/** @brief The outcome of check_coupled_list_against_swmm. */
+	struct coupled_list_check_t
+	{
+		bool        ok = true;
+		int         entry = -1;   ///< first failing list position, or -1 for the count check
+		std::string reason;
+	};
+
+	/** @brief Checks TRITON's coupled list against SWMM's FLOW-inflow nodes.
+	 *
+	 *  Passes iff every entry's SWMM node index exceeds the previous entry's, every
+	 *  entry is a node SWMM gives a FLOW inflow, and the list is as long as SWMM's
+	 *  FLOW-inflow set. Together those make the list exactly SWMM's set in SWMM's
+	 *  order, which is what the positional pairing requires. Returns the first
+	 *  failure, entry checks before the count.
+	 *
+	 *  @param swmm_index              each entry's swmm_getIndex(swmm_NODE, name)
+	 *  @param has_flow_inflow         each entry's routing_nodeHasFlowInflow
+	 *  @param swmm_flow_inflow_count  routing_nodeHasFlowInflow summed over SWMM's nodes
+	 */
+	static inline coupled_list_check_t
+	check_coupled_list_against_swmm(const std::vector<int>& swmm_index,
+	                                const std::vector<int>& has_flow_inflow,
+	                                int swmm_flow_inflow_count)
+	{
+		coupled_list_check_t r;
+		const int n = static_cast<int>(swmm_index.size());
+		for (int i = 0; i < n; ++i) {
+			if (i > 0 && swmm_index[i] <= swmm_index[i - 1]) {
+				r.ok = false; r.entry = i;
+				r.reason = "out of order: its SWMM node index does not exceed the previous entry's";
+				return r;
+			}
+			if (!has_flow_inflow[i]) {
+				r.ok = false; r.entry = i;
+				r.reason = "SWMM gives this node no FLOW inflow";
+				return r;
+			}
+		}
+		if (n != swmm_flow_inflow_count) {
+			r.ok = false; r.entry = -1;
+			r.reason = "TRITON couples " + std::to_string(n) + " nodes but SWMM gives "
+			         + std::to_string(swmm_flow_inflow_count) + " nodes a FLOW inflow";
+		}
+		return r;
+	}
+
+	/** @brief A coupled node's rim from its parsed [JUNCTIONS] depth and SWMM's full depth.
+	 *
+	 *  SWMM's full depth wins, because it is the depth SWMM itself floods and surcharges
+	 *  at. The parsed token is kept only where it equals SWMM's value to within a
+	 *  relative 1e-12: SWMM returns an unraised depth through two unit conversions that
+	 *  can move its last bit, so keeping the token there leaves a model with no
+	 *  crown-raised coupled node byte-identical to the pre-item-11 solver.
+	 */
+	static inline double coupled_node_rim(double token, double swmm_full_depth)
+	{
+		return std::fabs(swmm_full_depth - token) <= 1e-12 * std::fabs(swmm_full_depth)
+		           ? token : swmm_full_depth;
+	}
+
+	/** @brief True for a SWMM report error line: optional whitespace, "ERROR ", a digit
+	 *  (the form ^\s*ERROR [0-9]+). A bare substring test would also echo a title, a
+	 *  WARNING naming an object, or any other report line that merely contains ERROR. */
+	static inline bool is_swmm_error_line(const std::string& line)
+	{
+		std::size_t i = 0;
+		while (i < line.size() && std::isspace(static_cast<unsigned char>(line[i]))) ++i;
+		return line.compare(i, 6, "ERROR ") == 0 && i + 6 < line.size()
+		       && std::isdigit(static_cast<unsigned char>(line[i + 6]));
+	}
+
+	/** @brief True when a SWMM error line is a per-line INPUT error, which SWMM ends with
+	 *  "at line N of input file:" or "at line N of [SECTION] section:" and follows with
+	 *  the rejected input line (report_writeInputErrorMsg). Only then is the next report
+	 *  line part of the message; after any other error it is unrelated text or blank. */
+	static inline bool swmm_error_line_names_input_line(std::string line)
+	{
+		while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) line.pop_back();
+		auto ends = [&](const char* s) {
+			const std::size_t n = std::strlen(s);
+			return line.size() >= n && line.compare(line.size() - n, n, s) == 0;
+		};
+		return ends("input file:") || ends("section:");
+	}
+
+	/** @brief Echoes a closed SWMM report's error lines to `out`: a header naming the
+	 *  report, every line is_swmm_error_line accepts, and after a per-line input error the
+	 *  rejected input line (skipped if blank). Prints one line instead when the report
+	 *  cannot be read, so a missing echo is never silent. Returns the lines echoed. */
+	static inline int echo_swmm_report_errors(const char* report_path, std::ostream& out)
+	{
+		std::ifstream rpt(report_path);
+		if (!rpt.is_open()) {
+			out << "         The SWMM report " << report_path << " could not be read, so its error lines are not shown." << std::endl;
+			return 0;
+		}
+		out << "         SWMM's report (" << report_path << ") says:\n";
+		int echoed = 0;
+		bool want_input_line = false;
+		std::string line;
+		while (std::getline(rpt, line)) {
+			if (!line.empty() && line.back() == '\r') line.pop_back();
+			if (want_input_line) {
+				want_input_line = false;
+				if (line.find_first_not_of(" \t") != std::string::npos && !is_swmm_error_line(line)) {
+					out << "         " << line << "\n";
+					++echoed;
+					continue;
+				}
+			}
+			if (is_swmm_error_line(line)) {
+				out << "         " << line << "\n";
+				++echoed;
+				want_input_line = swmm_error_line_names_input_line(line);
+			}
+		}
+		out << std::flush;
+		return echoed;
+	}
+
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
 
@@ -194,11 +454,11 @@ namespace SWMM_triton
 		/// only by the clean-start disposal. It DEFAULTS to false so a caller
 		/// that does not yet pass it gets the removal behaviour, which is what
 		/// an unset key means.
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false);
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false);
 
 
 		void end_swmm(std::string output_dir);
-		void stop_on_swmm_error(int code, const char* call, const char* when);   ///< rank 0: MPI_Abort with SWMM's own message when a SWMM API call returns non-zero
+		void stop_on_swmm_error(int code, const char* call, const char* when, const char* report_path = nullptr);   ///< rank 0: MPI_Abort with SWMM's own message when a SWMM API call returns non-zero; with report_path (the startup calls only), close SWMM first and echo its report's ERROR lines
 
 		// --- TRITON->SWMM exchange-series persist/replay (hotstart-resume support) ---
 		// The SWMM trajectory is a deterministic function of its per-step inputs
@@ -347,6 +607,13 @@ namespace SWMM_triton
 		std::vector<value_t> x;
 		std::vector<value_t> y;
 		std::vector<std::string> nodeID;
+		/// Every coupled node's name, in global-index (SWMM node) order, on every rank.
+		/// Kept by process_swmm_node_locations, which narrows nodeID to this rank's
+		/// nodes; init_swmm needs the whole list to look each node up in the engine.
+		std::vector<std::string> global_nodeID;
+		/// This rank's coupled nodes' inverts, from the engine, in the model's length
+		/// unit; triton.h forms the DEM-derived rim from them.
+		std::vector<value_t> node_invert;
 		std::vector<value_t> loss;
 		std::vector<value_t> diameter;
 		std::vector<value_t> max_depth;
@@ -396,6 +663,11 @@ namespace SWMM_triton
 		/// the clean-start disposal, runs after initialize returns. False keeps
 		/// the removal default.
 		bool snapshot_keep_previous = false;
+
+		/// Latched from the cfg key `swmm_node_rim_from_dem` in initialize(). Read only
+		/// by init_swmm, to label the SWMM rims it prints as replaced when triton.h is
+		/// about to set every rim from the DEM instead. False keeps SWMM's rims.
+		bool node_rim_from_dem = false;
 
 		std::string snapshot_path_for(int checkpoint_id) const;
 
@@ -456,7 +728,7 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem)
 	{
 		rank_=rank;
 		size_=size;
@@ -464,6 +736,7 @@ namespace SWMM_triton
 		this->output_folder = output_folder;
 		this->snapshot_keep_all = swmm_snapshot_keep_all;
 		this->snapshot_keep_previous = swmm_snapshot_keep_previous;
+		this->node_rim_from_dem = swmm_node_rim_from_dem;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
@@ -498,76 +771,29 @@ namespace SWMM_triton
 
 		infile.close();
 
+		// [COORDINATES], [JUNCTIONS] and [INFLOWS] are read with SWMM's own section rule,
+		// tokenizer and FLOW test, so the coupled list is SWMM's FLOW-inflow set in SWMM's
+		// node order (see parse_inp_coupled_list). init_swmm checks it against the engine.
 		infile.open(inp_filename.c_str());
-		while (std::getline(infile, line)) {
-			if (line.find("COORDINATES") != std::string::npos){
-				std::getline(infile, line); // Skip header line
-				std::getline(infile, line); // Skip separator line
-				while (std::getline(infile, line)) {
-					if (std::all_of(line.begin(), line.end(), [](char c) { return std::isspace(c); })) {
-						// Line consists only of whitespace characters
-						break; // Stop reading
-				  	}
-
-					std::string nodeij;
-					double xij, yij;
-					std::istringstream iss(line);
-					if (iss >> nodeij >> xij >> yij) {
-						nodeID_all.push_back(nodeij);
-						if(units){
-							xij*=FT_TO_M_FACTOR;
-							yij*=FT_TO_M_FACTOR;
-						}
-						x_all.push_back(xij);
-						y_all.push_back(yij);
-					}
-				}
-			}
-		}
+		const inp_coupled_list_t parsed = parse_inp_coupled_list(infile);
 		infile.close();
 
-		infile.open(inp_filename.c_str());
-		while (std::getline(infile, line)) {
-			if (line.find("JUNCTIONS") != std::string::npos){
-				std::getline(infile, line); // Skip header line
-				std::getline(infile, line); // Skip separator line
-            while (std::getline(infile, line)) {
-				   if (std::all_of(line.begin(), line.end(), [](char c) { return std::isspace(c); })) {
-						// Line consists only of whitespace characters
-						break; // Stop reading
-				  	}
-            	std::string junctionij;
-               double elevationij,max_depthij;
-               std::istringstream iss(line);
-               if (iss >> junctionij >> elevationij >> max_depthij) {
-               	junctionID_all.push_back(junctionij);
-						//Note that maxdepth is always in meters (double check)
-                  max_depth_all.push_back(max_depthij);
-              	}
-           	}
+		for (std::size_t j = 0; j < parsed.coord_names.size(); ++j) {
+			double xij = parsed.coord_x[j];
+			double yij = parsed.coord_y[j];
+			nodeID_all.push_back(parsed.coord_names[j]);
+			if(units){
+				xij*=FT_TO_M_FACTOR;
+				yij*=FT_TO_M_FACTOR;
 			}
+			x_all.push_back(xij);
+			y_all.push_back(yij);
 		}
-		infile.close();
-
-		infile.open(inp_filename.c_str());
-		while (std::getline(infile, line)) {
-			if (line.find("INFLOWS") != std::string::npos){
-				std::getline(infile, line); // Skip header line
-				std::getline(infile, line); // Skip separator line
-            while (std::getline(infile, line)) {
-            	if (std::all_of(line.begin(), line.end(), [](char c) { return std::isspace(c); })) {
-						// Line consists only of whitespace characters
-						break; // Stop reading
-				  	}
-            	std::string nodeij;
-               std::istringstream iss(line);
-               if (iss >> nodeij) {
-               	nodeID.push_back(nodeij);
-              	}
-           	}
-			}
+		for (std::size_t j = 0; j < parsed.junction_names.size(); ++j) {
+			junctionID_all.push_back(parsed.junction_names[j]);
+			max_depth_all.push_back(parsed.junction_max_depth[j]);
 		}
-		infile.close();
+		nodeID = parsed.names;
 
 		num_of_swmm_nodes=nodeID_all.size();
 		global_num_of_swmm_links=nodeID.size();
@@ -579,21 +805,25 @@ namespace SWMM_triton
 		loss.resize(global_num_of_swmm_links);
 		diameter.resize(global_num_of_swmm_links);
 
-		// Find the coordinates (x, y) of the nodes connected to the surface
+		// Find the coordinates (x, y) of the nodes connected to the surface. Names
+		// compare case-insensitively, as SWMM's own lookup does; the first entry wins.
 		for (int i = 0; i < global_num_of_swmm_links; i++) {
 			 for (int j = 0; j < num_of_swmm_nodes; j++) {
-				  if (strcmp(nodeID[i].c_str(), nodeID_all[j].c_str()) == 0) {
+				  if (swmm_upper(nodeID[i]) == swmm_upper(nodeID_all[j])) {
 						x[i] = x_all[j];
 						y[i] = y_all[j];
+						break;
 				  }
 			 }
 		}
 
-		// Find the max_depth values of the nodes connected to the surface
+		// The parsed [JUNCTIONS] depth of each coupled node. It is provisional: init_swmm
+		// replaces it with SWMM's full depth wherever the two differ.
 		for (int i = 0; i < global_num_of_swmm_links; i++) {
 			 for (int j = 0; j < nJunctions; j++) {
-				  if (strcmp(nodeID[i].c_str(), junctionID_all[j].c_str()) == 0) {
+				  if (swmm_upper(nodeID[i]) == swmm_upper(junctionID_all[j])) {
 						max_depth[i] = max_depth_all[j];
+						break;
 				  }
 			 }
 		}
@@ -625,7 +855,7 @@ namespace SWMM_triton
 		//copy first all the global vectors to a local copy and assign them zero size
 		std::vector<value_t> global_node_swmm_x = x;
 		std::vector<value_t> global_node_swmm_y = y;
-		std::vector<std::string> global_nodeID = nodeID;
+		global_nodeID = nodeID;
 		std::vector<value_t> global_max_depth = max_depth;
 		std::vector<value_t> global_loss = loss;
 		std::vector<value_t> global_diameter = diameter;
@@ -728,6 +958,11 @@ namespace SWMM_triton
 		//initialize to zero all the exchange_q values and new_depth values
 		std::fill(exchange_q.begin(), exchange_q.end(), 0.0); //local variables
 		std::fill(new_depth.begin(), new_depth.end(), 0.0); //local variables
+
+		// Every coupled node's rim and invert, by global index: filled from the engine on
+		// rank 0 below and broadcast to every rank, because only rank 0 runs SWMM.
+		std::vector<double> rim_global(global_num_of_swmm_links, 0.0);
+		std::vector<double> invert_global(global_num_of_swmm_links, 0.0);
 
 		if (counts != NULL)
 			delete[] counts;
@@ -883,10 +1118,88 @@ namespace SWMM_triton
 			// that line by its leading three tabs, still finds it.
 			const int swmm_open_rc =
 			swmm_open(inp_filename.c_str(), report_filename.c_str(), binary_filename.c_str());
-			stop_on_swmm_error(swmm_open_rc, "swmm_open", "while reading and validating the SWMM input");
-			stop_on_swmm_error(swmm_start(TRUE), "swmm_start", "while starting the SWMM analysis");
+			stop_on_swmm_error(swmm_open_rc, "swmm_open", "while reading and validating the SWMM input",
+			                   report_filename.c_str());
+			stop_on_swmm_error(swmm_start(TRUE), "swmm_start", "while starting the SWMM analysis",
+			                   report_filename.c_str());
+
+			// Each coupled node's rim, from the engine that routes the model. SWMM raises a
+			// node's full depth to the crown of its highest connecting link, so a junction
+			// recorded at 0 under a 1.2 m pipe is 1.2 m deep to SWMM; taking the recorded
+			// token instead gives TRITON a rim of 0, and the exchange law then pushes water
+			// from the node onto a dry street whenever the pipe holds any. Ineligible nodes
+			// stop the run here, before any checkpoint is read or written: a coupled node
+			// that is not a JUNCTION (storage units and dividers are not coupled in this
+			// build; outfalls never are), or a list that is not SWMM's FLOW-inflow set in
+			// SWMM's order, which would pair surface cells with the wrong sewer nodes.
+			static const char* node_type_name[] = {"JUNCTION", "OUTFALL", "STORAGE", "DIVIDER"};
+			std::vector<int> swmm_index(global_num_of_swmm_links, -1);
+			std::vector<int> has_flow(global_num_of_swmm_links, 0);
+			int refused = 0;
+			for (int i = 0; i < global_num_of_swmm_links; i++) {
+				const int idx = swmm_getIndex(swmm_NODE, global_nodeID[i].c_str());
+				swmm_index[i] = idx;
+				if (idx < 0) {
+					std::cerr << ERROR "Coupled node " << global_nodeID[i]
+					          << " is not a node of the SWMM model." << std::endl;
+					refused = 1;
+					continue;
+				}
+				const int type = static_cast<int>(swmm_getValue(swmm_NODE_TYPE, idx));
+				if (type != swmm_JUNCTION) {
+					std::cerr << ERROR "Coupled node " << global_nodeID[i] << " is a SWMM "
+					          << ((type >= 0 && type <= 3) ? node_type_name[type] : "non-junction")
+					          << " node; this build couples JUNCTION nodes only." << std::endl;
+					refused = 1;
+					continue;
+				}
+				has_flow[i] = routing_nodeHasFlowInflow(idx);
+				invert_global[i] = swmm_getValue(swmm_NODE_ELEV, idx);
+				double token = 0.0;
+				for (std::size_t j = 0; j < junctionID_all.size(); j++) {
+					if (swmm_upper(junctionID_all[j]) == swmm_upper(global_nodeID[i])) {
+						token = max_depth_all[j];
+						break;
+					}
+				}
+				rim_global[i] = coupled_node_rim(token, swmm_getValue(swmm_NODE_MAXDEPTH, idx));
+			}
+			if (refused) MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+
+			int swmm_flow_count = 0;
+			for (int j = 0; j < swmm_getCount(swmm_NODE); j++) swmm_flow_count += routing_nodeHasFlowInflow(j);
+			const coupled_list_check_t chk =
+				check_coupled_list_against_swmm(swmm_index, has_flow, swmm_flow_count);
+			if (!chk.ok) {
+				std::cerr << ERROR "TRITON's coupled-node list does not match SWMM's FLOW-inflow nodes: ";
+				if (chk.entry >= 0)
+					std::cerr << "entry " << chk.entry << " (" << global_nodeID[chk.entry] << "): ";
+				std::cerr << chk.reason << "." << std::endl;
+				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+
+			char rim_line[512];
+			for (int i = 0; i < global_num_of_swmm_links; i++) {
+				std::snprintf(rim_line, sizeof(rim_line), "SWMM coupled node %s: rim %.17g, invert %.17g%s",
+				              global_nodeID[i].c_str(), rim_global[i], invert_global[i],
+				              node_rim_from_dem ? " (replaced by the DEM rim)" : "");
+				std::cerr << IN << rim_line << std::endl;
+			}
 
 			std::cerr << IN "SWMM initialized" << std::endl;
+		}
+
+		// Every rank needs its own nodes' rims, but only rank 0 can ask SWMM. The
+		// broadcast is on ENSIFY_COMM_WORLD so an ensemble member exchanges only with
+		// its own ranks.
+		if (global_num_of_swmm_links > 0) {
+			MPI_Bcast(rim_global.data(), global_num_of_swmm_links, MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
+			MPI_Bcast(invert_global.data(), global_num_of_swmm_links, MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
+		}
+		node_invert.resize(num_of_swmm_links);
+		for (int k = 0; k < num_of_swmm_links; k++) {
+			max_depth[k] = static_cast<value_t>(rim_global[relative_swmm_node_index[k]]);
+			node_invert[k] = static_cast<value_t>(invert_global[relative_swmm_node_index[k]]);
 		}
 
 	}
@@ -898,7 +1211,17 @@ namespace SWMM_triton
 	// rank blocked at the next collective, turning a loud failure into a hang. A
 	// zero code returns at once, so a healthy run takes no new branch and prints
 	// nothing new.
-	void swmm_triton::stop_on_swmm_error(int code, const char* call, const char* when)
+	//
+	// report_path is passed by the two startup calls only. For a per-line input error
+	// (ERROR 2xx) swmm_getError returns just the summary "ERROR 200", and SWMM writes
+	// the line that names the problem -- "ERROR 209: undefined object NOSUCH at line
+	// 119 of [INFLOW] section:" and the rejected line -- only into its report's
+	// buffered stream, which an abort discards, leaving a 0-byte report. So on those
+	// calls SWMM is closed first, which flushes the report, and the report's error
+	// lines are echoed to stderr. Deliberately NOT done after a swmm_step failure:
+	// closing mid-run without swmm_end skips the output and routing close, a sequence
+	// SWMM does not document, and a step's message already reaches swmm_getError.
+	void swmm_triton::stop_on_swmm_error(int code, const char* call, const char* when, const char* report_path)
 	{
 		if (code == 0) return;
 		char swmm_msg[MAXMSG + 1];
@@ -910,6 +1233,10 @@ namespace SWMM_triton
 		          << "         returns at once without routing, so continuing would complete the\n"
 		          << "         coupled simulation against a sewer that never moves."
 		          << std::endl;
+		if (report_path != nullptr) {
+			swmm_close();
+			echo_swmm_report_errors(report_path, std::cerr);
+		}
 		MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 	}
 

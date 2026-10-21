@@ -1091,3 +1091,28 @@ void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
 }
 
 //=============================================================================
+
+int routing_nodeHasFlowInflow(int j) //TRITON
+//
+//  Input:   j = node index
+//  Output:  returns 1 if node j's external inflows include a FLOW_INFLOW, else 0
+//  Purpose: lets TRITON check its coupled-node list against SWMM's own FLOW-inflow
+//           set at startup.  It is the same predicate addExternalInflows and
+//           routing_exportInflowNodeDepths walk to give a node its exchange slot,
+//           so the check compares TRITON with the enumeration that actually pairs
+//           nodes, not with a re-derivation of it.  Reads Node[].extInflow only.
+//
+//  It belongs beside routing_exportInflowNodeDepths and sits at the end of the
+//  file instead, deliberately: inserting it there would shift every line below,
+//  and other files cite lines of this one by number (snapshot.c, the snapshot
+//  inventory, the notes above routing_getSnapshotRefs).
+//
+{
+    TExtInflow* inflow;
+    if ( j < 0 || j >= Nobjects[NODE] ) return 0;
+    for ( inflow = Node[j].extInflow; inflow; inflow = inflow->next )
+    {
+        if ( inflow->type == FLOW_INFLOW ) return 1;
+    }
+    return 0;
+}

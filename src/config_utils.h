@@ -130,6 +130,15 @@ namespace ConfigUtils
 		/// one.
 		bool
 		swmm_snapshot_keep_previous;
+
+		/// COUPLED-NODE RIM SOURCE. When true, triton.h sets each coupled node's rim
+		/// to its DEM cell's elevation minus the node's invert, so the exchange law
+		/// keys on the ground TRITON models; when false, which is what an absent key
+		/// means, the rim is SWMM's own full depth. Its own type-group for the reason
+		/// swmm_snapshot_keep_all has one, and read with argsd(..., "0") so every
+		/// cfg that omits it keeps SWMM's rims.
+		bool
+		swmm_node_rim_from_dem;
 #endif
 
 		std::string
@@ -577,6 +586,10 @@ namespace ConfigUtils
 		// ADDITIVE, same form again: an absent key is a defined false, which is
 		// the clean start's removal default.
 		arglist.swmm_snapshot_keep_previous = atoi((argsd("swmm_snapshot_keep_previous", argmap, "0")).c_str());
+
+		// ADDITIVE, same form: an absent key is a defined false, which keeps SWMM's
+		// own full depth as every coupled node's rim.
+		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());

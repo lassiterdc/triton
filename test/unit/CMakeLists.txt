@@ -31,3 +31,49 @@ foreach(_t IN LISTS TRITON_EXCHANGE_LOG_HEADER_TESTS)
   add_test(NAME UNIT-EXCHANGE-LOG-${_t}
            COMMAND test_exchange_log_header ${_t})
 endforeach()
+
+# The coupled-node list and rim rule (item 11): parse, startup comparison with the
+# engine, and the token-keep rim rule. Same build arrangement as above.
+add_executable(test_coupled_list test_coupled_list.cpp)
+
+target_include_directories(test_coupled_list PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_list PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLED_LIST_TESTS
+  P1_standard_input_gives_todays_list
+  P2_header_layouts
+  P3_order_follows_junctions
+  P4_flow_test_is_swmms
+  P5_names_case_insensitive
+  P6_tokenizer
+  C1_valid_list_passes
+  C2_out_of_order_refused
+  C3_entry_without_flow_refused
+  C4_compensating_pair_refused
+  C5_unequal_counts_refused
+  C6_unknown_name_refused
+  E1_error_line_matcher
+  E2_echo_over_a_report
+  R1_rim_rule)
+
+foreach(_t IN LISTS TRITON_COUPLED_LIST_TESTS)
+  add_test(NAME UNIT-COUPLED-LIST-${_t}
+           COMMAND test_coupled_list ${_t})
+endforeach()
+
+# The reviewer's section-header test (one property, one node). Same build arrangement.
+add_executable(test_coupled_list_review test_coupled_list_review.cpp)
+
+target_include_directories(test_coupled_list_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_list_review PRIVATE kokkos swmm5)
+
+add_test(NAME UNIT-COUPLED-LIST-RV1_section_headers_by_swmm_keyword_prefix
+         COMMAND test_coupled_list_review)
