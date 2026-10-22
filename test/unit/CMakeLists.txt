@@ -140,3 +140,16 @@ target_link_libraries(test_coupled_cells_review PRIVATE kokkos swmm5)
 
 add_test(NAME UNIT-COUPLED-CELLS-REVIEW-RV2_several_node_limiter_conserves_at_the_band_edge
          COMMAND test_coupled_cells_review)
+
+# A coupled cfg whose SWMM model couples no node must stop at startup with
+# "couples no node" rather than finish as a surface-only run. One triton.exe launch
+# under the simulation tests' run command, held to a hard 5 s budget. Registered
+# only for the SERIAL backend, the one its runtime is measured on; another backend
+# gets no node rather than an unmeasured one.
+if("${BACKEND}" STREQUAL "SERIAL")
+  add_test(NAME UNIT-ZERO-NODE-REFUSAL
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_zero_node_refusal.py
+                   --run-command "${RUN_COMMAND}"
+                   --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
+  set_tests_properties(UNIT-ZERO-NODE-REFUSAL PROPERTIES TIMEOUT 5)
+endif()
