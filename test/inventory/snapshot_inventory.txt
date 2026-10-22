@@ -285,7 +285,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #   contributes rdii.c: declares 11 non-const file-scope static(s)
 #   contributes report.c: declares 1 non-const file-scope static(s)
 #   contributes roadway.c: writes through a global
-#   contributes routing.c: declares 4 non-const file-scope static(s)
+#   contributes routing.c: declares 5 non-const file-scope static(s)
 #   contributes shape.c: declares 2 non-const file-scope static(s)
 #   contributes stats.c: declares 6 non-const file-scope static(s)
 #   contributes street.c: writes through a global
@@ -301,7 +301,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #   none -- every declared exclusion holds at this pin
 #
 # scalar-scope census -- a row key is the bare NAME:
-#   none -- each of the 139 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
+#   none -- each of the 140 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
 # SCALAR-SCOPE COLLISIONS: 0
 #
 # TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason
@@ -317,6 +317,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	C1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	C2	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Cin	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	CouplingSlot	LIVE	EXCLUDED	configuration, not resume state: TRITON's coupling-node slot map (routing.c, routing_setCouplingNodes), rebuilt by TRITON from its declared coupling nodes after every swmm_open and before any step, so a resumed run re-derives it rather than carrying it
 -	CourantFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open -- the same verdict EXCLUDED_SCALARS records for it under Criterion R
 -	CrownCutoff	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	DateFormat	LIVE	EXCLUDED	report date formatting, set from configuration at start by datetime_setDateFormat; it selects presentation, not state
@@ -659,4 +660,4 @@ TTable.file	objects.h member of TTable	EXCLUDED	per-time-series cursor. It SELF-
 # TFILE-TRIAGE ADMITTED: 1 (an empty admitted set is a PASSING result)
 # TFILE-TRIAGE UNTRIAGED COUNT: 0
 #
-# CRITERION P ROWS: 340
+# CRITERION P ROWS: 341

@@ -139,6 +139,14 @@ namespace ConfigUtils
 		/// cfg that omits it keeps SWMM's rims.
 		bool
 		swmm_node_rim_from_dem;
+
+		/// COUPLING NODES. A path names a one-column file of SWMM node names, each a
+		/// coupling node; ALL_JUNCTIONS couples every [JUNCTIONS] node; empty, which
+		/// is what an absent key means, derives the coupling nodes from the [INFLOWS]
+		/// FLOW lines as every earlier build did. Read with argsd(..., "") so every
+		/// cfg that omits it keeps its coupling.
+		std::string
+		swmm_coupling_nodes;
 #endif
 
 		std::string
@@ -590,6 +598,10 @@ namespace ConfigUtils
 		// ADDITIVE, same form: an absent key is a defined false, which keeps SWMM's
 		// own full depth as every coupled node's rim.
 		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
+
+		// ADDITIVE, same form: an absent key is the empty declaration, which keeps
+		// the coupling derived from the [INFLOWS] FLOW lines.
+		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());

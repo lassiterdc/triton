@@ -1305,6 +1305,8 @@ void report_Nodes()
 }
 
 
+int routing_nodeCouplingSlot(int j); //TRITON: the node's exchange slot, or -1 (routing.c)
+
 void report_Nodes_TRITON(const char *f1) // NEW
 //
 //  Input:   f1 = prefix for output file names
@@ -1322,7 +1324,6 @@ void report_Nodes_TRITON(const char *f1) // NEW
     int      min, sec;
     double   t;
     char     filename[1024];
-    TExtInflow* inflow;
     FILE *outfile;
     const char* flowUnits;
     const char* lenUnits;
@@ -1335,54 +1336,47 @@ void report_Nodes_TRITON(const char *f1) // NEW
 
     for (j = 0; j < Nobjects[NODE]; j++)
     {
-        inflow = Node[j].extInflow;
-        while ( inflow )
+        // A node gets a per-node file exactly when it is a coupling node (it has
+        // an exchange slot in TRITON's map) and SWMM reports it; it used to be
+        // when it had a FLOW inflow, which under a declaration is not coupling.  //TRITON
+        if ( routing_nodeCouplingSlot(j) < 0 ) continue;                           //TRITON
+        // Only create output file if this node's report flag is set
+        if ( Node[j].rptFlag != FALSE )
         {
-            if ( inflow->type == FLOW_INFLOW )
+            // Get the correct output index for this node
+            // (rptFlag is 1-based, so subtract 1 to get 0-based index)
+            k = Node[j].rptFlag - 1;
+
+            sprintf(filename,"%snode%d.out",f1,j+1);	// File naming: node1.out, node2.out, etc.
+            outfile = fopen(filename,"w");
+            if (outfile != NULL)
             {
-                // Only create output file if this node's report flag is set
-                if ( Node[j].rptFlag != FALSE )
+                // Write header with correct unit labels
+                fprintf(outfile, "NODE %s\n", Node[j].ID);
+                fprintf(outfile, "Time (s) Inflow (%s) Overflow (%s) Depth (%s) Head (%s) Date Time\n",
+                    flowUnits, flowUnits, lenUnits, lenUnits);
+
+                // Write time series data
+                for ( period = 1; period <= Nperiods; period++ )
                 {
-                    // Get the correct output index for this node
-                    // (rptFlag is 1-based, so subtract 1 to get 0-based index)
-                    k = Node[j].rptFlag - 1;
+                    output_readDateTime(period, &currentTime);
+                    datetime_dateToStr(currentTime, theDate);
+                    datetime_timeToStr(currentTime, theTime);
+                    // Read results using the correct node index
+                    output_readNodeResults(period, k);
 
-                    sprintf(filename,"%snode%d.out",f1,j+1);	// File naming: node1.out, node2.out, etc.
-                    outfile = fopen(filename,"w");
-                    if (outfile != NULL)
-                    {
-                        // Write header with correct unit labels
-                        fprintf(outfile, "NODE %s\n", Node[j].ID);
-                        fprintf(outfile, "Time (s) Inflow (%s) Overflow (%s) Depth (%s) Head (%s) Date Time\n",
-                            flowUnits, flowUnits, lenUnits, lenUnits);
+                    datetime_decodeTime(currentTime, &hour, &min, &sec);
+                    t = sec + min*60.0 + hour*3600.0; //time in seconds
 
-                        // Write time series data
-                        for ( period = 1; period <= Nperiods; period++ )
-                        {
-                            output_readDateTime(period, &currentTime);
-                            datetime_dateToStr(currentTime, theDate);
-                            datetime_timeToStr(currentTime, theTime);
-                            // Read results using the correct node index
-                            output_readNodeResults(period, k);
-
-                            datetime_decodeTime(currentTime, &hour, &min, &sec);
-                            t = sec + min*60.0 + hour*3600.0; //time in seconds
-
-                            fprintf(outfile, "%9.3f %9.3f %9.3f %9.3f %9.3f  %11s %8s\n",
-                                t, NodeResults[NODE_INFLOW],
-                                NodeResults[NODE_OVERFLOW], NodeResults[NODE_DEPTH],
-                                NodeResults[NODE_HEAD], theDate, theTime);
-                        }
-                        fprintf(outfile, "\n");
-                        fclose(outfile);
-                    }
+                    fprintf(outfile, "%9.3f %9.3f %9.3f %9.3f %9.3f  %11s %8s\n",
+                        t, NodeResults[NODE_INFLOW],
+                        NodeResults[NODE_OVERFLOW], NodeResults[NODE_DEPTH],
+                        NodeResults[NODE_HEAD], theDate, theTime);
                 }
-                break;
-
+                fprintf(outfile, "\n");
+                fclose(outfile);
             }
-            else inflow = inflow->next;
         }
-
     }
 
 }
