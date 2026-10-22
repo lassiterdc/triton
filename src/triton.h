@@ -1,8 +1,17 @@
 /** @file triton.h
- *  @brief Header containing the Triton class
+ *  @brief The Triton class: one TRITON flood simulation, from its cfg file to
+ *         its output rasters, run across MPI ranks on a GPU or CPU backend.
  *
- *  This contains the subroutines and eventually any
- *  macros, constants, etc. needed for Triton class
+ *  TRITON solves the 2D shallow-water equations on a regular grid. This class
+ *  owns everything one run needs around that solve: it reads the cfg and the
+ *  input rasters, splits the grid into row strips across MPI ranks (statically,
+ *  or re-balanced during the run under dynamic decomposition), builds the host
+ *  and device arrays, advances the time-stepping loop and its halo exchange,
+ *  and writes outputs and checkpoints. Two concerns account for most of its
+ *  length: a RESUME from a checkpoint must reproduce the state an uninterrupted
+ *  run would hold at that point, and the optional SWMM sewer coupling must stay
+ *  collective-safe on every rank, including ranks whose strip holds no coupled
+ *  node.
  *
  *  @author Mario Morales Hernandez
  *  @author Sudershan Gangrade
@@ -199,7 +208,7 @@ namespace Triton
     std::vector<T*> device_vec; /**< Device vector that contains all floating point array to use in simulation. */
     std::vector<int*> device_vec_int; /**< Device vector that contains all integer array to use in simulation. */
 
-/** @brief This function is used to compute the time step size in the case the domain is dry and the dynamic CFL condition is set. It is computed according to the hydrograph interval, runoff interval and print interval divided by 100.
+/** @brief Computes the time step used while the domain is dry and the dynamic CFL condition is set: 0.01 times the smallest of the print interval, the observation-output interval (when time series are written), the first interval of the runoff series (when runoff is given) and the first interval of the hydrograph series (when flow sources are given), then the minimum of that value across ranks.
 * 
 */
     void compute_init_dt();
@@ -524,8 +533,10 @@ namespace Triton
       }
     }
 
-    // replay_exchange_history() rebuilds SWMM's state and leaves rank 0's global_new_depth[] at the
-    // node depths for t_k -- but the per-rank new_depth[] that compute_swmm_triton_exchange() reads
+    // Either resume route leaves rank 0's global_new_depth[] at the node depths for t_k --
+    // replay_exchange_history() by stepping SWMM through 0..t_k, try_restore_state_snapshot() by
+    // exporting them from the restored state -- but the per-rank new_depth[] that
+    // compute_swmm_triton_exchange() reads
     // is still the zero-fill from init_swmm(). Without this distribution the first post-resume
     // exchange evaluates every manhole at new_depth = 0, which forces the Case 1 (surface-to-sewer
     // weir) branch even when the sewer is surcharged, inverting the exchange for one step and
@@ -2337,33 +2348,15 @@ namespace Triton
         // the same failure write a cfg over a dead series and turn one lost
         // attempt into a poisoned remainder of the run.
         //
-        // GLOBAL count, matching the sibling guard at :453.
+        // GLOBAL count, matching the hotstart-resume guard in initialize(),
+        // because rank 0's LOCAL count is zero on any decomposition whose rank-0
+        // strip holds no coupled node. The rule this file follows is the one
+        // test/test_swmm_guard_predicate_closure.py asserts: every rank-0-guarded
+        // swmm_model site guards on global_num_of_swmm_links, and no MPI call and
+        // no swmm_model method call sits lexically inside a local-count guard.
         //
-        // DO NOT restate the old form of this note as a reachable durability
-        // bug. It was carried as one -- "the log is written but never flushed,
-        // so a hard kill loses the tail" -- and that was FALSE as a description
-        // of a run you could reach. log_exchange_step() was called inside a
-        // per-step coupling block that opened on `if
-        // (swmm_model.num_of_swmm_links > 0)` -- the LOCAL count -- so on the
-        // very decomposition that guard is about (rank 0 owns no manhole)
-        // nothing was ever appended and the file held only its header. Worse,
-        // that same block enclosed the MPI_Gatherv of the exchange flux and the
-        // MPI_Scatterv of the node depths over ENSIFY_COMM_WORLD, which rank 0
-        // then skipped while every manhole-owning rank entered them -- the run
-        // DEADLOCKED at the first coupled timestep, long before a checkpoint was
-        // reached. All three of that file's local/global inconsistencies are now
-        // repaired and all three guard on the global count, which is why the
-        // guard-predicate closure check asserts over the three classes rather
-        // than observing two of them.
-        //
-        // Now charged to IO_TIME. It is a file flush and belongs with the other
-        // file writes; its cost previously landed in the `Other` residual
-        // because the call sat between st.stop(IO_TIME) and #if
-        // WRITE_PERFORMANCE. That miscount is corrected here as a consequence of
-        // the move rather than as a drive-by: the call had to move for the
-        // recoverability property above, and leaving it outside the bracket at
-        // its new position would have been a deliberate choice to keep a known
-        // miscount.
+        // CHARGED TO IO_TIME. It is a file flush and belongs with the other file
+        // writes; outside the bracket its cost would land in the `Other` residual.
         if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
@@ -2373,17 +2366,18 @@ namespace Triton
         //
         // CHARGED TO IO_TIME, deliberately and INSIDE the existing bracket.
         // It is a file write and belongs with the other file writes; leaving it
-        // outside would drop its cost into the `Other` residual, which is where
-        // flush_exchange_log's cost already falls (that is a separate, known
-        // miscount -- see the note below -- and adding a second one to keep it
-        // company is not a reason).
-        // GLOBAL count, matching the sibling guard at :453 whose comment already
-        // states the rule. num_of_swmm_links is rank 0's *local* (subdomain)
-        // count, so on a decomposition where rank 0's top strip holds no manhole
-        // this guard is false and no snapshot is written -- silently. SWMM is
-        // opened and started on rank 0 unconditionally (swmm_triton.h:605), so
-        // the engine state serialized here exists whether or not rank 0 owns a
-        // node, and the global predicate is the one that matches what is written.
+        // outside would drop its cost into the `Other` residual. The exchange-log
+        // flush at the top of this checkpoint block sits inside the same bracket
+        // for the same reason.
+        // GLOBAL count, matching the hotstart-resume guard in initialize(), whose
+        // comment already states the rule. num_of_swmm_links is rank 0's *local*
+        // (subdomain) count, so on a decomposition where rank 0's top strip holds
+        // no manhole this guard is false and no snapshot is written -- silently.
+        // Whenever coupling is enabled, SWMM is opened and started on rank 0
+        // regardless of how many nodes rank 0 owns (inside init_swmm's rank-0
+        // block, which carries no node-count guard), so the engine state
+        // serialized here exists whether or not rank 0 owns a node, and the
+        // global predicate is the one that matches what is written.
         if (rank == 0 && swmm_model.global_num_of_swmm_links > 0)
           swmm_model.write_state_snapshot(print_id);
 #endif
@@ -2449,18 +2443,25 @@ namespace Triton
 #ifdef TRITON_SWMM
     // Finalize SWMM coupling.
     //
-    // GUARD ON THE GLOBAL COUNT, for the same reason as the per-step coupling block in
-    // compute_new_state(), and it MUST land with that repair rather than after it. end_swmm() is
-    // internally rank_ == 0-guarded around close_exchange_log/swmm_end/swmm_report/swmm_close, so
-    // it encloses no collective and could never deadlock -- but SWMM is opened on rank 0 whenever
-    // the model has any node at all (init_swmm guards swmm_open/swmm_start on rank_ == 0 and
-    // nothing else), so on a decomposition where rank 0's strip holds no manhole the former
-    // local-count guard left an OPENED SWMM engine never closed and never reported: no
-    // hydraulics.rpt, no flushed .out, silently. That decomposition previously deadlocked in
-    // compute_new_state() before ever reaching here, so repairing that site alone would have
-    // converted a loud hang into a missing report file on exactly the runs the repair rescues.
-    // Because end_swmm() is internally rank-0-guarded there is no sizing consequence to widening
-    // the predicate here.
+    // GUARD ON THE GLOBAL COUNT. end_swmm() is rank_ == 0-guarded internally around
+    // close_exchange_log/swmm_end/swmm_report/swmm_close and encloses no collective, so this guard
+    // is not about deadlock. It decides which runs get their SWMM engine closed and reported:
+    // whenever coupling is enabled, init_swmm opens and starts SWMM on rank 0 whatever the number
+    // of nodes rank 0 owns (its rank-0 block carries no node-count guard), so a guard on rank 0's
+    // LOCAL count would leave an opened engine never closed and never reported -- no
+    // hydraulics.rpt, no flushed .out, silently -- on any decomposition whose rank-0 strip holds
+    // no coupled node.
+    //
+    // This guard and the per-step coupling block's guard in compute_new_state() must therefore
+    // agree. With only the coupling block on the global count, such a decomposition reaches here
+    // and silently writes no report; with only this guard on it, the same decomposition
+    // deadlocks in compute_new_state() first. Widening this predicate carries none of the
+    // buffer-sizing risk the coupling block's does, because end_swmm() indexes none of the
+    // conditionally-appended SWMM_* buffers.
+    //
+    // Not established: what SWMM produces on a coupled run whose .inp couples no node to the
+    // surface (global_num_of_swmm_links == 0). This guard is false there, and this comment makes
+    // no claim about that case.
     if (swmm_model.global_num_of_swmm_links > 0) {
       std::string output_dir_swmm = project_dir + "/" + swmm_model.get_output_folder() + "/swmm/";
       swmm_model.end_swmm(output_dir_swmm);
@@ -2743,9 +2744,8 @@ namespace Triton
         // solve is constant.  The PER-RANK rows are the truthful ones; the Average
         // row is outside every claim this split makes.
         //
-        // WHAT THE MAX OVER RANK IS, stated precisely because an earlier form of
-        // this note called it "the serial-solve cost" and that is not what this
-        // bracket measures.  MAX over Rank of SWMM_STEP is the whole BRACKET's
+        // WHAT THE MAX OVER RANK IS -- the whole bracket's cost, not the serial
+        // solve's.  MAX over Rank of SWMM_STEP is the whole BRACKET's
         // cost: the serial solve PLUS the two index remaps (local_to_global,
         // global_to_local) PLUS one buffered per-timestep file write
         // (log_exchange_step, two ofstream::write calls).  All four are inside
