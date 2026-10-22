@@ -302,7 +302,7 @@ void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
 //       two places, only one of which is visible at any given call site.
 //
 //  Unit asymmetry, called out rather than tidied away: Node[].newDepth is in
-//  FEET (SWMM's internal unit) while swmm_newDepth[] is in METRES.  The /3.2808
+//  FEET (SWMM's internal unit) while swmm_newDepth[] is in METRES.  The * MperFT
 //  is that conversion, not a scale factor, and it is why this loop cannot be
 //  replaced by a memcpy.
 //
@@ -323,7 +323,7 @@ void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
         {
             if ( inflow->type == FLOW_INFLOW )
             {
-                swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
+                swmm_newDepth[inflow_id] = Node[i].newDepth * MperFT; //ft to m
                 inflow_id++;
                 break;
             }
