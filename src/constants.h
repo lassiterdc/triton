@@ -121,6 +121,8 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
 
 #ifdef TRITON_SWMM
 #define SWMMP 7    /**< SWMM position index array after domain decomposition position in vector. */
+#define SWMMCELLSTART 8    /**< Offsets into SWMMCELLNODES, one per coupled cell plus one (item 13). */
+#define SWMMCELLNODES 9    /**< Each coupled cell's local node indices, in slot order (item 13). */
 #define PI_ 3.1415926536    /**< Pi (only for SWMM coupling). */
 #endif
 

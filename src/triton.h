@@ -615,6 +615,8 @@ namespace Triton
       host_vec.push_back(swmm_model.exchange_q.data());
 
       host_vec_int.push_back(swmm_model.swmm_pos_arr.data());
+      host_vec_int.push_back(swmm_model.swmm_cell_start.data());   // SWMMCELLSTART
+      host_vec_int.push_back(swmm_model.swmm_cell_nodes.data());   // SWMMCELLNODES
 
       // Allocate device memory for SWMM data
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
@@ -629,6 +631,11 @@ namespace Triton
       gpuMalloc((void**)&device_new_depth, nbytes_swmm);
       gpuMalloc((void**)&device_exchange_q, nbytes_swmm);
       gpuMalloc((void**)&device_swmm_pos, nbytes_swmm_int);
+      // Item 13: the per-cell index (cells + 1 offsets, one node index per node).
+      int nbytes_cell_start = (sizeof(int) * (swmm_model.num_of_swmm_cells + 1));
+      int *device_cell_start, *device_cell_nodes;
+      gpuMalloc((void**)&device_cell_start, nbytes_cell_start);
+      gpuMalloc((void**)&device_cell_nodes, nbytes_swmm_int);
 
       device_vec.push_back(device_loss);
       device_vec.push_back(device_diameter);
@@ -636,6 +643,8 @@ namespace Triton
       device_vec.push_back(device_new_depth);
       device_vec.push_back(device_exchange_q);
       device_vec_int.push_back(device_swmm_pos);
+      device_vec_int.push_back(device_cell_start);
+      device_vec_int.push_back(device_cell_nodes);
 
       // Initialize SWMM device data
       gpuMemcpyAsync(device_vec[SWMM_LOSS], host_vec[SWMM_LOSS], nbytes_swmm, gpuMemcpyHostToDevice, streams);
@@ -644,6 +653,8 @@ namespace Triton
       gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuMemcpyAsync(device_vec[SWMM_Q], host_vec[SWMM_Q], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuMemcpyAsync(device_vec_int[SWMMP], host_vec_int[SWMMP], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec_int[SWMMCELLSTART], host_vec_int[SWMMCELLSTART], nbytes_cell_start, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec_int[SWMMCELLNODES], host_vec_int[SWMMCELLNODES], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
     }
 #endif
   }
@@ -2704,7 +2715,9 @@ namespace Triton
         gpuStreamSynchronize(streams);
 
         // Compute SWMM-TRITON exchange on device
-        SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_links, cell_size, global_dt,
+        SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_cells,
+                                                    device_vec_int[SWMMCELLSTART], device_vec_int[SWMMCELLNODES],
+                                                    cell_size, global_dt,
                                                     device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
                                                     device_vec_int[SWMMP], device_vec[SWMM_LOSS],
                                                     device_vec[SWMM_DIAMETER], device_vec[SWMM_MAXD],

@@ -522,6 +522,31 @@ namespace SWMM_triton
 		return us ? swmm_engine_length_m(swmm_full_depth, true) : coupled_node_rim(token, swmm_full_depth);
 	}
 
+	/** @brief Groups this rank's coupling nodes by the TRITON cell they sit in.
+	 *
+	 *  Several coupling nodes may share a cell, and the exchange kernel runs one
+	 *  thread per cell so that no two threads write one cell. Cells are listed in
+	 *  the order their first node appears in pos; each cell's nodes are listed in
+	 *  pos order, which is slot order because process_swmm_node_locations appends
+	 *  nodes by ascending global index. start[c]..start[c+1] indexes nodes.
+	 *  Returns the number of cells.
+	 */
+	static inline int build_coupled_cell_index(const std::vector<int>& pos, std::vector<int>& start,
+	                                           std::vector<int>& nodes)
+	{
+		std::vector<int> cells;
+		for (int p : pos)
+			if (std::find(cells.begin(), cells.end(), p) == cells.end()) cells.push_back(p);
+		start.assign(1, 0);
+		nodes.clear();
+		for (int cell : cells) {
+			for (int k = 0; k < static_cast<int>(pos.size()); ++k)
+				if (pos[k] == cell) nodes.push_back(k);
+			start.push_back(static_cast<int>(nodes.size()));
+		}
+		return static_cast<int>(cells.size());
+	}
+
 	/** @brief True for a SWMM report error line: optional whitespace, "ERROR ", a digit
 	 *  (the form ^\s*ERROR [0-9]+). A bare substring test would also echo a title, a
 	 *  WARNING naming an object, or any other report line that merely contains ERROR. */
@@ -766,6 +791,12 @@ namespace SWMM_triton
 
 		std::vector<int> relative_swmm_node_index;
 		std::vector<int> swmm_pos_arr;
+		/// This rank's coupling nodes grouped by cell (build_coupled_cell_index):
+		/// offsets and node indices, pushed to the device at SWMMCELLSTART and
+		/// SWMMCELLNODES for the per-cell exchange kernel.
+		std::vector<int> swmm_cell_start;
+		std::vector<int> swmm_cell_nodes;
+		int num_of_swmm_cells = 0;
 		Constants::sources_list_t swmm_cells;
 
 		int *counts = NULL;	/**< Array to hold every subdomains cell count */
@@ -1061,15 +1092,8 @@ namespace SWMM_triton
 			}
 			std::pair<int, int> scell(node_swmm_rows[i]+ GHOST_CELL_PADDING, node_swmm_cols[i]+ GHOST_CELL_PADDING);
 			global_swmm_cells.push_back(scell);
-
-			//check if the has been already assigned from another node
-			for (int j = 0; j < i; ++j){
-
-				if((scell.first == node_swmm_rows[j]+ GHOST_CELL_PADDING)&& (scell.second == node_swmm_cols[j]+ GHOST_CELL_PADDING)){
-					std::cerr << ERROR "Node_swmm " << global_nodeID[i]  << " has the same TRITON cell than node_swmm " << global_nodeID[j]  <<std::endl;
-					exit_failure=1;
-				}
-			}
+			// Several coupling nodes may share a cell: the exchange kernel runs one
+			// thread per cell (build_coupled_cell_index), so they are not refused here.
 		}
 
 
@@ -1114,6 +1138,7 @@ namespace SWMM_triton
 
 		new_depth.resize(num_of_swmm_links);
 		exchange_q.resize(num_of_swmm_links);
+		num_of_swmm_cells = build_coupled_cell_index(swmm_pos_arr, swmm_cell_start, swmm_cell_nodes);
 
 		if(exit_failure) exit(EXIT_FAILURE);
 
@@ -2473,12 +2498,46 @@ namespace SWMM_triton
 *	@param exchange_q flow exchange between TRITON and SWMM
 */
 
+	/** @brief One coupling node's exchange flow (m3/s, positive into the cell) for a
+	 *  surface depth hij: the three cases of the single-node kernel, unchanged. Used
+	 *  only for cells holding several nodes; a one-node cell keeps the original code.
+	 */
 	template<typename T>
-	void compute_swmm_triton_exchange(int size, T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr, T hextra, int *pos_arr,
-	T *swmm_loss, T *swmm_d, T *swmm_max_depth, T *swmm_new_depth, T *exchange_q)
+	KOKKOS_INLINE_FUNCTION T coupled_node_flow(T hij, T new_depth, T max_depth, T loss, T diam)
 	{
-		#include "kokkos_utils.h"
-		triton::parallel_for( AUTO_LABEL() , size , KOKKOS_LAMBDA (int id) {
+		T flow = 0.0;
+		T areaM = PI_*0.25*diam*diam;
+		if(hij>0.0 && new_depth <= max_depth){
+			flow=-(2.0/3.0)*loss*PI_*diam*sqrt(2.0*_G_*hij)*hij;
+		}
+		else if(hij>0.0 && new_depth <= max_depth + hij){
+			flow=-loss*areaM*sqrt(2.0*_G_*(hij + max_depth - new_depth));
+		}
+		else if(new_depth > max_depth + hij){
+			flow=loss*areaM*sqrt(2.0*_G_*(new_depth - max_depth - hij ) );
+		}
+		return flow;
+	}
+
+	/** @brief The exchange of every coupling node in cell c, applied to the cell.
+	 *
+	 *  A cell with one node runs the single-node arithmetic verbatim, so a model
+	 *  with one node per cell gives the bytes it always did. With several nodes,
+	 *  every node's flow is computed from the cell's depth before any is applied
+	 *  (all manholes see one water surface, so node order changes nothing); if the
+	 *  outflows would take the cell below zero they are scaled down together so the
+	 *  cell ends at exactly zero, and no node takes more than its own computed flow.
+	 *  One thread owns the cell, so no two threads write it.
+	 */
+	template<typename T>
+	KOKKOS_INLINE_FUNCTION void exchange_one_coupled_cell(int c, const int *cell_start, const int *cell_nodes,
+		T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr, T hextra, const int *pos_arr,
+		const T *swmm_loss, const T *swmm_d, const T *swmm_max_depth, const T *swmm_new_depth, T *exchange_q)
+	{
+		const int first = cell_start[c];
+		const int count = cell_start[c + 1] - first;
+		if (count == 1) {
+			const int id = cell_nodes[first];
 			T flow=0.0;
 			int sid = pos_arr[id];
 			T hij = h_arr[sid];
@@ -2522,7 +2581,51 @@ namespace SWMM_triton
 
 			h_arr[sid]=hij;
 			exchange_q[id]=-flow/FT3_TO_M3_FACTOR; // m3/s to ft3/s
+			return;
+		}
 
+		const int sid = pos_arr[cell_nodes[first]];
+		const T hold = h_arr[sid];
+		T in_sum = 0.0, out_sum = 0.0;
+		for (int k = first; k < first + count; ++k) {
+			const int id = cell_nodes[k];
+			const T f = coupled_node_flow(hold, swmm_new_depth[id], swmm_max_depth[id], swmm_loss[id], swmm_d[id]);
+			if (f > 0.0) in_sum += f; else out_sum += f;
+		}
+		T hij = hold + ((in_sum + out_sum) * dt) / (dx * dx);
+		T scale = 1.0;
+		if (hij < 0.0) {
+			// The limiter: the outflows together take the cell's prior water plus the
+			// inflows this step, and no more, so the cell ends at exactly zero.
+			if (out_sum < 0.0) {
+				scale = (-(hold * dx * dx / dt) - in_sum) / out_sum;
+				if (scale < 0.0) scale = 0.0;
+				if (scale > 1.0) scale = 1.0;
+			}
+			hij = 0.0;
+		}
+		if (hij < hextra) {
+			qx_arr[sid] = 0.0;
+			qy_arr[sid] = 0.0;
+		}
+		h_arr[sid] = hij;
+		for (int k = first; k < first + count; ++k) {
+			const int id = cell_nodes[k];
+			T f = coupled_node_flow(hold, swmm_new_depth[id], swmm_max_depth[id], swmm_loss[id], swmm_d[id]);
+			if (f < 0.0) f *= scale;
+			exchange_q[id] = -f/FT3_TO_M3_FACTOR; // m3/s to ft3/s
+		}
+	}
+
+	template<typename T>
+	void compute_swmm_triton_exchange(int ncells, const int *cell_start, const int *cell_nodes, T dx, T dt,
+	T *h_arr, T *qx_arr, T *qy_arr, T hextra, int *pos_arr,
+	T *swmm_loss, T *swmm_d, T *swmm_max_depth, T *swmm_new_depth, T *exchange_q)
+	{
+		#include "kokkos_utils.h"
+		triton::parallel_for( AUTO_LABEL() , ncells , KOKKOS_LAMBDA (int c) {
+			exchange_one_coupled_cell(c, cell_start, cell_nodes, dx, dt, h_arr, qx_arr, qy_arr, hextra, pos_arr,
+			                          swmm_loss, swmm_d, swmm_max_depth, swmm_new_depth, exchange_q);
 		});
 	}
 
