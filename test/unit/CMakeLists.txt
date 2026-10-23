@@ -106,6 +106,43 @@ foreach(_t IN LISTS TRITON_COUPLING_DECLARATION_TESTS)
            COMMAND test_coupling_declaration ${_t})
 endforeach()
 
+# Coupling nodes that share a TRITON cell: the per-cell exchange, its one-node
+# identity with the single-node kernel, the limiter, and the cell index.
+add_executable(test_coupled_cells test_coupled_cells.cpp)
+
+target_include_directories(test_coupled_cells PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_cells PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLED_CELLS_TESTS
+  K1_one_node_cell_is_the_single_node_kernel
+  K2_nodes_share_one_surface
+  K3_limiter_drains_to_exactly_zero
+  K4_filling_cell_sums_inflows
+  K5_cell_index_groups_by_cell)
+
+foreach(_t IN LISTS TRITON_COUPLED_CELLS_TESTS)
+  add_test(NAME UNIT-COUPLED-CELLS-${_t}
+           COMMAND test_coupled_cells ${_t})
+endforeach()
+
+# A second test file for the same per-cell exchange: a cell holding several
+# coupling nodes that drains to a depth in [0, EPS12) must still conserve water.
+add_executable(test_coupled_cells_review test_coupled_cells_review.cpp)
+
+target_include_directories(test_coupled_cells_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_cells_review PRIVATE kokkos swmm5)
+
+add_test(NAME UNIT-COUPLED-CELLS-REVIEW-RV2_several_node_limiter_conserves_at_the_band_edge
+         COMMAND test_coupled_cells_review)
+
 # A coupled cfg whose SWMM model couples no node must stop at startup with
 # "couples no node" rather than finish as a surface-only run. One triton.exe launch
 # under the simulation tests' run command, held to a hard 5 s budget. Registered
