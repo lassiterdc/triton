@@ -105,3 +105,15 @@ foreach(_t IN LISTS TRITON_COUPLING_DECLARATION_TESTS)
   add_test(NAME UNIT-COUPLING-DECLARATION-${_t}
            COMMAND test_coupling_declaration ${_t})
 endforeach()
+
+# A coupled cfg whose SWMM model couples no node must stop at startup with
+# "couples no node" rather than finish as a surface-only run. One triton.exe launch
+# under the simulation tests' run command, held to a hard 5 s budget. Registered
+# only for the SERIAL backend, the one its runtime is measured on.
+if("${BACKEND}" STREQUAL "SERIAL")
+  add_test(NAME UNIT-ZERO-NODE-REFUSAL
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_zero_node_refusal.py
+                   --run-command "${RUN_COMMAND}"
+                   --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
+  set_tests_properties(UNIT-ZERO-NODE-REFUSAL PROPERTIES TIMEOUT 5)
+endif()

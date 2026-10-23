@@ -1206,6 +1206,23 @@ namespace SWMM_triton
 				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 			}
 
+			// A coupled run with no coupling node would open and start SWMM, never step,
+			// close or report it, and finish with RC 0 as an uncoupled surface run. Stop
+			// here instead -- after the declaration's checks, and after swmm_open, so a
+			// model SWMM itself rejects still stops first with SWMM's own error text.
+			if (global_num_of_swmm_links == 0) {
+				std::cerr << ERROR "SWMM model " << inp_filename << " couples no node: ";
+				if (coupling.kind == COUPLING_LIST)
+					std::cerr << "the list " << coupling.path << " names no node";
+				else if (coupling.kind == COUPLING_ALL_JUNCTIONS)
+					std::cerr << "the model has no junction";
+				else
+					std::cerr << "no [INFLOWS] line gives a node a FLOW inflow and no swmm_coupling_nodes is given";
+				std::cerr << ". Declare coupling nodes with swmm_coupling_nodes, or omit inp_filename"
+				             " for a surface-only run." << std::endl;
+				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+
 			// Activate the coupling: each node's exchange slot, in SWMM node-index order,
 			// before any step, replay or snapshot restore reads it.
 			const int slot_rc = routing_setCouplingNodes(swmm_index.data(), global_num_of_swmm_links);
