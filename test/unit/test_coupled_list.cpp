@@ -1,10 +1,24 @@
 /** @file test_coupled_list.cpp
- *  @brief Tier-1 tests for the stop on a failed SWMM startup: which report lines
- *         reach stderr (echo_swmm_report_errors and its two line matchers).
+ *  @brief Tier-1 tests for the coupled-node list and the coupled-node rim rule.
  *
- *  No solver run, no cluster, no SWMM call. Each test function is selectable by
- *  name from argv[1] so CTest registers one node id per property; with no
- *  argument every test runs.
+ *  No solver run, no cluster, no SWMM call. TRITON and SWMM pair coupled nodes by
+ *  POSITION: SWMM walks its FLOW-inflow nodes in node order and consumes the
+ *  exchange array, and fills the depth array, in that order. So TRITON's coupled
+ *  list must be exactly SWMM's FLOW-inflow set in SWMM's node order, or every
+ *  surface cell silently trades water with another node's sewer. These tests
+ *  exercise the three free functions in swmm_triton.h that carry that contract:
+ *
+ *    parse_inp_coupled_list          -- reads the list as SWMM reads its input;
+ *    check_coupled_list_against_swmm -- the startup comparison with the engine,
+ *                                       which no valid model can make fail, so it
+ *                                       is driven here by crafted inputs;
+ *    coupled_node_rim                -- SWMM's full depth, or the parsed token
+ *                                       where the two agree to a relative 1e-12;
+ *    echo_swmm_report_errors         -- item 10's amended stop: which report
+ *                                       lines reach stderr after a failed start.
+ *
+ *  Each test function is selectable by name from argv[1] so CTest registers one
+ *  node id per property; with no argument every test runs.
  */
 
 // The same include prefix as test_exchange_log_header.cpp, for the reasons that
@@ -35,6 +49,172 @@ static int g_failures = 0;
             std::fprintf(stderr, "  FAIL (%s:%d): %s\n", __FILE__, __LINE__, msg);\
         }                                                                         \
     } while (0)
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** A three-junction model; `inflows` is the whole [INFLOWS] section text and
+ *  `extra` is appended after it (a [POLLUTANTS] section, say). */
+static std::string model(const std::string& inflows, const std::string& extra = "",
+                         const std::string& junctions = "[JUNCTIONS]\n;;Name Elev MaxDepth\n;;---\nJ1 1.0 0.0\nJ2 2.0 1.5\nJ3 3.0 2.0\n")
+{
+    return "[TITLE]\nmodel\n\n" + junctions + "\n[COORDINATES]\n;;Node X Y\n;;---\n"
+           "J1 10.0 20.0\nJ2 30.0 40.0\nJ3 50.0 60.0\n\n" + inflows + "\n" + extra +
+           "[DWF]\n;;Node Constituent Baseline\n";
+}
+
+static std::vector<std::string> list_of(const std::string& text)
+{
+    std::istringstream is(text);
+    return parse_inp_coupled_list(is).names;
+}
+
+static bool names_are(const std::vector<std::string>& got, const std::vector<std::string>& want)
+{
+    return got == want;
+}
+
+static const std::string kStdInflows =
+    "[INFLOWS]\n;;Node Constituent TimeSeries\n;;---\nJ1 FLOW ts1\nJ2 FLOW ts2\nJ3 FLOW ts3\n";
+
+// ---------------------------------------------------------------------------
+// Parse: the standard input, which must give today's list.
+// Class: the healthy-run baseline. A parse that drops or reorders on the input
+// every existing model uses fails here. Killed by keeping today's fixed two-line
+// header skip on an [INFLOWS] block with no comment lines (P2), not here; here it
+// is killed by any reordering of a sorted list.
+// ---------------------------------------------------------------------------
+static void P1_standard_input_gives_todays_list()
+{
+    CHECK(names_are(list_of(model(kStdInflows)), {"J1", "J2", "J3"}),
+          "two comment lines, every line FLOW, nodes in [JUNCTIONS] order: list J1 J2 J3");
+}
+
+// Class: [INFLOWS] layouts that today's two-line skip and first-blank-line stop
+// misread. Killed by reinstating either rule.
+static void P2_header_layouts()
+{
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ1 FLOW ts1\nJ2 FLOW ts2\nJ3 FLOW ts3\n")), {"J1", "J2", "J3"}),
+          "zero comment lines keeps all three nodes");
+    CHECK(names_are(list_of(model("[INFLOWS]\n;;c\nJ1 FLOW ts1\nJ2 FLOW ts2\nJ3 FLOW ts3\n")), {"J1", "J2", "J3"}),
+          "one comment line keeps all three nodes");
+    CHECK(names_are(list_of(model("[INFLOWS]\n;;c\n;;c\nJ1 FLOW ts1\n\nJ2 FLOW ts2\nJ3 FLOW ts3\n")), {"J1", "J2", "J3"}),
+          "a blank line inside the section does not end it");
+    CHECK(names_are(list_of(model("   [inflows]   ; comment\nJ1 FLOW ts1\nJ2 FLOW ts2\nJ3 FLOW ts3\n")), {"J1", "J2", "J3"}),
+          "an indented, lower-case header followed by a comment opens the section");
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ1 FLOW ts1\n   [DWF]\nJ2 FLOW ts2\n")), {"J1"}),
+          "an indented header ends the section");
+}
+
+// Class: [INFLOWS] lines in an order other than [JUNCTIONS]. Killed by ordering
+// the list by [INFLOWS] position instead of node position.
+static void P3_order_follows_junctions()
+{
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ3 FLOW ts3\nJ1 FLOW ts1\nJ2 FLOW ts2\n")), {"J1", "J2", "J3"}),
+          "FLOW lines in reverse order still give the [JUNCTIONS] order");
+    CHECK(names_are(list_of(model(kStdInflows, "",
+                     "[JUNCTIONS]\n;;c\nJ3 3.0 2.0\n\nJ1 1.0 0.0\nJ2 2.0 1.5\n")), {"J3", "J1", "J2"}),
+          "the order is [JUNCTIONS]' own, including a comment and a blank line inside it");
+    CHECK(names_are(list_of(model("[INFLOWS]\nOUT1 FLOW t\nJ2 FLOW ts2\n")), {"J2", "OUT1"}),
+          "a node absent from [JUNCTIONS] sorts after the junctions");
+}
+
+// Class: constituent spellings SWMM reads as FLOW, and lines SWMM does not count
+// as a FLOW inflow. Killed by an exact-match "FLOW" test, or by coupling every line.
+static void P4_flow_test_is_swmms()
+{
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ1 flow ts1\nJ2 FLOWRATE ts2\nJ3 \"FLOW\" ts3\n")), {"J1", "J2", "J3"}),
+          "flow, FLOWRATE and \"FLOW\" each give a FLOW inflow");
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ1 FLOW ;text\nJ2 FLOW ts2\n")), {"J1", "J2"}),
+          "a FLOW token followed by a comment still couples");
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ1 FLOW ts1\nJ1 TSS tss\nJ2 FLOW ts2\nJ2 FLOW ts2b\n",
+                     "[POLLUTANTS]\nTSS MG/L 0.0\n\n")), {"J1", "J2"}),
+          "a pollutant line and a repeated FLOW line add no entry");
+    CHECK(names_are(list_of(model("[INFLOWS]\nJ1 FLOW ts1\nJ2 flowrate ts2\n",
+                     "[POLLUTANTS]\nFLOW MG/L 0.0\n\n")), {"J2"}),
+          "with a pollutant named FLOW, a FLOW line is a pollutant line and flowrate is not");
+}
+
+// Class: node names that differ only in case. Killed by a case-sensitive compare.
+static void P5_names_case_insensitive()
+{
+    CHECK(names_are(list_of(model("[INFLOWS]\nj2 FLOW ts2\nj1 FLOW ts1\nJ1 FLOW again\n")), {"j1", "j2"}),
+          "lower-case names in [INFLOWS] match [JUNCTIONS] and dedupe against upper case");
+    std::istringstream is(model(kStdInflows));
+    const inp_coupled_list_t r = parse_inp_coupled_list(is);
+    CHECK(r.junction_names.size() == 3 && r.junction_max_depth.size() == 3 &&
+          r.junction_max_depth[1] == 1.5 && r.coord_names.size() == 3 && r.coord_x[2] == 50.0,
+          "junction depths and coordinates are read in file order");
+}
+
+// Class: the tokenizer's quote and comment rules. Killed by keeping text after ';'
+// inside quotes, or by keeping the quote characters.
+static void P6_tokenizer()
+{
+    const std::vector<std::string> t = swmm_inp_tokens("  \"A B\"\tC ;\"x y\"\r");
+    CHECK(t.size() == 2 && t[0] == "A B" && t[1] == "C", "quoted token keeps its space and drops its quotes; ';' ends the line");
+    CHECK(swmm_inp_tokens(";;only a comment").empty(), "a comment-only line has no tokens");
+}
+
+// ---------------------------------------------------------------------------
+// The startup comparison with the engine. It cannot fail on a valid model once the
+// type refusal has run, so every failing arm is a crafted input.
+// ---------------------------------------------------------------------------
+static void C1_valid_list_passes()
+{
+    const coupled_list_check_t r = check_coupled_list_against_swmm({2, 5, 9}, {1, 1, 1}, 3);
+    CHECK(r.ok, "an increasing list of FLOW-inflow nodes of the right length passes");
+}
+
+// Class: an index list not strictly increasing. Killed by dropping the order test.
+static void C2_out_of_order_refused()
+{
+    const coupled_list_check_t r = check_coupled_list_against_swmm({2, 9, 5}, {1, 1, 1}, 3);
+    CHECK(!r.ok && r.entry == 2 && r.reason.find("out of order") != std::string::npos,
+          "entry 2 (index 5 after 9) is refused as out of order");
+    const coupled_list_check_t d = check_coupled_list_against_swmm({4, 4}, {1, 1}, 2);
+    CHECK(!d.ok && d.entry == 1, "a repeated index is out of order (strictly increasing)");
+}
+
+// Class: an entry SWMM gives no FLOW inflow. Killed by dropping the per-entry test.
+static void C3_entry_without_flow_refused()
+{
+    const coupled_list_check_t r = check_coupled_list_against_swmm({1, 3}, {1, 0}, 2);
+    CHECK(!r.ok && r.entry == 1 && r.reason.find("no FLOW inflow") != std::string::npos,
+          "entry 1 is refused because SWMM gives it no FLOW inflow");
+}
+
+// Class: one wrong entry plus one missed node, counts equal. Killed by checking the
+// count alone, which this pair satisfies.
+static void C4_compensating_pair_refused()
+{
+    const coupled_list_check_t r = check_coupled_list_against_swmm({1, 3, 7}, {1, 0, 1}, 3);
+    CHECK(!r.ok && r.entry == 1, "a non-FLOW entry is caught even when the counts agree");
+}
+
+// Class: the list and SWMM's FLOW-inflow set differ in size. Killed by dropping the
+// count test (a missed node at the end passes every per-entry test).
+static void C5_unequal_counts_refused()
+{
+    const coupled_list_check_t r = check_coupled_list_against_swmm({1, 3}, {1, 1}, 3);
+    CHECK(!r.ok && r.entry == -1 && r.reason.find("couples 2 nodes but SWMM gives 3") != std::string::npos,
+          "a list one shorter than SWMM's FLOW-inflow set is refused by the count");
+}
+
+// Class: a coupled name SWMM does not know (swmm_getIndex -1, no FLOW inflow) --
+// the divergence class the engine-side unknown-name guard exists for. Killed by a
+// comparison that skips entries it cannot index. At the first position it is refused
+// for having no FLOW inflow; after a valid entry its -1 index is out of order.
+static void C6_unknown_name_refused()
+{
+    const coupled_list_check_t a = check_coupled_list_against_swmm({-1, 3}, {0, 1}, 1);
+    CHECK(!a.ok && a.entry == 0 && a.reason.find("no FLOW inflow") != std::string::npos,
+          "an unknown name at the first position is refused: no FLOW inflow");
+    const coupled_list_check_t b = check_coupled_list_against_swmm({2, -1}, {1, 0}, 1);
+    CHECK(!b.ok && b.entry == 1 && b.reason.find("out of order") != std::string::npos,
+          "an unknown name after a valid entry is refused: out of order");
+}
 
 // ---------------------------------------------------------------------------
 // The stop's report echo (item 10, amended).
@@ -86,10 +266,39 @@ static void E2_echo_over_a_report()
           "an unreadable report prints one line saying so");
 }
 
+// ---------------------------------------------------------------------------
+// The rim rule.
+// Class: tokens SWMM leaves unraised, raised, and moved in the last bit. Killed by
+// always keeping the token (the pre-item-11 rim), or always taking SWMM's value
+// (which can change a healthy model's last bit).
+// ---------------------------------------------------------------------------
+static void R1_rim_rule()
+{
+    CHECK(coupled_node_rim(0.0, 1.2) == 1.2, "a recorded 0 under a 1.2 m crown takes SWMM's 1.2");
+    CHECK(coupled_node_rim(2.0, 2.0) == 2.0, "an equal token is kept");
+    const double moved = 1.5000000000000002;
+    CHECK(coupled_node_rim(1.5, moved) == 1.5, "a token SWMM moved by one ulp is kept");
+    CHECK(coupled_node_rim(1.5, 1.6) == 1.6, "a token below SWMM's depth takes SWMM's");
+    CHECK(coupled_node_rim(0.0, 0.0) == 0.0, "a pump-only junction recorded 0 stays 0");
+}
+
 struct test_entry { const char* name; void (*fn)(); };
 static const test_entry kTests[] = {
+    {"P1_standard_input_gives_todays_list", P1_standard_input_gives_todays_list},
+    {"P2_header_layouts", P2_header_layouts},
+    {"P3_order_follows_junctions", P3_order_follows_junctions},
+    {"P4_flow_test_is_swmms", P4_flow_test_is_swmms},
+    {"P5_names_case_insensitive", P5_names_case_insensitive},
+    {"P6_tokenizer", P6_tokenizer},
+    {"C1_valid_list_passes", C1_valid_list_passes},
+    {"C2_out_of_order_refused", C2_out_of_order_refused},
+    {"C3_entry_without_flow_refused", C3_entry_without_flow_refused},
+    {"C4_compensating_pair_refused", C4_compensating_pair_refused},
+    {"C5_unequal_counts_refused", C5_unequal_counts_refused},
+    {"C6_unknown_name_refused", C6_unknown_name_refused},
     {"E1_error_line_matcher", E1_error_line_matcher},
     {"E2_echo_over_a_report", E2_echo_over_a_report},
+    {"R1_rim_rule", R1_rim_rule},
 };
 
 int main(int argc, char** argv)

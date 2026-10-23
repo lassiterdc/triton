@@ -82,6 +82,13 @@ namespace ConfigUtils
 		*   = false = the stop). */
 		bool
 		swmm_snapshot_failed_replay;
+
+		/**< Coupled-node rim source: when true, triton.h sets each coupled node's
+		*   rim to its DEM cell's elevation minus the node's invert, so the exchange
+		*   law keys on the ground TRITON models; when false (absent key), the rim
+		*   is SWMM's own full depth. Additive. */
+		bool
+		swmm_node_rim_from_dem;
 #endif
 
 		std::string
@@ -518,6 +525,7 @@ namespace ConfigUtils
 		arglist.swmm_snapshot_keep_all = atoi((argsd("swmm_snapshot_keep_all", argmap, "0")).c_str());
 		arglist.swmm_snapshot_keep_previous = atoi((argsd("swmm_snapshot_keep_previous", argmap, "0")).c_str());
 		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
+		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
