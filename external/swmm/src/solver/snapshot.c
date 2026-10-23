@@ -798,6 +798,16 @@ static long snapshot_expectedValueCount(int maxStats)
 // file's ".part" literal must match this one.
 #define SNAPSHOT_PART_SUFFIX  ".part"
 
+// Suffix of the marker snapshot_save leaves when its count pass refuses the
+// model state (one text line) or its length check fails after the write (the
+// temporary, renamed). Must match the ".failed" swmm_triton.h tests for; like
+// ".part" it is never counted or pruned as a published snapshot.
+#define SNAPSHOT_FAILED_SUFFIX  ".failed"
+
+// The one line a count-pass refusal writes into its ".failed" marker.
+#define SNAPSHOT_REFUSED_TEXT \
+    "SNAPSHOT REFUSED BEFORE WRITE: a structural guard rejected the model state in the count pass"
+
 int snapshot_save(const char* path)
 //
 //  Input:   path = snapshot file to create
@@ -813,6 +823,13 @@ int snapshot_save(const char* path)
 //  No fsync: the failures this guards against are process kills, which a
 //  userspace flush covers.
 //
+//  A refused or failed write leaves "{path}.failed" and the next resume at this
+//  checkpoint STOPS on it (swmm_snapshot_failed_replay=1 replays instead).
+//  This deliberately reverses the earlier policy that a failed write leaves
+//  nothing and silently costs a replay: a write this build cannot complete is
+//  a defect or a full disk, and a silent fallback hides it behind correct but
+//  slow numbers.
+//
 {
     FILE*  f;
     TSnapCtx c;
@@ -826,8 +843,29 @@ int snapshot_save(const char* path)
     long   expected;
     int    mlen;
 
+    // A count-pass refusal can only be a structural guard rejecting the model
+    // state (the pass touches no file), so it too leaves a ".failed", holding
+    // one text line so an operator can tell it from a failed write. Created
+    // exclusively ("wx"): an existing marker is evidence and is not overwritten.
     expected = snapshot_expectedValueCount(SNAPSHOT_MAX_STATS);
-    if ( expected < 0 ) return 1;
+    if ( expected < 0 )
+    {
+        size_t refusedLen = strlen(path) + strlen(SNAPSHOT_FAILED_SUFFIX) + 1;
+        char*  refused    = (char*) malloc(refusedLen);
+        if ( refused )
+        {
+            FILE* rf;
+            snprintf(refused, refusedLen, "%s%s", path, SNAPSHOT_FAILED_SUFFIX);
+            rf = fopen(refused, "wx");
+            if ( rf )
+            {
+                fputs(SNAPSHOT_REFUSED_TEXT "\n", rf);
+                fclose(rf);
+            }
+            free(refused);
+        }
+        return 1;
+    }
 
     manifest = snapshot_buildManifest(&nFields);
     if ( !manifest ) return 1;
@@ -861,13 +899,29 @@ int snapshot_save(const char* path)
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
 
-    // Remove the temporary on any failure, so the published name never exists
-    // and the next resume finds the snapshot ABSENT (replay fallback) rather
-    // than a short file it would refuse as UNREADABLE. A remove that fails is
-    // reported: the leftover is never loaded but is never reclaimed either.
+    // The length-check arm (a failed fwrite or fclose, or a count disagreement)
+    // KEEPS its temporary as "{path}.failed": c.error cannot say which cause it
+    // was, so the bytes are the operator's evidence. Not ".killed", which the
+    // resume writes for a cut-off write; one name per cause. If that rename
+    // fails the temporary is removed, since a surviving ".part" would be read
+    // as a cut-off write. A remove that fails is reported: the leftover is never
+    // loaded but is never reclaimed either. The published name is never created.
     if ( fclose(f) != 0 || c.error || c.count != expected )
     {
-        if ( remove(part) != 0 )
+        size_t failedLen = strlen(path) + strlen(SNAPSHOT_FAILED_SUFFIX) + 1;
+        char*  failed    = (char*) malloc(failedLen);
+        int    kept      = 0;
+        if ( failed )
+        {
+            snprintf(failed, failedLen, "%s%s", path, SNAPSHOT_FAILED_SUFFIX);
+            if ( rename(part, failed) == 0 ) kept = 1;
+            else
+                fprintf(stderr,
+                    "WARNING: could not keep the failed SWMM snapshot %s as %s "
+                    "(%s); removing it instead\n", part, failed, strerror(errno));
+            free(failed);
+        }
+        if ( !kept && remove(part) != 0 )
             fprintf(stderr,
                 "WARNING: could not remove the partial SWMM snapshot %s (%s); "
                 "it will not be loaded but it will not be reclaimed either\n",

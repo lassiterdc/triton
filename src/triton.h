@@ -437,7 +437,8 @@ namespace Triton
                             arglist.manhole_diameter, arglist.manhole_loss,
                             arglist.swmm_snapshot_disable,
                             arglist.swmm_snapshot_keep_all,
-                            arglist.swmm_snapshot_keep_previous);
+                            arglist.swmm_snapshot_keep_previous,
+                            arglist.swmm_snapshot_failed_replay);
     }
     else if (rank == 0)
     {
@@ -449,9 +450,10 @@ namespace Triton
     // window before the live segment runs. On a resume the full-precision state
     // snapshot is tried first (constant-time restore). Only an ABSENT snapshot falls
     // back to the exchange replay (exact, but its cost grows with t_k and the GPU sits
-    // idle for its whole duration) -- a checkpoint written before snapshots existed,
-    // pruned by retention, or whose write failed; a snapshot that is unusable, or
-    // whose write was cut off, stops the run.
+    // idle for its whole duration) -- a checkpoint written before snapshots existed
+    // or pruned by retention; a snapshot that is unusable, or whose write was cut off
+    // or failed, stops the run (a failed write replays instead under
+    // swmm_snapshot_failed_replay=1).
     // Guard on the GLOBAL node count: num_of_swmm_links is rank 0's *local* (subdomain) count, so
     // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
@@ -465,6 +467,12 @@ namespace Triton
           swmm_model.replay_exchange_history(
               arglist.sim_start_time, arglist.checkpoint_id,
               swmm_model.classify_missing_snapshot(arglist.checkpoint_id));
+        }
+        else if (sr == SR::FailedWriteReplay) {
+          // Opt-in (swmm_snapshot_failed_replay=1): a checkpoint whose snapshot
+          // write failed is replayed instead of stopping.
+          swmm_model.replay_exchange_history(
+              arglist.sim_start_time, arglist.checkpoint_id, "write-failed");
         }
         else if (sr != SR::Restored) {
           // Abort, not exit(): this block runs under a rank-0 guard and a
