@@ -73,3 +73,18 @@ endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/test/inventory ${CMAKE_BINARY_DIR}/test/inventory)
 
 
+
+# Source checks: pure Python over the tree, no build and no solver run, so they
+# are registered unconditionally.
+
+# No swmm_open, swmm_start or swmm_step call in src/ discards its return code.
+# SWMM reports a rejected input only through those codes; discarded, the coupled
+# run completes against a sewer that never moves. The test also runs its
+# predicate on a discarding and a capturing snippet, so a predicate that can no
+# longer go red fails it.
+add_test(
+    NAME SOURCE-SWMM-RETURN-CODES
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_return_codes_source.py
+                ${CMAKE_SOURCE_DIR}
+)

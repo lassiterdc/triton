@@ -31,3 +31,23 @@ foreach(_t IN LISTS TRITON_EXCHANGE_LOG_HEADER_TESTS)
   add_test(NAME UNIT-EXCHANGE-LOG-${_t}
            COMMAND test_exchange_log_header ${_t})
 endforeach()
+
+# The stop on a failed SWMM startup: which report lines it echoes. Same build
+# arrangement as above.
+add_executable(test_coupled_list test_coupled_list.cpp)
+
+target_include_directories(test_coupled_list PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_list PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLED_LIST_TESTS
+  E1_error_line_matcher
+  E2_echo_over_a_report)
+
+foreach(_t IN LISTS TRITON_COUPLED_LIST_TESTS)
+  add_test(NAME UNIT-COUPLED-LIST-${_t}
+           COMMAND test_coupled_list ${_t})
+endforeach()

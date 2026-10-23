@@ -2561,7 +2561,9 @@ namespace Triton
                                     swmm_model.node_to_rank_dict);
         // Durably log this step's (dt, exchange_q) so a future resume can replay 0..t_k.
         swmm_model.log_exchange_step(global_dt, swmm_model.global_exchange_q);
-        swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
+        swmm_model.stop_on_swmm_error(
+            swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt),
+            "swmm_step", "during a coupled timestep");
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
         st.stop(SWMM_STEP);
