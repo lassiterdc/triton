@@ -59,7 +59,10 @@ set(TRITON_COUPLED_LIST_TESTS
   C6_unknown_name_refused
   E1_error_line_matcher
   E2_echo_over_a_report
-  R1_rim_rule)
+  R1_rim_rule
+  U1_us_flow_units_mean_feet
+  U2_engine_length_in_metres
+  U3_us_rim_never_keeps_the_token)
 
 foreach(_t IN LISTS TRITON_COUPLED_LIST_TESTS)
   add_test(NAME UNIT-COUPLED-LIST-${_t}

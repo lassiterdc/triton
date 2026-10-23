@@ -327,6 +327,29 @@ namespace SWMM_triton
 		           ? token : swmm_full_depth;
 	}
 
+	/** @brief True when SWMM's flow unit is a US one (CFS, GPM or MGD). SWMM ties its
+	 *  length unit to its flow unit, so in a US-flow model every length the engine
+	 *  returns (swmm_NODE_ELEV, swmm_NODE_MAXDEPTH) is in feet; TRITON works in metres. */
+	static inline bool swmm_flow_units_are_us(int flow_units)
+	{
+		return flow_units >= swmm_CFS && flow_units <= swmm_MGD;
+	}
+
+	/** @brief A length the SWMM engine returned, in metres: a US model's feet times
+	 *  0.3048, SWMM's own feet-to-metres factor (MperFT in consts.h; UCF(LENGTH) in
+	 *  swmm5.c), so a US model's rims and inverts are bit for bit its SI twin's. */
+	static inline double swmm_engine_length_m(double length, bool us)
+	{
+		return us ? length * 0.3048 : length;
+	}
+
+	/** @brief A coupled node's rim in metres. In an SI model this is coupled_node_rim;
+	 *  in a US model the parsed [JUNCTIONS] token is in feet, so it is never kept. */
+	static inline double coupled_node_rim_m(double token, double swmm_full_depth, bool us)
+	{
+		return us ? swmm_engine_length_m(swmm_full_depth, true) : coupled_node_rim(token, swmm_full_depth);
+	}
+
 	/** @brief True for a SWMM report error line: optional whitespace, "ERROR ", a digit
 	 *  (^\s*ERROR [0-9]+). A bare substring test would also echo a title, a WARNING
 	 *  naming an object, or any other report line that merely contains ERROR. */
@@ -502,14 +525,13 @@ namespace SWMM_triton
 
 		std::string get_output_folder() const { return output_folder; }
 
+		// Zero-initialised so a coupled build running a cfg with no inp_filename
+		// (a non-coupled case) leaves every node-count guard on its uncoupled
+		// branch instead of reading indeterminate values.
 		int num_of_swmm_links = 0; /**< Number of SWMM nodes connected to the surface per subdomain */
 		int num_of_swmm_nodes = 0; /**< Number of SWMM total nodes */
 		int global_num_of_swmm_links = 0; /**< Number of (full domain) SWMM nodes connected to the surface */
 
-		/// Zero-initialised so a coupled build running a cfg with no inp_filename
-		/// (a non-coupled case) leaves every node-count guard on its uncoupled
-		/// branch instead of reading indeterminate values.
-		int units; /**< IS units (0) or imperial units (1) */
 		std::vector<value_t> x;
 		std::vector<value_t> y;
 		std::vector<std::string> nodeID;
@@ -627,7 +649,6 @@ namespace SWMM_triton
 	{
 		rank_=rank;
 		size_=size;
-		units=0;
 		this->output_folder = output_folder;
 		this->snapshot_keep_all = swmm_snapshot_keep_all;
 		this->snapshot_keep_previous = swmm_snapshot_keep_previous;
@@ -652,19 +673,6 @@ namespace SWMM_triton
 			exit(EXIT_FAILURE);
 		}
 
-		std::string line;
-		while (std::getline(infile, line)) {
-			if (line.find("FLOW UNITS") != std::string::npos){
-				std::string unitstext, trashtext;
-            std::istringstream iss(line);
-            iss >> trashtext >> unitstext;
-				if(unitstext=="CFS"){
-					units=1;
-				}
-				break;
-			}
-		}
-
 		infile.close();
 
 		// [COORDINATES], [JUNCTIONS] and [INFLOWS] are read with SWMM's own section rule,
@@ -674,16 +682,13 @@ namespace SWMM_triton
 		const inp_coupled_list_t parsed = parse_inp_coupled_list(infile);
 		infile.close();
 
+		// Coordinate contract: SWMM's [COORDINATES] are map coordinates, tied to no flow
+		// unit, and TRITON places each node in its DEM's grid from them. So they must be
+		// in the DEM's coordinate system in every model, SI or US, and are used as read.
 		for (std::size_t j = 0; j < parsed.coord_names.size(); ++j) {
-			double xij = parsed.coord_x[j];
-			double yij = parsed.coord_y[j];
 			nodeID_all.push_back(parsed.coord_names[j]);
-			if(units){
-				xij*=FT_TO_M_FACTOR;
-				yij*=FT_TO_M_FACTOR;
-			}
-			x_all.push_back(xij);
-			y_all.push_back(yij);
+			x_all.push_back(parsed.coord_x[j]);
+			y_all.push_back(parsed.coord_y[j]);
 		}
 		for (std::size_t j = 0; j < parsed.junction_names.size(); ++j) {
 			junctionID_all.push_back(parsed.junction_names[j]);
@@ -985,6 +990,10 @@ namespace SWMM_triton
 			std::vector<int> swmm_index(global_num_of_swmm_links, -1);
 			std::vector<int> has_flow(global_num_of_swmm_links, 0);
 			int refused = 0;
+			// A US-unit model returns its lengths in feet; both are put in metres here,
+			// on rank 0, before the broadcast, so no other rank needs the unit system and
+			// the DEM rim (z_cell - invert) subtracts metres from metres.
+			const bool us_units = swmm_flow_units_are_us(static_cast<int>(swmm_getValue(swmm_FLOWUNITS, 0)));
 			for (int i = 0; i < global_num_of_swmm_links; i++) {
 				const int idx = swmm_getIndex(swmm_NODE, global_nodeID[i].c_str());
 				swmm_index[i] = idx;
@@ -1003,7 +1012,7 @@ namespace SWMM_triton
 					continue;
 				}
 				has_flow[i] = routing_nodeHasFlowInflow(idx);
-				invert_global[i] = swmm_getValue(swmm_NODE_ELEV, idx);
+				invert_global[i] = swmm_engine_length_m(swmm_getValue(swmm_NODE_ELEV, idx), us_units);
 				double token = 0.0;
 				for (std::size_t j = 0; j < junctionID_all.size(); j++) {
 					if (swmm_upper(junctionID_all[j]) == swmm_upper(global_nodeID[i])) {
@@ -1011,7 +1020,7 @@ namespace SWMM_triton
 						break;
 					}
 				}
-				rim_global[i] = coupled_node_rim(token, swmm_getValue(swmm_NODE_MAXDEPTH, idx));
+				rim_global[i] = coupled_node_rim_m(token, swmm_getValue(swmm_NODE_MAXDEPTH, idx), us_units);
 			}
 			if (refused) MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 
