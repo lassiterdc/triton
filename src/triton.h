@@ -436,7 +436,8 @@ namespace Triton
                             dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                             arglist.manhole_diameter, arglist.manhole_loss,
                             arglist.swmm_snapshot_disable,
-                            arglist.swmm_snapshot_keep_all);
+                            arglist.swmm_snapshot_keep_all,
+                            arglist.swmm_snapshot_keep_previous);
     }
     else if (rank == 0)
     {
@@ -446,10 +447,11 @@ namespace Triton
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, rebuild SWMM's state for 0..t_k so its .out/stats cover the full
     // window before the live segment runs. On a resume the full-precision state
-    // snapshot is tried first (constant-time restore) with the exchange replay as
-    // the fallback (exact, but its cost grows with t_k and the GPU sits idle for
-    // its whole duration); every snapshot refusal degrades to the replay, which
-    // also covers checkpoints written before snapshots existed.
+    // snapshot is tried first (constant-time restore). Only an ABSENT snapshot falls
+    // back to the exchange replay (exact, but its cost grows with t_k and the GPU sits
+    // idle for its whole duration) -- a checkpoint written before snapshots existed,
+    // pruned by retention, or whose write failed; a snapshot that is unusable, or
+    // whose write was cut off, stops the run.
     // Guard on the GLOBAL node count: num_of_swmm_links is rank 0's *local* (subdomain) count, so
     // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
@@ -474,7 +476,17 @@ namespace Triton
           MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
         }
       }
-      else                            swmm_model.open_exchange_log_truncate();
+      else {
+        // The one disposal site for the earlier run's snapshot artifacts: a
+        // clean start consults no snapshot, so none of them is evidence it
+        // needs (on the abort path above a marker is the operator's evidence
+        // and is kept). A non-empty return names an earlier-run snapshot that
+        // could not be disposed of, which a later resume of this run could load,
+        // so the run stops here, before its first write. MPI_Abort: rank-0 block.
+        if (!swmm_model.sweep_snapshot_markers().empty())
+          MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+        swmm_model.open_exchange_log_truncate();
+      }
     }
 
     // replay_exchange_history() rebuilds SWMM's state and leaves rank 0's global_new_depth[] at the

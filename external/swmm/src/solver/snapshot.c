@@ -777,8 +777,9 @@ char* snapshot_buildManifest(long* nFields)
 //=============================================================================
 
 // The number of double-width values the payload carries for the running model,
-// or -1 when the traversal refuses. File-internal: snapshot_load's refusal is
-// its consumer, so funcs.h gains no declaration.
+// or -1 when the traversal refuses. File-internal: snapshot_save's length check
+// and snapshot_load's refusal are its only consumers, so funcs.h gains no
+// declaration.
 static long snapshot_expectedValueCount(int maxStats)
 {
     TSnapCtx c;
@@ -791,12 +792,26 @@ static long snapshot_expectedValueCount(int maxStats)
 
 //=============================================================================
 
+// Suffix of the temporary a snapshot is written to before it is published. Its
+// extension is not ".snapshot", which is what keeps a partial write invisible to
+// classify_missing_snapshot and to the retention prune in swmm_triton.h; that
+// file's ".part" literal must match this one.
+#define SNAPSHOT_PART_SUFFIX  ".part"
+
 int snapshot_save(const char* path)
 //
 //  Input:   path = snapshot file to create
 //  Output:  returns 0 on success, non-zero on failure
 //  Purpose: writes SWMM's statistics and mass-balance accumulators at full
 //           double precision.
+//
+//  Writes "{path}.part", checks its value count against an independent count
+//  pass, and only then publishes it by rename, so a resume never loads an
+//  unusable file under the published name: a writer killed mid-traversal
+//  leaves the temporary and no published file, a state the resume can name,
+//  where a short published file was indistinguishable from a build mismatch.
+//  No fsync: the failures this guards against are process kills, which a
+//  userspace flush covers.
 //
 {
     FILE*  f;
@@ -805,15 +820,26 @@ int snapshot_save(const char* path)
     int    hdr[4];
     int    shp[SNAPSHOT_SHAPE_FIELDS];
     char*  manifest;
+    char*  part;
+    size_t partLen;
     long   nFields = 0;
+    long   expected;
     int    mlen;
+
+    expected = snapshot_expectedValueCount(SNAPSHOT_MAX_STATS);
+    if ( expected < 0 ) return 1;
 
     manifest = snapshot_buildManifest(&nFields);
     if ( !manifest ) return 1;
     mlen = (int) strlen(manifest);
 
-    f = fopen(path, "wb");
-    if ( !f ) { free(manifest); return 1; }
+    partLen = strlen(path) + strlen(SNAPSHOT_PART_SUFFIX) + 1;
+    part    = (char*) malloc(partLen);
+    if ( !part ) { free(manifest); return 1; }
+    snprintf(part, partLen, "%s%s", path, SNAPSHOT_PART_SUFFIX);
+
+    f = fopen(part, "wb");
+    if ( !f ) { free(manifest); free(part); return 1; }
 
     snapshot_currentShape(&shape, SNAPSHOT_MAX_STATS);
     hdr[0] = SNAPSHOT_MAGIC;
@@ -826,7 +852,7 @@ int snapshot_save(const char* path)
          fwrite(shp, sizeof(int), SNAPSHOT_SHAPE_FIELDS, f) != SNAPSHOT_SHAPE_FIELDS ||
          (mlen > 0 && fwrite(manifest, 1, (size_t) mlen, f) != (size_t) mlen) )
     {
-        fclose(f); free(manifest); remove(path); return 1;
+        fclose(f); remove(part); free(manifest); free(part); return 1;
     }
     free(manifest);
 
@@ -835,12 +861,36 @@ int snapshot_save(const char* path)
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
 
-    // Remove the file on any failure: a header-only or partial snapshot left
-    // behind would be classified UNREADABLE (abort) at the next resume instead
-    // of ABSENT (replay fallback), breaking the contract that a failed
-    // snapshot write only costs a replay.
-    if ( fclose(f) != 0 ) { remove(path); return 1; }
-    if ( c.error ) { remove(path); return 1; }
+    // Remove the temporary on any failure, so the published name never exists
+    // and the next resume finds the snapshot ABSENT (replay fallback) rather
+    // than a short file it would refuse as UNREADABLE. A remove that fails is
+    // reported: the leftover is never loaded but is never reclaimed either.
+    if ( fclose(f) != 0 || c.error || c.count != expected )
+    {
+        if ( remove(part) != 0 )
+            fprintf(stderr,
+                "WARNING: could not remove the partial SWMM snapshot %s (%s); "
+                "it will not be loaded but it will not be reclaimed either\n",
+                part, strerror(errno));
+        free(part);
+        return 1;
+    }
+
+    // Publish. Its atomicity on the target filesystem is assumed, not measured.
+    if ( rename(part, path) != 0 )
+    {
+        fprintf(stderr,
+            "WARNING: could not publish the SWMM snapshot %s from its temporary "
+            "%s (%s)\n", path, part, strerror(errno));
+        if ( remove(part) != 0 )
+            fprintf(stderr,
+                "WARNING: could not remove the unpublished SWMM snapshot "
+                "temporary %s (%s)\n", part, strerror(errno));
+        free(part);
+        return 1;
+    }
+
+    free(part);
     return SNAPSHOT_OK;
 }
 
