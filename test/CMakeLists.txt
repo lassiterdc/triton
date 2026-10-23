@@ -62,6 +62,32 @@ else()
                   --test ${CMAKE_BINARY_DIR}/test/output_allatoona/asc
   )
 
+  # Order each comparator after its own simulation, from an empty output
+  # directory. CTest schedules by cost, so under `ctest -jN` a cheap BIT4BIT
+  # comparator starts beside its simulation and finishes first: red on a fresh
+  # build, and on a reused build it compares the previous run's rasters and
+  # passes. The clean node also stops a leftover raster from a longer earlier
+  # run being picked by the comparator's lexicographically-last file selection.
+  foreach(_case PARABOLOID CIRCULAR-DAMBREAK ALLATOONA)
+    if(_case STREQUAL "PARABOLOID")
+      set(_out output_paraboloid)
+    elseif(_case STREQUAL "CIRCULAR-DAMBREAK")
+      set(_out output_circular_dambreak)
+    else()
+      set(_out output_allatoona)
+    endif()
+    add_test(NAME CLEAN-OUTPUT-${_case}
+             COMMAND ${CMAKE_COMMAND} -E remove_directory ${_out})
+    set_tests_properties(CLEAN-OUTPUT-${_case} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test"
+                         FIXTURES_SETUP ${_case}_CLEAN)
+    set_tests_properties(${_case} PROPERTIES
+                         FIXTURES_REQUIRED ${_case}_CLEAN
+                         FIXTURES_SETUP ${_case}_OUTPUT)
+    set_tests_properties(BIT4BIT-${_case} PROPERTIES
+                         FIXTURES_REQUIRED ${_case}_OUTPUT)
+  endforeach()
+
 endif()
 
 # Tier-1 unit tests and the snapshot-inventory tooling. The unit tests include
@@ -71,6 +97,12 @@ if(TRITON_ENABLE_SWMM)
   add_subdirectory(${CMAKE_SOURCE_DIR}/test/snapshot ${CMAKE_BINARY_DIR}/test/snapshot)
 endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/test/inventory ${CMAKE_BINARY_DIR}/test/inventory)
+
+# Runtime tests for the SWMM timer column split: they drive the real SuperTimer
+# and Output::write_times and assert that SWMM_STEP is exactly 0.0 on every rank
+# but rank 0 and that the SWMM child columns sum to SWMM. Registered in every
+# configuration, because the columns are emitted in every configuration.
+add_subdirectory(${CMAKE_SOURCE_DIR}/test/perf ${CMAKE_BINARY_DIR}/test/perf)
 
 
 
@@ -86,5 +118,27 @@ add_test(
     NAME SOURCE-SWMM-RETURN-CODES
     COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_SOURCE_DIR}/test/test_swmm_return_codes_source.py
+                ${CMAKE_SOURCE_DIR}
+)
+
+# Every C++ translation unit must PARSE under `mpic++ -fsyntax-only` with the
+# Kokkos config shim in test/syntax/kokkos-shim/: no CMake configure of Kokkos,
+# no link, no solver run. It asserts each TU's exit status, not the absence of
+# warnings (their count varies by site). It does not use CMAKE_CXX_COMPILER,
+# which may be a site wrapper; pass --compiler to override.
+add_test(
+    NAME SOURCE-SYNTAX-PARSE-ALL-TUS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/syntax/run_syntax_check.py
+                ${CMAKE_SOURCE_DIR}
+)
+
+# Source properties of the SWMM timer column split that the runtime tests cannot
+# tell from their violations, among them that SWMM_STEP's bracket in triton.h
+# sits inside the rank-0 guard.
+add_test(
+    NAME SOURCE-SWMM-COLUMN-SPLIT
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_column_split_source.py
                 ${CMAKE_SOURCE_DIR}
 )
