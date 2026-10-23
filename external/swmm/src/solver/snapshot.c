@@ -62,11 +62,14 @@ extern double          TotalArea;
 
 // The version names the admitted field set (V2: routing-state fields and the
 // nConduit/nXnode shape dims; V3: the global routing clocks; V4: the routing
-// sentinels BetweenEvents/VariableStep; V5: the output-period count Nperiods).
+// sentinels BetweenEvents/VariableStep; V5: the output-period count Nperiods;
+// V6: Outfall.wRouted always carries Nobjects[POLLUT] values per outfall, zeros
+// for a route-less one -- the field set is unchanged, the per-outfall value
+// count is not, and a V5 reader would misreport a complete V6 file as short).
 // snapshot_load refuses an exact inequality BEFORE reading the shape block, so
 // an older file is rejected with both versions named rather than mis-strided;
 // the magic is not bumped because the format family is unchanged.
-#define SNAPSHOT_VERSION  5
+#define SNAPSHOT_VERSION  6
 
 // Compile-time bound only; stats.c hands its real MAX_STATS at runtime and a
 // disagreement is refused in snapshot_traverse.
@@ -138,8 +141,15 @@ static void snapshot_currentShape(TSnapshotShape* s, int maxStats)
 //-----------------------------------------------------------------------------
 //  Emitter state. One traversal drives manifest, write and read, so the three
 //  cannot fall out of order.
+//
+//  SNAP_COUNT touches no file: snap_d/i/l/c fall through both mode branches and
+//  only count, so c->count ends at the number of values the payload carries for
+//  the running model. The array guards fire in it exactly as in SNAP_WRITE; that
+//  matters because its one field load (the Outfall guard's s->routeTo and
+//  s->wRouted) is safe only behind the pre-loop !Outfall guard, so neither guard
+//  may be narrowed to WRITE/READ nor bypassed by a count-only fast path.
 //-----------------------------------------------------------------------------
-typedef enum { SNAP_MANIFEST, SNAP_WRITE, SNAP_READ } TSnapMode;
+typedef enum { SNAP_MANIFEST, SNAP_WRITE, SNAP_READ, SNAP_COUNT } TSnapMode;
 
 typedef struct
 {
@@ -285,6 +295,10 @@ static TStorage       _snapDummyStorageObj;
 static void snapshot_traverse(TSnapCtx* c, int maxStats)
 {
     int i, k;
+    // Outfall.wRouted placeholder for a route-less outfall: the zero WRITE emits,
+    // the discard READ fills. Function-local so this file's bytes do not depend
+    // on any other use of the shared _snapDummyScalar.
+    double          wRoutedPlaceholder = 0.0;
     TTimeStepStats* tss    = NULL;
     TMaxStats*      mbe    = NULL;
     TMaxStats*      cc     = NULL;
@@ -640,19 +654,38 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     }
 
     // --- Outfall[]: wRouted is a per-pollutant array -- Nobjects[POLLUT] values
-    //     per outfall, one manifest line.
+    //     per outfall, one manifest line. The count does NOT depend on routeTo:
+    //     node.c allocates wRouted only when routeTo >= 0, and a route-less
+    //     outfall emits placeholder zeros, because none of the twelve shape
+    //     dimensions records routeTo and a routeTo-dependent length would pass
+    //     every shape check and then mis-stride every later field.
     if ( c->mode != SNAP_MANIFEST && Nnodes[OUTFALL] > 0 && !Outfall ) { c->error = 1; return; }
     for (i = 0; i < SNAP_N(c, Nnodes[OUTFALL]); i++)
     {
         TOutfall* s = SNAP_P(c, Outfall, i, _snapDummyOutfallObj);
         SNAP_D(c, "Outfall", *s, vRouted);
-        if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !s->wRouted )
-        { c->error = 1; return; }
+
+        // Keyed on routeTo, which is what the allocation is keyed on: the
+        // array is missing only where it should exist. Keying on the pollutant
+        // count alone fired on every route-less outfall of a model carrying
+        // pollutants and cut short every snapshot such a model wrote. continue,
+        // not return: c->error is latched, so one outfall cannot end the
+        // traversal for the whole file.
+        if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0
+             && s->routeTo >= 0 && !s->wRouted )
+        { c->error = 1; continue; }
+
         for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
         {
+            // Three-way selection: a route-less outfall reaches the placeholder.
+            // The two-way form it replaces forms &NULL[k] there, and the guard
+            // above no longer refuses that case.
+            double* slot;
             snap_name(c, "Outfall", "wRouted");
-            snap_d(c, (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar
-                                                 : &s->wRouted[k]);
+            if      ( c->mode == SNAP_MANIFEST ) slot = &_snapDummyScalar;
+            else if ( s->wRouted )               slot = &s->wRouted[k];
+            else                                 slot = &wRoutedPlaceholder;
+            snap_d(c, slot);
         }
     }
 
@@ -743,6 +776,21 @@ char* snapshot_buildManifest(long* nFields)
 
 //=============================================================================
 
+// The number of double-width values the payload carries for the running model,
+// or -1 when the traversal refuses. File-internal: snapshot_load's refusal is
+// its consumer, so funcs.h gains no declaration.
+static long snapshot_expectedValueCount(int maxStats)
+{
+    TSnapCtx c;
+    memset(&c, 0, sizeof(c));
+    c.mode = SNAP_COUNT;
+    snapshot_traverse(&c, maxStats);
+    if ( c.error ) return -1;
+    return c.count;
+}
+
+//=============================================================================
+
 int snapshot_save(const char* path)
 //
 //  Input:   path = snapshot file to create
@@ -818,6 +866,9 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     char* manifest = NULL;
     char* mine     = NULL;
     long  nFields  = 0;
+    long  payloadStart = -1;
+    long  expected     = -1;
+    long  actual       = -1;
     int   rc = SNAPSHOT_UNREADABLE;
 
     if ( errMsg && errMsgLen > 0 ) errMsg[0] = '\0';
@@ -930,13 +981,35 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     }
     free(manifest); free(mine);
 
+    // Measure the payload extent before reading it, so a refusal carries the
+    // two counts that disagree rather than a guessed cause: a file from an
+    // older build, a corrupt file and a writer killed mid-traversal all read as
+    // "short", and only expected-versus-actual tells them apart.
+    payloadStart = ftell(f);
+    expected     = snapshot_expectedValueCount(SNAPSHOT_MAX_STATS);
+    if ( payloadStart >= 0 && fseek(f, 0, SEEK_END) == 0 )
+    {
+        const long fileEnd = ftell(f);
+        if ( fileEnd >= payloadStart ) actual = (fileEnd - payloadStart) / (long) sizeof(double);
+        if ( fseek(f, payloadStart, SEEK_SET) != 0 )
+        {
+            if ( errMsg ) snprintf(errMsg, errMsgLen,
+                "snapshot payload could not be positioned for reading: %s", path);
+            fclose(f); return SNAPSHOT_UNREADABLE;
+        }
+    }
+
     memset(&c, 0, sizeof(c));
     c.mode = SNAP_READ;
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
     rc = c.error ? SNAPSHOT_UNREADABLE : SNAPSHOT_OK;
+    // States what disagreed and by how much, and no cause; -1 marks a figure
+    // that could not be measured.
     if ( rc && errMsg ) snprintf(errMsg, errMsgLen,
-        "snapshot payload is short or unreadable: %s", path);
+        "snapshot payload holds %ld value(s) and this model requires %ld "
+        "(values read before the traversal stopped: %ld): %s",
+        actual, expected, c.count, path);
 
     fclose(f);
     return rc;

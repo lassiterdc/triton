@@ -2230,6 +2230,16 @@ namespace Triton
         st.stop(COMPUTE_TIME);
 
         st.start(IO_TIME);
+#ifdef TRITON_SWMM
+        // Tie exchange-replay side-file durability to each checkpoint write so a future
+        // resume from this checkpoint always has a complete 0..t_k series on disk.
+        // FIRST in the block, before out.write_output writes config_{print_id}.cfg:
+        // flush_exchange_log aborts on a failed flush, and running it first means
+        // that abort leaves config_{print_id-1}.cfg as the latest complete cfg,
+        // whose series is covered, instead of a cfg written over a dead series.
+        // Inside the IO_TIME bracket, where a file flush belongs.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
+#endif
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
 #ifdef TRITON_SWMM
         // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
@@ -2241,12 +2251,6 @@ namespace Triton
           swmm_model.write_state_snapshot(print_id);
 #endif
         st.stop(IO_TIME);
-
-#ifdef TRITON_SWMM
-        // Tie exchange-replay side-file durability to each checkpoint write so a future
-        // resume from this checkpoint always has a complete 0..t_k series on disk.
-        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
-#endif
 
         #if WRITE_PERFORMANCE
           // Synchronize before stopping timers to ensure all async operations complete

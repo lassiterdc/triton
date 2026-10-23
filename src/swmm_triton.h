@@ -707,19 +707,49 @@ namespace SWMM_triton
 	}
 
 
+	// is_open() is only the not-initialised sentinel (no SWMM surface nodes); the
+	// durability outcome is read through good(), because a stream can be open and
+	// failed at once. A failure aborts rather than continuing: ofstream failure
+	// latches, so every later checkpoint would sit over a dead series. The flush
+	// runs before the checkpoint's cfg is written (triton.h), so an abort there
+	// leaves the previous checkpoint resumable. MPI_Abort, not exit(): both
+	// callers are rank-0-only.
 	void swmm_triton::log_exchange_step(value_t dt, const value_t* gq)
 	{
 		if (rank_ != 0) return;
 		if (!exchange_log.is_open()) return;   // no SWMM surface nodes / not initialized
 		exchange_log.write(reinterpret_cast<const char*>(&dt), sizeof(value_t));
 		exchange_log.write(reinterpret_cast<const char*>(gq), sizeof(value_t) * exchange_num_nodes);
+		if (!exchange_log.good())
+		{
+			std::cerr << ERROR "Could not append to the SWMM exchange-replay side-file "
+			          << exchange_log_path << ".\n"
+			          << "         Aborting at this step rather than continuing. The "
+			             "stream's failure state latches, so continuing would write "
+			             "every later checkpoint over a dead series and make each one "
+			             "a resume point whose replay cannot reach it. The latest "
+			             "complete checkpoint remains resumable."
+			          << std::endl;
+			MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+		}
 	}
 
 
 	void swmm_triton::flush_exchange_log()
 	{
 		if (rank_ != 0) return;
-		if (exchange_log.is_open()) exchange_log.flush();
+		if (!exchange_log.is_open()) return;   // no SWMM surface nodes / not initialized
+		exchange_log.flush();
+		if (!exchange_log.good())
+		{
+			std::cerr << ERROR "Could not flush the SWMM exchange-replay side-file "
+			          << exchange_log_path << " at a checkpoint write.\n"
+			          << "         Aborting before this checkpoint's cfg is written, so "
+			             "the resume picker returns the previous checkpoint, whose "
+			             "series is covered and whose snapshot is complete."
+			          << std::endl;
+			MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+		}
 	}
 
 
@@ -931,12 +961,22 @@ namespace SWMM_triton
 				          << std::endl;
 				return SnapshotRestore::Absent;
 			}
+			// No cause is named: msg carries the quantity that disagreed. A
+			// writer aborting mid-payload produced exactly this refusal on files
+			// written by the build that read them, so "different build or
+			// corrupt" was not a safe attribution.
 			std::cerr << ERROR "SWMM state snapshot is present but UNUSABLE ("
 			          << msg << ").\n"
-			          << "         Refusing to continue: the file exists and cannot be read,\n"
-			          << "         which means it was written by a different build or is corrupt.\n"
-			          << "         Re-run from a clean start (checkpoint_id=0), or remove\n"
-			          << "         " << path << " to resume via the exchange replay." << std::endl;
+			          << "         Refusing to continue. The file exists and "
+			             "disagrees with this build's reader; the parenthesis "
+			             "above carries the specific quantity that disagreed, "
+			             "and no cause is asserted here.\n"
+			          << "         Re-run from a clean start (checkpoint_id=0). "
+			             "The exchange replay is an exit only where a replay "
+			             "side-file covering this checkpoint survives, and the "
+			             "campaign that produced this code path measured "
+			             "replayed=0 across all 45 of its per-model logs -- so "
+			             "do not count on it without checking." << std::endl;
 			return SnapshotRestore::Unreadable;
 		}
 
