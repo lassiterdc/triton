@@ -89,6 +89,13 @@ namespace ConfigUtils
 		*   is SWMM's own full depth. Additive. */
 		bool
 		swmm_node_rim_from_dem;
+
+		/**< Coupling nodes: a path names a one-column file of SWMM node names,
+		*   each a coupling node; ALL_JUNCTIONS couples every [JUNCTIONS] node;
+		*   empty (absent key) derives them from the [INFLOWS] FLOW lines as every
+		*   earlier build did. Additive. */
+		std::string
+		swmm_coupling_nodes;
 #endif
 
 		std::string
@@ -526,6 +533,7 @@ namespace ConfigUtils
 		arglist.swmm_snapshot_keep_previous = atoi((argsd("swmm_snapshot_keep_previous", argmap, "0")).c_str());
 		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
 		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
+		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());

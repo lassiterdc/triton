@@ -271,44 +271,48 @@ void routing_execute(int routingModel, double routingStep, double *exchange_q, d
 }
 
 //=============================================================================
-
+static int* CouplingSlot = NULL;  //TRITON: node index -> exchange slot, -1 if not coupled; set by routing_setCouplingNodes
 void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
 //
-//  Input:   swmm_newDepth = TRITON-owned buffer, one slot per FLOW_INFLOW node
+//  Input:   swmm_newDepth = TRITON-owned buffer, one slot per coupling node
 //  Output:  none
-//  Purpose: publishes each inflow node's current depth into the array TRITON
+//  Purpose: publishes each coupling node's current depth into the array TRITON
 //           reads, in TRITON's index space and units.
 //
-//  The ONLY site that writes swmm_newDepth[].  The index space is defined by
-//  this loop (a running counter over Nobjects[NODE] restricted to FLOW_INFLOW
-//  nodes, in metres where Node[].newDepth is in feet); the snapshot-restore
-//  path calls this same function rather than duplicating it, which is what
-//  keeps its result bitwise identical to what a replay leaves.
+//  The ONLY site that writes swmm_newDepth[]. The index space is the slot map
+//  routing_setCouplingNodes builds from TRITON's coupling nodes (slot k is the
+//  k-th coupling node in SWMM node-index order); addExternalInflows reads the
+//  same map, so a node's exchange and its reported depth share one slot and no
+//  FLOW inflow decides which nodes have one. The map is configuration, rebuilt
+//  by TRITON after every swmm_open, not snapshot state. Depths are in metres
+//  where Node[].newDepth is in feet. The snapshot-restore path calls this same
+//  function rather than duplicating it, which is what keeps its result bitwise
+//  identical to what a replay leaves.
 //
 {
     int i;
-    int inflow_id;
-    TExtInflow* inflow;
+    int slot;
 
     if ( swmm_newDepth == NULL ) return;
 
-    // --- for each node with a defined inflow
-    inflow_id = 0;
+    // --- a coupled call before TRITON set the slot map: stop, never export
+    //     nothing (a zero depth would read as a dry sewer at every node)
+    if ( CouplingSlot == NULL )
+    {
+        ErrorCode = ERR_SYSTEM;
+        return;
+    }
+
+    // --- for each coupling node, in slot (= SWMM node-index) order
     for (i = 0; i < Nobjects[NODE]; i++)
     {
-        // --- get flow inflow
-        inflow = Node[i].extInflow;
-        while ( inflow )
+        slot = CouplingSlot[i];
+        if ( slot >= 0 )
         {
-            if ( inflow->type == FLOW_INFLOW )
-            {
-                swmm_newDepth[inflow_id] = Node[i].newDepth * MperFT; //ft to m
-                inflow_id++;
-                break;
-            }
-            else inflow = inflow->next;
+            swmm_newDepth[slot] = Node[i].newDepth * MperFT; //ft to m
         }
     }
+    return;
 }
 
 //=============================================================================
@@ -489,7 +493,6 @@ void addExternalInflows(DateTime currentDate, double *exchange_q) //TRITON
     int     j, p;
     double  q, w;
     TExtInflow* inflow;
-	 int inflow_id=0; //TRITON
 
     // --- for each node with a defined external inflow
     for (j = 0; j < Nobjects[NODE]; j++)
@@ -502,12 +505,16 @@ void addExternalInflows(DateTime currentDate, double *exchange_q) //TRITON
             if ( inflow->type == FLOW_INFLOW )
             {
                 q += inflow_getExtInflow(inflow, currentDate);
-					 q += exchange_q[inflow_id];//TRITON
-					 inflow_id++;//TRITON
                 break;
             }
             else inflow = inflow->next;
         }
+
+        // --- add TRITON's exchange to a coupling node, after its FLOW series  //TRITON
+        //     if it has one: a FLOW inflow is a model input applied whether or  //TRITON
+        //     not the node is coupled, and never makes a node a coupling node   //TRITON
+        if ( exchange_q && CouplingSlot && CouplingSlot[j] >= 0 )                //TRITON
+            q += exchange_q[CouplingSlot[j]];                                     //TRITON
         if ( fabs(q) < FLOW_TOL ) q = 0.0;
 
         // --- add flow inflow to node's lateral inflow
@@ -1036,9 +1043,10 @@ int routing_nodeHasFlowInflow(int j) //TRITON
 //  Input:   j = node index
 //  Output:  returns 1 if node j's external inflows include a FLOW_INFLOW, else 0
 //  Purpose: lets TRITON check its coupled-node list against SWMM's own FLOW-inflow
-//           set at startup, using the predicate addExternalInflows and
-//           routing_exportInflowNodeDepths walk to give a node its exchange slot.
-//           Reads Node[].extInflow only. Placed at the end of the file so no line
+//           set at startup when no coupling node is declared (the legacy branch,
+//           whose coupled list IS the FLOW-inflow set). Exchange slots are
+//           assigned by routing_setCouplingNodes, not by this predicate. Reads
+//           Node[].extInflow only. Placed at the end of the file so no line
 //           cited by number elsewhere (snapshot.c, the snapshot inventory) moves.
 //
 {
@@ -1049,4 +1057,51 @@ int routing_nodeHasFlowInflow(int j) //TRITON
         if ( inflow->type == FLOW_INFLOW ) return 1;
     }
     return 0;
+}
+
+//=============================================================================
+
+int routing_setCouplingNodes(const int* nodeIndex, int n) //TRITON
+//
+//  Input:   nodeIndex = SWMM node index of each coupling node, in slot order
+//           n         = number of coupling nodes
+//  Output:  returns an error code (0 when the map is built)
+//  Purpose: builds the slot map addExternalInflows and
+//           routing_exportInflowNodeDepths read: slot k belongs to node
+//           nodeIndex[k].  TRITON calls it on rank 0 after every swmm_open,
+//           after checking that the indices strictly increase, before any step.
+//
+{
+    int j, k;
+    FREE(CouplingSlot);
+    CouplingSlot = (int *) malloc((Nobjects[NODE] > 0 ? Nobjects[NODE] : 1) * sizeof(int));
+    if ( CouplingSlot == NULL ) return ERR_MEMORY;
+    for ( j = 0; j < Nobjects[NODE]; j++ ) CouplingSlot[j] = -1;
+    for ( k = 0; k < n; k++ )
+    {
+        if ( nodeIndex[k] < 0 || nodeIndex[k] >= Nobjects[NODE] )
+        {
+            FREE(CouplingSlot);
+            return ERR_API_OBJECT_INDEX;
+        }
+        CouplingSlot[nodeIndex[k]] = k;
+    }
+    return 0;
+}
+
+//=============================================================================
+
+int routing_nodeCouplingSlot(int j) //TRITON
+//
+//  Input:   j = node index
+//  Output:  returns node j's exchange slot, or -1 if it is not a coupling node
+//           (or no map is set)
+//  Purpose: lets report_Nodes_TRITON write TRITON's per-node files for exactly
+//           the coupling nodes. Reads the map routing_setCouplingNodes built;
+//           the map lives until the next set, so it is still there when
+//           swmm_report runs after swmm_end.
+//
+{
+    if ( CouplingSlot == NULL || j < 0 || j >= Nobjects[NODE] ) return -1;
+    return CouplingSlot[j];
 }

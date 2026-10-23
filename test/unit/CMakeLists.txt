@@ -82,3 +82,26 @@ target_link_libraries(test_coupled_list_review PRIVATE kokkos swmm5)
 
 add_test(NAME UNIT-COUPLED-LIST-RV1_section_headers_by_swmm_keyword_prefix
          COMMAND test_coupled_list_review)
+
+# How the coupling nodes are declared: the declaration resolver, the list file's
+# format and the repeat refusal. Same build arrangement as above.
+add_executable(test_coupling_declaration test_coupling_declaration.cpp)
+
+target_include_directories(test_coupling_declaration PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupling_declaration PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLING_DECLARATION_TESTS
+  D1_list_is_exactly_the_list
+  D2_all_junctions_is_exactly_the_junctions
+  D3_legacy_is_exactly_the_flow_set
+  D4_list_file_format
+  D5_repeated_name_after_case_fold)
+
+foreach(_t IN LISTS TRITON_COUPLING_DECLARATION_TESTS)
+  add_test(NAME UNIT-COUPLING-DECLARATION-${_t}
+           COMMAND test_coupling_declaration ${_t})
+endforeach()

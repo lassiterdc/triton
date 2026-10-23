@@ -610,6 +610,11 @@ EXCLUDED_ROUTING_STATE = {
         'pointer/array name: the value is a heap address produced during '
         'open/init, meaningless to carry between processes; any state '
         'behind it is carried on its own axis',
+    ("-", 'CouplingSlot'):
+        "configuration, not resume state: TRITON's coupling-node slot map "
+        '(routing.c, routing_setCouplingNodes), rebuilt by TRITON from its '
+        'declared coupling nodes after every swmm_open and before any step, '
+        'so a resumed run re-derives it rather than carrying it',
     ("-", 'CourantFactor'):
         'config: re-read from the .inp at swmm_open -- the same verdict '
         'EXCLUDED_SCALARS records for it under Criterion R',
