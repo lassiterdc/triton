@@ -77,7 +77,13 @@ set(TRITON_SNAPSHOT_TESTS
   # DoD 10 (l2) and (m): the count-pass refusal's marker, and the resume stop
   # it causes.
   T33_a_count_pass_refusal_leaves_a_one_line_failed_marker
-  T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line)
+  T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line
+  # swmm_snapshot_failed_replay: the key on replays at a ".failed" and keeps the
+  # marker, the key off keeps the stop and names the key, and a ".killed" keeps
+  # its step-back route under the key.
+  T35_failed_replay_on_returns_the_replay_and_keeps_the_marker
+  T36_failed_replay_off_keeps_the_stop_and_names_the_key
+  T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route)
 
 foreach(_t IN LISTS TRITON_SNAPSHOT_TESTS)
   add_test(NAME UNIT-SNAPSHOT-${_t}

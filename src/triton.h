@@ -448,7 +448,8 @@ namespace Triton
                           arglist.swmm_snapshot_keep_all,
                           arglist.swmm_snapshot_keep_previous,
                           arglist.swmm_node_rim_from_dem,
-                          arglist.swmm_coupling_nodes);
+                          arglist.swmm_coupling_nodes,
+                          arglist.swmm_snapshot_failed_replay);
 
     }
     else if (rank == 0) {
@@ -476,7 +477,10 @@ namespace Triton
     // The fallback is RETAINED for the ABSENT case only: a checkpoint written
     // before snapshots existed has none to load, and one the keep-2 retention
     // pruned has none either. Both are legitimate and the replay is correct
-    // for them, only slow.
+    // for them, only slow. The one other route into it is opt-in: with
+    // swmm_snapshot_failed_replay=1, a checkpoint whose snapshot write failed
+    // returns FailedWriteReplay and is replayed with reason "write-failed"
+    // instead of stopping.
     //
     // FAIL-FAST IS THE DEFAULT ON EVERY OTHER REFUSAL. A snapshot that is
     // PRESENT and unusable means the file DISAGREES WITH THIS BUILD'S READER on
@@ -503,6 +507,10 @@ namespace Triton
           swmm_model.replay_exchange_history(
               arglist.sim_start_time, arglist.checkpoint_id,
               swmm_model.classify_missing_snapshot(arglist.checkpoint_id));
+        }
+        else if (sr == SR::FailedWriteReplay) {
+          swmm_model.replay_exchange_history(
+              arglist.sim_start_time, arglist.checkpoint_id, "write-failed");
         }
         else if (sr != SR::Restored) {
           std::cerr << ERROR "Coupled resume aborted: the SWMM state snapshot for "

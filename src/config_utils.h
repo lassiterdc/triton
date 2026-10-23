@@ -131,6 +131,18 @@ namespace ConfigUtils
 		bool
 		swmm_snapshot_keep_previous;
 
+		/// FAILED-WRITE REPLAY OVERRIDE. When true, a resume at a checkpoint whose
+		/// snapshot write was refused or failed -- the writer left "{path}.failed"
+		/// and published nothing -- takes the full exchange replay from t=0
+		/// instead of stopping, and keeps the marker. When false, which is what an
+		/// absent key means, that resume stops as it did before the key existed.
+		/// It governs only that one outcome: a ".part" or ".killed" marker is
+		/// routed the same way whatever this key says. Same type and read form as
+		/// the keys above (bool; argsd with "0"), and its own type-group for the
+		/// reason swmm_snapshot_keep_all has one.
+		bool
+		swmm_snapshot_failed_replay;
+
 		/// COUPLED-NODE RIM SOURCE. When true, triton.h sets each coupled node's rim
 		/// to its DEM cell's elevation minus the node's invert, so the exchange law
 		/// keys on the ground TRITON models; when false, which is what an absent key
@@ -594,6 +606,10 @@ namespace ConfigUtils
 		// ADDITIVE, same form again: an absent key is a defined false, which is
 		// the clean start's removal default.
 		arglist.swmm_snapshot_keep_previous = atoi((argsd("swmm_snapshot_keep_previous", argmap, "0")).c_str());
+
+		// ADDITIVE, same form: an absent key is a defined false, which keeps the
+		// stop at a checkpoint whose snapshot write failed.
+		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
 
 		// ADDITIVE, same form: an absent key is a defined false, which keeps SWMM's
 		// own full depth as every coupled node's rim.

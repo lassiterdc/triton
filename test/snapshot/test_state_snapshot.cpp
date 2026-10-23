@@ -1445,14 +1445,16 @@ using SnapRestore = SwmmTriton::SnapshotRestore;
 
 struct RankTag { using type = int         SwmmTriton::*; friend type retrieve(RankTag); };
 struct StemTag { using type = std::string SwmmTriton::*; friend type retrieve(StemTag); };
+struct FailedReplayTag { using type = bool SwmmTriton::*; friend type retrieve(FailedReplayTag); };
 
 template <typename Tag, typename Tag::type M>
 struct Stow { friend typename Tag::type retrieve(Tag) { return M; } };
 
-// The ONLY two sites in this file that name a private member of swmm_triton,
-// and both are explicit-instantiation arguments, which is the exempt context.
+// The ONLY three sites in this file that name a private member of swmm_triton,
+// and all three are explicit-instantiation arguments, which is the exempt context.
 template struct Stow<RankTag, &SwmmTriton::rank_>;
 template struct Stow<StemTag, &SwmmTriton::snapshot_path_stem>;
+template struct Stow<FailedReplayTag, &SwmmTriton::snapshot_failed_replay>;
 
 // ---------------------------------------------------------------------------
 // (d)'s disposal site is ABSENT from the pre-fix tree, so the call to it must
@@ -2512,6 +2514,171 @@ static void T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line()
 }
 
 // ---------------------------------------------------------------------------
+// swmm_snapshot_failed_replay: the opt-in replay at a failed-write checkpoint.
+//
+// The key is latched into a private member by initialize(), which this tier
+// cannot call (see the access note above), so the fixture sets the member
+// through the third explicit instantiation and calls the consultation
+// directly. The text constants are spelled out here rather than taken from
+// swmm_triton.h, so a reworded notice or sentence reds these nodes instead of
+// moving with them.
+// ---------------------------------------------------------------------------
+static const char* const kReplayNotice =
+    "swmm_snapshot_failed_replay=1 is set, so this resume takes the FULL EXCHANGE "
+    "REPLAY from t=0 instead of stopping.";
+static const char* const kReplayHint =
+    "To get correct results now without diagnosing the cause, relaunch with "
+    "swmm_snapshot_failed_replay=1 in the cfg, which takes the full exchange "
+    "replay from t=0 instead of stopping.";
+
+// One resume at checkpoint n with the key set as given; returns the captured
+// stderr and stores the consultation's return in *sr.
+static std::string resume_with_failed_replay(const std::string& stem, int n, bool key,
+                                             SnapRestore* sr)
+{
+    SwmmTriton obj;
+    arrange_rank0_with_stem(obj, stem);
+    obj.*retrieve(FailedReplayTag{}) = key;
+    std::string out;
+    { CerrCapture cap; *sr = obj.try_restore_state_snapshot(n, (value_t) 0.0); out = cap.str(); }
+    return out;
+}
+
+static void T35_failed_replay_on_returns_the_replay_and_keeps_the_marker()
+{
+    // Property: with swmm_snapshot_failed_replay on, a ".failed" at cp{N} and no
+    //   published cp{N} makes the consultation return FailedWriteReplay, print
+    //   the replay notice once, print none of the three bracketed stop lines,
+    //   and leave the marker on disk byte for byte -- and a second resume at N
+    //   does the same. Checked with a published cp{N-1} below and with none,
+    //   because the stop lines those two states select differ.
+    // Class: NEW CAPABILITY. The plausible wrong implementation ignores the key
+    //   and returns KilledWrite as before; the return check and the notice
+    //   check red, and the stop-line checks red.
+    // Why required: the key's whole effect is this return value -- triton.h
+    //   sends only FailedWriteReplay to the replay -- and the marker is the
+    //   only record that the write failed, so removing it on this route would
+    //   lose that record and make a later resume read an unmarked missing
+    //   snapshot.
+    // What kills it: ignoring the key (KilledWrite returned regardless), or
+    //   removing the ".failed" marker on the override route.
+    // A second correct implementation that still passes: making the key test
+    //   before the earlier-snapshot search instead of after it, which changes
+    //   no output.
+    const int N = 6;
+    const std::string stems[2] = { make_snapshot_stem("t35a"), make_snapshot_stem("t35b") };
+    CHECK(publish_complete_snapshot(stems[0], N - 1), "the fixture must publish cp{N-1}");
+
+    for (const std::string& stem : stems) {
+        const std::string failed = snapshot_path_at(stem, N) + ".failed";
+        write_bytes(failed, std::string(kRefusedLine) + "\n");
+
+        for (int pass = 1; pass <= 2; ++pass) {
+            SnapRestore sr = SnapRestore::Restored;
+            const std::string out = resume_with_failed_replay(stem, N, true, &sr);
+            CHECK(sr == SnapRestore::FailedWriteReplay,
+                  "the key on must make the consultation return FailedWriteReplay");
+            CHECK_EQ_I(occurrences(out, kReplayNotice), 1,
+                       "the replay notice must appear exactly once");
+            CHECK(out.find("[resume-event") == std::string::npos,
+                  "none of the bracketed stop lines may be printed on this route");
+            CHECK(out.find("This resume STOPS") == std::string::npos,
+                  "and the stop text must not be printed");
+            CHECK(read_bytes(failed) == std::string(kRefusedLine) + "\n",
+                  "the .failed marker must survive the resume unchanged");
+            if (sr != SnapRestore::FailedWriteReplay)
+                std::fprintf(stderr, "  note: pass %d captured stderr was:\n%s\n", pass, out.c_str());
+        }
+    }
+
+    std::error_code ec;
+    for (const std::string& stem : stems) std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+static void T36_failed_replay_off_keeps_the_stop_and_names_the_key()
+{
+    // Property: with the key off, a ".failed" at cp{N} and no published cp{N}
+    //   returns KilledWrite and prints the stop line (a published cp{N-1}
+    //   below) or the clean-start line (none below) exactly as before, plus
+    //   the one sentence naming the key, exactly once, and not the replay
+    //   notice.
+    // Class: NEW CAPABILITY for the sentence; REGRESSION for the return and the
+    //   machine lines, which T24 and T23 already hold at the pre-change tree.
+    //   The plausible wrong implementation reads the key inverted, so an
+    //   absent key replays; the return check and the stop-line checks red.
+    // Why required: an absent key must keep the stop every run had before the
+    //   key existed, and the sentence is the only place the stop tells an
+    //   operator the override exists.
+    // What kills it: taking the override branch when the key is off, or
+    //   dropping the added sentence.
+    // A second correct implementation that still passes: printing the sentence
+    //   as part of the line before it rather than on its own line, since the
+    //   assertion is on the sentence and not on its line break.
+    const int N = 6;
+    const std::string stemA = make_snapshot_stem("t36a");
+    const std::string stemB = make_snapshot_stem("t36b");
+    CHECK(publish_complete_snapshot(stemA, N - 1), "the fixture must publish cp{N-1}");
+    write_bytes(snapshot_path_at(stemA, N) + ".failed", std::string(kRefusedLine) + "\n");
+    write_bytes(snapshot_path_at(stemB, N) + ".failed", std::string(kRefusedLine) + "\n");
+
+    SnapRestore srA = SnapRestore::Restored, srB = SnapRestore::Restored;
+    const std::string outA = resume_with_failed_replay(stemA, N, false, &srA);
+    const std::string outB = resume_with_failed_replay(stemB, N, false, &srB);
+    CHECK(srA == SnapRestore::KilledWrite && srB == SnapRestore::KilledWrite,
+          "the key off must leave the consultation returning KilledWrite");
+    CHECK_EQ_I(occurrences(outA, row_stop(N, N - 1)), 1,
+               "with cp{N-1} published the stop line must appear exactly once");
+    CHECK_EQ_I(occurrences(outB, row_clean_start(N, "write-failed")), 1,
+               "with nothing published below the clean-start line must appear exactly once");
+    CHECK_EQ_I(occurrences(outA, kReplayHint) + occurrences(outB, kReplayHint), 2,
+               "the sentence naming the key must appear exactly once in each stop");
+    CHECK(outA.find(kReplayNotice) == std::string::npos && outB.find(kReplayNotice) == std::string::npos,
+          "and the replay notice must not");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stemA), ec);
+    std::filesystem::remove_all(dir_of(stemB), ec);
+}
+
+static void T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route()
+{
+    // Property: the key on does not reach a cut-off write. A ".killed" alone
+    //   at cp{N} beside a published cp{N-1} returns KilledWrite and prints the
+    //   step-back line exactly as with the key off; a ".killed" beside a
+    //   ".failed" takes the override, because ".failed" decides.
+    // Class: NEW CAPABILITY. The plausible wrong implementation tests the key
+    //   for every live marker rather than inside the ".failed" arm, so a
+    //   killed write replays; the first two checks red.
+    // Why required: the override is for a failed or refused save only; a
+    //   cut-off write already has the step-back route to an earlier snapshot.
+    // What kills it: moving the key test above the marker-precedence branch.
+    // A second correct implementation that still passes: testing
+    //   `haveFailed && snapshot_failed_replay` as one condition before the
+    //   precedence branch, which selects the same arm for every marker set.
+    const int N = 6;
+    const std::string stem = make_snapshot_stem("t37");
+    CHECK(publish_complete_snapshot(stem, N - 1), "the fixture must publish cp{N-1}");
+    touch_marker(snapshot_path_at(stem, N) + ".killed");
+
+    SnapRestore sr = SnapRestore::Restored;
+    const std::string out = resume_with_failed_replay(stem, N, true, &sr);
+    CHECK(sr == SnapRestore::KilledWrite, "a killed write must still return KilledWrite");
+    CHECK_EQ_I(occurrences(out, row_step_back(N, N - 1)), 1,
+               "and print the step-back line exactly once");
+    CHECK(out.find(kReplayNotice) == std::string::npos, "and not the replay notice");
+
+    write_bytes(snapshot_path_at(stem, N) + ".failed", std::string(kRefusedLine) + "\n");
+    SnapRestore sr2 = SnapRestore::Restored;
+    const std::string out2 = resume_with_failed_replay(stem, N, true, &sr2);
+    CHECK(sr2 == SnapRestore::FailedWriteReplay,
+          "with a .failed beside the .killed the override must be taken");
+    CHECK_EQ_I(occurrences(out2, kReplayNotice), 1, "with the notice printed once");
+
+    std::error_code ec;
+    std::filesystem::remove_all(dir_of(stem), ec);
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
 struct test_entry { const char* name; void (*fn)(); };
@@ -2569,6 +2736,12 @@ static const test_entry kTests[] = {
                                                  &T33_a_count_pass_refusal_leaves_a_one_line_failed_marker },
     { "T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line",
                                                  &T34_a_count_pass_failed_marker_stops_the_resume_with_the_stop_line },
+    { "T35_failed_replay_on_returns_the_replay_and_keeps_the_marker",
+                                                 &T35_failed_replay_on_returns_the_replay_and_keeps_the_marker },
+    { "T36_failed_replay_off_keeps_the_stop_and_names_the_key",
+                                                 &T36_failed_replay_off_keeps_the_stop_and_names_the_key },
+    { "T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route",
+                                                 &T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route },
 };
 
 int main(int argc, char** argv)

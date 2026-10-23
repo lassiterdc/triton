@@ -621,7 +621,12 @@ namespace SWMM_triton
 		/// only by the clean-start disposal. It DEFAULTS to false so a caller
 		/// that does not yet pass it gets the removal behaviour, which is what
 		/// an unset key means.
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string());
+		///
+		/// `swmm_snapshot_failed_replay` is the cfg key of the same name, consumed
+		/// only by try_restore_state_snapshot at a ".failed" marker. It DEFAULTS
+		/// to false for the same reason: a caller that does not pass it keeps the
+		/// stop at a failed-write checkpoint.
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string(), const bool swmm_snapshot_failed_replay = false);
 
 
 		void end_swmm(std::string output_dir);
@@ -693,14 +698,22 @@ namespace SWMM_triton
 		///                     what the caller's orchestration should do next:
 		///                     resume from an earlier published snapshot (a cut
 		///                     off write), stop (a failed write), or start clean
-		///                     (no published snapshot below).
+		///                     (no published snapshot below). A ".failed"
+		///                     returns this only while swmm_snapshot_failed_replay
+		///                     is off; with it on, see the next value.
+		///   FailedWriteReplay -- a ".failed" marker survives for this checkpoint,
+		///                     no published snapshot does, and the run set
+		///                     swmm_snapshot_failed_replay=1. Run the full
+		///                     exchange replay with reason "write-failed". The
+		///                     marker stays on disk, so every later resume at
+		///                     this checkpoint takes the same route.
 		///
 		/// The cost asymmetry is what sets the default: a wrongly aborting
 		/// resume costs one job and a loud message; a wrongly falling-back
 		/// resume costs a completed run whose numbers are wrong and whose
 		/// every artifact reads healthy.
 		enum class SnapshotRestore { Restored, Absent, Unreadable, OutputMismatch,
-		                             KilledWrite };
+		                             KilledWrite, FailedWriteReplay };
 
 		SnapshotRestore try_restore_state_snapshot(int checkpoint_id,
 		                                           value_t up_to_time);
@@ -836,6 +849,11 @@ namespace SWMM_triton
 		/// the removal default.
 		bool snapshot_keep_previous = false;
 
+		/// Latched from the cfg key `swmm_snapshot_failed_replay` in initialize(),
+		/// for the same reason: its consumer, try_restore_state_snapshot, runs
+		/// after initialize returns. False keeps the stop at a ".failed" marker.
+		bool snapshot_failed_replay = false;
+
 		/// Latched from the cfg key `swmm_node_rim_from_dem` in initialize(). Read only
 		/// by init_swmm, to label the SWMM rims it prints as replaced when triton.h is
 		/// about to set every rim from the DEM instead. False keeps SWMM's rims.
@@ -904,13 +922,14 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes, const bool swmm_snapshot_failed_replay)
 	{
 		rank_=rank;
 		size_=size;
 		this->output_folder = output_folder;
 		this->snapshot_keep_all = swmm_snapshot_keep_all;
 		this->snapshot_keep_previous = swmm_snapshot_keep_previous;
+		this->snapshot_failed_replay = swmm_snapshot_failed_replay;
 		this->node_rim_from_dem = swmm_node_rim_from_dem;
 		this->coupling_nodes_key = swmm_coupling_nodes;
 
@@ -2232,6 +2251,37 @@ namespace SWMM_triton
 				// markers stay on disk; the precedence only selects the text.
 				if (haveFailed)
 				{
+					// THE OPT-IN OVERRIDE, swmm_snapshot_failed_replay=1: for a run
+					// that needs correct results now and will not diagnose the
+					// failed write first. It takes the same full exchange replay an
+					// Absent snapshot takes, so its results are that route's. The
+					// marker is left in place, because it is the only evidence of
+					// the writer failure and leaving it makes every later resume at
+					// this checkpoint take this route again. None of the three
+					// bracketed stop lines below is printed: this resume proceeds,
+					// and the replay marker carries its one resume-event row with
+					// reason=write-failed. Only ".failed" reaches here, so a cut-off
+					// write keeps its step-back routing whatever the key says.
+					if (snapshot_failed_replay)
+					{
+						std::cerr << WARN "Coupled resume at checkpoint " << checkpoint_id
+						          << ": the SWMM state snapshot write for this checkpoint "
+						             "was REFUSED by the writer or FAILED its own length "
+						             "check, and swmm_snapshot_failed_replay=1 is set, so "
+						             "this resume takes the FULL EXCHANGE REPLAY from t=0 "
+						             "instead of stopping.\n"
+						          << "         The marker " << failed << " is kept. The "
+						             "cause of the failed write is NOT diagnosed or "
+						             "cleared: a full disk or a structural defect in the "
+						             "model state that produced it may still be present, "
+						             "and the next checkpoint's snapshot write may fail "
+						             "the same way.\n"
+						          << "         The replay reproduces the run's state "
+						             "exactly; it costs time that grows with t="
+						          << up_to_time << " s." << std::endl;
+						return SnapshotRestore::FailedWriteReplay;
+					}
+
 					// A FAILED OR REFUSED WRITE STOPS, with or without an earlier
 					// snapshot. The marker comes from one of two writer arms: the
 					// count pass refusing the model state (a structural defect;
@@ -2256,7 +2306,12 @@ namespace SWMM_triton
 					          << "         This resume STOPS, and it does not continue "
 					             "from an earlier snapshot, because the cause may still "
 					             "be present. Inspect the marker and clear the cause "
-					             "before relaunching." << std::endl;
+					             "before relaunching.\n"
+					          << "         To get correct results now without "
+					             "diagnosing the cause, relaunch with "
+					             "swmm_snapshot_failed_replay=1 in the cfg, which takes "
+					             "the full exchange replay from t=0 instead of stopping."
+					          << std::endl;
 				}
 				else
 				{
