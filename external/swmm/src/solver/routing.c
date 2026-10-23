@@ -302,7 +302,7 @@ void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
         {
             if ( inflow->type == FLOW_INFLOW )
             {
-                swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
+                swmm_newDepth[inflow_id] = Node[i].newDepth * MperFT; //ft to m
                 inflow_id++;
                 break;
             }
