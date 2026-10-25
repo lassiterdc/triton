@@ -80,7 +80,7 @@ if(Python3_EXECUTABLE)
 
   # The snapshot TRAVERSAL-GUARD source check over snapshot.c -- no build, no
   # solver run. Detectors keyed on what the repair changed (the per-element
-  # guard's routeTo conjunct, SNAPSHOT_VERSION 6, the three-way slot selection)
+  # guard's routeTo conjunct, SNAPSHOT_VERSION 7, the three-way slot selection)
   # and one anti-narrowing invariant keyed on what it did not (the pre-loop
   # guard still admits the counting mode), which is green on a pre-fix tree by
   # design. Narrowing that guard makes the per-element s->routeTo load a null

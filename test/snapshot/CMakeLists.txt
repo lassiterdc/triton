@@ -65,7 +65,13 @@ set(TRITON_SNAPSHOT_TESTS
   # its step-back route under the key.
   T35_failed_replay_on_returns_the_replay_and_keeps_the_marker
   T36_failed_replay_off_keeps_the_stop_and_names_the_key
-  T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route)
+  T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route
+  # Water-quality state (format V7): the five per-pollutant element arrays and
+  # StepQualTotals round-trip, count on the payload slope, and a missing
+  # quality array refuses the save.
+  T38_quality_fields_roundtrip_bit_exactly
+  T39_payload_slope_counts_node_and_link_quality
+  T40_a_missing_quality_array_refuses_the_save)
 
 foreach(_t IN LISTS TRITON_SNAPSHOT_TESTS)
   add_test(NAME UNIT-SNAPSHOT-${_t}
@@ -77,3 +83,17 @@ foreach(_t IN LISTS TRITON_SNAPSHOT_TESTS)
     ENVIRONMENT
       "TRITON_SNAPSHOT_INVENTORY=${CMAKE_SOURCE_DIR}/test/inventory/snapshot_inventory.txt")
 endforeach()
+
+# Reviewer test for the water-quality state in the snapshot (format V7): an
+# independent fixture -- three pollutants, a STORAGE node's hrt, a routed and a
+# route-less outfall -- and the IgnoreQuality-independence of the payload.
+add_executable(test_quality_snapshot_review test_quality_snapshot_review.cpp)
+target_include_directories(test_quality_snapshot_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+target_link_libraries(test_quality_snapshot_review PRIVATE kokkos swmm5 MPI::MPI_CXX)
+add_test(NAME UNIT-SNAPSHOT-REVIEW-RV3_quality_state_survives_with_storage_and_routed_outfall
+         COMMAND test_quality_snapshot_review RV3)
+add_test(NAME UNIT-SNAPSHOT-REVIEW-RV3b_ignore_quality_does_not_change_the_payload
+         COMMAND test_quality_snapshot_review RV3b)

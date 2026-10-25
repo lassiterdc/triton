@@ -49,6 +49,7 @@ extern TLoadingTotals* LoadingTotals;
 extern TGwaterTotals   GwaterTotals;
 extern TRoutingTotals  FlowTotals;
 extern TRoutingTotals* QualTotals;
+extern TRoutingTotals* StepQualTotals;
 extern TRoutingTotals  StepFlowTotals;
 extern TRoutingTotals  OldStepFlowTotals;
 extern double*         NodeInflow;
@@ -66,10 +67,15 @@ extern double          TotalArea;
 // V6: Outfall.wRouted always carries Nobjects[POLLUT] values per outfall, zeros
 // for a route-less one -- the field set is unchanged, the per-outfall value
 // count is not, and a V5 reader would misreport a complete V6 file as short).
+// V7: Node and Link oldQual/newQual and Link totalLoad carry Nobjects[POLLUT]
+// values per element, and StepQualTotals (the per-pollutant step accumulator
+// massbal_updateRoutingTotals reads at the next step's start) carries one
+// TRoutingTotals row per pollutant -- water-quality state a quality-routed
+// resume needs; the field set grows, so V6 files are refused.
 // snapshot_load refuses an exact inequality BEFORE reading the shape block, so
 // an older file is rejected with both versions named rather than mis-strided;
 // the magic is not bumped because the format family is unchanged.
-#define SNAPSHOT_VERSION  6
+#define SNAPSHOT_VERSION  7
 
 // Compile-time bound only; stats.c hands its real MAX_STATS at runtime and a
 // disagreement is refused in snapshot_traverse.
@@ -556,6 +562,24 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         SNAP_D(c, "QualTotals", *s, finalStorage);
         SNAP_D(c, "QualTotals", *s, pctError);
     }
+    if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !StepQualTotals ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[POLLUT]); i++)
+    {
+        TRoutingTotals* s = SNAP_P(c, StepQualTotals, i, _snapDummyRouting);
+        SNAP_D(c, "StepQualTotals", *s, dwInflow);
+        SNAP_D(c, "StepQualTotals", *s, wwInflow);
+        SNAP_D(c, "StepQualTotals", *s, gwInflow);
+        SNAP_D(c, "StepQualTotals", *s, iiInflow);
+        SNAP_D(c, "StepQualTotals", *s, exInflow);
+        SNAP_D(c, "StepQualTotals", *s, flooding);
+        SNAP_D(c, "StepQualTotals", *s, outflow);
+        SNAP_D(c, "StepQualTotals", *s, evapLoss);
+        SNAP_D(c, "StepQualTotals", *s, seepLoss);
+        SNAP_D(c, "StepQualTotals", *s, reacted);
+        SNAP_D(c, "StepQualTotals", *s, initStorage);
+        SNAP_D(c, "StepQualTotals", *s, finalStorage);
+        SNAP_D(c, "StepQualTotals", *s, pctError);
+    }
 
     // --- per-node mass-balance volumes; mass-balance errors are divided by these.
     if ( c->mode != SNAP_MANIFEST && Nobjects[NODE] > 0 && (!NodeInflow || !NodeOutflow) )
@@ -619,6 +643,24 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         SNAP_D(c, "Node", *s, oldFlowInflow);
         SNAP_D(c, "Node", *s, oldNetInflow);
         SNAP_C(c, "Node", *s, updated);
+        // Water-quality state (V7), Nobjects[POLLUT] values each. Emitted
+        // whatever IgnoreQuality says, so the payload length stays a function
+        // of the shape block alone; the NULL test sits inside the loop, so a
+        // pollutant-free model's zero-length arrays never reach it.
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Node", "oldQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->oldQual ) { c->error = 1; return; }
+            snap_d(c, &s->oldQual[k]);
+        }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Node", "newQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->newQual ) { c->error = 1; return; }
+            snap_d(c, &s->newQual[k]);
+        }
     }
 
     // --- Link[]: the routing half of TLink.
@@ -637,6 +679,28 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         SNAP_I(c, "Link", *s, flowClass);
         SNAP_C(c, "Link", *s, normalFlow);
         SNAP_C(c, "Link", *s, inletControl);
+        // Water-quality state (V7), as in the Node[] block above.
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Link", "oldQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->oldQual ) { c->error = 1; return; }
+            snap_d(c, &s->oldQual[k]);
+        }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Link", "newQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->newQual ) { c->error = 1; return; }
+            snap_d(c, &s->newQual[k]);
+        }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Link", "totalLoad");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->totalLoad ) { c->error = 1; return; }
+            snap_d(c, &s->totalLoad[k]);
+        }
     }
 
     // --- Conduit[]: indexed by Nlinks[CONDUIT], NOT by Nobjects[LINK].

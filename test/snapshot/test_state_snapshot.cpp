@@ -131,6 +131,10 @@ extern "C" {
     // same way at :97 and :100.
     extern TLoadingTotals* LoadingTotals;
     extern TRoutingTotals* QualTotals;
+    // The per-pollutant step accumulator, a massbal.c global like the two above.
+    // Format V7 serializes it, and its guard refuses a pollutant-bearing save
+    // when it is NULL, so a pollutant-bearing fixture must allocate it too.
+    extern TRoutingTotals* StepQualTotals;
 }
 
 // ---------------------------------------------------------------------------
@@ -1107,6 +1111,7 @@ static long manifest_rows_for(const char* obj)
 //   OutfallStats + its per-pollutant totalLoad   snapshot.c:598 and :609
 //   Outfall                                      snapshot.c:940
 //   LoadingTotals / QualTotals                   snapshot.c:750 and :764
+//   StepQualTotals                               snapshot.c:565 (format V7)
 // Nobjects[NODE], [LINK], [SUBCATCH], Nnodes[STORAGE] and Nlinks[PUMP],
 // [CONDUIT] stay 0, so their guards and loops are inert and their arrays are
 // never formed.
@@ -1132,6 +1137,7 @@ static void build_pollutant_model(int nPollut, int routeTo)
     Outfall      = (TOutfall*)      std::calloc(kPayloadOutfalls, sizeof(TOutfall));
     LoadingTotals = (TLoadingTotals*) std::calloc((size_t) nPollut, sizeof(TLoadingTotals));
     QualTotals    = (TRoutingTotals*) std::calloc((size_t) nPollut, sizeof(TRoutingTotals));
+    StepQualTotals = (TRoutingTotals*) std::calloc((size_t) nPollut, sizeof(TRoutingTotals));
 
     if (OutfallStats)
         for (int i = 0; i < kPayloadOutfalls; i++)
@@ -1168,6 +1174,7 @@ static void free_pollutant_model()
     }
     std::free(LoadingTotals); LoadingTotals = nullptr;
     std::free(QualTotals);    QualTotals    = nullptr;
+    std::free(StepQualTotals); StepQualTotals = nullptr;
 
     Nobjects[POLLUT] = 0;
     Nnodes[OUTFALL]  = 0;
@@ -1282,21 +1289,33 @@ static void T16_payload_length_tracks_the_pollutant_axis()
     //       Outfall.wRouted          one per outfall   (snapshot.c:962-971)
     //       LoadingTotals            one full row      (snapshot.c:751-767)
     //       QualTotals               one full row      (snapshot.c:765-781)
-    //     The two ROW WIDTHS are COUNTED FROM THE MANIFEST rather than written
-    //     here, so adding a field to either struct cannot invalidate this node
-    //     while leaving it green.
+    //       StepQualTotals           one full row      (format V7: the step
+    //                                                   accumulator the next
+    //                                                   step's first mass-balance
+    //                                                   update reads)
+    //       Node.oldQual, Node.newQual        one per node  (format V7)
+    //       Link.oldQual, Link.newQual,
+    //       Link.totalLoad                    one per link  (format V7)
+    //     This fixture has no node and no link, so the five element emitters
+    //     add nothing here; T39 measures them on a model that has both.
+    //     The three ROW WIDTHS are COUNTED FROM THE MANIFEST rather than written
+    //     here, so adding a field to any of the structs cannot invalidate this
+    //     node while leaving it green.
     const long ltRow = manifest_rows_for("LoadingTotals");
     const long qtRow = manifest_rows_for("QualTotals");
+    const long sqRow = manifest_rows_for("StepQualTotals");
     CHECK(ltRow > 0, "the manifest must name the LoadingTotals fields");
     CHECK(qtRow > 0, "the manifest must name the QualTotals fields");
+    CHECK(sqRow > 0, "the manifest must name the StepQualTotals fields");
 
-    const long expectedDelta = 2L * (long) kPayloadOutfalls + ltRow + qtRow;
+    const long expectedDelta = 2L * (long) kPayloadOutfalls + ltRow + qtRow + sqRow;
     const long observedDelta = (sizeHi - sizeLo) / (long) sizeof(double);
 
     CHECK_EQ_I(observedDelta, expectedDelta,
                "one additional pollutant must add exactly one "
                "OutfallStats.totalLoad and one Outfall.wRouted PER OUTFALL plus "
-               "one LoadingTotals row and one QualTotals row. A short slope "
+               "one LoadingTotals row, one QualTotals row and one StepQualTotals "
+               "row. A short slope "
                "means the traversal stopped emitting before the Outfall[] "
                "block, which is a payload the reader of the SAME build reads "
                "short too -- so no round-trip node can see it");
@@ -2678,6 +2697,267 @@ static void T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route()
     std::filesystem::remove_all(dir_of(stem), ec);
 }
 
+// ===========================================================================
+// WATER-QUALITY STATE (format V7). A coupled model that routes quality carries
+// five per-pollutant element arrays across the step boundary -- Node.oldQual,
+// Node.newQual, Link.oldQual, Link.newQual, Link.totalLoad -- plus the
+// per-pollutant step accumulator StepQualTotals, which routing_execute's first
+// massbal_updateRoutingTotals folds into QualTotals before the step resets it.
+// A resume that does not carry them restarts every concentration and every
+// link load, and drops half a step of every quality flux from the Quality
+// Routing Continuity totals.
+//
+// THE FIXTURE is the smallest model on which every one of the six is
+// reachable: nodes and links exist (so the two element loops run), pollutants
+// exist (so each loop has a body), and one route-less outfall carries the
+// pollutant-bearing outfall arrays the existing guards demand. Everything the
+// traversal's guards require for those counts is allocated, and nothing else:
+//   Node, NodeStats, NodeInflow, NodeOutflow   Nobjects[NODE] > 0
+//   Link, LinkStats                            Nobjects[LINK] > 0
+//   OutfallStats + totalLoad, Outfall          Nnodes[OUTFALL] > 0
+//   LoadingTotals, QualTotals, StepQualTotals  Nobjects[POLLUT] > 0
+//   Node[].oldQual/newQual, Link[].oldQual/newQual/totalLoad, per pollutant,
+//   as project.c allocates them.
+// Conduit, Storage, pumps and subcatchments stay at zero.
+// ===========================================================================
+static const int kQualNodes = 3;
+static const int kQualLinks = 2;
+
+static void build_quality_model(int nPollut)
+{
+    build_pollutant_model(nPollut, -1);
+    Nobjects[NODE] = kQualNodes;
+    Nobjects[LINK] = kQualLinks;
+
+    Node        = (TNode*)      std::calloc(kQualNodes, sizeof(TNode));
+    Link        = (TLink*)      std::calloc(kQualLinks, sizeof(TLink));
+    NodeStats   = (TNodeStats*) std::calloc(kQualNodes, sizeof(TNodeStats));
+    LinkStats   = (TLinkStats*) std::calloc(kQualLinks, sizeof(TLinkStats));
+    NodeInflow  = (double*)     std::calloc(kQualNodes, sizeof(double));
+    NodeOutflow = (double*)     std::calloc(kQualNodes, sizeof(double));
+
+    if (Node)
+        for (int j = 0; j < kQualNodes; j++)
+        {
+            Node[j].oldQual = (double*) std::calloc((size_t) nPollut, sizeof(double));
+            Node[j].newQual = (double*) std::calloc((size_t) nPollut, sizeof(double));
+        }
+    if (Link)
+        for (int j = 0; j < kQualLinks; j++)
+        {
+            Link[j].oldQual   = (double*) std::calloc((size_t) nPollut, sizeof(double));
+            Link[j].newQual   = (double*) std::calloc((size_t) nPollut, sizeof(double));
+            Link[j].totalLoad = (double*) std::calloc((size_t) nPollut, sizeof(double));
+        }
+}
+
+static void free_quality_model()
+{
+    if (Node)
+    {
+        for (int j = 0; j < kQualNodes; j++) { std::free(Node[j].oldQual); std::free(Node[j].newQual); }
+        std::free(Node); Node = nullptr;
+    }
+    if (Link)
+    {
+        for (int j = 0; j < kQualLinks; j++)
+        {
+            std::free(Link[j].oldQual); std::free(Link[j].newQual); std::free(Link[j].totalLoad);
+        }
+        std::free(Link); Link = nullptr;
+    }
+    std::free(NodeStats);   NodeStats   = nullptr;
+    std::free(LinkStats);   LinkStats   = nullptr;
+    std::free(NodeInflow);  NodeInflow  = nullptr;
+    std::free(NodeOutflow); NodeOutflow = nullptr;
+    Nobjects[NODE] = 0;
+    Nobjects[LINK] = 0;
+    free_pollutant_model();
+}
+
+// The 13 TRoutingTotals fields, in the order the traversal emits them.
+static double TRoutingTotals::* const kRoutingFields[13] = {
+    &TRoutingTotals::dwInflow, &TRoutingTotals::wwInflow, &TRoutingTotals::gwInflow,
+    &TRoutingTotals::iiInflow, &TRoutingTotals::exInflow, &TRoutingTotals::flooding,
+    &TRoutingTotals::outflow,  &TRoutingTotals::evapLoss, &TRoutingTotals::seepLoss,
+    &TRoutingTotals::reacted,  &TRoutingTotals::initStorage, &TRoutingTotals::finalStorage,
+    &TRoutingTotals::pctError };
+
+// A distinct, mantissa-heavy value for (array a, element e, pollutant p), so a
+// value restored into the wrong slot cannot equal the one expected there.
+static double quality_stamp(int a, int e, int p)
+{
+    return 1.0e3 + 1.234567890123457e1 * a + 3.141592653589793e-1 * e
+                 + 2.718281828459045e-3 * p + 1.0e-7 * (a * 100 + e * 10 + p);
+}
+
+static void T38_quality_fields_roundtrip_bit_exactly()
+{
+    // Property: the five per-pollutant element arrays and every field of every
+    //   StepQualTotals row survive a save and a load bit for bit.
+    // Red at a146fb6 (format V6): the traversal carries none of the six, so the
+    //   load leaves the sentinel in every slot.
+    const int P = 2;
+    const double kSentinel = -7.25;
+    const std::string path = temp_path("t38");
+
+    build_quality_model(P);
+    CHECK(Node && Link && NodeStats && LinkStats && NodeInflow && NodeOutflow &&
+          StepQualTotals, "the quality model must allocate");
+    if (!Node || !Link || !StepQualTotals) { free_quality_model(); return; }
+
+    for (int p = 0; p < P; p++)
+    {
+        for (int j = 0; j < kQualNodes; j++)
+        {
+            Node[j].oldQual[p] = quality_stamp(0, j, p);
+            Node[j].newQual[p] = quality_stamp(1, j, p);
+        }
+        for (int j = 0; j < kQualLinks; j++)
+        {
+            Link[j].oldQual[p]   = quality_stamp(2, j, p);
+            Link[j].newQual[p]   = quality_stamp(3, j, p);
+            Link[j].totalLoad[p] = quality_stamp(4, j, p);
+        }
+        for (int f = 0; f < 13; f++)
+            StepQualTotals[p].*kRoutingFields[f] = quality_stamp(5, f, p);
+    }
+
+    CHECK_EQ_I(snapshot_save(path.c_str()), 0,
+               "snapshot_save must succeed over a quality-bearing model");
+
+    for (int p = 0; p < P; p++)
+    {
+        for (int j = 0; j < kQualNodes; j++)
+            Node[j].oldQual[p] = Node[j].newQual[p] = kSentinel;
+        for (int j = 0; j < kQualLinks; j++)
+            Link[j].oldQual[p] = Link[j].newQual[p] = Link[j].totalLoad[p] = kSentinel;
+        for (int f = 0; f < 13; f++)
+            StepQualTotals[p].*kRoutingFields[f] = kSentinel;
+    }
+
+    char msg[512]; msg[0] = '\0';
+    CHECK_EQ_I(snapshot_load(path.c_str(), msg, (int) sizeof(msg)), 0,
+               "snapshot_load must succeed on a snapshot this build wrote");
+    if (msg[0]) std::fprintf(stderr, "  note: load said: %s\n", msg);
+
+    long wrong = 0, total = 0;
+    for (int p = 0; p < P; p++)
+    {
+        for (int j = 0; j < kQualNodes; j++)
+        {
+            total += 2;
+            if (!bit_equal(Node[j].oldQual[p], quality_stamp(0, j, p))) ++wrong;
+            if (!bit_equal(Node[j].newQual[p], quality_stamp(1, j, p))) ++wrong;
+        }
+        for (int j = 0; j < kQualLinks; j++)
+        {
+            total += 3;
+            if (!bit_equal(Link[j].oldQual[p],   quality_stamp(2, j, p))) ++wrong;
+            if (!bit_equal(Link[j].newQual[p],   quality_stamp(3, j, p))) ++wrong;
+            if (!bit_equal(Link[j].totalLoad[p], quality_stamp(4, j, p))) ++wrong;
+        }
+        for (int f = 0; f < 13; f++)
+        {
+            total += 1;
+            if (!bit_equal(StepQualTotals[p].*kRoutingFields[f], quality_stamp(5, f, p))) ++wrong;
+        }
+    }
+    if (wrong) std::fprintf(stderr, "  note: %ld of %ld quality slot(s) did not round-trip\n",
+                            wrong, total);
+    CHECK_EQ_I(wrong, 0,
+               "every Node/Link oldQual and newQual, every Link totalLoad and every "
+               "StepQualTotals field must round-trip bitwise -- a slot left at the "
+               "sentinel is quality state a resume restarts");
+
+    free_quality_model();
+    std::error_code ec; std::filesystem::remove(path, ec);
+}
+
+static void T39_payload_slope_counts_node_and_link_quality()
+{
+    // The T16 method on a model with nodes and links: two saves differing by
+    // one pollutant, against the slope the traversal's own manifest predicts.
+    // Red at a146fb6: the slope lacks 2 per node, 3 per link and one
+    // StepQualTotals row, 2*3 + 3*2 + 13 = 25 values.
+    const int P = 2;
+
+    build_quality_model(P);
+    int  rcLo = -1; std::string pathLo;
+    const long sizeLo = save_and_size("t39_p2", &rcLo, &pathLo);
+    const long mlenLo = recorded_manifest_len(pathLo);
+    free_quality_model();
+
+    build_quality_model(P + 1);
+    int  rcHi = -1; std::string pathHi;
+    const long sizeHi = save_and_size("t39_p3", &rcHi, &pathHi);
+    const long mlenHi = recorded_manifest_len(pathHi);
+    free_quality_model();
+
+    CHECK_EQ_I(rcLo, 0, "the lower-pollutant save must succeed");
+    CHECK_EQ_I(rcHi, 0, "the higher-pollutant save must succeed");
+    CHECK(sizeLo > 0 && sizeHi > 0, "both arms must leave a readable file");
+    CHECK_EQ_I(mlenLo, mlenHi, "the manifest must not vary with Nobjects[POLLUT]");
+
+    // Per unit of Nobjects[POLLUT]: one OutfallStats.totalLoad and one
+    // Outfall.wRouted per outfall, one LoadingTotals row, one QualTotals row and
+    // one StepQualTotals row (QualTotals and StepQualTotals are both
+    // TRoutingTotals, so each adds one qtRow-wide row), two values per node and
+    // three per link. The row widths are counted from the manifest.
+    const long ltRow = manifest_rows_for("LoadingTotals");
+    const long qtRow = manifest_rows_for("QualTotals");
+    CHECK(ltRow > 0, "the manifest must name the LoadingTotals fields");
+    CHECK(qtRow > 0, "the manifest must name the QualTotals fields");
+
+    const long expectedDelta = 2L * (long) kPayloadOutfalls + ltRow + 2L * qtRow
+                             + 2L * kQualNodes + 3L * kQualLinks;
+    const long observedDelta = (sizeHi - sizeLo) / (long) sizeof(double);
+    if (observedDelta != expectedDelta)
+        std::fprintf(stderr, "  note: the slope is short by %ld value(s)\n",
+                     expectedDelta - observedDelta);
+
+    CHECK_EQ_I(observedDelta, expectedDelta,
+               "one additional pollutant must also add Node.oldQual and "
+               "Node.newQual per node, Link.oldQual, Link.newQual and "
+               "Link.totalLoad per link, and one StepQualTotals row");
+
+    std::error_code ec;
+    std::filesystem::remove(pathLo, ec);
+    std::filesystem::remove(pathHi, ec);
+}
+
+static void T40_a_missing_quality_array_refuses_the_save()
+{
+    // Property: with pollutants present, a node whose newQual array is missing
+    //   is an allocation defect, and the save refuses it in the count pass --
+    //   non-zero return, nothing published, no .part, and a ".failed" marker
+    //   holding the refusal line (the C1b/C2 behaviour T33 pins).
+    // Red at a146fb6: the traversal never reads the array, so the save succeeds.
+    const std::string path = temp_path("t40");
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    std::filesystem::remove(path + ".failed", ec);
+
+    build_quality_model(2);
+    if (Node) { std::free(Node[1].newQual); Node[1].newQual = nullptr; }
+
+    const int rc = snapshot_save(path.c_str());
+    free_quality_model();
+
+    CHECK(rc != 0,
+          "a node with pollutants and no newQual array must refuse the save");
+    CHECK(!std::filesystem::exists(path), "a refused save must publish nothing");
+    CHECK(!std::filesystem::exists(path + ".part"), "and leave no .part");
+    CHECK(std::filesystem::exists(path + ".failed"),
+          "a count-pass refusal must leave {path}.failed");
+    CHECK(read_bytes(path + ".failed") == std::string(kRefusedLine) + "\n",
+          "holding exactly the refusal line");
+
+    std::filesystem::remove(path, ec);
+    std::filesystem::remove(path + ".part", ec);
+    std::filesystem::remove(path + ".failed", ec);
+}
+
 // ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
@@ -2742,6 +3022,11 @@ static const test_entry kTests[] = {
                                                  &T36_failed_replay_off_keeps_the_stop_and_names_the_key },
     { "T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route",
                                                  &T37_failed_replay_on_leaves_a_killed_write_on_the_step_back_route },
+    { "T38_quality_fields_roundtrip_bit_exactly", &T38_quality_fields_roundtrip_bit_exactly },
+    { "T39_payload_slope_counts_node_and_link_quality",
+                                                 &T39_payload_slope_counts_node_and_link_quality },
+    { "T40_a_missing_quality_array_refuses_the_save",
+                                                 &T40_a_missing_quality_array_refuses_the_save },
 };
 
 int main(int argc, char** argv)

@@ -34,7 +34,9 @@ broken test is the misdiagnosis this paragraph exists to prevent.
       RETAINS the pollutant-count conjunct.  0 pre-fix, 1 post-fix.
   A2  ANTI-NARROWING INVARIANT.  The pre-loop guard still admits the counting
       mode.  Green on both trees; it fails only if someone narrows it.
-  A3  DETECTOR.  ``SNAPSHOT_VERSION`` is 6 where pre-fix carries 5.
+  A3  DETECTOR.  ``SNAPSHOT_VERSION`` is 7 where pre-fix carries 5.  The guard
+      fix made it 6; C11 (water-quality state in the snapshot) made it 7, and
+      A3's purpose -- the bump was not reverted -- is unchanged.
   A4  DETECTOR.  The three-way pointer selection that chooses ``slot`` is the
       landed three-arm ``if / else if / else`` chain, not the pre-fix two-way
       ternary.  1 post-fix, 0 pre-fix.
@@ -128,7 +130,7 @@ assertion -- a test that reports on nothing while reading as coverage.
 
 A SIXTH HAZARD THIS FILE HIT WHILE BEING WRITTEN, recorded because the
 measurement is the only reason it is not in the shipped instrument: the define
-is written ``#define SNAPSHOT_VERSION  6`` with TWO spaces, so a literal
+is written ``#define SNAPSHOT_VERSION  7`` (6 before C11 bumped it) with TWO spaces, so a literal
 two-space match over collapsed text returns 0 -- collapse folds it to one.
 A3 therefore CAPTURES THE VALUE with a regex tolerant of the spacing, rather
 than matching a formatting accident.  Deliberately NOT a literal match on the
@@ -194,7 +196,7 @@ SELECTION_PLACEHOLDER_TOKEN = "wRoutedPlaceholder"
 # hazard in the module docstring).
 VERSION_RE = re.compile(r"#\s*define\s+SNAPSHOT_VERSION\s+(\d+)")
 
-EXPECTED_VERSION = 6
+EXPECTED_VERSION = 7
 
 
 def _collapse(text):

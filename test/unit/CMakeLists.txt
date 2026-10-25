@@ -152,5 +152,18 @@ if("${BACKEND}" STREQUAL "SERIAL")
            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_zero_node_refusal.py
                    --run-command "${RUN_COMMAND}"
                    --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
-  set_tests_properties(UNIT-ZERO-NODE-REFUSAL PROPERTIES TIMEOUT 5)
+  set_tests_properties(UNIT-ZERO-NODE-REFUSAL PROPERTIES TIMEOUT 5 RUN_SERIAL TRUE)
+endif()
+
+# A snapshot resume of a coupled model that routes water quality must equal the
+# uninterrupted run in every quality output: one clean run and two resumes from
+# its checkpoint 2 (the snapshot route, and the exchange replay as the control),
+# compared byte for byte in swmm/*.out and by section in the .rpt. Registered
+# only for the SERIAL backend, like UNIT-ZERO-NODE-REFUSAL.
+if("${BACKEND}" STREQUAL "SERIAL")
+  add_test(NAME UNIT-QUALITY-RESUME
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_quality_resume.py
+                   --run-command "${RUN_COMMAND}"
+                   --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
+  set_tests_properties(UNIT-QUALITY-RESUME PROPERTIES TIMEOUT 120)
 endif()
