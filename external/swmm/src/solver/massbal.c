@@ -1076,7 +1076,7 @@ void massbal_checkFloodingConsistency()
 //
 {
     extern TNodeStats* NodeStats;
-    char debugPath[MAXFNAME];
+    char debugPath[MAXFNAME+1];
     char* lastSlash;
     int j;
     int hasFloodingNodes;
@@ -1123,7 +1123,10 @@ void massbal_checkFloodingConsistency()
             if (lastSlash != NULL)
             {
                 *(lastSlash + 1) = '\0';
-                strcat(debugPath, "swmm_flooding_debug.txt");
+                if (strlen(debugPath) + strlen("swmm_flooding_debug.txt") > MAXFNAME)
+                    debugPath[0] = '\0';
+                else
+                    strcat(debugPath, "swmm_flooding_debug.txt");
             }
             else
             {
