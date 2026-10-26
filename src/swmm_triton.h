@@ -1149,6 +1149,36 @@ namespace SWMM_triton
 			}
 			exchange_num_nodes = global_num_of_swmm_links;
 
+			// SWMM keeps the input, report and binary output names cut to MAXFNAME
+			// characters (openFiles) and opens the binary output by the cut name, so a
+			// longer .out path is written without its extension. Stock getAbsolutePath
+			// also copies the input path into the MAXFNAME+1 byte global InpDir with no
+			// bound: as given when SWMM's isRelativePath calls it absolute (a leading '/'
+			// or '\\', or a ':' anywhere), resolved by realpath otherwise. It overwrites
+			// the report flags after it. Measure both forms and refuse before swmm_open.
+			{
+				const bool inp_swmm_relative =
+					!(inp_filename.find(':') != std::string::npos
+					  || (!inp_filename.empty() && (inp_filename[0] == '/' || inp_filename[0] == '\\')));
+				std::error_code inp_resolve_ec;
+				const std::string inp_resolved = inp_swmm_relative
+					? std::filesystem::canonical(inp_filename, inp_resolve_ec).string()
+					: std::string();
+				const std::string* swmm_names[4] = {&inp_filename, &inp_resolved, &report_filename, &binary_filename};
+				const char* swmm_roles[4] = {"input (as given)", "input (as SWMM resolves it)", "report", "binary output"};
+				bool path_refused = false;
+				for (int k = 0; k < 4; k++) {
+					if (swmm_names[k]->size() > (size_t)MAXFNAME) {
+						std::cerr << ERROR "SWMM " << swmm_roles[k] << " file path is "
+						          << swmm_names[k]->size() << " characters; SWMM accepts at most "
+						          << MAXFNAME << ":\n         " << *swmm_names[k] << "\n"
+						          << "         Shorten the run directory." << std::endl;
+						path_refused = true;
+					}
+				}
+				if (path_refused) MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+
 			// SWMM reports a rejected input (a missing external time-series file, a bad
 			// [OPTIONS] keyword, anything its own validation finds after read_inp_file
 			// passed) only through these two return codes. Ignored, SWMM stays in its
