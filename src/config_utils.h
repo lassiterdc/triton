@@ -66,6 +66,22 @@ namespace ConfigUtils
 		*   far the run advanced before the interruption). Additive. */
 		bool
 		swmm_snapshot_keep_all;
+
+		/**< Clean-start retention: rename the earlier run's snapshot artifacts
+		*   to "{name}.prev{k}" and keep them, instead of the default removal
+		*   (a surviving earlier-run snapshot could be loaded by a later resume
+		*   of the new run whose own write at that checkpoint failed). Additive. */
+		bool
+		swmm_snapshot_keep_previous;
+
+		/**< Failed-write replay override: a resume at a checkpoint whose snapshot
+		*   write was refused or failed (the writer left "{path}.failed" and
+		*   published nothing) takes the full exchange replay from t=0 instead of
+		*   stopping, and keeps the marker. Governs only that outcome; a ".part"
+		*   or ".killed" is routed the same way either way. Additive (absent key
+		*   = false = the stop). */
+		bool
+		swmm_snapshot_failed_replay;
 #endif
 
 		std::string
@@ -500,6 +516,8 @@ namespace ConfigUtils
 		arglist.manhole_loss = atof((args("manhole_loss", argmap)).c_str());
 		arglist.swmm_snapshot_disable = atoi((argsd("swmm_snapshot_disable", argmap, "0")).c_str());
 		arglist.swmm_snapshot_keep_all = atoi((argsd("swmm_snapshot_keep_all", argmap, "0")).c_str());
+		arglist.swmm_snapshot_keep_previous = atoi((argsd("swmm_snapshot_keep_previous", argmap, "0")).c_str());
+		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());

@@ -436,7 +436,9 @@ namespace Triton
                             dem.get_yll_corner(), cell_size, org_rows, org_cols, pd,
                             arglist.manhole_diameter, arglist.manhole_loss,
                             arglist.swmm_snapshot_disable,
-                            arglist.swmm_snapshot_keep_all);
+                            arglist.swmm_snapshot_keep_all,
+                            arglist.swmm_snapshot_keep_previous,
+                            arglist.swmm_snapshot_failed_replay);
     }
     else if (rank == 0)
     {
@@ -446,10 +448,12 @@ namespace Triton
     // Hotstart-resume support: on a clean start open a fresh exchange-replay side-file;
     // on a resume, rebuild SWMM's state for 0..t_k so its .out/stats cover the full
     // window before the live segment runs. On a resume the full-precision state
-    // snapshot is tried first (constant-time restore) with the exchange replay as
-    // the fallback (exact, but its cost grows with t_k and the GPU sits idle for
-    // its whole duration); every snapshot refusal degrades to the replay, which
-    // also covers checkpoints written before snapshots existed.
+    // snapshot is tried first (constant-time restore). Only an ABSENT snapshot falls
+    // back to the exchange replay (exact, but its cost grows with t_k and the GPU sits
+    // idle for its whole duration) -- a checkpoint written before snapshots existed
+    // or pruned by retention; a snapshot that is unusable, or whose write was cut off
+    // or failed, stops the run (a failed write replays instead under
+    // swmm_snapshot_failed_replay=1).
     // Guard on the GLOBAL node count: num_of_swmm_links is rank 0's *local* (subdomain) count, so
     // at rank counts where rank 0's top strip holds no manhole the replay/side-file path would be
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
@@ -464,6 +468,12 @@ namespace Triton
               arglist.sim_start_time, arglist.checkpoint_id,
               swmm_model.classify_missing_snapshot(arglist.checkpoint_id));
         }
+        else if (sr == SR::FailedWriteReplay) {
+          // Opt-in (swmm_snapshot_failed_replay=1): a checkpoint whose snapshot
+          // write failed is replayed instead of stopping.
+          swmm_model.replay_exchange_history(
+              arglist.sim_start_time, arglist.checkpoint_id, "write-failed");
+        }
         else if (sr != SR::Restored) {
           // Abort, not exit(): this block runs under a rank-0 guard and a
           // rank-0-only exit would hang every other rank at the next collective.
@@ -474,7 +484,17 @@ namespace Triton
           MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
         }
       }
-      else                            swmm_model.open_exchange_log_truncate();
+      else {
+        // The one disposal site for the earlier run's snapshot artifacts: a
+        // clean start consults no snapshot, so none of them is evidence it
+        // needs (on the abort path above a marker is the operator's evidence
+        // and is kept). A non-empty return names an earlier-run snapshot that
+        // could not be disposed of, which a later resume of this run could load,
+        // so the run stops here, before its first write. MPI_Abort: rank-0 block.
+        if (!swmm_model.sweep_snapshot_markers().empty())
+          MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+        swmm_model.open_exchange_log_truncate();
+      }
     }
 
     // replay_exchange_history() rebuilds SWMM's state and leaves rank 0's global_new_depth[] at the
@@ -2230,6 +2250,16 @@ namespace Triton
         st.stop(COMPUTE_TIME);
 
         st.start(IO_TIME);
+#ifdef TRITON_SWMM
+        // Tie exchange-replay side-file durability to each checkpoint write so a future
+        // resume from this checkpoint always has a complete 0..t_k series on disk.
+        // FIRST in the block, before out.write_output writes config_{print_id}.cfg:
+        // flush_exchange_log aborts on a failed flush, and running it first means
+        // that abort leaves config_{print_id-1}.cfg as the latest complete cfg,
+        // whose series is covered, instead of a cfg written over a dead series.
+        // Inside the IO_TIME bracket, where a file flush belongs.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
+#endif
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
 #ifdef TRITON_SWMM
         // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
@@ -2241,12 +2271,6 @@ namespace Triton
           swmm_model.write_state_snapshot(print_id);
 #endif
         st.stop(IO_TIME);
-
-#ifdef TRITON_SWMM
-        // Tie exchange-replay side-file durability to each checkpoint write so a future
-        // resume from this checkpoint always has a complete 0..t_k series on disk.
-        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
-#endif
 
         #if WRITE_PERFORMANCE
           // Synchronize before stopping timers to ensure all async operations complete

@@ -49,6 +49,7 @@ extern TLoadingTotals* LoadingTotals;
 extern TGwaterTotals   GwaterTotals;
 extern TRoutingTotals  FlowTotals;
 extern TRoutingTotals* QualTotals;
+extern TRoutingTotals* StepQualTotals;
 extern TRoutingTotals  StepFlowTotals;
 extern TRoutingTotals  OldStepFlowTotals;
 extern double*         NodeInflow;
@@ -62,11 +63,19 @@ extern double          TotalArea;
 
 // The version names the admitted field set (V2: routing-state fields and the
 // nConduit/nXnode shape dims; V3: the global routing clocks; V4: the routing
-// sentinels BetweenEvents/VariableStep; V5: the output-period count Nperiods).
+// sentinels BetweenEvents/VariableStep; V5: the output-period count Nperiods;
+// V6: Outfall.wRouted always carries Nobjects[POLLUT] values per outfall, zeros
+// for a route-less one -- the field set is unchanged, the per-outfall value
+// count is not, and a V5 reader would misreport a complete V6 file as short).
+// V7: Node and Link oldQual/newQual and Link totalLoad carry Nobjects[POLLUT]
+// values per element, and StepQualTotals (the per-pollutant step accumulator
+// massbal_updateRoutingTotals reads at the next step's start) carries one
+// TRoutingTotals row per pollutant -- water-quality state a quality-routed
+// resume needs; the field set grows, so V6 files are refused.
 // snapshot_load refuses an exact inequality BEFORE reading the shape block, so
 // an older file is rejected with both versions named rather than mis-strided;
 // the magic is not bumped because the format family is unchanged.
-#define SNAPSHOT_VERSION  5
+#define SNAPSHOT_VERSION  7
 
 // Compile-time bound only; stats.c hands its real MAX_STATS at runtime and a
 // disagreement is refused in snapshot_traverse.
@@ -138,8 +147,15 @@ static void snapshot_currentShape(TSnapshotShape* s, int maxStats)
 //-----------------------------------------------------------------------------
 //  Emitter state. One traversal drives manifest, write and read, so the three
 //  cannot fall out of order.
+//
+//  SNAP_COUNT touches no file: snap_d/i/l/c fall through both mode branches and
+//  only count, so c->count ends at the number of values the payload carries for
+//  the running model. The array guards fire in it exactly as in SNAP_WRITE; that
+//  matters because its one field load (the Outfall guard's s->routeTo and
+//  s->wRouted) is safe only behind the pre-loop !Outfall guard, so neither guard
+//  may be narrowed to WRITE/READ nor bypassed by a count-only fast path.
 //-----------------------------------------------------------------------------
-typedef enum { SNAP_MANIFEST, SNAP_WRITE, SNAP_READ } TSnapMode;
+typedef enum { SNAP_MANIFEST, SNAP_WRITE, SNAP_READ, SNAP_COUNT } TSnapMode;
 
 typedef struct
 {
@@ -285,6 +301,10 @@ static TStorage       _snapDummyStorageObj;
 static void snapshot_traverse(TSnapCtx* c, int maxStats)
 {
     int i, k;
+    // Outfall.wRouted placeholder for a route-less outfall: the zero WRITE emits,
+    // the discard READ fills. Function-local so this file's bytes do not depend
+    // on any other use of the shared _snapDummyScalar.
+    double          wRoutedPlaceholder = 0.0;
     TTimeStepStats* tss    = NULL;
     TMaxStats*      mbe    = NULL;
     TMaxStats*      cc     = NULL;
@@ -542,6 +562,24 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         SNAP_D(c, "QualTotals", *s, finalStorage);
         SNAP_D(c, "QualTotals", *s, pctError);
     }
+    if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !StepQualTotals ) { c->error = 1; return; }
+    for (i = 0; i < SNAP_N(c, Nobjects[POLLUT]); i++)
+    {
+        TRoutingTotals* s = SNAP_P(c, StepQualTotals, i, _snapDummyRouting);
+        SNAP_D(c, "StepQualTotals", *s, dwInflow);
+        SNAP_D(c, "StepQualTotals", *s, wwInflow);
+        SNAP_D(c, "StepQualTotals", *s, gwInflow);
+        SNAP_D(c, "StepQualTotals", *s, iiInflow);
+        SNAP_D(c, "StepQualTotals", *s, exInflow);
+        SNAP_D(c, "StepQualTotals", *s, flooding);
+        SNAP_D(c, "StepQualTotals", *s, outflow);
+        SNAP_D(c, "StepQualTotals", *s, evapLoss);
+        SNAP_D(c, "StepQualTotals", *s, seepLoss);
+        SNAP_D(c, "StepQualTotals", *s, reacted);
+        SNAP_D(c, "StepQualTotals", *s, initStorage);
+        SNAP_D(c, "StepQualTotals", *s, finalStorage);
+        SNAP_D(c, "StepQualTotals", *s, pctError);
+    }
 
     // --- per-node mass-balance volumes; mass-balance errors are divided by these.
     if ( c->mode != SNAP_MANIFEST && Nobjects[NODE] > 0 && (!NodeInflow || !NodeOutflow) )
@@ -605,6 +643,24 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         SNAP_D(c, "Node", *s, oldFlowInflow);
         SNAP_D(c, "Node", *s, oldNetInflow);
         SNAP_C(c, "Node", *s, updated);
+        // Water-quality state (V7), Nobjects[POLLUT] values each. Emitted
+        // whatever IgnoreQuality says, so the payload length stays a function
+        // of the shape block alone; the NULL test sits inside the loop, so a
+        // pollutant-free model's zero-length arrays never reach it.
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Node", "oldQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->oldQual ) { c->error = 1; return; }
+            snap_d(c, &s->oldQual[k]);
+        }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Node", "newQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->newQual ) { c->error = 1; return; }
+            snap_d(c, &s->newQual[k]);
+        }
     }
 
     // --- Link[]: the routing half of TLink.
@@ -623,6 +679,28 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
         SNAP_I(c, "Link", *s, flowClass);
         SNAP_C(c, "Link", *s, normalFlow);
         SNAP_C(c, "Link", *s, inletControl);
+        // Water-quality state (V7), as in the Node[] block above.
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Link", "oldQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->oldQual ) { c->error = 1; return; }
+            snap_d(c, &s->oldQual[k]);
+        }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Link", "newQual");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->newQual ) { c->error = 1; return; }
+            snap_d(c, &s->newQual[k]);
+        }
+        for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
+        {
+            snap_name(c, "Link", "totalLoad");
+            if ( c->mode == SNAP_MANIFEST ) continue;
+            if ( !s->totalLoad ) { c->error = 1; return; }
+            snap_d(c, &s->totalLoad[k]);
+        }
     }
 
     // --- Conduit[]: indexed by Nlinks[CONDUIT], NOT by Nobjects[LINK].
@@ -640,19 +718,38 @@ static void snapshot_traverse(TSnapCtx* c, int maxStats)
     }
 
     // --- Outfall[]: wRouted is a per-pollutant array -- Nobjects[POLLUT] values
-    //     per outfall, one manifest line.
+    //     per outfall, one manifest line. The count does NOT depend on routeTo:
+    //     node.c allocates wRouted only when routeTo >= 0, and a route-less
+    //     outfall emits placeholder zeros, because none of the twelve shape
+    //     dimensions records routeTo and a routeTo-dependent length would pass
+    //     every shape check and then mis-stride every later field.
     if ( c->mode != SNAP_MANIFEST && Nnodes[OUTFALL] > 0 && !Outfall ) { c->error = 1; return; }
     for (i = 0; i < SNAP_N(c, Nnodes[OUTFALL]); i++)
     {
         TOutfall* s = SNAP_P(c, Outfall, i, _snapDummyOutfallObj);
         SNAP_D(c, "Outfall", *s, vRouted);
-        if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0 && !s->wRouted )
-        { c->error = 1; return; }
+
+        // Keyed on routeTo, which is what the allocation is keyed on: the
+        // array is missing only where it should exist. Keying on the pollutant
+        // count alone fired on every route-less outfall of a model carrying
+        // pollutants and cut short every snapshot such a model wrote. continue,
+        // not return: c->error is latched, so one outfall cannot end the
+        // traversal for the whole file.
+        if ( c->mode != SNAP_MANIFEST && Nobjects[POLLUT] > 0
+             && s->routeTo >= 0 && !s->wRouted )
+        { c->error = 1; continue; }
+
         for (k = 0; k < SNAP_N(c, Nobjects[POLLUT]); k++)
         {
+            // Three-way selection: a route-less outfall reaches the placeholder.
+            // The two-way form it replaces forms &NULL[k] there, and the guard
+            // above no longer refuses that case.
+            double* slot;
             snap_name(c, "Outfall", "wRouted");
-            snap_d(c, (c->mode == SNAP_MANIFEST) ? &_snapDummyScalar
-                                                 : &s->wRouted[k]);
+            if      ( c->mode == SNAP_MANIFEST ) slot = &_snapDummyScalar;
+            else if ( s->wRouted )               slot = &s->wRouted[k];
+            else                                 slot = &wRoutedPlaceholder;
+            snap_d(c, slot);
         }
     }
 
@@ -743,12 +840,59 @@ char* snapshot_buildManifest(long* nFields)
 
 //=============================================================================
 
+// The number of double-width values the payload carries for the running model,
+// or -1 when the traversal refuses. File-internal: snapshot_save's length check
+// and snapshot_load's refusal are its only consumers, so funcs.h gains no
+// declaration.
+static long snapshot_expectedValueCount(int maxStats)
+{
+    TSnapCtx c;
+    memset(&c, 0, sizeof(c));
+    c.mode = SNAP_COUNT;
+    snapshot_traverse(&c, maxStats);
+    if ( c.error ) return -1;
+    return c.count;
+}
+
+//=============================================================================
+
+// Suffix of the temporary a snapshot is written to before it is published. Its
+// extension is not ".snapshot", which is what keeps a partial write invisible to
+// classify_missing_snapshot and to the retention prune in swmm_triton.h; that
+// file's ".part" literal must match this one.
+#define SNAPSHOT_PART_SUFFIX  ".part"
+
+// Suffix of the marker snapshot_save leaves when its count pass refuses the
+// model state (one text line) or its length check fails after the write (the
+// temporary, renamed). Must match the ".failed" swmm_triton.h tests for; like
+// ".part" it is never counted or pruned as a published snapshot.
+#define SNAPSHOT_FAILED_SUFFIX  ".failed"
+
+// The one line a count-pass refusal writes into its ".failed" marker.
+#define SNAPSHOT_REFUSED_TEXT \
+    "SNAPSHOT REFUSED BEFORE WRITE: a structural guard rejected the model state in the count pass"
+
 int snapshot_save(const char* path)
 //
 //  Input:   path = snapshot file to create
 //  Output:  returns 0 on success, non-zero on failure
 //  Purpose: writes SWMM's statistics and mass-balance accumulators at full
 //           double precision.
+//
+//  Writes "{path}.part", checks its value count against an independent count
+//  pass, and only then publishes it by rename, so a resume never loads an
+//  unusable file under the published name: a writer killed mid-traversal
+//  leaves the temporary and no published file, a state the resume can name,
+//  where a short published file was indistinguishable from a build mismatch.
+//  No fsync: the failures this guards against are process kills, which a
+//  userspace flush covers.
+//
+//  A refused or failed write leaves "{path}.failed" and the next resume at this
+//  checkpoint STOPS on it (swmm_snapshot_failed_replay=1 replays instead).
+//  This deliberately reverses the earlier policy that a failed write leaves
+//  nothing and silently costs a replay: a write this build cannot complete is
+//  a defect or a full disk, and a silent fallback hides it behind correct but
+//  slow numbers.
 //
 {
     FILE*  f;
@@ -757,15 +901,47 @@ int snapshot_save(const char* path)
     int    hdr[4];
     int    shp[SNAPSHOT_SHAPE_FIELDS];
     char*  manifest;
+    char*  part;
+    size_t partLen;
     long   nFields = 0;
+    long   expected;
     int    mlen;
+
+    // A count-pass refusal can only be a structural guard rejecting the model
+    // state (the pass touches no file), so it too leaves a ".failed", holding
+    // one text line so an operator can tell it from a failed write. Created
+    // exclusively ("wx"): an existing marker is evidence and is not overwritten.
+    expected = snapshot_expectedValueCount(SNAPSHOT_MAX_STATS);
+    if ( expected < 0 )
+    {
+        size_t refusedLen = strlen(path) + strlen(SNAPSHOT_FAILED_SUFFIX) + 1;
+        char*  refused    = (char*) malloc(refusedLen);
+        if ( refused )
+        {
+            FILE* rf;
+            snprintf(refused, refusedLen, "%s%s", path, SNAPSHOT_FAILED_SUFFIX);
+            rf = fopen(refused, "wx");
+            if ( rf )
+            {
+                fputs(SNAPSHOT_REFUSED_TEXT "\n", rf);
+                fclose(rf);
+            }
+            free(refused);
+        }
+        return 1;
+    }
 
     manifest = snapshot_buildManifest(&nFields);
     if ( !manifest ) return 1;
     mlen = (int) strlen(manifest);
 
-    f = fopen(path, "wb");
-    if ( !f ) { free(manifest); return 1; }
+    partLen = strlen(path) + strlen(SNAPSHOT_PART_SUFFIX) + 1;
+    part    = (char*) malloc(partLen);
+    if ( !part ) { free(manifest); return 1; }
+    snprintf(part, partLen, "%s%s", path, SNAPSHOT_PART_SUFFIX);
+
+    f = fopen(part, "wb");
+    if ( !f ) { free(manifest); free(part); return 1; }
 
     snapshot_currentShape(&shape, SNAPSHOT_MAX_STATS);
     hdr[0] = SNAPSHOT_MAGIC;
@@ -778,7 +954,7 @@ int snapshot_save(const char* path)
          fwrite(shp, sizeof(int), SNAPSHOT_SHAPE_FIELDS, f) != SNAPSHOT_SHAPE_FIELDS ||
          (mlen > 0 && fwrite(manifest, 1, (size_t) mlen, f) != (size_t) mlen) )
     {
-        fclose(f); free(manifest); remove(path); return 1;
+        fclose(f); remove(part); free(manifest); free(part); return 1;
     }
     free(manifest);
 
@@ -787,12 +963,52 @@ int snapshot_save(const char* path)
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
 
-    // Remove the file on any failure: a header-only or partial snapshot left
-    // behind would be classified UNREADABLE (abort) at the next resume instead
-    // of ABSENT (replay fallback), breaking the contract that a failed
-    // snapshot write only costs a replay.
-    if ( fclose(f) != 0 ) { remove(path); return 1; }
-    if ( c.error ) { remove(path); return 1; }
+    // The length-check arm (a failed fwrite or fclose, or a count disagreement)
+    // KEEPS its temporary as "{path}.failed": c.error cannot say which cause it
+    // was, so the bytes are the operator's evidence. Not ".killed", which the
+    // resume writes for a cut-off write; one name per cause. If that rename
+    // fails the temporary is removed, since a surviving ".part" would be read
+    // as a cut-off write. A remove that fails is reported: the leftover is never
+    // loaded but is never reclaimed either. The published name is never created.
+    if ( fclose(f) != 0 || c.error || c.count != expected )
+    {
+        size_t failedLen = strlen(path) + strlen(SNAPSHOT_FAILED_SUFFIX) + 1;
+        char*  failed    = (char*) malloc(failedLen);
+        int    kept      = 0;
+        if ( failed )
+        {
+            snprintf(failed, failedLen, "%s%s", path, SNAPSHOT_FAILED_SUFFIX);
+            if ( rename(part, failed) == 0 ) kept = 1;
+            else
+                fprintf(stderr,
+                    "WARNING: could not keep the failed SWMM snapshot %s as %s "
+                    "(%s); removing it instead\n", part, failed, strerror(errno));
+            free(failed);
+        }
+        if ( !kept && remove(part) != 0 )
+            fprintf(stderr,
+                "WARNING: could not remove the partial SWMM snapshot %s (%s); "
+                "it will not be loaded but it will not be reclaimed either\n",
+                part, strerror(errno));
+        free(part);
+        return 1;
+    }
+
+    // Publish. Its atomicity on the target filesystem is assumed, not measured.
+    if ( rename(part, path) != 0 )
+    {
+        fprintf(stderr,
+            "WARNING: could not publish the SWMM snapshot %s from its temporary "
+            "%s (%s)\n", path, part, strerror(errno));
+        if ( remove(part) != 0 )
+            fprintf(stderr,
+                "WARNING: could not remove the unpublished SWMM snapshot "
+                "temporary %s (%s)\n", part, strerror(errno));
+        free(part);
+        return 1;
+    }
+
+    free(part);
     return SNAPSHOT_OK;
 }
 
@@ -818,6 +1034,9 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     char* manifest = NULL;
     char* mine     = NULL;
     long  nFields  = 0;
+    long  payloadStart = -1;
+    long  expected     = -1;
+    long  actual       = -1;
     int   rc = SNAPSHOT_UNREADABLE;
 
     if ( errMsg && errMsgLen > 0 ) errMsg[0] = '\0';
@@ -930,13 +1149,35 @@ int snapshot_load(const char* path, char* errMsg, int errMsgLen)
     }
     free(manifest); free(mine);
 
+    // Measure the payload extent before reading it, so a refusal carries the
+    // two counts that disagree rather than a guessed cause: a file from an
+    // older build, a corrupt file and a writer killed mid-traversal all read as
+    // "short", and only expected-versus-actual tells them apart.
+    payloadStart = ftell(f);
+    expected     = snapshot_expectedValueCount(SNAPSHOT_MAX_STATS);
+    if ( payloadStart >= 0 && fseek(f, 0, SEEK_END) == 0 )
+    {
+        const long fileEnd = ftell(f);
+        if ( fileEnd >= payloadStart ) actual = (fileEnd - payloadStart) / (long) sizeof(double);
+        if ( fseek(f, payloadStart, SEEK_SET) != 0 )
+        {
+            if ( errMsg ) snprintf(errMsg, errMsgLen,
+                "snapshot payload could not be positioned for reading: %s", path);
+            fclose(f); return SNAPSHOT_UNREADABLE;
+        }
+    }
+
     memset(&c, 0, sizeof(c));
     c.mode = SNAP_READ;
     c.f    = f;
     snapshot_traverse(&c, SNAPSHOT_MAX_STATS);
     rc = c.error ? SNAPSHOT_UNREADABLE : SNAPSHOT_OK;
+    // States what disagreed and by how much, and no cause; -1 marks a figure
+    // that could not be measured.
     if ( rc && errMsg ) snprintf(errMsg, errMsgLen,
-        "snapshot payload is short or unreadable: %s", path);
+        "snapshot payload holds %ld value(s) and this model requires %ld "
+        "(values read before the traversal stopped: %ld): %s",
+        actual, expected, c.count, path);
 
     fclose(f);
     return rc;
