@@ -98,9 +98,22 @@ if(TRITON_ENABLE_SWMM)
 endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/test/inventory ${CMAKE_BINARY_DIR}/test/inventory)
 
+# Runtime tests for the SWMM timer column split: they drive the real SuperTimer
+# and Output::write_times and assert that SWMM_STEP is exactly 0.0 on every rank
+# but rank 0 and that the SWMM child columns sum to SWMM. Registered in every
+# configuration, because the columns are emitted in every configuration.
+add_subdirectory(${CMAKE_SOURCE_DIR}/test/perf ${CMAKE_BINARY_DIR}/test/perf)
+
+
+
+# Source checks: pure Python over the tree, no build and no solver run, so they
+# are registered unconditionally.
+
 # No swmm_open, swmm_start or swmm_step call in src/ discards its return code.
 # SWMM reports a rejected input only through those codes; discarded, the coupled
-# run completes against a sewer that never moves.
+# run completes against a sewer that never moves. The test also runs its
+# predicate on a discarding and a capturing snippet, so a predicate that can no
+# longer go red fails it.
 add_test(
     NAME SOURCE-SWMM-RETURN-CODES
     COMMAND ${Python3_EXECUTABLE}
@@ -108,3 +121,24 @@ add_test(
                 ${CMAKE_SOURCE_DIR}
 )
 
+# Every C++ translation unit must PARSE under `mpic++ -fsyntax-only` with the
+# Kokkos config shim in test/syntax/kokkos-shim/: no CMake configure of Kokkos,
+# no link, no solver run. It asserts each TU's exit status, not the absence of
+# warnings (their count varies by site). It does not use CMAKE_CXX_COMPILER,
+# which may be a site wrapper; pass --compiler to override.
+add_test(
+    NAME SOURCE-SYNTAX-PARSE-ALL-TUS
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/syntax/run_syntax_check.py
+                ${CMAKE_SOURCE_DIR}
+)
+
+# Source properties of the SWMM timer column split that the runtime tests cannot
+# tell from their violations, among them that SWMM_STEP's bracket in triton.h
+# sits inside the rank-0 guard.
+add_test(
+    NAME SOURCE-SWMM-COLUMN-SPLIT
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_column_split_source.py
+                ${CMAKE_SOURCE_DIR}
+)
