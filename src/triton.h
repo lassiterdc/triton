@@ -1,8 +1,11 @@
 /** @file triton.h
- *  @brief Header containing the Triton class
+ *  @brief The Triton class: one TRITON flood simulation, from its cfg file to
+ *         its output rasters, run across MPI ranks on a GPU or CPU backend.
  *
- *  This contains the subroutines and eventually any
- *  macros, constants, etc. needed for Triton class
+ *  Reads the cfg and input rasters, splits the grid into row strips across MPI
+ *  ranks, builds the host and device arrays, advances the time-stepping loop and
+ *  its halo exchange, and writes outputs and checkpoints; a resume from a
+ *  checkpoint must reproduce the state an uninterrupted run would hold there.
  *
  *  @author Mario Morales Hernandez
  *  @author Sudershan Gangrade
@@ -199,7 +202,7 @@ namespace Triton
     std::vector<T*> device_vec; /**< Device vector that contains all floating point array to use in simulation. */
     std::vector<int*> device_vec_int; /**< Device vector that contains all integer array to use in simulation. */
 
-/** @brief This function is used to compute the time step size in the case the domain is dry and the dynamic CFL condition is set. It is computed according to the hydrograph interval, runoff interval and print interval divided by 100.
+/** @brief Computes the time step used while the domain is dry and the dynamic CFL condition is set: 0.01 times the smallest of the print interval, the observation-output interval (when time series are written), the first interval of the runoff series (when runoff is given) and the first interval of the hydrograph series (when flow sources are given), then the minimum of that value across ranks.
 * 
 */
     void compute_init_dt();
@@ -439,6 +442,7 @@ namespace Triton
                             arglist.swmm_snapshot_keep_all,
                             arglist.swmm_snapshot_keep_previous,
                             arglist.swmm_node_rim_from_dem,
+                            arglist.swmm_coupling_nodes,
                             arglist.swmm_snapshot_failed_replay);
     }
     else if (rank == 0)
@@ -498,8 +502,10 @@ namespace Triton
       }
     }
 
-    // replay_exchange_history() rebuilds SWMM's state and leaves rank 0's global_new_depth[] at the
-    // node depths for t_k -- but the per-rank new_depth[] that compute_swmm_triton_exchange() reads
+    // Either resume route leaves rank 0's global_new_depth[] at the node depths for t_k --
+    // replay_exchange_history() by stepping SWMM through 0..t_k, try_restore_state_snapshot() by
+    // exporting them from the restored state -- but the per-rank new_depth[] that
+    // compute_swmm_triton_exchange() reads
     // is still the zero-fill from init_swmm(). Without this distribution the first post-resume
     // exchange evaluates every manhole at new_depth = 0, which forces the Case 1 (surface-to-sewer
     // weir) branch even when the sewer is surcharged, inverting the exchange for one step and
@@ -576,6 +582,8 @@ namespace Triton
       host_vec.push_back(swmm_model.exchange_q.data());
 
       host_vec_int.push_back(swmm_model.swmm_pos_arr.data());
+      host_vec_int.push_back(swmm_model.swmm_cell_start.data());   // SWMMCELLSTART
+      host_vec_int.push_back(swmm_model.swmm_cell_nodes.data());   // SWMMCELLNODES
 
       // Allocate device memory for SWMM data
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
@@ -590,6 +598,11 @@ namespace Triton
       gpuMalloc((void**)&device_new_depth, nbytes_swmm);
       gpuMalloc((void**)&device_exchange_q, nbytes_swmm);
       gpuMalloc((void**)&device_swmm_pos, nbytes_swmm_int);
+      // The per-cell index (cells + 1 offsets, one node index per node).
+      int nbytes_cell_start = (sizeof(int) * (swmm_model.num_of_swmm_cells + 1));
+      int *device_cell_start, *device_cell_nodes;
+      gpuMalloc((void**)&device_cell_start, nbytes_cell_start);
+      gpuMalloc((void**)&device_cell_nodes, nbytes_swmm_int);
 
       device_vec.push_back(device_loss);
       device_vec.push_back(device_diameter);
@@ -597,6 +610,8 @@ namespace Triton
       device_vec.push_back(device_new_depth);
       device_vec.push_back(device_exchange_q);
       device_vec_int.push_back(device_swmm_pos);
+      device_vec_int.push_back(device_cell_start);
+      device_vec_int.push_back(device_cell_nodes);
 
       // Initialize SWMM device data
       gpuMemcpyAsync(device_vec[SWMM_LOSS], host_vec[SWMM_LOSS], nbytes_swmm, gpuMemcpyHostToDevice, streams);
@@ -605,6 +620,8 @@ namespace Triton
       gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuMemcpyAsync(device_vec[SWMM_Q], host_vec[SWMM_Q], nbytes_swmm, gpuMemcpyHostToDevice, streams);
       gpuMemcpyAsync(device_vec_int[SWMMP], host_vec_int[SWMMP], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec_int[SWMMCELLSTART], host_vec_int[SWMMCELLSTART], nbytes_cell_start, gpuMemcpyHostToDevice, streams);
+      gpuMemcpyAsync(device_vec_int[SWMMCELLNODES], host_vec_int[SWMMCELLNODES], nbytes_swmm_int, gpuMemcpyHostToDevice, streams);
     }
 #endif
   }
@@ -2576,7 +2593,9 @@ namespace Triton
         gpuStreamSynchronize(streams);
 
         // Compute SWMM-TRITON exchange on device
-        SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_links, cell_size, global_dt,
+        SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_cells,
+                                                    device_vec_int[SWMMCELLSTART], device_vec_int[SWMMCELLNODES],
+                                                    cell_size, global_dt,
                                                     device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
                                                     device_vec_int[SWMMP], device_vec[SWMM_LOSS],
                                                     device_vec[SWMM_DIAMETER], device_vec[SWMM_MAXD],

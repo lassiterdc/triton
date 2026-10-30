@@ -36,10 +36,14 @@
 // SWMM API header
 #include "swmm5.h"
 
-// Defined in the vendored routing.c beside routing_exportInflowNodeDepths and
-// declared here, with its only caller: whether node j's external inflows include
-// a FLOW inflow, the predicate addExternalInflows uses to give a node a slot.
+// Defined in the vendored routing.c and declared here, beside their only caller
+// (init_swmm), rather than in funcs.h. routing_nodeHasFlowInflow reports whether
+// node j's external inflows include a FLOW inflow; it is read only when no
+// coupling node is declared (the coupled list is then the FLOW-inflow set) and by
+// the startup disclosure line. routing_setCouplingNodes builds the slot map that
+// gives each coupling node its exchange slot, and returns a SWMM error code.
 extern "C" int routing_nodeHasFlowInflow(int j);
+extern "C" int routing_setCouplingNodes(const int* nodeIndex, int n);
 
 #include <algorithm>
 #include <fstream>
@@ -177,7 +181,7 @@ namespace SWMM_triton
 		return s;
 	}
 
-	/** @brief What parse_inp_coupled_list reads from an .inp file. */
+	/** @brief What the common read of an .inp file yields, and the coupled list. */
 	struct inp_coupled_list_t
 	{
 		std::vector<std::string> names;              ///< coupled nodes, in SWMM node order
@@ -186,25 +190,23 @@ namespace SWMM_triton
 		std::vector<std::string> coord_names;        ///< [COORDINATES] data lines, file order
 		std::vector<double>      coord_x;
 		std::vector<double>      coord_y;
+		/// [INFLOWS] data lines as (node, constituent) tokens, file order. Read in every
+		/// branch, because reading is not selecting; only the legacy branch derives
+		/// coupling nodes from them.
+		std::vector<std::pair<std::string, std::string>> inflow_lines;
+		std::vector<std::string> pollutants;         ///< [POLLUTANTS] names, upper case
 	};
 
-	/** @brief Reads the coupled-node list, the junction depths and the node coordinates.
+	/** @brief Reads [JUNCTIONS], [COORDINATES], [INFLOWS] and [POLLUTANTS] from an .inp.
 	 *
 	 *  A section starts at any line whose first token begins with '[' and runs to the
 	 *  next such line, wherever the line is indented and whatever comment follows it,
-	 *  and every occurrence of a section is read -- as SWMM reads its input. A node is
-	 *  coupled when an [INFLOWS] line's second token is not a [POLLUTANTS] name and
-	 *  begins, case-insensitively, with FLOW (SWMM's own test), at most once per node.
-	 *  The list is ordered by each node's position in [JUNCTIONS], because that is the
-	 *  order SWMM numbers nodes and walks its FLOW inflows; a node absent from
-	 *  [JUNCTIONS] keeps its relative place after them, and init_swmm refuses it.
-	 *  Node names are compared case-insensitively, as SWMM compares them.
+	 *  and every occurrence of a section is read -- as SWMM reads its input. It selects
+	 *  no coupling node: names is left empty for resolve_coupling_nodes to fill.
 	 */
-	static inline inp_coupled_list_t parse_inp_coupled_list(std::istream& in)
+	static inline inp_coupled_list_t read_inp_sections(std::istream& in)
 	{
 		inp_coupled_list_t r;
-		std::vector<std::pair<std::string, std::string>> inflow_lines;
-		std::vector<std::string> pollutants;
 		enum { OTHER, JUNCTIONS, COORDINATES, INFLOWS, POLLUTANTS } sect = OTHER;
 		std::string line;
 		while (std::getline(in, line)) {
@@ -231,38 +233,144 @@ namespace SWMM_triton
 				r.coord_y.push_back(std::strtod(tok[2].c_str(), nullptr));
 			}
 			else if (sect == INFLOWS && tok.size() >= 2) {
-				inflow_lines.emplace_back(tok[0], tok[1]);
+				r.inflow_lines.emplace_back(tok[0], tok[1]);
 			}
 			else if (sect == POLLUTANTS) {
-				pollutants.push_back(swmm_upper(tok[0]));
+				r.pollutants.push_back(swmm_upper(tok[0]));
 			}
 		}
+		return r;
+	}
 
-		// Pollutants are collected before any inflow line is classified, because the
-		// [POLLUTANTS] section may follow [INFLOWS] in the file.
-		std::vector<std::string> coupled, coupled_upper;
-		for (const auto& fl : inflow_lines) {
-			const std::string param = swmm_upper(fl.second);
-			if (std::find(pollutants.begin(), pollutants.end(), param) != pollutants.end()) continue;
-			if (param.rfind("FLOW", 0) != 0) continue;
-			const std::string node = swmm_upper(fl.first);
-			if (std::find(coupled_upper.begin(), coupled_upper.end(), node) != coupled_upper.end()) continue;
-			coupled.push_back(fl.first);
-			coupled_upper.push_back(node);
-		}
-
+	/** @brief Orders node names by their position in [JUNCTIONS].
+	 *
+	 *  That is the order SWMM numbers junctions, so it is SWMM's node order for a
+	 *  junction-only list. A name absent from [JUNCTIONS] keeps its relative place
+	 *  after them, and init_swmm refuses it. Names compare case-insensitively, as
+	 *  SWMM's own lookup does.
+	 */
+	static inline std::vector<std::string> order_by_junction_position(const std::vector<std::string>& names,
+	                                                                  const std::vector<std::string>& junction_names)
+	{
 		std::vector<std::string> junction_upper;
-		for (const auto& j : r.junction_names) junction_upper.push_back(swmm_upper(j));
+		for (const auto& j : junction_names) junction_upper.push_back(swmm_upper(j));
 		std::vector<std::pair<std::size_t, std::size_t>> key;  // (sort key, list position)
-		for (std::size_t i = 0; i < coupled.size(); ++i) {
-			const auto it = std::find(junction_upper.begin(), junction_upper.end(), coupled_upper[i]);
+		for (std::size_t i = 0; i < names.size(); ++i) {
+			const auto it = std::find(junction_upper.begin(), junction_upper.end(), swmm_upper(names[i]));
 			const std::size_t k = (it != junction_upper.end())
 			                          ? static_cast<std::size_t>(it - junction_upper.begin())
 			                          : junction_upper.size() + i;
 			key.emplace_back(k, i);
 		}
 		std::sort(key.begin(), key.end());
-		for (const auto& k : key) r.names.push_back(coupled[k.second]);
+		std::vector<std::string> out;
+		for (const auto& k : key) out.push_back(names[k.second]);
+		return out;
+	}
+
+	/** @brief The legacy coupled list: the nodes SWMM gives a FLOW inflow.
+	 *
+	 *  A node qualifies when an [INFLOWS] line's second token is not a [POLLUTANTS]
+	 *  name and begins, case-insensitively, with FLOW (SWMM's own test), at most once
+	 *  per node, ordered by order_by_junction_position. Pollutants are collected
+	 *  before any inflow line is classified, because [POLLUTANTS] may follow
+	 *  [INFLOWS] in the file. Used ONLY when no coupling node is declared: under a
+	 *  declaration no [INFLOWS] line may add, remove or reorder a coupling node.
+	 */
+	static inline std::vector<std::string> derive_flow_inflow_coupled_nodes(const inp_coupled_list_t& m)
+	{
+		std::vector<std::string> coupled, coupled_upper;
+		for (const auto& fl : m.inflow_lines) {
+			const std::string param = swmm_upper(fl.second);
+			if (std::find(m.pollutants.begin(), m.pollutants.end(), param) != m.pollutants.end()) continue;
+			if (param.rfind("FLOW", 0) != 0) continue;
+			const std::string node = swmm_upper(fl.first);
+			if (std::find(coupled_upper.begin(), coupled_upper.end(), node) != coupled_upper.end()) continue;
+			coupled.push_back(fl.first);
+			coupled_upper.push_back(node);
+		}
+		return order_by_junction_position(coupled, m.junction_names);
+	}
+
+	/** @brief How the coupling nodes are declared: the cfg key swmm_coupling_nodes. */
+	enum coupling_kind_t
+	{
+		COUPLING_LEGACY,        ///< key absent or empty: derived from [INFLOWS] FLOW lines
+		COUPLING_LIST,          ///< key is a path: a one-column file of node names
+		COUPLING_ALL_JUNCTIONS  ///< key is exactly ALL_JUNCTIONS
+	};
+
+	/** @brief A coupling declaration as read from the cfg (and, for a list, its file). */
+	struct coupling_declaration_t
+	{
+		coupling_kind_t          kind = COUPLING_LEGACY;
+		std::string              path;   ///< the list file (COUPLING_LIST)
+		std::vector<std::string> names;  ///< the list's names, file order (COUPLING_LIST)
+		std::vector<int>         lines;  ///< each name's 1-based line in the list file
+	};
+
+	/** @brief The coupling nodes a declaration selects from a parsed model.
+	 *
+	 *  The three branches are exclusive: a list gives exactly its names, in
+	 *  [JUNCTIONS] order; ALL_JUNCTIONS gives exactly the junctions, in file order;
+	 *  only with no declaration are the nodes derived from the [INFLOWS] FLOW lines,
+	 *  and that derivation is called from this else and from nowhere else.
+	 */
+	static inline std::vector<std::string> resolve_coupling_nodes(const coupling_declaration_t& d,
+	                                                              const inp_coupled_list_t& m)
+	{
+		if (d.kind == COUPLING_LIST) {
+			return order_by_junction_position(d.names, m.junction_names);
+		}
+		else if (d.kind == COUPLING_ALL_JUNCTIONS) {
+			return m.junction_names;
+		}
+		else {
+			return derive_flow_inflow_coupled_nodes(m);
+		}
+	}
+
+	/** @brief Reads a coupling-node list file: one name per line.
+	 *
+	 *  Surrounding whitespace is stripped; blank lines and lines beginning with ';'
+	 *  are skipped; there is no header. Each name's 1-based line number is kept so a
+	 *  refusal can name the line.
+	 */
+	static inline void read_coupling_list(std::istream& in, std::vector<std::string>& names, std::vector<int>& lines)
+	{
+		std::string line;
+		int n = 0;
+		while (std::getline(in, line)) {
+			++n;
+			const std::size_t b = line.find_first_not_of(" \t\r");
+			if (b == std::string::npos) continue;
+			const std::size_t e = line.find_last_not_of(" \t\r");
+			const std::string name = line.substr(b, e - b + 1);
+			if (name[0] == ';') continue;
+			names.push_back(name);
+			lines.push_back(n);
+		}
+	}
+
+	/** @brief The first pair of names equal after SWMM's case fold, or {-1, -1}. */
+	static inline std::pair<int, int> find_repeated_name(const std::vector<std::string>& names)
+	{
+		for (std::size_t i = 0; i < names.size(); ++i)
+			for (std::size_t j = 0; j < i; ++j)
+				if (swmm_upper(names[i]) == swmm_upper(names[j]))
+					return {static_cast<int>(j), static_cast<int>(i)};
+		return {-1, -1};
+	}
+
+	/** @brief The coupled list with no coupling declaration (the legacy branch).
+	 *
+	 *  read_inp_sections followed by resolve_coupling_nodes on an empty declaration:
+	 *  the coupled list a cfg without swmm_coupling_nodes gets.
+	 */
+	static inline inp_coupled_list_t parse_inp_coupled_list(std::istream& in)
+	{
+		inp_coupled_list_t r = read_inp_sections(in);
+		r.names = resolve_coupling_nodes(coupling_declaration_t(), r);
 		return r;
 	}
 
@@ -319,7 +427,7 @@ namespace SWMM_triton
 	 *  at. The parsed token is kept only where it equals SWMM's value to within a
 	 *  relative 1e-12: SWMM returns an unraised depth through two unit conversions that
 	 *  can move its last bit, so keeping the token there leaves a model with no
-	 *  crown-raised coupled node byte-identical to the pre-item-11 solver.
+	 *  crown-raised coupled node byte-identical to a solver that kept the token.
 	 */
 	static inline double coupled_node_rim(double token, double swmm_full_depth)
 	{
@@ -348,6 +456,31 @@ namespace SWMM_triton
 	static inline double coupled_node_rim_m(double token, double swmm_full_depth, bool us)
 	{
 		return us ? swmm_engine_length_m(swmm_full_depth, true) : coupled_node_rim(token, swmm_full_depth);
+	}
+
+	/** @brief Groups this rank's coupling nodes by the TRITON cell they sit in.
+	 *
+	 *  Several coupling nodes may share a cell, and the exchange kernel runs one
+	 *  thread per cell so that no two threads write one cell. Cells are listed in
+	 *  the order their first node appears in pos; each cell's nodes are listed in
+	 *  pos order, which is slot order because process_swmm_node_locations appends
+	 *  nodes by ascending global index. start[c]..start[c+1] indexes nodes.
+	 *  Returns the number of cells.
+	 */
+	static inline int build_coupled_cell_index(const std::vector<int>& pos, std::vector<int>& start,
+	                                           std::vector<int>& nodes)
+	{
+		std::vector<int> cells;
+		for (int p : pos)
+			if (std::find(cells.begin(), cells.end(), p) == cells.end()) cells.push_back(p);
+		start.assign(1, 0);
+		nodes.clear();
+		for (int cell : cells) {
+			for (int k = 0; k < static_cast<int>(pos.size()); ++k)
+				if (pos[k] == cell) nodes.push_back(k);
+			start.push_back(static_cast<int>(nodes.size()));
+		}
+		return static_cast<int>(cells.size());
 	}
 
 	/** @brief True for a SWMM report error line: optional whitespace, "ERROR ", a digit
@@ -427,7 +560,8 @@ namespace SWMM_triton
 		/// try_restore_state_snapshot at a ".failed" marker; it defaults to
 		/// false, which keeps the stop there. swmm_node_rim_from_dem only labels
 		/// the rims init_swmm prints; triton.h applies the DEM rim.
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const bool swmm_snapshot_failed_replay = false);
+		/// swmm_coupling_nodes is the coupling declaration (empty: legacy).
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string(), const bool swmm_snapshot_failed_replay = false);
 
 
 		void end_swmm(std::string output_dir);
@@ -553,6 +687,12 @@ namespace SWMM_triton
 
 		std::vector<int> relative_swmm_node_index;
 		std::vector<int> swmm_pos_arr;
+		/// This rank's coupling nodes grouped by cell (build_coupled_cell_index):
+		/// offsets and node indices, pushed to the device at SWMMCELLSTART and
+		/// SWMMCELLNODES for the per-cell exchange kernel.
+		std::vector<int> swmm_cell_start;
+		std::vector<int> swmm_cell_nodes;
+		int num_of_swmm_cells = 0;
 		Constants::sources_list_t swmm_cells;
 
 		int *counts = NULL;	/**< Array to hold every subdomains cell count */
@@ -628,6 +768,10 @@ namespace SWMM_triton
 
 		int rank_;
 		int size_;
+		/// The cfg's swmm_coupling_nodes value, and the declaration read_inp_file makes
+		/// of it on every rank; init_swmm keys the legacy-only checks on its kind.
+		std::string coupling_nodes_key;
+		coupling_declaration_t coupling;
 		std::vector<value_t> x_all;
 		std::vector<value_t> y_all;
 		std::vector<std::string> nodeID_all;
@@ -645,7 +789,7 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const bool swmm_snapshot_failed_replay)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes, const bool swmm_snapshot_failed_replay)
 	{
 		rank_=rank;
 		size_=size;
@@ -654,6 +798,7 @@ namespace SWMM_triton
 		this->snapshot_keep_previous = swmm_snapshot_keep_previous;
 		this->snapshot_failed_replay = swmm_snapshot_failed_replay;
 		this->node_rim_from_dem = swmm_node_rim_from_dem;
+		this->coupling_nodes_key = swmm_coupling_nodes;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
@@ -675,12 +820,45 @@ namespace SWMM_triton
 
 		infile.close();
 
-		// [COORDINATES], [JUNCTIONS] and [INFLOWS] are read with SWMM's own section rule,
-		// tokenizer and FLOW test, so the coupled list is SWMM's FLOW-inflow set in SWMM's
-		// node order (see parse_inp_coupled_list). init_swmm checks it against the engine.
+		// The coupling declaration, decided on every rank from swmm_coupling_nodes:
+		// a list file, ALL_JUNCTIONS, or nothing (the legacy derivation from the
+		// [INFLOWS] FLOW lines). The branches are exclusive; resolve_coupling_nodes
+		// applies the one chosen here.
+		coupling = coupling_declaration_t();
+		if (coupling_nodes_key.empty()) {
+			coupling.kind = COUPLING_LEGACY;
+		}
+		else if (coupling_nodes_key == "ALL_JUNCTIONS") {
+			coupling.kind = COUPLING_ALL_JUNCTIONS;
+		}
+		else {
+			coupling.kind = COUPLING_LIST;
+			coupling.path = coupling_nodes_key;
+			std::ifstream list_file(coupling.path.c_str());
+			if (!list_file.is_open()) {
+				std::cerr << ERROR "Cannot read the coupling-node list " << coupling.path
+				          << " (swmm_coupling_nodes)." << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			read_coupling_list(list_file, coupling.names, coupling.lines);
+			const std::pair<int, int> rep_pair = find_repeated_name(coupling.names);
+			if (rep_pair.first >= 0) {
+				std::cerr << ERROR "Coupling node " << coupling.names[rep_pair.second] << " on line "
+				          << coupling.lines[rep_pair.second] << " of " << coupling.path
+				          << " repeats " << coupling.names[rep_pair.first] << " on line "
+				          << coupling.lines[rep_pair.first]
+				          << " (SWMM compares node names case-insensitively)." << std::endl;
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		// [COORDINATES], [JUNCTIONS], [INFLOWS] and [POLLUTANTS] are read with SWMM's
+		// own section rule and tokenizer in every branch; the coupled list is then the
+		// declaration's (see resolve_coupling_nodes). init_swmm checks it against the engine.
 		infile.open(inp_filename.c_str());
-		const inp_coupled_list_t parsed = parse_inp_coupled_list(infile);
+		inp_coupled_list_t parsed = read_inp_sections(infile);
 		infile.close();
+		parsed.names = resolve_coupling_nodes(coupling, parsed);
 
 		// Coordinate contract: SWMM's [COORDINATES] are map coordinates, tied to no flow
 		// unit, and TRITON places each node in its DEM's grid from them. So they must be
@@ -708,13 +886,23 @@ namespace SWMM_triton
 
 		// Find the coordinates (x, y) of the nodes connected to the surface. Names
 		// compare case-insensitively, as SWMM's own lookup does; the first entry wins.
+		// A DECLARED node with no [COORDINATES] entry stops the run on every rank,
+		// since it would otherwise be placed at (0, 0); the legacy branch keeps its
+		// behaviour.
 		for (int i = 0; i < global_num_of_swmm_links; i++) {
+			 bool found = false;
 			 for (int j = 0; j < num_of_swmm_nodes; j++) {
 				  if (swmm_upper(nodeID[i]) == swmm_upper(nodeID_all[j])) {
 						x[i] = x_all[j];
 						y[i] = y_all[j];
+						found = true;
 						break;
 				  }
+			 }
+			 if (!found && coupling.kind != COUPLING_LEGACY) {
+				  std::cerr << ERROR "Coupling node " << nodeID[i]
+				            << " has no [COORDINATES] entry in " << inp_filename << "." << std::endl;
+				  exit(EXIT_FAILURE);
 			 }
 		}
 
@@ -790,15 +978,8 @@ namespace SWMM_triton
 			}
 			std::pair<int, int> scell(node_swmm_rows[i]+ GHOST_CELL_PADDING, node_swmm_cols[i]+ GHOST_CELL_PADDING);
 			global_swmm_cells.push_back(scell);
-
-			//check if the has been already assigned from another node
-			for (int j = 0; j < i; ++j){
-
-				if((scell.first == node_swmm_rows[j]+ GHOST_CELL_PADDING)&& (scell.second == node_swmm_cols[j]+ GHOST_CELL_PADDING)){
-					std::cerr << ERROR "Node_swmm " << global_nodeID[i]  << " has the same TRITON cell than node_swmm " << global_nodeID[j]  <<std::endl;
-					exit_failure=1;
-				}
-			}
+			// Several coupling nodes may share a cell: the exchange kernel runs one
+			// thread per cell (build_coupled_cell_index), so they are not refused here.
 		}
 
 
@@ -843,6 +1024,7 @@ namespace SWMM_triton
 
 		new_depth.resize(num_of_swmm_links);
 		exchange_q.resize(num_of_swmm_links);
+		num_of_swmm_cells = build_coupled_cell_index(swmm_pos_arr, swmm_cell_start, swmm_cell_nodes);
 
 		if(exit_failure) exit(EXIT_FAILURE);
 
@@ -1041,7 +1223,7 @@ namespace SWMM_triton
 					refused = 1;
 					continue;
 				}
-				has_flow[i] = routing_nodeHasFlowInflow(idx);
+				if (coupling.kind == COUPLING_LEGACY) has_flow[i] = routing_nodeHasFlowInflow(idx);
 				invert_global[i] = swmm_engine_length_m(swmm_getValue(swmm_NODE_ELEV, idx), us_units);
 				double token = 0.0;
 				for (std::size_t j = 0; j < junctionID_all.size(); j++) {
@@ -1054,16 +1236,78 @@ namespace SWMM_triton
 			}
 			if (refused) MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 
-			int swmm_flow_count = 0;
-			for (int j = 0; j < swmm_getCount(swmm_NODE); j++) swmm_flow_count += routing_nodeHasFlowInflow(j);
+			// The FLOW-inflow half of the check (each entry has a FLOW inflow; the list is
+			// as long as SWMM's FLOW-inflow set) runs only in the legacy branch, where the
+			// list IS that set. Under a declaration no FLOW-inflow fact may refuse a
+			// coupling node, so every entry is passed as qualifying and the count as the
+			// list's own, which leaves only the order test live.
+			int swmm_flow_count = global_num_of_swmm_links;
+			if (coupling.kind == COUPLING_LEGACY) {
+				swmm_flow_count = 0;
+				for (int j = 0; j < swmm_getCount(swmm_NODE); j++) swmm_flow_count += routing_nodeHasFlowInflow(j);
+			}
+			else {
+				std::fill(has_flow.begin(), has_flow.end(), 1);
+			}
 			const coupled_list_check_t chk =
 				check_coupled_list_against_swmm(swmm_index, has_flow, swmm_flow_count);
 			if (!chk.ok) {
-				std::cerr << ERROR "TRITON's coupled-node list does not match SWMM's FLOW-inflow nodes: ";
+				std::cerr << ERROR << (coupling.kind == COUPLING_LEGACY
+				                           ? "TRITON's coupled-node list does not match SWMM's FLOW-inflow nodes: "
+				                           : "TRITON's coupling nodes are not in SWMM's node order: ");
 				if (chk.entry >= 0)
 					std::cerr << "entry " << chk.entry << " (" << global_nodeID[chk.entry] << "): ";
 				std::cerr << chk.reason << "." << std::endl;
 				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+
+			// A coupled run with no coupling node would open and start SWMM, never step,
+			// close or report it, and finish with RC 0 as an uncoupled surface run. Stop
+			// here instead -- after the declaration's checks, and after swmm_open, so a
+			// model SWMM itself rejects still stops first with SWMM's own error text.
+			if (global_num_of_swmm_links == 0) {
+				std::cerr << ERROR "SWMM model " << inp_filename << " couples no node: ";
+				if (coupling.kind == COUPLING_LIST)
+					std::cerr << "the list " << coupling.path << " names no node";
+				else if (coupling.kind == COUPLING_ALL_JUNCTIONS)
+					std::cerr << "the model has no junction";
+				else
+					std::cerr << "no [INFLOWS] line gives a node a FLOW inflow and no swmm_coupling_nodes is given";
+				std::cerr << ". Declare coupling nodes with swmm_coupling_nodes, or omit inp_filename"
+				             " for a surface-only run." << std::endl;
+				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+
+			// Activate the coupling: each node's exchange slot, in SWMM node-index order,
+			// before any step, replay or snapshot restore reads it.
+			const int slot_rc = routing_setCouplingNodes(swmm_index.data(), global_num_of_swmm_links);
+			if (slot_rc != 0) {
+				std::cerr << ERROR "SWMM could not set the coupling-node slots (error code " << slot_rc
+				          << ")." << std::endl;
+				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+
+			// One line naming the declaration used and the coupled count, so the legacy
+			// fallback is visible on every run.
+			if (coupling.kind == COUPLING_LIST)
+				std::cerr << IN "SWMM coupling nodes: " << global_num_of_swmm_links << ", listed in "
+				          << coupling.path << std::endl;
+			else if (coupling.kind == COUPLING_ALL_JUNCTIONS)
+				std::cerr << IN "SWMM coupling nodes: " << global_num_of_swmm_links
+				          << ", all junctions (swmm_coupling_nodes = ALL_JUNCTIONS)" << std::endl;
+			else
+				std::cerr << IN "SWMM coupling nodes: " << global_num_of_swmm_links
+				          << ", derived from the [INFLOWS] FLOW lines (legacy: no swmm_coupling_nodes given)"
+				          << std::endl;
+			if (coupling.kind != COUPLING_LEGACY) {
+				// Disclosure only: a declared node that also carries a FLOW inflow keeps it,
+				// summed with the exchange. This reads the inflow and changes no set.
+				std::string with_flow;
+				for (int i = 0; i < global_num_of_swmm_links; i++)
+					if (routing_nodeHasFlowInflow(swmm_index[i])) with_flow += " " + global_nodeID[i];
+				if (!with_flow.empty())
+					std::cerr << INFO "Coupling nodes that also carry a FLOW inflow, applied with the exchange:"
+					          << with_flow << std::endl;
 			}
 
 			char rim_line[512];
@@ -1788,7 +2032,8 @@ namespace SWMM_triton
 		// The snapshot restored SWMM's accumulators and routing state, but the
 		// array TRITON reads is filled at exactly one site inside routing_execute,
 		// which no restore passes through. Call the factored-out writer rather
-		// than duplicating the loop that defines the inflow-node index space.
+		// than duplicating its loop: it walks the slot map routing_setCouplingNodes
+		// built, which defines the coupling-node index space.
 		// The replay fallback must NOT call it: its steps have already left
 		// global_new_depth[] at exactly these values.
 		routing_exportInflowNodeDepths(global_new_depth);
@@ -1916,12 +2161,46 @@ namespace SWMM_triton
 *	@param exchange_q flow exchange between TRITON and SWMM
 */
 
+	/** @brief One coupling node's exchange flow (m3/s, positive into the cell) for a
+	 *  surface depth hij: the three cases of the single-node kernel, unchanged. Used
+	 *  only for cells holding several nodes; a one-node cell keeps the original code.
+	 */
 	template<typename T>
-	void compute_swmm_triton_exchange(int size, T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr, T hextra, int *pos_arr,
-	T *swmm_loss, T *swmm_d, T *swmm_max_depth, T *swmm_new_depth, T *exchange_q)
+	KOKKOS_INLINE_FUNCTION T coupled_node_flow(T hij, T new_depth, T max_depth, T loss, T diam)
 	{
-		#include "kokkos_utils.h"
-		triton::parallel_for( AUTO_LABEL() , size , KOKKOS_LAMBDA (int id) {
+		T flow = 0.0;
+		T areaM = PI_*0.25*diam*diam;
+		if(hij>0.0 && new_depth <= max_depth){
+			flow=-(2.0/3.0)*loss*PI_*diam*sqrt(2.0*_G_*hij)*hij;
+		}
+		else if(hij>0.0 && new_depth <= max_depth + hij){
+			flow=-loss*areaM*sqrt(2.0*_G_*(hij + max_depth - new_depth));
+		}
+		else if(new_depth > max_depth + hij){
+			flow=loss*areaM*sqrt(2.0*_G_*(new_depth - max_depth - hij ) );
+		}
+		return flow;
+	}
+
+	/** @brief The exchange of every coupling node in cell c, applied to the cell.
+	 *
+	 *  A cell with one node runs the single-node arithmetic verbatim, so a model
+	 *  with one node per cell gives the bytes it always did. With several nodes,
+	 *  every node's flow is computed from the cell's depth before any is applied
+	 *  (all manholes see one water surface, so node order changes nothing); if the
+	 *  outflows would take the cell below zero they are scaled down together so the
+	 *  cell ends at exactly zero, and no node takes more than its own computed flow.
+	 *  One thread owns the cell, so no two threads write it.
+	 */
+	template<typename T>
+	KOKKOS_INLINE_FUNCTION void exchange_one_coupled_cell(int c, const int *cell_start, const int *cell_nodes,
+		T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr, T hextra, const int *pos_arr,
+		const T *swmm_loss, const T *swmm_d, const T *swmm_max_depth, const T *swmm_new_depth, T *exchange_q)
+	{
+		const int first = cell_start[c];
+		const int count = cell_start[c + 1] - first;
+		if (count == 1) {
+			const int id = cell_nodes[first];
 			T flow=0.0;
 			int sid = pos_arr[id];
 			T hij = h_arr[sid];
@@ -1965,7 +2244,51 @@ namespace SWMM_triton
 
 			h_arr[sid]=hij;
 			exchange_q[id]=-flow/FT3_TO_M3_FACTOR; // m3/s to ft3/s
+			return;
+		}
 
+		const int sid = pos_arr[cell_nodes[first]];
+		const T hold = h_arr[sid];
+		T in_sum = 0.0, out_sum = 0.0;
+		for (int k = first; k < first + count; ++k) {
+			const int id = cell_nodes[k];
+			const T f = coupled_node_flow(hold, swmm_new_depth[id], swmm_max_depth[id], swmm_loss[id], swmm_d[id]);
+			if (f > 0.0) in_sum += f; else out_sum += f;
+		}
+		T hij = hold + ((in_sum + out_sum) * dt) / (dx * dx);
+		T scale = 1.0;
+		if (hij < 0.0) {
+			// The limiter: the outflows together take the cell's prior water plus the
+			// inflows this step, and no more, so the cell ends at exactly zero.
+			if (out_sum < 0.0) {
+				scale = (-(hold * dx * dx / dt) - in_sum) / out_sum;
+				if (scale < 0.0) scale = 0.0;
+				if (scale > 1.0) scale = 1.0;
+			}
+			hij = 0.0;
+		}
+		if (hij < hextra) {
+			qx_arr[sid] = 0.0;
+			qy_arr[sid] = 0.0;
+		}
+		h_arr[sid] = hij;
+		for (int k = first; k < first + count; ++k) {
+			const int id = cell_nodes[k];
+			T f = coupled_node_flow(hold, swmm_new_depth[id], swmm_max_depth[id], swmm_loss[id], swmm_d[id]);
+			if (f < 0.0) f *= scale;
+			exchange_q[id] = -f/FT3_TO_M3_FACTOR; // m3/s to ft3/s
+		}
+	}
+
+	template<typename T>
+	void compute_swmm_triton_exchange(int ncells, const int *cell_start, const int *cell_nodes, T dx, T dt,
+	T *h_arr, T *qx_arr, T *qy_arr, T hextra, int *pos_arr,
+	T *swmm_loss, T *swmm_d, T *swmm_max_depth, T *swmm_new_depth, T *exchange_q)
+	{
+		#include "kokkos_utils.h"
+		triton::parallel_for( AUTO_LABEL() , ncells , KOKKOS_LAMBDA (int c) {
+			exchange_one_coupled_cell(c, cell_start, cell_nodes, dx, dt, h_arr, qx_arr, qy_arr, hextra, pos_arr,
+			                          swmm_loss, swmm_d, swmm_max_depth, swmm_new_depth, exchange_q);
 		});
 	}
 
