@@ -31,3 +31,139 @@ foreach(_t IN LISTS TRITON_EXCHANGE_LOG_HEADER_TESTS)
   add_test(NAME UNIT-EXCHANGE-LOG-${_t}
            COMMAND test_exchange_log_header ${_t})
 endforeach()
+
+# The coupled-node list and rim rule: parse, the startup comparison with the
+# engine, the token-keep rim rule, and the stop's report echo. Same build
+# arrangement as above.
+add_executable(test_coupled_list test_coupled_list.cpp)
+
+target_include_directories(test_coupled_list PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_list PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLED_LIST_TESTS
+  P1_standard_input_gives_todays_list
+  P2_header_layouts
+  P3_order_follows_junctions
+  P4_flow_test_is_swmms
+  P5_names_case_insensitive
+  P6_tokenizer
+  C1_valid_list_passes
+  C2_out_of_order_refused
+  C3_entry_without_flow_refused
+  C4_compensating_pair_refused
+  C5_unequal_counts_refused
+  C6_unknown_name_refused
+  E1_error_line_matcher
+  E2_echo_over_a_report
+  R1_rim_rule
+  U1_us_flow_units_mean_feet
+  U2_engine_length_in_metres
+  U3_us_rim_never_keeps_the_token)
+
+foreach(_t IN LISTS TRITON_COUPLED_LIST_TESTS)
+  add_test(NAME UNIT-COUPLED-LIST-${_t}
+           COMMAND test_coupled_list ${_t})
+endforeach()
+
+# Section headers matched by SWMM's keyword prefix (one property, one node).
+# Same build arrangement.
+add_executable(test_coupled_list_review test_coupled_list_review.cpp)
+
+target_include_directories(test_coupled_list_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_list_review PRIVATE kokkos swmm5)
+
+add_test(NAME UNIT-COUPLED-LIST-RV1_section_headers_by_swmm_keyword_prefix
+         COMMAND test_coupled_list_review)
+
+# How the coupling nodes are declared: the declaration resolver, the list file's
+# format and the repeat refusal. Same build arrangement as above.
+add_executable(test_coupling_declaration test_coupling_declaration.cpp)
+
+target_include_directories(test_coupling_declaration PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupling_declaration PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLING_DECLARATION_TESTS
+  D1_list_is_exactly_the_list
+  D2_all_junctions_is_exactly_the_junctions
+  D3_legacy_is_exactly_the_flow_set
+  D4_list_file_format
+  D5_repeated_name_after_case_fold)
+
+foreach(_t IN LISTS TRITON_COUPLING_DECLARATION_TESTS)
+  add_test(NAME UNIT-COUPLING-DECLARATION-${_t}
+           COMMAND test_coupling_declaration ${_t})
+endforeach()
+
+# Coupling nodes that share a TRITON cell: the per-cell exchange, its one-node
+# identity with the single-node kernel, the limiter, and the cell index.
+add_executable(test_coupled_cells test_coupled_cells.cpp)
+
+target_include_directories(test_coupled_cells PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_cells PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLED_CELLS_TESTS
+  K1_one_node_cell_is_the_single_node_kernel
+  K2_nodes_share_one_surface
+  K3_limiter_drains_to_exactly_zero
+  K4_filling_cell_sums_inflows
+  K5_cell_index_groups_by_cell)
+
+foreach(_t IN LISTS TRITON_COUPLED_CELLS_TESTS)
+  add_test(NAME UNIT-COUPLED-CELLS-${_t}
+           COMMAND test_coupled_cells ${_t})
+endforeach()
+
+# A second test file for the same per-cell exchange: a cell holding several
+# coupling nodes that drains to a depth in [0, EPS12) must still conserve water.
+add_executable(test_coupled_cells_review test_coupled_cells_review.cpp)
+
+target_include_directories(test_coupled_cells_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupled_cells_review PRIVATE kokkos swmm5)
+
+add_test(NAME UNIT-COUPLED-CELLS-REVIEW-RV2_several_node_limiter_conserves_at_the_band_edge
+         COMMAND test_coupled_cells_review)
+
+# A coupled cfg whose SWMM model couples no node must stop at startup with
+# "couples no node" rather than finish as a surface-only run. One triton.exe launch
+# under the simulation tests' run command, held to a hard 5 s budget. Registered
+# only for the SERIAL backend, the one its runtime is measured on.
+if("${BACKEND}" STREQUAL "SERIAL")
+  add_test(NAME UNIT-ZERO-NODE-REFUSAL
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_zero_node_refusal.py
+                   --run-command "${RUN_COMMAND}"
+                   --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
+  set_tests_properties(UNIT-ZERO-NODE-REFUSAL PROPERTIES TIMEOUT 5 RUN_SERIAL TRUE)
+endif()
+
+# A snapshot resume of a coupled model that routes water quality must equal the
+# uninterrupted run in every quality output: one clean run and two resumes from
+# its checkpoint 2 (the snapshot route, and the exchange replay as the control),
+# compared byte for byte in swmm/*.out and by section in the .rpt. Registered
+# only for the SERIAL backend, like UNIT-ZERO-NODE-REFUSAL.
+if("${BACKEND}" STREQUAL "SERIAL")
+  add_test(NAME UNIT-QUALITY-RESUME
+           COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_quality_resume.py
+                   --run-command "${RUN_COMMAND}"
+                   --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
+  set_tests_properties(UNIT-QUALITY-RESUME PROPERTIES TIMEOUT 120)
+endif()

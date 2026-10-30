@@ -91,6 +91,7 @@ SERIALIZED_OBJECTS = {
     "QualTotals": "TRoutingTotals",
     "StepFlowTotals": "TRoutingTotals",
     "OldStepFlowTotals": "TRoutingTotals",
+    "StepQualTotals": "TRoutingTotals",
 }
 
 # Scalar accumulators that are not struct members.  These are read by report
@@ -246,16 +247,22 @@ ADMITTED_ROUTING_STATE = {
         "routing state: the depth the resumed step continues from",
     ("Link", "newFlow"):
         "routing state: the flow the resumed step continues from",
+    ("Link", "newQual"):
+        "water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and link_initState zeroes it at every engine start (link.c:533-538), so a resume that does not restore it restarts concentrations",
     ("Link", "newVolume"):
         "routing state: conduit volume carried across steps",
     ("Link", "normalFlow"):
         "routing state: normal-flow limiter state",
+    ("Link", "oldQual"):
+        "water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and link_initState zeroes it at every engine start (link.c:533-538), so a resume that does not restore it restarts concentrations",
     ("Link", "setting"):
         "control state: evolved by control rules during the run, not re-derivable from the .inp",
     ("Link", "targetSetting"):
         "control state: evolved by control rules during the run, not re-derivable from the .inp",
     ("Link", "timeLastSet"):
         "control state: the time the last control action fired",
+    ("Link", "totalLoad"):
+        "water-quality accumulator: the Link Pollutant Load Summary (statsrpt.c:951) reads it, it is accumulated per step at qualrout.c:214, and link_initState zeroes it at every engine start (link.c:537)",
     ("Node", "inflow"):
         "routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it",
     ("Node", "losses"):
@@ -264,6 +271,8 @@ ADMITTED_ROUTING_STATE = {
         "routing state: the depth the resumed step continues from",
     ("Node", "newLatFlow"):
         "routing state: read one line before it is zeroed inside initSystemInflows",
+    ("Node", "newQual"):
+        "water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and qualrout_init resets it at every engine start (routing.c:122), so a resume that does not restore it restarts concentrations",
     ("Node", "newVolume"):
         "routing state: reconstruction from restored primitives is bitwise only in the non-flooded branch, and the coupled case is the flooded branch",
     ("Node", "oldDepth"):
@@ -272,6 +281,8 @@ ADMITTED_ROUTING_STATE = {
         "routing state: previous-step inflow, read by the steady-state test",
     ("Node", "oldNetInflow"):
         "routing state: previous-step net inflow, read by the steady-state test",
+    ("Node", "oldQual"):
+        "water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and qualrout_init resets it at every engine start (routing.c:122), so a resume that does not restore it restarts concentrations",
     ("Node", "outflow"):
         "routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it",
     ("Node", "overflow"):
@@ -456,8 +467,6 @@ EXCLUDED_ROUTING_STATE = {
         "config: re-read from the .inp at swmm_open",
     ("Link", "inlet"):
         "config: re-read from the .inp at swmm_open",
-    ("Link", "newQual"):
-        "water-quality state; not advanced in the coupled hydraulics-only configuration",
     ("Link", "node1"):
         "config: re-read from the .inp at swmm_open",
     ("Link", "node2"):
@@ -466,8 +475,6 @@ EXCLUDED_ROUTING_STATE = {
         "config: re-read from the .inp at swmm_open",
     ("Link", "offset2"):
         "config: re-read from the .inp at swmm_open",
-    ("Link", "oldQual"):
-        "water-quality state; not advanced in the coupled hydraulics-only configuration",
     ("Link", "qFull"):
         "config: re-read from the .inp at swmm_open",
     ("Link", "qLimit"):
@@ -476,8 +483,6 @@ EXCLUDED_ROUTING_STATE = {
         "config: re-read from the .inp at swmm_open",
     ("Link", "subIndex"):
         "config: re-read from the .inp at swmm_open",
-    ("Link", "totalLoad"):
-        "water-quality state; not advanced in the coupled hydraulics-only configuration",
     ("Link", "type"):
         "config: re-read from the .inp at swmm_open",
     ("Link", "xsect"):
@@ -502,14 +507,10 @@ EXCLUDED_ROUTING_STATE = {
         "config: re-read from the .inp at swmm_open",
     ("Node", "invertElev"):
         "config: re-read from the .inp at swmm_open",
-    ("Node", "newQual"):
-        "water-quality state; not advanced in the coupled hydraulics-only configuration",
-    ("Node", "oldQual"):
-        "water-quality state; not advanced in the coupled hydraulics-only configuration",
     ("Node", "pondedArea"):
         "config: re-read from the .inp at swmm_open",
     ("Node", "qualInflow"):
-        "water-quality state; not advanced in the coupled hydraulics-only configuration",
+        "derived within the step: a scalar flow (cfs) assigned at routing.c:429 (Node[j].qualInflow = MAX(0.0, Node[j].newLatFlow)) and again at qualrout.c:118 before every read, so no value crosses the step boundary",
     ("Node", "subIndex"):
         "config: re-read from the .inp at swmm_open",
     ("Node", "treatment"):
@@ -610,6 +611,11 @@ EXCLUDED_ROUTING_STATE = {
         'pointer/array name: the value is a heap address produced during '
         'open/init, meaningless to carry between processes; any state '
         'behind it is carried on its own axis',
+    ("-", 'CouplingSlot'):
+        "configuration, not resume state: TRITON's coupling-node slot map "
+        '(routing.c, routing_setCouplingNodes), rebuilt by TRITON from its '
+        'declared coupling nodes after every swmm_open and before any step, '
+        'so a resumed run re-derives it rather than carrying it',
     ("-", 'CourantFactor'):
         'config: re-read from the .inp at swmm_open -- the same verdict '
         'EXCLUDED_SCALARS records for it under Criterion R',

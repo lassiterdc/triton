@@ -202,6 +202,21 @@ StepFlowTotals	initStorage	TRoutingTotals	no
 StepFlowTotals	finalStorage	TRoutingTotals	no
 StepFlowTotals	pctError	TRoutingTotals	no
 #
+# StepQualTotals : TRoutingTotals -- 13 field(s) declared in the struct body
+StepQualTotals	dwInflow	TRoutingTotals	no
+StepQualTotals	wwInflow	TRoutingTotals	no
+StepQualTotals	gwInflow	TRoutingTotals	no
+StepQualTotals	iiInflow	TRoutingTotals	no
+StepQualTotals	exInflow	TRoutingTotals	no
+StepQualTotals	flooding	TRoutingTotals	no
+StepQualTotals	outflow	TRoutingTotals	no
+StepQualTotals	evapLoss	TRoutingTotals	no
+StepQualTotals	seepLoss	TRoutingTotals	no
+StepQualTotals	reacted	TRoutingTotals	no
+StepQualTotals	initStorage	TRoutingTotals	no
+StepQualTotals	finalStorage	TRoutingTotals	no
+StepQualTotals	pctError	TRoutingTotals	no
+#
 # StorageStats : TStorageStats -- 7 field(s) declared in the struct body
 StorageStats	initVol	TStorageStats	no
 StorageStats	avgVol	TStorageStats	yes
@@ -243,7 +258,7 @@ ReportStepCount	-	long	yes	globals.h	extern
 NonConvergeCount	-	long	yes	globals.h	extern
 TotalStepCount	-	long	no	globals.h	extern
 #
-# TOTAL PAIRS: 172
+# TOTAL PAIRS: 185
 #
 # ==========================================================================
 # CRITERION P -- routing state LIVE ON ENTRY at swmm_step's boundary
@@ -285,7 +300,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #   contributes rdii.c: declares 11 non-const file-scope static(s)
 #   contributes report.c: declares 1 non-const file-scope static(s)
 #   contributes roadway.c: writes through a global
-#   contributes routing.c: declares 4 non-const file-scope static(s)
+#   contributes routing.c: declares 5 non-const file-scope static(s)
 #   contributes shape.c: declares 2 non-const file-scope static(s)
 #   contributes stats.c: declares 6 non-const file-scope static(s)
 #   contributes street.c: writes through a global
@@ -301,7 +316,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #   none -- every declared exclusion holds at this pin
 #
 # scalar-scope census -- a row key is the bare NAME:
-#   none -- each of the 139 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
+#   none -- each of the 140 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
 # SCALAR-SCOPE COLLISIONS: 0
 #
 # TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason
@@ -317,6 +332,7 @@ TotalStepCount	-	long	no	globals.h	extern
 -	C1	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	C2	LIVE	EXCLUDED	derived within the step: the step's own execution order writes it before it reads it, so no value crosses the boundary
 -	Cin	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	CouplingSlot	LIVE	EXCLUDED	configuration, not resume state: TRITON's coupling-node slot map (routing.c, routing_setCouplingNodes), rebuilt by TRITON from its declared coupling nodes after every swmm_open and before any step, so a resumed run re-derives it rather than carrying it
 -	CourantFactor	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open -- the same verdict EXCLUDED_SCALARS records for it under Criterion R
 -	CrownCutoff	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	DateFormat	LIVE	EXCLUDED	report date formatting, set from configuration at start by datetime_setDateFormat; it selects presentation, not state
@@ -492,14 +508,14 @@ Link	inlet	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	inletControl	LIVE	ADMITTED	routing state: inlet-control flag carried across steps
 Link	newDepth	LIVE	ADMITTED	routing state: the depth the resumed step continues from
 Link	newFlow	LIVE	ADMITTED	routing state: the flow the resumed step continues from
-Link	newQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Link	newQual	LIVE	ADMITTED	water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and link_initState zeroes it at every engine start (link.c:533-538), so a resume that does not restore it restarts concentrations
 Link	newVolume	LIVE	ADMITTED	routing state: conduit volume carried across steps
 Link	node1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	node2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	normalFlow	LIVE	ADMITTED	routing state: normal-flow limiter state
 Link	offset1	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	offset2	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-Link	oldQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Link	oldQual	LIVE	ADMITTED	water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and link_initState zeroes it at every engine start (link.c:533-538), so a resume that does not restore it restarts concentrations
 Link	qFull	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	qLimit	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	seepRate	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -507,7 +523,7 @@ Link	setting	LIVE	ADMITTED	control state: evolved by control rules during the ru
 Link	subIndex	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	targetSetting	LIVE	ADMITTED	control state: evolved by control rules during the run, not re-derivable from the .inp
 Link	timeLastSet	LIVE	ADMITTED	control state: the time the last control action fired
-Link	totalLoad	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Link	totalLoad	LIVE	ADMITTED	water-quality accumulator: the Link Pollutant Load Summary (statsrpt.c:951) reads it, it is accumulated per step at qualrout.c:214, and link_initState zeroes it at every engine start (link.c:537)
 Link	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Link	xsect	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Node	ID	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -524,16 +540,16 @@ Node	invertElev	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Node	losses	LIVE	ADMITTED	routing state: per-step evaporation and seepage losses
 Node	newDepth	LIVE	ADMITTED	routing state: the depth the resumed step continues from
 Node	newLatFlow	LIVE	ADMITTED	routing state: read one line before it is zeroed inside initSystemInflows
-Node	newQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Node	newQual	LIVE	ADMITTED	water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and qualrout_init resets it at every engine start (routing.c:122), so a resume that does not restore it restarts concentrations
 Node	newVolume	LIVE	ADMITTED	routing state: reconstruction from restored primitives is bitwise only in the non-flooded branch, and the coupled case is the flooded branch
 Node	oldDepth	LIVE	ADMITTED	routing state: previous-step depth, read by the routing solution
 Node	oldFlowInflow	LIVE	ADMITTED	routing state: previous-step inflow, read by the steady-state test
 Node	oldNetInflow	LIVE	ADMITTED	routing state: previous-step net inflow, read by the steady-state test
-Node	oldQual	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Node	oldQual	LIVE	ADMITTED	water-quality state: routed by routing_execute whenever Nobjects[POLLUT] > 0 && !IgnoreQuality (routing.c:248), and qualrout_init resets it at every engine start (routing.c:122), so a resume that does not restore it restarts concentrations
 Node	outflow	LIVE	ADMITTED	routing state: read by node_setOldHydState BEFORE node_initFlows overwrites it
 Node	overflow	LIVE	ADMITTED	routing state: read at massbal.c:635 by the opening massbal_updateRoutingTotals, before the prologue runs
 Node	pondedArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-Node	qualInflow	LIVE	EXCLUDED	water-quality state; not advanced in the coupled hydraulics-only configuration
+Node	qualInflow	LIVE	EXCLUDED	derived within the step: a scalar flow (cfs) assigned at routing.c:429 (Node[j].qualInflow = MAX(0.0, Node[j].newLatFlow)) and again at qualrout.c:118 before every read, so no value crosses the step boundary
 Node	subIndex	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Node	surDepth	LIVE	EXCLUDED	config: .inp surcharge depth -- every write is in node.c's .inp readers and no routing write exists anywhere in the tree, so it carries nothing across steps; admitting it would let a stale snapshot override the running model. (Read at dynwave.c:736/:799, stats.c:617, link.c:450/:458 and node.c:216 -- reads do not bear on the verdict, which rests on the write side.)
 Node	treatment	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -659,4 +675,4 @@ TTable.file	objects.h member of TTable	EXCLUDED	per-time-series cursor. It SELF-
 # TFILE-TRIAGE ADMITTED: 1 (an empty admitted set is a PASSING result)
 # TFILE-TRIAGE UNTRIAGED COUNT: 0
 #
-# CRITERION P ROWS: 340
+# CRITERION P ROWS: 341

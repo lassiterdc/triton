@@ -62,6 +62,32 @@ else()
                   --test ${CMAKE_BINARY_DIR}/test/output_allatoona/asc
   )
 
+  # Order each comparator after its own simulation, from an empty output
+  # directory. CTest schedules by cost, so under `ctest -jN` a cheap BIT4BIT
+  # comparator starts beside its simulation and finishes first: red on a fresh
+  # build, and on a reused build it compares the previous run's rasters and
+  # passes. The clean node also stops a leftover raster from a longer earlier
+  # run being picked by the comparator's lexicographically-last file selection.
+  foreach(_case PARABOLOID CIRCULAR-DAMBREAK ALLATOONA)
+    if(_case STREQUAL "PARABOLOID")
+      set(_out output_paraboloid)
+    elseif(_case STREQUAL "CIRCULAR-DAMBREAK")
+      set(_out output_circular_dambreak)
+    else()
+      set(_out output_allatoona)
+    endif()
+    add_test(NAME CLEAN-OUTPUT-${_case}
+             COMMAND ${CMAKE_COMMAND} -E remove_directory ${_out})
+    set_tests_properties(CLEAN-OUTPUT-${_case} PROPERTIES
+                         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test"
+                         FIXTURES_SETUP ${_case}_CLEAN)
+    set_tests_properties(${_case} PROPERTIES
+                         FIXTURES_REQUIRED ${_case}_CLEAN
+                         FIXTURES_SETUP ${_case}_OUTPUT)
+    set_tests_properties(BIT4BIT-${_case} PROPERTIES
+                         FIXTURES_REQUIRED ${_case}_OUTPUT)
+  endforeach()
+
 endif()
 
 # Tier-1 unit tests and the snapshot-inventory tooling. The unit tests include
@@ -72,4 +98,13 @@ if(TRITON_ENABLE_SWMM)
 endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/test/inventory ${CMAKE_BINARY_DIR}/test/inventory)
 
+# No swmm_open, swmm_start or swmm_step call in src/ discards its return code.
+# SWMM reports a rejected input only through those codes; discarded, the coupled
+# run completes against a sewer that never moves.
+add_test(
+    NAME SOURCE-SWMM-RETURN-CODES
+    COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_SOURCE_DIR}/test/test_swmm_return_codes_source.py
+                ${CMAKE_SOURCE_DIR}
+)
 

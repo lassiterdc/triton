@@ -202,28 +202,21 @@ else
   bad "D np16 did not complete cleanly (rc=$rc)"
 fi
 
-# ---------- E. degraded SWMM, baseline regression ----------
+# ---------- E. degraded SWMM (missing dats/) startup refusal ----------
 RESUME_LAUNCHER=""
-say "--- E: degraded SWMM (no dats/), baseline regression ---"
+say "--- E: degraded SWMM (no dats/), startup refusal on SWMM error 361 ---"
 D="$ROOT/degraded"; mkdir -p "$D/build"
 for f in elevation_3.50m.dem mannings_3.50m.dem strmflow extbc cid; do cp -r "$SRC/$f" "$D/" 2>/dev/null; done
 cp -r "$SRC/swmm" "$D/swmm"                      # deliberately NO swmm/dats
 ln -sf "$BIN_ABS" "$D/build/triton.exe"
 make_cfg "$D/case.cfg" out_degraded
-( cd "$D" && ./build/triton.exe case.cfg > run.log 2>&1 ) || bad "E clean leg"
-if [ -n "${BASELINE:-}" ] && [ -d "${BASELINE:-}/bin" ]; then
-  diff -r "${BASELINE}/bin" "$ROOT/degraded/out_degraded/bin" > /dev/null 2>&1 \
-    && ok "E degraded rasters byte-identical to pre-integration baseline" \
-    || bad "E degraded rasters DIFFER from pre-integration baseline"
+( cd "$D" && ./build/triton.exe case.cfg > run.log 2>&1 )
+rc=$?
+if [ $rc -ne 0 ] && grep -aq "swmm_open returned error code" "$D/run.log" && grep -aq "ERROR 361" "$D/run.log" && [ -s "$ROOT/degraded/out_degraded/swmm/hydraulics.rpt" ]; then
+  ok "E degraded SWMM (no dats/): refuses at swmm_open and echoes ERROR 361 from hydraulics.rpt"
 else
-  say "     (no BASELINE dir given; degraded regression skipped)"
+  bad "E degraded SWMM (no dats/) did not refuse cleanly at swmm_open (rc=$rc)"
 fi
-# degraded resume still works (snapshot refuses, replay fallback)
-resume "$D" out_degraded 36
-grep -aq "path=replay" "$D/res36.log" \
-  && compare degraded/out_degraded degraded/out_degraded_res36 "$ROOT/degraded/res36.log" \
-  && ok "E degraded resume@36: replay fallback reproduces clean" \
-  || bad "E degraded resume@36"
 
 # ---------- F. failure semantics ----------
 RESUME_LAUNCHER=""
