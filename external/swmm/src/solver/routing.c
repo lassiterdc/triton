@@ -302,7 +302,7 @@ void routing_exportInflowNodeDepths(double *swmm_newDepth) //TRITON
         {
             if ( inflow->type == FLOW_INFLOW )
             {
-                swmm_newDepth[inflow_id] = Node[i].newDepth/3.2808; //ft to m
+                swmm_newDepth[inflow_id] = Node[i].newDepth * MperFT; //ft to m
                 inflow_id++;
                 break;
             }
@@ -1030,3 +1030,23 @@ void routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
 }
 
 //=============================================================================
+
+int routing_nodeHasFlowInflow(int j) //TRITON
+//
+//  Input:   j = node index
+//  Output:  returns 1 if node j's external inflows include a FLOW_INFLOW, else 0
+//  Purpose: lets TRITON check its coupled-node list against SWMM's own FLOW-inflow
+//           set at startup, using the predicate addExternalInflows and
+//           routing_exportInflowNodeDepths walk to give a node its exchange slot.
+//           Reads Node[].extInflow only. Placed at the end of the file so no line
+//           cited by number elsewhere (snapshot.c, the snapshot inventory) moves.
+//
+{
+    TExtInflow* inflow;
+    if ( j < 0 || j >= Nobjects[NODE] ) return 0;
+    for ( inflow = Node[j].extInflow; inflow; inflow = inflow->next )
+    {
+        if ( inflow->type == FLOW_INFLOW ) return 1;
+    }
+    return 0;
+}

@@ -438,6 +438,7 @@ namespace Triton
                             arglist.swmm_snapshot_disable,
                             arglist.swmm_snapshot_keep_all,
                             arglist.swmm_snapshot_keep_previous,
+                            arglist.swmm_node_rim_from_dem,
                             arglist.swmm_snapshot_failed_replay);
     }
     else if (rank == 0)
@@ -521,6 +522,51 @@ namespace Triton
     create_device_vectors();
 
 #ifdef TRITON_SWMM
+    // DEM-derived rims (cfg swmm_node_rim_from_dem=1): each coupled node's rim becomes
+    // its DEM cell's elevation minus its invert, so the exchange law's "node full"
+    // test compares the node head with the surface level TRITON itself models. Here
+    // because host_vec[DEM] holds this rank's DEM from create_host_vectors on, and
+    // max_depth reaches the device in the block below. A cell at or below the invert,
+    // or with no DEM value, is a datum, placement or coverage error, so it stops the
+    // run naming the node. Every rank reaches the collectives; a rank with no
+    // coupled node contributes zeros.
+    if (!arglist.inp_filename.empty() && arglist.swmm_node_rim_from_dem) {
+      const T nodata = sub_dem.get_no_data_value();
+      int bad = 0;
+      double largest_diff = 0.0;
+      for (int k = 0; k < swmm_model.num_of_swmm_links; k++) {
+        const double z_cell = host_vec[DEM][swmm_model.swmm_pos_arr[k]];
+        const double invert = swmm_model.node_invert[k];
+        if (!std::isfinite(z_cell) || z_cell == static_cast<double>(nodata) || z_cell <= invert) {
+          std::cerr << ERROR "Coupled node " << swmm_model.nodeID[k] << ": its DEM cell cannot give a rim"
+                    << " (invert " << invert << ", cell elevation " << z_cell
+                    << (std::isfinite(z_cell) && z_cell != static_cast<double>(nodata) ? ", at or below the invert)" : ", no DEM value)")
+                    << std::endl;
+          bad = 1;
+          continue;
+        }
+        const double dem_rim = z_cell - invert;
+        largest_diff = std::max(largest_diff, std::fabs(dem_rim - static_cast<double>(swmm_model.max_depth[k])));
+        char rim_line[512];
+        std::snprintf(rim_line, sizeof(rim_line), "SWMM coupled node %s: DEM rim %.17g (cell elevation %.17g)",
+                      swmm_model.nodeID[k].c_str(), dem_rim, z_cell);
+        std::cerr << IN << rim_line << std::endl;
+        swmm_model.max_depth[k] = static_cast<T>(dem_rim);
+      }
+      int any_bad = 0;
+      double global_largest = 0.0;
+      MPI_Allreduce(&bad, &any_bad, 1, MPI_INT, MPI_MAX, ENSIFY_COMM_WORLD);
+      MPI_Allreduce(&largest_diff, &global_largest, 1, MPI_DOUBLE, MPI_MAX, ENSIFY_COMM_WORLD);
+      if (any_bad) exit(EXIT_FAILURE);
+      if (rank == 0) {
+        char summary[256];
+        std::snprintf(summary, sizeof(summary),
+                      "SWMM coupled-node rims set from the DEM: %d nodes, largest |DEM rim - SWMM rim| = %.17g",
+                      swmm_model.global_num_of_swmm_links, global_largest);
+        std::cerr << IN << summary << std::endl;
+      }
+    }
+
     // Add SWMM data to host vectors after SWMM initialization
     if (swmm_model.num_of_swmm_links > 0) {
       host_vec.push_back(swmm_model.loss.data());
@@ -2561,7 +2607,9 @@ namespace Triton
                                     swmm_model.node_to_rank_dict);
         // Durably log this step's (dt, exchange_q) so a future resume can replay 0..t_k.
         swmm_model.log_exchange_step(global_dt, swmm_model.global_exchange_q);
-        swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
+        swmm_model.stop_on_swmm_error(
+            swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt),
+            "swmm_step", "during a coupled timestep");
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
         st.stop(SWMM_STEP);
