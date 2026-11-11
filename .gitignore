@@ -7,6 +7,7 @@ doc/_build
 *.swp
 doc/doxygen_output
 doc/api
+__pycache__/
 
 # >>> local agent entrypoints (generated, do not edit) >>>
 # Files that local agent tooling writes into this checkout; not part of the project.
