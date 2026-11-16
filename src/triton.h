@@ -513,6 +513,12 @@ namespace Triton
     // skipped entirely (silent: no side-file on a clean start; SWMM re-initialized from t=0 on a
     // resume with a truncated .rpt/.out whose header still shows the full window).
     if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) {
+      // T1 capture files (cfg swmm_diag_steps, swmm_diag_node_path3_per_step,
+      // swmm_diag_links): declared here so the clean start below and both resume routes
+      // open and position them with the exchange side-file. Declares nothing when all
+      // three keys are at their defaults.
+      swmm_model.declare_step_diag(arglist.swmm_diag_steps != 0, arglist.swmm_diag_node_path3_per_step != 0,
+                                   arglist.swmm_diag_links);
       if (arglist.checkpoint_id > 0) {
         using SR = SWMM_triton::swmm_triton::SnapshotRestore;
         const SR sr = swmm_model.try_restore_state_snapshot(arglist.checkpoint_id,
@@ -2395,6 +2401,19 @@ namespace Triton
         gpuStreamSynchronize(streams);
         st.stop(COMPUTE_TIME);
 
+#ifdef TRITON_SWMM
+        // T1b interval record (rank 0): this print interval's per-node path-3 sums,
+        // written before the capture flush below, which precedes the checkpoint cfg,
+        // so a checkpoint's cfg exists only once its interval record is on disk. The
+        // stamp is the interval's end, the simtime the cfg carries as t_k. The bracket
+        // opens only when T1b is on, so a captures-off run reports DIAG exactly 0.
+        if (rank == 0 && swmm_model.global_num_of_swmm_links > 0 && swmm_model.node_path3_enabled()) {
+          st.start(DIAG_TIME);
+          swmm_model.write_node_path3_interval(simtime);
+          st.stop(DIAG_TIME);
+        }
+#endif
+
         // Print-instant row of the surface captures: the interval's reductions and
         // writes, the last capture write of this print instant (the capture flush
         // below follows it and precedes the checkpoint cfg). TRITON_DIAG_TEST_LATE_INTERVAL
@@ -2870,9 +2889,11 @@ namespace Triton
 #endif
       const bool step_swmm = swmm_model.coupling_interval.step_due(drain);
       swmm_model.stepped_this_step = step_swmm;
+      value_t t1_swmm_dt = global_dt;   // the dt the T1 row records: SWMM's own step, not the TRITON step
 
       if (step_swmm) {
         const value_t dt_swmm = swmm_model.coupling_interval.interval_dt();
+        t1_swmm_dt = dt_swmm;
         value_t* q_mean = swmm_model.coupling_interval.interval_mean(n_local);
 
         st.start(SWMM_MPI);
@@ -2887,10 +2908,16 @@ namespace Triton
                                       swmm_model.node_to_rank_dict);
           // One side-file record per SWMM step: (sum of dt, interval-mean exchange_q),
           // the exact inputs of the swmm_step below, so a replay reproduces it.
+          // SWMM_LOG and SWMM_SOLVE are children of SWMM_STEP and are never open at the
+          // same time, exactly as in the default block below.
+          st.start(SWMM_LOG);
           swmm_model.log_exchange_step(dt_swmm, swmm_model.global_exchange_q);
-          swmm_model.stop_on_swmm_error(
-              swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, dt_swmm),
-              "swmm_step", "during a coupled timestep");
+          st.stop(SWMM_LOG);
+          st.start(SWMM_SOLVE);
+          const int swmm_step_rc =
+              swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, dt_swmm);
+          st.stop(SWMM_SOLVE);
+          swmm_model.stop_on_swmm_error(swmm_step_rc, "swmm_step", "during a coupled timestep");
           swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                       swmm_model.node_to_rank_dict);
           st.stop(SWMM_STEP);
@@ -2909,6 +2936,15 @@ namespace Triton
       swmm_model.coupling_interval.settle(swmm_model.new_depth.data(), n_local, step_swmm, drain);
 
       st.stop(SWMM_TIME);
+      // T1 per-step records (rank 0): written only on a step in which SWMM stepped.
+      // Between the SWMM_TIME and COMPUTE_TIME brackets, so DIAG_TIME is opened while
+      // no other category is, and after the step's last collective. The record's
+      // stamp is the END time of this TRITON step because simtime advances later.
+      if (rank == 0 && swmm_model.global_num_of_swmm_links > 0 && swmm_model.step_diag_due()) {
+        st.start(DIAG_TIME);
+        swmm_model.capture_step_diag(simtime + global_dt, t1_swmm_dt);
+        st.stop(DIAG_TIME);
+      }
       // T2 net exchange with SWMM, read at the position after the coupling block closes
       // SWMM_TIME, where every rank holds this step's local exchange_q.
       if (diag_surface.domain_balance)
@@ -3016,6 +3052,15 @@ namespace Triton
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
       st.stop(SWMM_TIME);
+      // T1 per-step records (rank 0): written only on a step in which SWMM stepped.
+      // Between the SWMM_TIME and COMPUTE_TIME brackets, so DIAG_TIME is opened while
+      // no other category is, and after the step's last collective. The record's
+      // stamp is the END time of this TRITON step because simtime advances later.
+      if (rank == 0 && swmm_model.global_num_of_swmm_links > 0 && swmm_model.step_diag_due()) {
+        st.start(DIAG_TIME);
+        swmm_model.capture_step_diag(simtime + global_dt, global_dt);
+        st.stop(DIAG_TIME);
+      }
       // T2 net exchange with SWMM (see the same read after the interval/lag block).
       if (diag_surface.domain_balance)
       {

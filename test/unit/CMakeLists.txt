@@ -176,6 +176,84 @@ foreach(_t IN LISTS TRITON_COUPLING_INTERVAL_TESTS)
            COMMAND test_coupling_interval ${_t})
 endforeach()
 
+# The T1 SWMM-step capture writer (swmm_diag_steps, swmm_diag_node_path3_per_step,
+# swmm_diag_links): the byte layout of every T1 record, the link selection, and the
+# positioner of the capture files cut at every byte offset of a final record (a fixed-size
+# binary file, the variable-block T1a file and an interval csv). Same build arrangement.
+add_executable(test_step_diag_log test_step_diag_log.cpp)
+
+target_include_directories(test_step_diag_log PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_step_diag_log PRIVATE kokkos swmm5)
+
+# B1 reads the solver source to check the SWMM_SOLVE and SWMM_LOG brackets.
+target_compile_definitions(test_step_diag_log PRIVATE
+  TRITON_H_PATH="${CMAKE_SOURCE_DIR}/src/triton.h")
+
+set(TRITON_STEP_DIAG_LOG_TESTS
+  S1_step_record_layout
+  S2_interval_sums_and_reset
+  S3_other_record_layouts
+  H1_headers_and_magics
+  L1_link_selection
+  P1_fixed_record_file_cut_at_every_offset
+  P2_variable_block_file_cut_at_every_offset
+  P3_interval_csv_cut_at_every_offset
+  W1_resumed_file_equals_clean_file
+  F1_flow_units_convert_to_cfs
+  B1_swmm_step_and_log_call_sites_are_bracketed)
+
+foreach(_t IN LISTS TRITON_STEP_DIAG_LOG_TESTS)
+  add_test(NAME UNIT-STEP-DIAG-LOG-${_t}
+           COMMAND test_step_diag_log ${_t})
+endforeach()
+
+# The 2a.2 reviewer test: a garbage count field of a T1a-shaped record is an incomplete
+# record and never an allocation (diag_log.h counted_block_record_reader).
+add_executable(test_step_diag_log_review test_step_diag_log_review.cpp)
+
+target_include_directories(test_step_diag_log_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_step_diag_log_review PRIVATE kokkos swmm5)
+
+foreach(_t
+    R1_garbage_count_is_an_incomplete_record_not_an_allocation
+    R2_position_keeps_the_records_before_a_garbage_count
+    R3_whole_blocks_are_still_read)
+  add_test(NAME UNIT-STEP-DIAG-LOG-REVIEW-${_t}
+           COMMAND test_step_diag_log_review ${_t})
+endforeach()
+
+# The 2a.1 reviewer test: the SWMM step-capture getters driven through the public swmm5.h
+# API on a generated dynamic-wave network. It links the swmm5 target alone and was
+# committed with chunk 2a.1 without a registration.
+add_executable(test_swmm_step_capture_review test_swmm_step_capture_review.cpp)
+
+target_include_directories(test_swmm_step_capture_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include)
+
+target_link_libraries(test_swmm_step_capture_review PRIVATE swmm5)
+
+set(TRITON_SWMM_STEP_CAPTURE_REVIEW_CASES
+  contracts_outside_a_solve
+  argument_and_capacity_refusals
+  no_solve_step_reads_zero
+  domain_sums_equal_serial_sum_of_per_node_values
+  capture_is_thread_count_independent
+  ordinals_follow_non_outfall_order
+  model_reaches_every_branch)
+
+foreach(_t IN LISTS TRITON_SWMM_STEP_CAPTURE_REVIEW_CASES)
+  add_test(NAME UNIT-SWMM-STEP-CAPTURE-REVIEW-${_t}
+           COMMAND test_swmm_step_capture_review ${_t})
+endforeach()
+
 # The T3 drain, read from src/triton.h: a source-structure test with no solver link.
 add_executable(test_coupling_interval_review test_coupling_interval_review.cpp)
 
