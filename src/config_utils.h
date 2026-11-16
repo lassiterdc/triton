@@ -110,6 +110,14 @@ namespace ConfigUtils
 		swmm_coupling_lag;
 #endif
 
+		/**< Surface diagnostics captures (diagnostics.h). Each is off unless its key is 1;
+		*   the keys exist in every build configuration because the capture files do. */
+		int diag_dt_limiter;	/**< 1 writes dt_limiter.bin: per step, the cell whose step size is the global minimum. */
+
+#ifdef TRITON_DIAG_TEST_SKEW
+		double diag_test_skew_us;	/**< TEST-ONLY: microseconds rank 0 spins after update_cells each step (shape row T-S). */
+#endif
+
 		std::string
 		outfile_pattern,	/**< Output file directory and name pattern. */
 		hydrograph_filename,	/**< Directory of the Hygrograph file to use. */
@@ -548,6 +556,11 @@ namespace ConfigUtils
 		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
 		arglist.swmm_coupling_interval = atoi((argsd("swmm_coupling_interval", argmap, "1")).c_str());
 		arglist.swmm_coupling_lag = atoi((argsd("swmm_coupling_lag", argmap, "0")).c_str());
+#endif
+
+		arglist.diag_dt_limiter = atoi((argsd("diag_dt_limiter", argmap, "0")).c_str());
+#ifdef TRITON_DIAG_TEST_SKEW
+		arglist.diag_test_skew_us = atof((argsd("diag_test_skew_us", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
