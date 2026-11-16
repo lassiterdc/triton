@@ -214,3 +214,12 @@ if("${BACKEND}" STREQUAL "SERIAL")
                    --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
   set_tests_properties(UNIT-QUALITY-RESUME PROPERTIES TIMEOUT 120)
 endif()
+
+# Chunk 2b.1: the T6 tie-break of diagnostics::min_dt_loc (interior wins over a ghost twin).
+add_executable(test_dt_tiebreak test_dt_tiebreak.cpp)
+target_include_directories(test_dt_tiebreak PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_dt_tiebreak PRIVATE kokkos)
+foreach(_t IN ITEMS T1_interior_wins_over_ghost_twin T2_west_ghost_twin T3_smaller_index_among_interior
+                    T4_old_rule_picks_the_ghost T5_strict_ghost_minimum_reports_the_ghost)
+  add_test(NAME UNIT-DT-TIEBREAK-${_t} COMMAND test_dt_tiebreak ${_t})
+endforeach()
