@@ -2688,9 +2688,10 @@ namespace Triton
     st.start(COMPUTE_TIME);
 
     // T2 rows below swap COMPUTE_TIME for DIAG_TIME around one read-only reduction each,
-    // so DIAG never overlaps another category. The fence charges the preceding kernels
-    // to Compute before the reduction can wait on them.
-    auto diag_open = [&]() { gpuStreamSynchronize(streams); st.stop(COMPUTE_TIME); st.start(DIAG_TIME); };
+    // so DIAG never overlaps another category. The fence that drains the preceding kernels
+    // runs inside the DIAG bracket, after COMPUTE_TIME is stopped: a fence inside the open
+    // Compute bracket would charge the capture's forced synchronisation to Compute.
+    auto diag_open = [&]() { st.stop(COMPUTE_TIME); st.start(DIAG_TIME); gpuStreamSynchronize(streams); };
     auto diag_close = [&]() { st.stop(DIAG_TIME); st.start(COMPUTE_TIME); };
 
     Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
@@ -2704,11 +2705,11 @@ namespace Triton
     // of diag_test_busywait_us inside the DIAG bracket.
     if (diag_surface.domain_balance)
     {
-      gpuStreamSynchronize(streams);
 #ifndef TRITON_DIAG_TIMER_MUTANT
       st.stop(COMPUTE_TIME);
 #endif
       st.start(DIAG_TIME);
+      gpuStreamSynchronize(streams);
       diag_surface.read_west_east(rows, cols, (double)global_dt, device_vec[QX], device_vec[RHSH0], device_vec[RHSH1]);
 #ifdef TRITON_DIAG_TEST_BUSYWAIT
       diagnostics::spin_us(arglist.diag_test_busywait_us);
