@@ -21,6 +21,7 @@
 
 #include "constants.h"
 #include "matrix.h"
+#include "diag_log.h"
 
 #ifdef TRITON_GDAL
 #include <gdal.h>  
@@ -33,6 +34,7 @@
 #include "Ensify.h"
 
 // Additional includes for run log functions
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <unistd.h>
@@ -2033,6 +2035,74 @@ inline void triton_log_total_time(std::string project_dir, std::string output_fo
 }
 
 
+}
+
+
+/** @brief Row text and record bytes of the surface-diagnostics capture files (edge_flux.bin,
+ *  dt_limiter.bin, wet_cells.csv, domain_balance.csv). Only the formatting lives here; the
+ *  file handling (header, resume positioning, flush, abort on failure) is diag_log::capture_file's,
+ *  and the values come from diagnostics.h. Every signed quantity is positive INTO the domain. */
+namespace DiagWriters
+{
+	static const char* const EDGE_FLUX_NAME = "edge_flux.bin";
+	static const char* const DT_LIMITER_NAME = "dt_limiter.bin";
+	static const char* const WET_CELLS_NAME = "wet_cells.csv";
+	static const char* const DOMAIN_BALANCE_NAME = "domain_balance.csv";
+
+	static const char* const WET_CELLS_HEADER = "%print_id, simtime, rank, wet_mean, wet_at_print";
+	static const char* const DOMAIN_BALANCE_HEADER =
+		"%t_end, d_storage_m3, runoff_m3, inflow_m3, extbc_m3, clamp_m3, swmm_exchange_m3, "
+		"edge_west_m3, edge_east_m3, edge_south_m3, edge_north_m3, residual_m3";
+
+	static constexpr std::size_t EDGE_FLUX_RECORD_BYTES = 5 * sizeof(double);
+	static constexpr std::size_t DT_LIMITER_RECORD_BYTES = 48;
+
+	/** @brief Appends one edge_flux.bin record {f64 simtime, f64 west, east, south, north}. */
+	static inline void write_edge_flux_record(diag_log::capture_file& f, double t_end, const double flux[4])
+	{
+		double rec[5] = { t_end, flux[0], flux[1], flux[2], flux[3] };
+		f.append(rec, sizeof(rec));
+	}
+
+	/** @brief Appends one dt_limiter.bin record: {f64 simtime, f64 dt, i32 rank, i32 grow,
+	 *  i32 gcol, i32 reason, f64 h, f64 celerity}, 48 bytes with no padding. */
+	static inline void write_dt_limiter_record(diag_log::capture_file& f, double t_end, double dt, int32_t rank,
+	                                           int32_t grow, int32_t gcol, int32_t reason, double h, double celerity)
+	{
+		char buf[DT_LIMITER_RECORD_BYTES];
+		std::size_t o = 0;
+		std::memcpy(buf + o, &t_end, 8); o += 8;
+		std::memcpy(buf + o, &dt, 8); o += 8;
+		std::memcpy(buf + o, &rank, 4); o += 4;
+		std::memcpy(buf + o, &grow, 4); o += 4;
+		std::memcpy(buf + o, &gcol, 4); o += 4;
+		std::memcpy(buf + o, &reason, 4); o += 4;
+		std::memcpy(buf + o, &h, 8); o += 8;
+		std::memcpy(buf + o, &celerity, 8);
+		f.append(buf, sizeof(buf));
+	}
+
+	/** @brief Appends one wet_cells.csv row. */
+	static inline void write_wet_cells_row(diag_log::capture_file& f, int print_id, double t_end, int rank,
+	                                       double wet_mean, long wet_at_print)
+	{
+		char buf[256];
+		std::snprintf(buf, sizeof(buf), "%d, %.9f, %d, %.9g, %ld", print_id, t_end, rank, wet_mean, wet_at_print);
+		f.append_row(buf);
+	}
+
+	/** @brief Appends one domain_balance.csv row from the interval's terms. */
+	static inline void write_domain_balance_row(diag_log::capture_file& f, double t_end, double d_storage,
+	                                            double runoff, double inflow, double extbc, double clamp,
+	                                            double swmm_exchange, const double edge_m3[4], double residual)
+	{
+		char buf[512];
+		std::snprintf(buf, sizeof(buf),
+		              "%.9f, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e",
+		              t_end, d_storage, runoff, inflow, extbc, clamp, swmm_exchange,
+		              edge_m3[0], edge_m3[1], edge_m3[2], edge_m3[3], residual);
+		f.append_row(buf);
+	}
 }
 
 

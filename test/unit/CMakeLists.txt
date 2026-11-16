@@ -292,3 +292,28 @@ if("${BACKEND}" STREQUAL "SERIAL")
                    --exe $<TARGET_FILE:${TRITON_EXECUTABLE}>)
   set_tests_properties(UNIT-QUALITY-RESUME PROPERTIES TIMEOUT 120)
 endif()
+
+# Chunk 2b.1: the T6 tie-break of diagnostics::min_dt_loc (interior wins over a ghost twin).
+add_executable(test_dt_tiebreak test_dt_tiebreak.cpp)
+target_include_directories(test_dt_tiebreak PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(test_dt_tiebreak PRIVATE kokkos)
+foreach(_t IN ITEMS T1_interior_wins_over_ghost_twin T2_west_ghost_twin T3_smaller_index_among_interior
+                    T4_strict_ghost_minimum_reports_the_ghost)
+  add_test(NAME UNIT-DT-TIEBREAK-${_t} COMMAND test_dt_tiebreak ${_t})
+endforeach()
+
+# Chunk 2b.1 reviewer test: source-structure properties of the surface captures (rule 6).
+# Needs no link line; it reads src/diagnostics.h and src/kernels.h beside the triton.h path.
+add_executable(test_surface_diag_review test_surface_diag_review.cpp)
+set(TRITON_SURFACE_DIAG_REVIEW_TESTS
+  S1_capture_code_never_writes_through_a_solver_pointer
+  S2_collectives_are_not_under_a_rank_dependent_condition
+  S3_capture_calls_sit_only_at_rule_6_positions
+  S4_every_diag_bracket_opens_with_no_other_category_open
+  S5_print_instant_row_precedes_the_flush_and_the_cfg
+  S6_t6_collective_follows_the_min_allreduce
+  S7_close_row_writes_pending_rows_before_closing_the_files)
+foreach(_t IN LISTS TRITON_SURFACE_DIAG_REVIEW_TESTS)
+  add_test(NAME UNIT-SURFACE-DIAG-REVIEW-${_t}
+           COMMAND test_surface_diag_review ${CMAKE_SOURCE_DIR}/src/triton.h ${_t})
+endforeach()
