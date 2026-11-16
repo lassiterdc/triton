@@ -59,6 +59,148 @@ namespace diagnostics
 	// rows 1..rows-2 and columns 1..cols-2.
 	// ---------------------------------------------------------------------------------
 
+	/** @brief Volume flowing INTO the domain through its west edge this step, m3/s.
+	 *
+	 *  The interior cell (ix,1) receives its west face fluctuation d2 as rhsh1 = dt*d2/dx
+	 *  (flux_x assigns it, so it holds the x contribution until flux_y runs). The face
+	 *  flux is F = qx_cell - d2, positive eastward, which is into the domain here. The
+	 *  call must therefore sit between the flux_x and flux_y launches. */
+	template<typename T>
+	double edge_west_into(int rows, int cols, double dx, double dt, T const* qx, T const* rhsh1)
+	{
+		double total = 0.0;
+		const int n = rows - 2 * GHOST_CELL_PADDING;
+		Kokkos::parallel_reduce(std::string("diag_edge_west"), n, KOKKOS_LAMBDA(const int i, double& acc) {
+			const int id = (i + GHOST_CELL_PADDING) * cols + GHOST_CELL_PADDING;
+			acc += dx * ((double)qx[id] - (double)rhsh1[id] * dx / dt);
+		}, total);
+		return total;
+	}
+
+	/** @brief Volume flowing INTO the domain through its east edge this step, m3/s (the
+	 *  negative of the eastward face flux F = qx_cell + d1, d1 being rhsh0*dx/dt of the
+	 *  last interior column). Same position requirement as edge_west_into. */
+	template<typename T>
+	double edge_east_into(int rows, int cols, double dx, double dt, T const* qx, T const* rhsh0)
+	{
+		double total = 0.0;
+		const int n = rows - 2 * GHOST_CELL_PADDING;
+		Kokkos::parallel_reduce(std::string("diag_edge_east"), n, KOKKOS_LAMBDA(const int i, double& acc) {
+			const int id = (i + GHOST_CELL_PADDING) * cols + (cols - 1 - GHOST_CELL_PADDING);
+			acc -= dx * ((double)qx[id] + (double)rhsh0[id] * dx / dt);
+		}, total);
+		return total;
+	}
+
+	/** @brief Sum of one array over the interior columns of one row. flux_y ACCUMULATES
+	 *  into rhsh0 and rhsh1 on top of flux_x's values, so the north and south edge reads
+	 *  are the difference of this sum after flux_y and before it. */
+	template<typename T>
+	double sum_interior_row(int cols, int row, T const* arr)
+	{
+		double total = 0.0;
+		const int n = cols - 2 * GHOST_CELL_PADDING;
+		Kokkos::parallel_reduce(std::string("diag_row_sum"), n, KOKKOS_LAMBDA(const int i, double& acc) {
+			acc += (double)arr[row * cols + (i + GHOST_CELL_PADDING)];
+		}, total);
+		return total;
+	}
+
+	/** @brief Volume the negative-depth clamp of update_cells would add, m3: the sum over
+	 *  interior cells of max(0, -(h - rhsh0 - rhsh1)) times the cell area, evaluated with
+	 *  the same expression update_cells uses. Called before the update_cells launch. */
+	template<typename T>
+	double clamp_volume(int rows, int cols, double dx, T const* h, T const* rhsh0, T const* rhsh1)
+	{
+		double total = 0.0;
+		const int size = rows * cols;
+		const double area = dx * dx;
+		Kokkos::parallel_reduce(std::string("diag_clamp"), size, KOKKOS_LAMBDA(const int id, double& acc) {
+			const int ix = id / cols;
+			const int iy = id % cols;
+			if (ix <= GHOST_CELL_PADDING - 1 || ix >= rows - GHOST_CELL_PADDING ||
+			    iy <= GHOST_CELL_PADDING - 1 || iy >= cols - GHOST_CELL_PADDING) return;
+			const T hij = h[id] - rhsh0[id] - rhsh1[id];
+			if (hij < 0.0) acc += (double)(-hij) * area;
+		}, total);
+		return total;
+	}
+
+	/** @brief Volume update_runoff adds this step, m3: intensity (m/s) times dt times the
+	 *  cell area, summed over interior cells, indexed exactly as update_runoff indexes. */
+	template<typename T>
+	double runoff_volume(int rows, int cols, double dx, double dt, int const* runoff_id,
+	                     int index_row_runoff, int n_rows_runoff, T const* runoff_intensity)
+	{
+		double total = 0.0;
+		const int size = rows * cols;
+		const double area = dx * dx;
+		Kokkos::parallel_reduce(std::string("diag_runoff"), size, KOKKOS_LAMBDA(const int id, double& acc) {
+			const int ix = id / cols;
+			const int iy = id % cols;
+			if (ix <= GHOST_CELL_PADDING - 1 || ix >= rows - GHOST_CELL_PADDING ||
+			    iy <= GHOST_CELL_PADDING - 1 || iy >= cols - GHOST_CELL_PADDING) return;
+			const int id_r = runoff_id[id];
+			acc += (double)runoff_intensity[id_r * n_rows_runoff + index_row_runoff] * dt * area;
+		}, total);
+		return total;
+	}
+
+	/** @brief Volume the inflow hydrographs add this step, m3: the flow of each source
+	 *  cell interpolated as compute_flow interpolates it, times dt. */
+	template<typename T>
+	double inflow_volume(int num_src, T const* hyd_time, T const* hyd_val, double dt, double simtime,
+	                     int idx_low, int idx_high)
+	{
+		double total = 0.0;
+		Kokkos::parallel_reduce(std::string("diag_inflow"), num_src, KOKKOS_LAMBDA(const int id, double& acc) {
+			const double lo = (double)hyd_val[idx_low * num_src + id];
+			const double hi = (double)hyd_val[idx_high * num_src + id];
+			double flow;
+			if (idx_low == idx_high)
+			{
+				flow = lo;
+			}
+			else
+			{
+				const double t_lo = (double)hyd_time[idx_low];
+				const double t_hi = (double)hyd_time[idx_high];
+				flow = lo + ((hi - lo) * (simtime - t_lo)) / (t_hi - t_lo);
+			}
+			acc += flow * dt;
+		}, total);
+		return total;
+	}
+
+	/** @brief Sum of h over the cells of the external-boundary list, each distinct cell
+	 *  once (mask is 1 on a cell's first occurrence in the list, 0 on a repeat). */
+	template<typename T>
+	double extbc_depth_sum(int n, int const* relative_index, int const* mask, T const* h)
+	{
+		double total = 0.0;
+		Kokkos::parallel_reduce(std::string("diag_extbc_h"), n, KOKKOS_LAMBDA(const int id, double& acc) {
+			if (mask[id]) acc += (double)h[relative_index[id]];
+		}, total);
+		return total;
+	}
+
+	/** @brief Stored volume, m3: the sum of h times the cell area over interior cells. */
+	template<typename T>
+	double stored_volume(int rows, int cols, double dx, T const* h)
+	{
+		double total = 0.0;
+		const int size = rows * cols;
+		const double area = dx * dx;
+		Kokkos::parallel_reduce(std::string("diag_stored"), size, KOKKOS_LAMBDA(const int id, double& acc) {
+			const int ix = id / cols;
+			const int iy = id % cols;
+			if (ix <= GHOST_CELL_PADDING - 1 || ix >= rows - GHOST_CELL_PADDING ||
+			    iy <= GHOST_CELL_PADDING - 1 || iy >= cols - GHOST_CELL_PADDING) return;
+			acc += (double)h[id] * area;
+		}, total);
+		return total;
+	}
+
 	/** @brief The minimum of the per-cell step size array and the index it sits at: a
 	 *  separate reduction beside find_min_dt, which stays unchanged. */
 	template<typename T>
@@ -97,11 +239,27 @@ namespace diagnostics
 	struct surface_t
 	{
 		bool dt_limiter = false;       ///< cfg diag_dt_limiter (T6)
+		bool domain_balance = false;   ///< cfg diag_domain_balance (T2)
 		int rank = 0;
 		int nprocs = 1;
 		double dx = 0.0;
 
+		diag_log::capture_file edge_flux_file, domain_balance_file;
 		diag_log::capture_file dt_limiter_file;
+
+		// T2 interval state: per-step fluxes (m3/s, into the domain: west, east, south, north),
+		// the step's end time and dt, and the interval sums of the balance's other terms.
+		std::vector<double> step_t_end, step_dt, step_flux;
+		double runoff_m3 = 0.0, inflow_m3 = 0.0, extbc_m3 = 0.0, clamp_m3 = 0.0, exchange_m3 = 0.0;
+		double we_west = 0.0, we_east = 0.0;        ///< the W/E read of the step in progress
+		double ns_north_before = 0.0, ns_south_before = 0.0; ///< rhsh sums before flux_y
+		double extbc_before = 0.0;                   ///< external-boundary depth sum before its kernel
+		double held_storage = 0.0;                   ///< S at the last print instant or the seed (rank 0)
+
+		// External-boundary list de-duplication (a cell listed twice counts once).
+		std::vector<int> bc_cache;
+		int* bc_mask_dev = nullptr;
+		int bc_mask_n = 0;
 
 		// T6 step state: the local minimum, its cell's details, and the collective's outcome.
 		double local_val = 0.0;
@@ -118,11 +276,19 @@ namespace diagnostics
 		surface_t& operator=(const surface_t&) = delete;
 		~surface_t() = default;
 
+		/** @brief Frees the device mask. Called at the end of simulate(), while Kokkos is
+		 *  still initialised: a destructor of the triton object may run after it is not. */
+		void release()
+		{
+			if (bc_mask_dev) { gpuFree(bc_mask_dev); bc_mask_dev = nullptr; }
+		}
+
 		/** @brief True when any surface capture is on. */
 		bool any() const
 		{
 			return false
 				|| dt_limiter
+				|| domain_balance
 				;
 		}
 
@@ -135,6 +301,9 @@ namespace diagnostics
 		/** @brief Switches T6 on or off (cfg diag_dt_limiter). */
 		void enable_dt_limiter(bool on) { dt_limiter = on; }
 
+		/** @brief Switches T2 on or off (cfg diag_domain_balance). */
+		void enable_domain_balance(bool on) { domain_balance = on; }
+
 		/** @brief Opens the enabled capture files on rank 0: clean when the run starts at
 		 *  checkpoint 0, positioned at the checkpoint time otherwise. Every build opens
 		 *  them here (not inside the SWMM resume hook, which exists only with
@@ -143,6 +312,14 @@ namespace diagnostics
 		{
 			if (rank != 0) return;
 			std::vector<diag_log::capture_file*> files;
+			if (domain_balance)
+			{
+				edge_flux_file.declare_binary(dir + DiagWriters::EDGE_FLUX_NAME, diag_log::MAGIC_EDGE_FLUX, 4,
+				                              diag_log::fixed_record_reader(DiagWriters::EDGE_FLUX_RECORD_BYTES));
+				domain_balance_file.declare_text(dir + DiagWriters::DOMAIN_BALANCE_NAME, DiagWriters::DOMAIN_BALANCE_HEADER, 0);
+				files.push_back(&edge_flux_file);
+				files.push_back(&domain_balance_file);
+			}
 			if (dt_limiter)
 			{
 				dt_limiter_file.declare_binary(dir + DiagWriters::DT_LIMITER_NAME, diag_log::MAGIC_DT_LIMITER, 0,
@@ -151,6 +328,104 @@ namespace diagnostics
 			}
 			if (checkpoint_id == 0) diag_log::open_clean_all(files);
 			else diag_log::open_resume_all(files, sim_start_time);
+		}
+
+		// ---- T2 ----
+
+		/** @brief Stored-volume seed S(t_start): the full-grid sum of h times the area,
+		 *  reduced to rank 0 and held there. Entered by every rank once per process
+		 *  start, after a hotstart restores h. */
+		template<typename T>
+		void seed_storage(int rows, int cols, T const* h)
+		{
+			if (!domain_balance) return;
+			const double local = stored_volume(rows, cols, dx, h);
+			double total = 0.0;
+			MPI_Reduce(&local, &total, 1, MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
+			held_storage = total;
+		}
+
+		/** @brief The W/E edge read (between the flux_x and flux_y launches) and the sums
+		 *  the N/S read differences against. */
+		template<typename T>
+		void read_west_east(int rows, int cols, double dt, T const* qx, T const* rhsh0, T const* rhsh1)
+		{
+			we_west = edge_west_into(rows, cols, dx, dt, qx, rhsh1);
+			we_east = edge_east_into(rows, cols, dx, dt, qx, rhsh0);
+			ns_north_before = (rank == 0) ? sum_interior_row(cols, GHOST_CELL_PADDING, rhsh0) : 0.0;
+			ns_south_before = (rank == nprocs - 1) ? sum_interior_row(cols, rows - 1 - GHOST_CELL_PADDING, rhsh1) : 0.0;
+		}
+
+		/** @brief The N/S edge read and the clamp reduction (between the flux_y and
+		 *  update_cells launches). Closes the step's edge record. North lies on rank 0 and
+		 *  south on the last rank; a rank without that edge contributes zero. */
+		template<typename T>
+		void read_north_south_and_clamp(int rows, int cols, double dt, double t_step_end, T const* h,
+		                                T const* qy, T const* rhsh0, T const* rhsh1)
+		{
+			double north = 0.0, south = 0.0;
+			if (rank == 0)
+			{
+				const double q = sum_interior_row(cols, GHOST_CELL_PADDING, qy);
+				const double after = sum_interior_row(cols, GHOST_CELL_PADDING, rhsh0);
+				north = -dx * (q + (after - ns_north_before) * dx / dt);
+			}
+			if (rank == nprocs - 1)
+			{
+				const double q = sum_interior_row(cols, rows - 1 - GHOST_CELL_PADDING, qy);
+				const double after = sum_interior_row(cols, rows - 1 - GHOST_CELL_PADDING, rhsh1);
+				south = dx * (q - (after - ns_south_before) * dx / dt);
+			}
+			step_t_end.push_back(t_step_end);
+			step_dt.push_back(dt);
+			step_flux.push_back(we_west);
+			step_flux.push_back(we_east);
+			step_flux.push_back(south);
+			step_flux.push_back(north);
+			clamp_m3 += clamp_volume(rows, cols, dx, h, rhsh0, rhsh1);
+		}
+
+		/** @brief Rebuilds the first-occurrence mask when the external-boundary list
+		 *  changed (a dynamic repartition rebuilds it). */
+		void ensure_extbc_mask(const int* host_list, int n)
+		{
+			if (n == bc_mask_n && n == (int)bc_cache.size() && std::equal(bc_cache.begin(), bc_cache.end(), host_list))
+				return;
+			bc_cache.assign(host_list, host_list + n);
+			std::vector<int> mask(n > 0 ? n : 1, 0);
+			std::unordered_set<int> seen;
+			for (int i = 0; i < n; i++) mask[i] = seen.insert(bc_cache[i]).second ? 1 : 0;
+			if (bc_mask_dev) { gpuFree(bc_mask_dev); bc_mask_dev = nullptr; }
+			gpuMalloc((void**)&bc_mask_dev, sizeof(int) * mask.size());
+			gpuMemcpyAsync(bc_mask_dev, mask.data(), sizeof(int) * mask.size(), gpuMemcpyHostToDevice, 0);
+			gpuStreamSynchronize(0);
+			bc_mask_n = n;
+		}
+
+		/** @brief Depth sum over the list's distinct cells, read directly before the
+		 *  external-boundary kernel. */
+		template<typename T>
+		void extbc_before_read(int n, int const* rel_idx_dev, T const* h)
+		{
+			extbc_before = extbc_depth_sum(n, rel_idx_dev, bc_mask_dev, h);
+		}
+
+		/** @brief Read directly after the kernel: the imposed volume of the step is the
+		 *  change of that sum times the cell area. */
+		template<typename T>
+		void extbc_after_read(int n, int const* rel_idx_dev, T const* h)
+		{
+			extbc_m3 += (extbc_depth_sum(n, rel_idx_dev, bc_mask_dev, h) - extbc_before) * dx * dx;
+		}
+
+		/** @brief Net exchange with SWMM this step, m3, signed into the domain. exchange_q
+		 *  is in ft3/s and positive INTO SWMM (the exchange kernel stores minus the flow
+		 *  into the cell, converted from m3/s). */
+		void add_exchange(const value_t* exchange_q, int n_local, double dt)
+		{
+			double q = 0.0;
+			for (int i = 0; i < n_local; i++) q += (double)exchange_q[i];
+			exchange_m3 += -q * dt * FT3_TO_M3_FACTOR;
 		}
 
 		// ---- T5 and T6 (the compute_local_dt row) ----
@@ -227,6 +502,57 @@ namespace diagnostics
 			const double* p = &gathered[(std::size_t)winner * 5];
 			DiagWriters::write_dt_limiter_record(dt_limiter_file, t_step_end, global_dt, winner, (int32_t)p[3], (int32_t)p[4],
 			                        reason, p[1], p[2]);
+		}
+
+		// ---- the print instant and the end of the run ----
+
+		/** @brief True when an interval has unwritten rows (steps since the last print
+		 *  instant). Identical on every rank. */
+		bool pending() const { return false
+			|| !step_t_end.empty()
+			; }
+
+		/** @brief The print-instant row: reduces the interval's terms and edge values to
+		 *  rank 0, writes the per-step edge records, the balance line and the wet-cell
+		 *  rows, then resets every interval accumulator. Collective: every rank calls it
+		 *  because the print test reads the global simtime.
+		 *  @param t_end interval end (the print instant, or the run's end time at the close) */
+		template<typename T>
+		void print_instant(int rows, int cols, T const* h_dev, double hextra, int print_id, double t_end)
+		{
+			if (domain_balance && !step_t_end.empty())
+			{
+				const double s_local = stored_volume(rows, cols, dx, h_dev);
+				const double terms_local[6] = { runoff_m3, inflow_m3, extbc_m3, clamp_m3, exchange_m3, s_local };
+				double terms[6] = { 0, 0, 0, 0, 0, 0 };
+				MPI_Reduce(terms_local, terms, 6, MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
+				std::vector<double> flux(step_flux.size(), 0.0);
+				MPI_Reduce(step_flux.data(), flux.data(), (int)step_flux.size(), MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
+				if (rank == 0)
+				{
+					double edge_m3[4] = { 0, 0, 0, 0 };
+					for (std::size_t i = 0; i < step_t_end.size(); i++)
+					{
+						DiagWriters::write_edge_flux_record(edge_flux_file, step_t_end[i], &flux[4 * i]);
+						for (int k = 0; k < 4; k++) edge_m3[k] += flux[4 * i + k] * step_dt[i];
+					}
+					const double s_end = terms[5];
+					const double d_storage = s_end - held_storage;
+					const double residual = d_storage - (terms[0] + terms[1] + terms[2] + terms[3] + terms[4]
+					                                     + edge_m3[0] + edge_m3[1] + edge_m3[2] + edge_m3[3]);
+					DiagWriters::write_domain_balance_row(domain_balance_file, t_end, d_storage, terms[0], terms[1], terms[2],
+					                         terms[3], terms[4], edge_m3, residual);
+					held_storage = s_end;
+				}
+			}
+			reset_interval();
+		}
+
+		/** @brief Clears every value that must not cross a print instant. */
+		void reset_interval()
+		{
+			step_t_end.clear(); step_dt.clear(); step_flux.clear();
+			runoff_m3 = inflow_m3 = extbc_m3 = clamp_m3 = exchange_m3 = 0.0;
 		}
 
 	private:

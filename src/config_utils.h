@@ -113,9 +113,18 @@ namespace ConfigUtils
 		/**< Surface diagnostics captures (diagnostics.h). Each is off unless its key is 1;
 		*   the keys exist in every build configuration because the capture files do. */
 		int diag_dt_limiter;	/**< 1 writes dt_limiter.bin: per step, the cell whose step size is the global minimum. */
+		int diag_domain_balance;	/**< 1 writes edge_flux.bin and domain_balance.csv: the open-edge fluxes and the per-interval mass balance. */
 
+#ifdef TRITON_DIAG_TEST_BUSYWAIT
+		double diag_test_busywait_us;	/**< TEST-ONLY: microseconds each step's T2 bracket spins (shape row T-B). */
+#endif
 #ifdef TRITON_DIAG_TEST_SKEW
 		double diag_test_skew_us;	/**< TEST-ONLY: microseconds rank 0 spins after update_cells each step (shape row T-S). */
+#endif
+#ifdef TRITON_DIAG_TEST_PAUSE_AFTER_FLUSH
+		int diag_test_pause_id;	/**< TEST-ONLY: the print id at which the run pauses (shape row T-P). */
+		double diag_test_pause_s;	/**< TEST-ONLY: the pause length in seconds. */
+		std::string diag_test_pause_at;	/**< TEST-ONLY: flush_to_cfg or after_cfg, the position of the pause. */
 #endif
 
 		std::string
@@ -559,8 +568,17 @@ namespace ConfigUtils
 #endif
 
 		arglist.diag_dt_limiter = atoi((argsd("diag_dt_limiter", argmap, "0")).c_str());
+		arglist.diag_domain_balance = atoi((argsd("diag_domain_balance", argmap, "0")).c_str());
+#ifdef TRITON_DIAG_TEST_BUSYWAIT
+		arglist.diag_test_busywait_us = atof((argsd("diag_test_busywait_us", argmap, "0")).c_str());
+#endif
 #ifdef TRITON_DIAG_TEST_SKEW
 		arglist.diag_test_skew_us = atof((argsd("diag_test_skew_us", argmap, "0")).c_str());
+#endif
+#ifdef TRITON_DIAG_TEST_PAUSE_AFTER_FLUSH
+		arglist.diag_test_pause_id = atoi((argsd("diag_test_pause_id", argmap, "-1")).c_str());
+		arglist.diag_test_pause_s = atof((argsd("diag_test_pause_s", argmap, "0")).c_str());
+		arglist.diag_test_pause_at = argsd("diag_test_pause_at", argmap, "after_cfg");
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
