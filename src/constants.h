@@ -160,6 +160,24 @@ typedef double value_t;    /**< Data type to represent floating-point number. It
                                      inseparable from the step it records, so it is charged here, not to
                                      IO_TIME -- SWMM_STEP is an upper bound on the solve itself). */
 
+// Children of SWMM_STEP, measured inside its bracket in triton.h, so
+// SWMM_SOLVE + SWMM_LOG <= SWMM_STEP and the SWMM_XFER + SWMM_MPI + SWMM_STEP +
+// SWMM_OTHER == SWMM identity is unchanged. They split the upper bound
+// SWMM_STEP states above: SWMM_SOLVE is the swmm_step() call alone, which is
+// the figure for the solve; SWMM_LOG is the exchange side-file append, whose
+// cost grows with the coupled node count.
+#define SWMM_SOLVE "swmm_solve"    /**< Timer for the swmm_step() call alone, inside SWMM_STEP. */
+#define SWMM_LOG "swmm_log"    /**< Timer for the exchange side-file append (log_exchange_step), inside SWMM_STEP. */
+
+// A top-level category, never open while another category is: super_timer
+// categories are independent accumulators rather than a stack, so a capture
+// statement inside COMPUTE_TIME that opened DIAG_TIME without closing
+// COMPUTE_TIME would charge its wall time to both. Every capture statement
+// therefore closes the category open at its position, opens DIAG_TIME, and
+// reopens the category after. output.h::write_times subtracts DIAG_TIME in the
+// other_time residual, so Compute+MPI+IO+SWMM+Resize+DIAG+Other == Simulation.
+#define DIAG_TIME "diag_time"    /**< Timer for all diagnostics-capture work (the DIAG column of performance.txt). */
+
 
 #define TYPE_STATIC "static"    /**< Domain decomposition type: static*/
 #define TYPE_DYNAMIC "dynamic"    /**< Domain decomposition type: dynamic*/

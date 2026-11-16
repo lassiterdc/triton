@@ -1578,11 +1578,19 @@ namespace Output
 		T swmm_xfer_time = st.get_custom_time(SWMM_XFER);
 		T swmm_mpi_time = st.get_custom_time(SWMM_MPI);
 		T swmm_step_time = st.get_custom_time(SWMM_STEP);
+		// Children of SWMM_STEP, measured inside its bracket: reported beside the
+		// SWMM columns and subtracted nowhere, since SWMM_STEP already contains them.
+		T swmm_solve_time = st.get_custom_time(SWMM_SOLVE);
+		T swmm_log_time = st.get_custom_time(SWMM_LOG);
+		// Top-level diagnostics-capture category; zero when every capture is off.
+		T diag_time = st.get_custom_time(DIAG_TIME);
 		T simulation_time = st.get_custom_time(SIMULATION_TIME);
 		T total_time = st.get_custom_time(TOTAL_TIME);
 		// other_time subtracts the PARENT swmm_time only: the children are already
 		// contained in it, and subtracting them here as well would double-count.
-		T other_time = simulation_time - compute_time - mpi_time - io_time - resize_time - swmm_time;
+		// diag_time is a top-level category and is subtracted: leaving it in the
+		// residual would charge capture work to Other.
+		T other_time = simulation_time - compute_time - mpi_time - io_time - resize_time - swmm_time - diag_time;
 		// SWMM-level residual, derived exactly like other_time and init_time.
 		T swmm_other_time = swmm_time - swmm_xfer_time - swmm_mpi_time - swmm_step_time;
 		T init_time = total_time - simulation_time;
@@ -1600,6 +1608,9 @@ namespace Output
 		T *swmm_mpi_time_all = new T[size_];
 		T *swmm_step_time_all = new T[size_];
 		T *swmm_other_time_all = new T[size_];
+		T *swmm_solve_time_all = new T[size_];
+		T *swmm_log_time_all = new T[size_];
+		T *diag_time_all = new T[size_];
 
 
 		MPI_Gather(&compute_time, 1, MPI_DATA_TYPE, &compute_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
@@ -1615,6 +1626,9 @@ namespace Output
 		MPI_Gather(&swmm_mpi_time, 1, MPI_DATA_TYPE, &swmm_mpi_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		MPI_Gather(&swmm_step_time, 1, MPI_DATA_TYPE, &swmm_step_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 		MPI_Gather(&swmm_other_time, 1, MPI_DATA_TYPE, &swmm_other_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&swmm_solve_time, 1, MPI_DATA_TYPE, &swmm_solve_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&swmm_log_time, 1, MPI_DATA_TYPE, &swmm_log_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+		MPI_Gather(&diag_time, 1, MPI_DATA_TYPE, &diag_time_all[rank_], 1, MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
 
 		if (size_ > 1)
 		{
@@ -1658,15 +1672,21 @@ namespace Output
 			// which times TRITON's own halo exchange. The Average row is a plain
 			// mean over ranks: SWMM_STEP is rank-0-only, so its Average entry is
 			// rank0/N -- read the per-rank rows for that column.
-			output << "%Rank, Compute, MPI, IO, Resize, SWMM, SWMM_XFER, SWMM_MPI, SWMM_STEP, SWMM_OTHER, Other, Simulation, Init, Total" << std::endl;
+			// SWMM_SOLVE and SWMM_LOG are children of SWMM_STEP and follow SWMM_OTHER,
+			// then DIAG (the top-level capture category) before Other. Readers select
+			// columns by name, but section G of test/coupled_resume_suite.sh checks
+			// this exact header string, so reordering it fails that suite.
+			output << "%Rank, Compute, MPI, IO, Resize, SWMM, SWMM_XFER, SWMM_MPI, SWMM_STEP, SWMM_OTHER, SWMM_SOLVE, SWMM_LOG, DIAG, Other, Simulation, Init, Total" << std::endl;
 
 			for(int j=0;j<size_;j++){
 				output << std::setprecision(4) << j << ", " << compute_time_all[j] << ", " <<  mpi_time_all[j] << ", " <<	io_time_all[j] << ", " <<	resize_time_all[j] << ", " << swmm_time_all[j] << ", "
-				<< swmm_xfer_time_all[j] << ", " << swmm_mpi_time_all[j] << ", " << swmm_step_time_all[j] << ", " << swmm_other_time_all[j] << ", " << other_time_all[j] << ", "
+				<< swmm_xfer_time_all[j] << ", " << swmm_mpi_time_all[j] << ", " << swmm_step_time_all[j] << ", " << swmm_other_time_all[j] << ", "
+				<< swmm_solve_time_all[j] << ", " << swmm_log_time_all[j] << ", " << diag_time_all[j] << ", " << other_time_all[j] << ", "
 				<< simulation_time_all[j] << ", " << init_time_all[j] <<  ", " << total_time_all[j] << std::endl;
 			}
 			output << std::setprecision(4) << "Average" << ", " << average(compute_time_all,size_) << ", " <<  average(mpi_time_all,size_) << ", " <<	 average(io_time_all,size_) << ", " << average(resize_time_all,size_) << ", " << average(swmm_time_all,size_) << ", "
-			<< average(swmm_xfer_time_all,size_) << ", " << average(swmm_mpi_time_all,size_) << ", " << average(swmm_step_time_all,size_) << ", " << average(swmm_other_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " << average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
+			<< average(swmm_xfer_time_all,size_) << ", " << average(swmm_mpi_time_all,size_) << ", " << average(swmm_step_time_all,size_) << ", " << average(swmm_other_time_all,size_) << ", "
+			<< average(swmm_solve_time_all,size_) << ", " << average(swmm_log_time_all,size_) << ", " << average(diag_time_all,size_) << ", " <<  average(other_time_all,size_) << ", " <<  average(simulation_time_all,size_) << ", " << average(init_time_all,size_) <<  ", " << average(total_time_all,size_) << std::endl;
 
 			output.close();
 		}
