@@ -544,12 +544,17 @@ def cmd_end_drain(a):
     for d in dts:
         cum += d
         ends.append(cum)
-    last_print = math.floor(a.end_time / a.print_interval + 1e-9) * a.print_interval
+    # the run's own end: TRITON's last step ends at or just past sim_duration, so the end is the last
+    # per-step stamp of edge_flux.bin (captured in this run), not sim_duration itself
+    b = rd(os.path.join(a.out, "edge_flux.bin"))
+    n = (len(b) - 16) // 40
+    end_time = struct.unpack_from("<d", b, 16 + (n - 1) * 40)[0]
+    last_print = math.floor(a.sim_duration / a.print_interval + 1e-9) * a.print_interval
     after = [e for e in ends if e > last_print + 1e-6]
-    need_after = a.end_time > last_print + 1e-6   # a run that ends on a print instant has nothing after it
-    say("side-file records %d; final cumulative dt %.9f; run end %.9f; last print instant %.3f; records ending after it: %d (required: %s)"
-        % (len(dts), cum, a.end_time, last_print, len(after), "at least 1" if need_after else "none, the run ends on a print instant"))
-    ok = abs(cum - a.end_time) <= 1e-6 and (len(after) >= 1 or not need_after)
+    need_after = a.sim_duration > last_print + 1e-6   # a run that ends on a print instant has nothing after it
+    say("side-file records %d; final cumulative dt %.9f; run end (last edge_flux.bin stamp) %.9f; last print instant %.3f; records ending after it: %d (required: %s)"
+        % (len(dts), cum, end_time, last_print, len(after), "at least 1" if need_after else "none, the run ends on a print instant"))
+    ok = abs(cum - end_time) <= 1e-6 and (len(after) >= 1 or not need_after)
     say("RESULT %s end-drain" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
@@ -566,9 +571,9 @@ def cmd_steps_per_interval(a):
     if a.pick_candidates:
         cands = [int(x) for x in a.pick_candidates.split(",")]
         idx = a.interval_index
-        n = seq[idx - 1] if 0 < idx <= len(seq) else 0
+        n = sum(seq[:idx])   # the accumulator at checkpoint idx depends on the steps since the run start
         pick = next((c for c in cands if n % c != 0), None)
-        say("interval %d holds %d steps; swmm_coupling_interval candidates %s" % (idx, n, cands))
+        say("%d steps have run by print instant %d; swmm_coupling_interval candidates %s" % (n, idx, cands))
         say("PICK %s" % pick)
         return 0 if pick is not None else 1
     return 0
@@ -827,7 +832,7 @@ def main():
     p.set_defaults(f=cmd_count_rows)
     p = sp.add_parser("end-drain")
     p.add_argument("--out", required=True)
-    p.add_argument("--end-time", type=float, required=True)
+    p.add_argument("--sim-duration", type=float, required=True)
     p.add_argument("--print-interval", type=float, required=True)
     p.set_defaults(f=cmd_end_drain)
     p = sp.add_parser("steps-per-interval")

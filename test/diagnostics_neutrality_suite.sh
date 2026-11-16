@@ -654,13 +654,13 @@ case_N12() {
     branch_run "n12_defaults_np$np" cpu "$np" swmm_coupling_interval=1 swmm_coupling_lag=0 && \
       cmp_arm "N12/off/np$np" 0 "T3 keys set explicitly to 1/0, CPU np$np: byte-identical to the baseline" "$BASE_OUT" "$ARM_OUT"
   done
-  # which interval does the arm use: 4, unless 4 divides the steps of the resume checkpoint's interval
+  # which interval does the arm use: 4, unless 4 divides the steps run by the resume checkpoint (the accumulator then is zero there)
   base_run cpu 1 "" || return 1
   local steps_log="$LOGS/N12_steps.log"
   $CMP "$NEUT" steps-per-interval --out "$BASE_OUT" --print-interval "${PRINT%.*}" --pick-candidates 4,5,3,7 --interval-index "$CK" > "$steps_log" 2>&1
   local N; N=$(sed -n 's/^PICK //p' "$steps_log")
   [ -n "$N" ] && [ "$N" != None ] || { rec "N12" ERROR "no swmm_coupling_interval candidate leaves a nonzero remainder at checkpoint $CK (see $steps_log)"; return 1; }
-  say "N12: $(grep 'steps per print interval' "$steps_log"); interval $CK: $(grep "^interval" "$steps_log"); swmm_coupling_interval = $N"
+  say "N12: $(grep 'steps per print interval' "$steps_log"); $(grep 'steps have run' "$steps_log"); swmm_coupling_interval = $N"
   local mode keys
   for mode in interval lag; do
     [ $mode = interval ] && keys="swmm_coupling_interval=$N" || keys="swmm_coupling_lag=1"
@@ -687,9 +687,9 @@ case_N12() {
   local half=$(( (NCP / 2) * ${PRINT%.*} + ${PRINT%.*} / 2 )) whole=$(( (NCP / 2) * ${PRINT%.*} ))
   for keys in "swmm_coupling_interval=$N" "swmm_coupling_lag=1"; do
     local lab; lab=$(echo "$keys" | tr '=' '_')
-    branch_run "N12_end_$lab" cpu 1 $keys sim_duration=$half && chk "N12/end/$lab" 0 "end-of-run arm ($keys, duration $half): the side-file's final cumulative dt equals the run end and SWMM stepped after the last print instant" $CMP "$NEUT" end-drain --out "$ARM_OUT" --end-time "$half" --print-interval "${PRINT%.*}"
-    run_arm "N12_end_td2_$lab" cpu_td2 1 $keys sim_duration=$half && chk "N12/end/$lab/T-D2" 1 "mutant: the same arm on a T-D2 build (no end-of-run drain)" $CMP "$NEUT" end-drain --out "$ARM_OUT" --end-time "$half" --print-interval "${PRINT%.*}"
-    run_arm "N12_whole_td2_$lab" cpu_td2 1 $keys sim_duration=$whole && chk "N12/whole/$lab/T-D2" 0 "control: a whole-interval duration ($whole) passes on a T-D2 build" $CMP "$NEUT" end-drain --out "$ARM_OUT" --end-time "$whole" --print-interval "${PRINT%.*}"
+    branch_run "N12_end_$lab" cpu 1 diag_domain_balance=1 $keys sim_duration=$half && chk "N12/end/$lab" 0 "end-of-run arm ($keys, duration $half): the side-file's final cumulative dt equals the run end and SWMM stepped after the last print instant" $CMP "$NEUT" end-drain --out "$ARM_OUT" --sim-duration "$half" --print-interval "${PRINT%.*}"
+    run_arm "N12_end_td2_$lab" cpu_td2 1 diag_domain_balance=1 $keys sim_duration=$half && chk "N12/end/$lab/T-D2" 1 "mutant: the same arm on a T-D2 build (no end-of-run drain)" $CMP "$NEUT" end-drain --out "$ARM_OUT" --sim-duration "$half" --print-interval "${PRINT%.*}"
+    run_arm "N12_whole_td2_$lab" cpu_td2 1 diag_domain_balance=1 $keys sim_duration=$whole && chk "N12/whole/$lab/T-D2" 0 "control: a whole-interval duration ($whole) passes on a T-D2 build" $CMP "$NEUT" end-drain --out "$ARM_OUT" --sim-duration "$whole" --print-interval "${PRINT%.*}"
   done
 }
 
