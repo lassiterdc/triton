@@ -758,8 +758,8 @@ namespace SWMM_triton
 	/// swmm_link_flow_diag.bin (T1d): {f64 simtime, f64[L] flow} per step.
 	static inline std::size_t link_flow_record_bytes(int n_links) { return 8 + 8 * (std::size_t)n_links; }
 
-	/// One swmm_link_flow_diag.bin record: the step's END time and the getter's flow of
-	/// each listed link, in the order of the swmm_link_flow_diag.links sidecar.
+	/// One swmm_link_flow_diag.bin record: the step's END time and the flow (cfs, link-direction
+	/// sign) of each listed link, in the order of the swmm_link_flow_diag.links sidecar.
 	static inline std::vector<char> encode_link_flow_record(double simtime, const double* flow, int n_links)
 	{
 		std::vector<char> b;
@@ -838,6 +838,33 @@ namespace SWMM_triton
 		std::string out;
 		for (const std::string& s : names) { out += s; out += '\n'; }
 		return out;
+	}
+
+	/// Units of the model's flow unit per cubic foot per second, for swmm_FlowUnitsProperty
+	/// (cfs 1, gpm 448.831, mgd 0.64632, cms 0.0283168, lps 28.3168, mld 2.44657); 0 for a
+	/// value outside the enum. swmm_getValue(swmm_LINK_FLOW) returns the model's flow unit,
+	/// and swmm_link_flow_diag.bin is in cfs (erratum E-11).
+	static inline double swmm_flow_units_per_cfs(int flow_units)
+	{
+		switch (flow_units)
+		{
+			case swmm_CFS: return 1.0;
+			case swmm_GPM: return 448.831;
+			case swmm_MGD: return 0.64632;
+			case swmm_CMS: return 0.0283168;
+			case swmm_LPS: return 28.3168;
+			case swmm_MLD: return 2.44657;
+			default:       return 0.0;
+		}
+	}
+
+	/// A flow in the model's flow unit as cfs, the sign kept. `ok` is false (result 0) for
+	/// an unknown unit.
+	static inline double swmm_flow_to_cfs(double flow, int flow_units, bool& ok)
+	{
+		const double per_cfs = swmm_flow_units_per_cfs(flow_units);
+		ok = per_cfs > 0.0;
+		return ok ? flow / per_cfs : 0.0;
 	}
 
 	/// The links T1d writes. key "ALL" selects every link in SWMM link-index order;
@@ -1128,7 +1155,8 @@ namespace SWMM_triton
 		std::vector<int32_t> sd_nonconv_;          ///< non-converged ordinals of the step just read
 		node_path3_interval_t sd_interval_;        ///< T1b sums since the last print instant
 		std::vector<int>     sd_link_idx_;         ///< SWMM link index of each T1d column
-		std::vector<double>  sd_link_flow_;        ///< T1d flows of the step just read
+		std::vector<double>  sd_link_flow_;        ///< T1d flows of the step just read, in cfs
+		double               sd_flow_per_cfs_ = 1.0; ///< the model's flow units per cfs (T1d conversion)
 
 		/// Latched from swmm_node_rim_from_dem. Read only by init_swmm, to label the
 		/// SWMM rims it prints as replaced when triton.h is about to set every rim
@@ -1961,6 +1989,8 @@ namespace SWMM_triton
 			const std::vector<std::string> picked =
 				select_diag_links(links_key, listed, swmm_object_names(swmm_LINK, false), idx, err);
 			if (!err.empty()) diag_log::fatal(err);
+			sd_flow_per_cfs_ = swmm_flow_units_per_cfs((int)swmm_getValue(swmm_FLOWUNITS, 0));
+			if (!(sd_flow_per_cfs_ > 0.0)) diag_log::fatal("the SWMM model's flow units are not one T1d can convert to cfs");
 			sd_link_idx_ = idx;
 			sd_link_flow_.assign(idx.size(), 0.0);
 			write_diag_sidecar(capture_dir_ + "swmm_link_flow_diag.links", format_name_list(picked));
@@ -2021,7 +2051,7 @@ namespace SWMM_triton
 		if (sd_d_)
 		{
 			for (std::size_t k = 0; k < sd_link_idx_.size(); ++k)
-				sd_link_flow_[k] = swmm_getValue(swmm_LINK_FLOW, sd_link_idx_[k]);
+				sd_link_flow_[k] = swmm_getValue(swmm_LINK_FLOW, sd_link_idx_[k]) / sd_flow_per_cfs_;
 			const std::vector<char> rec = encode_link_flow_record(step_end_time, sd_link_flow_.data(), (int)sd_link_idx_.size());
 			cf_link_flow_.append(rec.data(), rec.size());
 		}

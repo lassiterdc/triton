@@ -189,6 +189,10 @@ target_include_directories(test_step_diag_log PRIVATE
 
 target_link_libraries(test_step_diag_log PRIVATE kokkos swmm5)
 
+# B1 reads the solver source to check the SWMM_SOLVE and SWMM_LOG brackets.
+target_compile_definitions(test_step_diag_log PRIVATE
+  TRITON_H_PATH="${CMAKE_SOURCE_DIR}/src/triton.h")
+
 set(TRITON_STEP_DIAG_LOG_TESTS
   S1_step_record_layout
   S2_interval_sums_and_reset
@@ -198,11 +202,32 @@ set(TRITON_STEP_DIAG_LOG_TESTS
   P1_fixed_record_file_cut_at_every_offset
   P2_variable_block_file_cut_at_every_offset
   P3_interval_csv_cut_at_every_offset
-  W1_resumed_file_equals_clean_file)
+  W1_resumed_file_equals_clean_file
+  F1_flow_units_convert_to_cfs
+  B1_swmm_step_and_log_call_sites_are_bracketed)
 
 foreach(_t IN LISTS TRITON_STEP_DIAG_LOG_TESTS)
   add_test(NAME UNIT-STEP-DIAG-LOG-${_t}
            COMMAND test_step_diag_log ${_t})
+endforeach()
+
+# The 2a.2 reviewer test: a garbage count field of a T1a-shaped record is an incomplete
+# record and never an allocation (diag_log.h counted_block_record_reader).
+add_executable(test_step_diag_log_review test_step_diag_log_review.cpp)
+
+target_include_directories(test_step_diag_log_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_step_diag_log_review PRIVATE kokkos swmm5)
+
+foreach(_t
+    R1_garbage_count_is_an_incomplete_record_not_an_allocation
+    R2_position_keeps_the_records_before_a_garbage_count
+    R3_whole_blocks_are_still_read)
+  add_test(NAME UNIT-STEP-DIAG-LOG-REVIEW-${_t}
+           COMMAND test_step_diag_log_review ${_t})
 endforeach()
 
 # The 2a.1 reviewer test: the SWMM step-capture getters driven through the public swmm5.h

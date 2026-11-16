@@ -452,6 +452,81 @@ static void W1_resumed_file_equals_clean_file()
     CHECK(read_bytes(pa) == read_bytes(pb), "the resumed file is byte-identical to the clean file");
 }
 
+// Property: a T1d flow is converted from the model's flow unit to cfs by the table of
+// erratum E-11 (cfs 1, gpm 448.831, mgd 0.64632, cms 0.0283168, lps 28.3168, mld 2.44657
+// units per cfs), the sign is kept, and a unit outside the enum is refused.
+// Class: NEW CAPABILITY. Wrong implementation: writing the getter's value unconverted
+// (0.01 on a CMS model where cfs is 0.35315), or converting with the factor inverted, or
+// dropping the sign. Killed by: any of the three. Second correct implementation: a lookup
+// from the unit name instead of the enum value.
+static void F1_flow_units_convert_to_cfs()
+{
+    bool ok = false;
+    double v = swmm_flow_to_cfs(0.01, swmm_CMS, ok);
+    CHECK(ok && std::fabs(v - 0.01 / 0.0283168) < 1e-12, "0.01 cms is 0.35315 cfs");
+    v = swmm_flow_to_cfs(448.831, swmm_GPM, ok);
+    CHECK(ok && std::fabs(v - 1.0) < 1e-12, "448.831 gpm is 1 cfs");
+    v = swmm_flow_to_cfs(0.64632, swmm_MGD, ok);
+    CHECK(ok && std::fabs(v - 1.0) < 1e-12, "0.64632 mgd is 1 cfs");
+    v = swmm_flow_to_cfs(28.3168, swmm_LPS, ok);
+    CHECK(ok && std::fabs(v - 1.0) < 1e-12, "28.3168 lps is 1 cfs");
+    v = swmm_flow_to_cfs(2.44657, swmm_MLD, ok);
+    CHECK(ok && std::fabs(v - 1.0) < 1e-12, "2.44657 mld is 1 cfs");
+    v = swmm_flow_to_cfs(-2.5, swmm_CFS, ok);
+    CHECK(ok && v == -2.5, "cfs is unchanged and the sign is kept");
+    v = swmm_flow_to_cfs(-0.01, swmm_CMS, ok);
+    CHECK(ok && v < 0.0 && std::fabs(v + 0.01 / 0.0283168) < 1e-12, "a negative cms flow stays negative");
+    v = swmm_flow_to_cfs(1.0, 99, ok);
+    CHECK(!ok && v == 0.0, "a unit outside the enum is refused");
+}
+
+/// True when every call of `call` in `text` (comments stripped) sits between an open and a
+/// close of the timer `timer`: the last start before it is after the last stop before it, and
+/// a stop follows before the next start.
+static bool calls_are_bracketed(const std::string& text, const std::string& call, const std::string& timer, int& n_calls)
+{
+    std::string code;
+    std::istringstream is(text);
+    std::string line;
+    while (std::getline(is, line)) { const size_t c = line.find("//"); code += (c == std::string::npos ? line : line.substr(0, c)) + "\n"; }
+    const std::string start = "st.start(" + timer + ")", stop = "st.stop(" + timer + ")";
+    n_calls = 0;
+    bool all = true;
+    for (size_t p = code.find(call); p != std::string::npos; p = code.find(call, p + 1)) {
+        ++n_calls;
+        const size_t a = code.rfind(start, p), b = code.rfind(stop, p);
+        const size_t nstop = code.find(stop, p), nstart = code.find(start, p);
+        const bool open_before = a != std::string::npos && (b == std::string::npos || a > b);
+        const bool closes_after = nstop != std::string::npos && (nstart == std::string::npos || nstop < nstart);
+        if (!(open_before && closes_after)) all = false;
+    }
+    return all;
+}
+
+// Property: every swmm_step call site of src/triton.h sits inside a SWMM_SOLVE bracket and
+// every log_exchange_step call inside a SWMM_LOG bracket, so the T3 branch reports the same
+// SWMM_SOLVE and SWMM_LOG as the default block (experiment E1 reads SWMM_SOLVE).
+// Class: REGRESSION (red on the round-1 tree, whose T3 branch called swmm_step bare).
+// Killed by: removing a start or a stop at either site. Second correct implementation: a
+// helper function that brackets the call, which this reader would read as one call site.
+// Control: the same predicate on a copy with the first SWMM_SOLVE start removed must fail.
+static void B1_swmm_step_and_log_call_sites_are_bracketed()
+{
+    std::ifstream in(TRITON_H_PATH);
+    CHECK(in.is_open(), "src/triton.h opens");
+    std::stringstream ss;
+    ss << in.rdbuf();
+    const std::string t = ss.str();
+    int n = 0;
+    CHECK(calls_are_bracketed(t, "swmm_step(", "SWMM_SOLVE", n) && n >= 2, "every swmm_step call is inside SWMM_SOLVE, and there are at least two");
+    CHECK(calls_are_bracketed(t, "log_exchange_step(", "SWMM_LOG", n) && n >= 2, "every log_exchange_step call is inside SWMM_LOG, and there are at least two");
+    std::string mutant = t;
+    const size_t k = mutant.find("st.start(SWMM_SOLVE)");
+    CHECK(k != std::string::npos, "control: a SWMM_SOLVE start exists to remove");
+    if (k != std::string::npos) mutant.erase(k, std::string("st.start(SWMM_SOLVE)").size());
+    CHECK(!calls_are_bracketed(mutant, "swmm_step(", "SWMM_SOLVE", n), "control: with one start removed the predicate fails");
+}
+
 struct test_entry { const char* name; void (*fn)(); };
 static const test_entry kTests[] = {
     {"S1_step_record_layout", S1_step_record_layout},
@@ -463,6 +538,8 @@ static const test_entry kTests[] = {
     {"P2_variable_block_file_cut_at_every_offset", P2_variable_block_file_cut_at_every_offset},
     {"P3_interval_csv_cut_at_every_offset", P3_interval_csv_cut_at_every_offset},
     {"W1_resumed_file_equals_clean_file", W1_resumed_file_equals_clean_file},
+    {"F1_flow_units_convert_to_cfs", F1_flow_units_convert_to_cfs},
+    {"B1_swmm_step_and_log_call_sites_are_bracketed", B1_swmm_step_and_log_call_sites_are_bracketed},
 };
 
 /** Runs the test named in argv[1], or every test; exits 1 on any failure. */
