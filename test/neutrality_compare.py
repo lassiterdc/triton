@@ -14,8 +14,9 @@ input error, so the suite reads the verdict from the exit status itself, unpiped
   perf-nonzero     named performance.txt columns of one rank are above zero (SWMM_SOLVE, SWMM_LOG).
   capture-coverage which of the required coverage items a capture-on run exercised (extbc_m3,
                    swmm_exchange_m3, east and north edge flux, a non-converged T1a block, S(0)).
-  perf-diff        per-rank differential of performance.txt: a capture-on run against the band of two
-                   capture-off runs of the same configuration (Invariant B).
+  perf-diff        per-rank differential of performance.txt: a capture-on run against the band of the
+                   capture-off runs of the same configuration (Invariant B); the MPI column of a rank
+                   additionally allows the DIAG gap to the busiest rank (erratum E-18).
   spin-us          the busy-wait length (microseconds per step) whose total is a multiple of a band.
   first-balance    the first domain_balance.csv row's delta stored volume against S(t_end) - S(0)
                    computed from the t=0 and first-print H rasters (case N3).
@@ -379,10 +380,28 @@ def cmd_perf_diff(a):
             rel = a.rel_floor_noisy if c in NOISY else a.rel_floor
             band, mean, spread = band_for(offs, r, c, a.abs_floor, rel)
             delta = on[r][c] - mean
-            tag = "OUT" if abs(delta) > band else "in"
-            say("  rank %d %-10s on %-9g off mean %-9g spread %-9g band %-9g delta %+9g %s" % (r, c, on[r][c], mean, spread, band, delta, tag))
-            if abs(delta) > band:
-                fails.append("rank %d %s leaves the capture-off band (delta %+g, band %g)" % (r, c, delta, band))
+            # Per-rank restatement of Invariant B (erratum E-18): the MPI column of a rank may rise by
+            # the DIAG that the busiest rank spends beyond this rank's own; the reading that a rank with
+            # less DIAG waits in MPI for a rank with more is an INFERENCE (below). The allowance is zero on the
+            # busiest rank and for every other column, and it only widens the upper side.
+            # INFERENCE, not a finding: on the A100 np2 runs the rank 1 MPI shift (+0.376 s with
+            # gpu_direct_flag 0, +0.391 s with 1; six of six capture-on runs) is about the DIAG gap
+            # (gd0: rank 0 DIAG 1.454 s, rank 1 DIAG 1.122 s, gap 0.33 s; gd1: 1.467 s and 1.128 s,
+            # gap 0.34 s). No run varied the capture set to test it. Measured residual: in the 12 per-run
+            # A100 np2 comparisons of that round the rank 1 MPI delta exceeds the DIAG gap by +0.0265 to
+            # +0.0839 s in 12 of 12 runs (gap 0.324 to 0.356 s), so the gap accounts for 81 to 93 percent
+            # of the shift and the rest sits inside the band.
+            allow = 0.0
+            if c == "MPI":
+                diags = [on[k]["DIAG"] for k in on if "DIAG" in on[k]]
+                if diags and "DIAG" in on[r]:
+                    allow = max(diags) - on[r]["DIAG"]
+            out = delta > band + allow or delta < -band
+            tag = "OUT" if out else "in"
+            extra = "  (allowance %g: DIAG gap)" % allow if allow > 0.0 else ""
+            say("  rank %d %-10s on %-9g off mean %-9g spread %-9g band %-9g delta %+9g %s%s" % (r, c, on[r][c], mean, spread, band, delta, tag, extra))
+            if out:
+                fails.append("rank %d %s leaves the capture-off band (delta %+g, band %g, DIAG-gap allowance %g)" % (r, c, delta, band, allow))
     if a.diag_positive:
         dr = parse_ranks(a.diag_positive, set(on))
         for r in dr:

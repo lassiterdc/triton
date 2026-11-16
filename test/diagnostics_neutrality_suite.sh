@@ -349,6 +349,8 @@ case_N8() {
   # the comparator must exit non-zero on the flipped copy (exit exactly 1)
   chk "N8" 1 "comparator on the flipped copy" $CMP "$NEUT" compare --a "$N1_OUT" --b "$WORK/run/n8_flipped_out"
   chk "N8/control" 0 "the comparator exits 0 on an unflipped copy (must-pass control)" $CMP "$NEUT" compare --a "$N1_OUT" --b "$N1_OUT"
+  # the comparator's own self-test of the per-rank MPI allowance (erratum E-18); no solver run
+  chk "N8/perf-diff-selftest" 0 "test_neutrality_perf_diff.py: the MPI allowance is net of the rank's own DIAG and reaches no other column" $PYTHON "$TEST_SRC/test/test_neutrality_perf_diff.py"
 }
 
 # ------------------------------------------------------------------ band arms: the capture-off runs, twice

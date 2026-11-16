@@ -48,6 +48,9 @@
 #      charged to the wrong category -- the neutrality suite's differential does)
 set -u
 
+# one Kokkos OpenMP thread per rank: section B hung at np8 without it (cause not diagnosed; oversubscription is suspected)
+export OMP_NUM_THREADS=1
+
 BIN_ABS=$(readlink -f "$1")
 ROOT=$(readlink -f "${2:-$(dirname "$0")/coupled_resume_suite_run}")
 REPO=$(cd "$(dirname "$0")/.." && pwd)
