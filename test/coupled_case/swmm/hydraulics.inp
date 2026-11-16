@@ -1,0 +1,71 @@
+[TITLE]
+Fixed coupled case of the diagnostics neutrality suite (see make_case.py)
+
+[OPTIONS]
+FLOW_UNITS           CMS
+INFILTRATION         HORTON
+FLOW_ROUTING         DYNWAVE
+LINK_OFFSETS         DEPTH
+IGNORE_QUALITY       YES
+START_DATE           01/01/2000
+START_TIME           00:00:00
+REPORT_START_DATE    01/01/2000
+REPORT_START_TIME    00:00:00
+END_DATE             01/01/2000
+END_TIME             01:00:00
+REPORT_STEP          00:01:00
+WET_STEP             00:00:10
+DRY_STEP             00:01:00
+ROUTING_STEP         00:00:01
+MAX_TRIALS           1
+HEAD_TOLERANCE       0.0000001
+
+[JUNCTIONS]
+;;Name  InvertElev  MaxDepth  InitDepth  SurchargeDepth  PondedArea
+J1      1.3696      1.0       0          0               0
+J2      1.1143      1.0       0          0               0
+J3      1.2427      1.0       0          0               0
+J4      0.9873      1.0       0          0               0
+
+[OUTFALLS]
+;;Name  InvertElev  Type
+O1      0.8143      FREE
+O2      0.6873      FREE
+
+[CONDUITS]
+;;Name  From  To  Length  Roughness  InOffset  OutOffset  InitFlow  MaxFlow
+C1      J1    J2  40.0    0.013      0         0          0         0
+C2      J2    O1  40.0    0.013      0         0          0         0
+C3      J3    J4  40.0    0.013      0         0          0         0
+C4      J4    O2  40.0    0.013      0         0          0         0
+
+[XSECTIONS]
+;;Link  Shape     Geom1  Geom2  Geom3  Geom4  Barrels
+C1      CIRCULAR  0.5    0      0      0      1
+C2      CIRCULAR  0.5    0      0      0      1
+C3      CIRCULAR  0.5    0      0      0      1
+C4      CIRCULAR  0.5    0      0      0      1
+
+[TIMESERIES]
+;;Name  File
+TS1     FILE "dats/inflow.dat"
+
+[INFLOWS]
+;;Node  Constituent  TimeSeries  Type  Mfactor  Sfactor  Baseline
+J1      FLOW         TS1         FLOW  1.0      1        0
+J3      FLOW         ""          FLOW  1.0      1        0.4
+
+[REPORT]
+INPUT      NO
+CONTROLS   NO
+NODES ALL
+LINKS ALL
+
+[COORDINATES]
+;;Node  X      Y
+J1      100.0  160.0 
+J2      140.0  160.0 
+J3      100.0  200.0 
+J4      140.0  200.0 
+O1      180.0  160.0 
+O2      180.0  200.0 
