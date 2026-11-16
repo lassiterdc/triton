@@ -358,3 +358,25 @@ foreach(_t IN LISTS TRITON_MANHOLE_TABLE_TESTS)
   add_test(NAME UNIT-MANHOLE-TABLE-${_t}
            COMMAND test_manhole_table ${_t})
 endforeach()
+
+add_executable(test_manhole_table_review test_manhole_table_review.cpp)
+
+target_include_directories(test_manhole_table_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_manhole_table_review PRIVATE kokkos swmm5)
+
+set(TRITON_MANHOLE_TABLE_REVIEW_TESTS
+  R1_values_travel_with_their_node_to_the_owning_rank
+  R2_empty_key_and_constant_equal_table_are_byte_identical
+  R3_crlf_and_missing_final_newline
+  R4_token_consumption
+  R5_every_rank_exits_on_a_refusal
+  R6_constant_warning_unchanged_and_absent_under_a_table)
+
+foreach(_t IN LISTS TRITON_MANHOLE_TABLE_REVIEW_TESTS)
+  add_test(NAME UNIT-MANHOLE-TABLE-REVIEW-${_t}
+           COMMAND test_manhole_table_review ${_t})
+endforeach()
