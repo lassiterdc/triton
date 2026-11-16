@@ -19,7 +19,7 @@
 #       [--cpu-cmake-flags-from FILE]  the same for the CPU backend (default: hhemt's CPU flags,
 #                                      without its conda libstdc++ fragment; recorded in the record)
 #       [--repo DIR] [--work DIR] [--kokkos-dir DIR] [--cases N1,N3,...] [--np-big 8] [--no-gpu]
-#       [--keep-going] [--sec-floor 0.05] [--build-only]
+#       [--keep-going] [--sec-floor 0.05] [--build-only] [--n6-part small|big|all]
 # Without --cmake-flags-from (or with --no-gpu) the A100 arms (N6, the A100 arm of N9) are SKIPPED
 # and reported as SKIPPED, never as passed.
 #
@@ -31,7 +31,7 @@ set -u
 THIS=$(readlink -f "$0")
 REPO=$(cd "$(dirname "$THIS")/.." && pwd)
 BASE_SHA=""; TEST_SHA=""; GPU_FLAGS_FILE=""; CPU_FLAGS_FILE=""; WORK=""; KOKKOS_DIR=""
-CASES="N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12"; NP_BIG=8; NO_GPU=0; KEEP_GOING=1; SEC_FLOOR=0.05; BUILD_ONLY=0
+CASES="N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12"; NP_BIG=8; NO_GPU=0; KEEP_GOING=1; SEC_FLOOR=0.05; BUILD_ONLY=0; N6_PART=all
 while [ $# -gt 0 ]; do
   case "$1" in
     --baseline-sha) BASE_SHA=$2; shift 2;;
@@ -44,6 +44,7 @@ while [ $# -gt 0 ]; do
     --cases) CASES=$2; shift 2;;
     --np-big) NP_BIG=$2; shift 2;;
     --no-gpu) NO_GPU=1; shift;;
+    --n6-part) N6_PART=$2; shift 2;;   # small: A100 np1 and np2 (1-2 GPUs); big: the np8 arms and the T-S/T-E arms (one 8-GPU node); all
     --build-only) BUILD_ONLY=1; shift;;   # build every variant the selected cases need, run nothing (a node without the GPU can check the A100 builds)
     --keep-going) KEEP_GOING=1; shift;;
     --sec-floor) SEC_FLOOR=$2; shift 2;;
@@ -534,7 +535,8 @@ case_N6() {
   build gpu_ts "$TEST_SRC" gpu "-DTRITON_DIAG_TEST_SKEW" "" on
   build gpu_tets "$TEST_SRC" gpu "-DTRITON_DIAG_TEST_SKEW -DTRITON_DIAG_TEST_EARLY_MINLOC" "" on
   local np gd
-  for np in 1 2 "$NP_BIG"; do
+  local nps="1 2 $NP_BIG"; [ "$N6_PART" = small ] && nps="1 2"; [ "$N6_PART" = big ] && nps="$NP_BIG"
+  for np in $nps; do
     for gd in 0 1; do
       [ "$np" = 1 ] && [ "$gd" = 1 ] && continue
       local suf="gpu_np${np}_gd${gd}"
@@ -548,6 +550,7 @@ case_N6() {
         $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off $OFFS --cols Compute,MPI,IO,Resize,SWMM,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive 0
     done
   done
+  [ "$N6_PART" = small ] && return 0
   # np8, gpu_aware_mpi on, T6 only: clean+T-S twice, T-E+T-S mutant
   local gd=1 skew
   local nsteps; nsteps=$(python3 -c "import struct,sys; b=open('$OFF1/swmm/hydraulics_exchange_replay.bin','rb').read(); m,n,w=struct.unpack_from('<3i',b,0); print((len(b)-12)//(w*(1+n)))")
