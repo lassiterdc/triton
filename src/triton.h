@@ -462,7 +462,7 @@ namespace Triton
         MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
       }
       swmm_model.coupling_interval.configure(arglist.swmm_coupling_interval, arglist.swmm_coupling_lag);
-      if (rank == 0 && swmm_model.coupling_interval.active())
+      if (rank == 0 && (arglist.swmm_coupling_interval != 1 || arglist.swmm_coupling_lag != 0))
         std::cerr << INFO << "SWMM coupling interval " << arglist.swmm_coupling_interval << " TRITON step(s) per SWMM step, lag "
                   << arglist.swmm_coupling_lag << " (SWMM also steps at every print instant and at the last step)." << std::endl;
     }
@@ -2629,7 +2629,9 @@ namespace Triton
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       const int n_local = swmm_model.num_of_swmm_links;
 
-      if (n_local > 0) {
+      // Device work guarded on the LOCAL count, spelled as the default block spells it:
+      // a rank that owns no coupled manhole has no SWMM_* device vectors to index.
+      if (swmm_model.num_of_swmm_links > 0) {
         st.start(SWMM_XFER);
 
         gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
