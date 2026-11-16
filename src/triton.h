@@ -2534,6 +2534,13 @@ namespace Triton
 #ifndef TRITON_DIAG_TEST_NO_TAIL
       if (diag_surface.any() && diag_surface.pending())
         diag_surface.print_instant(rows, cols, device_vec[H], arglist.hextra, print_id + 1, (double)simtime);
+#ifdef TRITON_SWMM
+      // T1b tail (rank 0): the final partial interval's per-node path-3 sums; the true skips
+      // an interval with no SWMM step, so a whole-interval run writes nothing extra. Same
+      // switch as the surface rows: the T-C build drops it too.
+      if (rank == 0 && swmm_model.global_num_of_swmm_links > 0 && swmm_model.node_path3_enabled())
+        swmm_model.write_node_path3_interval((double)simtime, true);
+#endif
 #endif
       diag_log::close_all();
       st.stop(DIAG_TIME);
