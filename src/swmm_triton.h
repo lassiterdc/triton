@@ -597,6 +597,7 @@ namespace SWMM_triton
 		/// unchanged one-SWMM-step-per-TRITON-step block of triton.h.
 		bool active() const { return interval != 1 || lag != 0; }
 
+		/// Takes the two cfg values after coupling_interval_cfg_error accepted them.
 		void configure(int interval_, int lag_) { interval = interval_; lag = lag_; }
 
 		/// Sizes the per-node buffers to this rank's local coupled-node count; a
