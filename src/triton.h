@@ -2619,19 +2619,23 @@ namespace Triton
     // unchanged find_min_dt, taken once COMPUTE_TIME is closed. TRITON_DIAG_TEST_EARLY_MINLOC
     // (TEST-ONLY, undefined by default) also issues the T6 collective here, before the
     // step's MPI_MIN allreduce.
-    if (diag_surface.dt_limiter)
+    // One DIAG bracket for both rows: each bracket costs two timer-call pairs whose
+    // lookups fall between the category clocks and surface in Other, so two adjacent
+    // reads at one position share one bracket.
+    if (diag_surface.dt_limiter || diag_surface.wet_cells)
     {
       st.start(DIAG_TIME);
-      diag_surface.local_row(rows, cols, device_vec[DT], device_vec[H], device_vec[QX], device_vec[QY], diag_row_offset());
+      if (diag_surface.dt_limiter)
+      {
+        diag_surface.local_row(rows, cols, device_vec[DT], device_vec[H], device_vec[QX], device_vec[QY], diag_row_offset());
 #ifdef TRITON_DIAG_TEST_EARLY_MINLOC
-      diag_surface.minloc_collective();
+        diag_surface.minloc_collective();
 #endif
-      st.stop(DIAG_TIME);
-    }
-    if (diag_surface.wet_cells)
-    {
-      st.start(DIAG_TIME);
-      diag_surface.sample_wet(rows, cols, device_vec[H], (double)arglist.hextra);
+      }
+      if (diag_surface.wet_cells)
+      {
+        diag_surface.sample_wet(rows, cols, device_vec[H], (double)arglist.hextra);
+      }
       st.stop(DIAG_TIME);
     }
   }
