@@ -21,6 +21,7 @@
 
 #include "constants.h"
 #include "matrix.h"
+#include "diag_log.h"
 
 #ifdef TRITON_GDAL
 #include <gdal.h>  
@@ -33,6 +34,7 @@
 #include "Ensify.h"
 
 // Additional includes for run log functions
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <unistd.h>
@@ -2032,6 +2034,37 @@ inline void triton_log_total_time(std::string project_dir, std::string output_fo
 	}
 }
 
+
+}
+
+
+/** @brief Row text and record bytes of the surface-diagnostics capture files (edge_flux.bin,
+ *  dt_limiter.bin, wet_cells.csv, domain_balance.csv). Only the formatting lives here; the
+ *  file handling (header, resume positioning, flush, abort on failure) is diag_log::capture_file's,
+ *  and the values come from diagnostics.h. Every signed quantity is positive INTO the domain. */
+namespace DiagWriters
+{
+	static const char* const DT_LIMITER_NAME = "dt_limiter.bin";
+
+	static constexpr std::size_t DT_LIMITER_RECORD_BYTES = 48;
+
+	/** @brief Appends one dt_limiter.bin record: {f64 simtime, f64 dt, i32 rank, i32 grow,
+	 *  i32 gcol, i32 reason, f64 h, f64 celerity}, 48 bytes with no padding. */
+	static inline void write_dt_limiter_record(diag_log::capture_file& f, double t_end, double dt, int32_t rank,
+	                                           int32_t grow, int32_t gcol, int32_t reason, double h, double celerity)
+	{
+		char buf[DT_LIMITER_RECORD_BYTES];
+		std::size_t o = 0;
+		std::memcpy(buf + o, &t_end, 8); o += 8;
+		std::memcpy(buf + o, &dt, 8); o += 8;
+		std::memcpy(buf + o, &rank, 4); o += 4;
+		std::memcpy(buf + o, &grow, 4); o += 4;
+		std::memcpy(buf + o, &gcol, 4); o += 4;
+		std::memcpy(buf + o, &reason, 4); o += 4;
+		std::memcpy(buf + o, &h, 8); o += 8;
+		std::memcpy(buf + o, &celerity, 8);
+		f.append(buf, sizeof(buf));
+	}
 
 }
 
