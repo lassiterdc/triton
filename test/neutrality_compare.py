@@ -331,8 +331,8 @@ def read_perf(out):
     rows = {}
     for ln in lines[1:]:
         row = [x for x in re.split(r"[,\s]+", ln) if x]
-        if len(row) == len(hdr):
-            rows[int(float(row[0]))] = dict(zip(hdr, [float(x) for x in row]))
+        if len(row) == len(hdr) and row[0].isdigit():   # the "Average" row is not a rank
+            rows[int(row[0])] = dict(zip(hdr, [float(x) for x in row]))
     return rows
 
 
