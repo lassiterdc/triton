@@ -545,6 +545,155 @@ namespace SWMM_triton
 	}
 
 
+	// ---------------------------------------------------------------------------
+	// Coupling interval and lag (cfg swmm_coupling_interval, swmm_coupling_lag).
+	//
+	// By default SWMM is stepped once per TRITON step with that step's exchange.
+	// These two keys let an experiment ask what a slower or lagged coupling would
+	// do. With interval N, every TRITON step still applies its own exchange to the
+	// surface, but the volume (exchange_q * dt) is summed per node and SWMM is stepped
+	// once per N steps with the summed dt and the dt-weighted mean exchange_q; the
+	// depths it returns are held for the next N steps. With lag 1 the depths SWMM
+	// returns reach the surface one TRITON step later than they would.
+	//
+	// Every checkpoint must hold a complete coupled state, so the coupling block
+	// forces a SWMM step at the TRITON step that ends a print interval (and at the
+	// last step of the run): the accumulator is then empty and no lagged depth is
+	// pending when the checkpoint is written, and a resume restarts with the same
+	// zeroed state a clean run has at that instant.
+	//
+	// The struct below is the pure bookkeeping (no MPI, no SWMM call) so a unit test
+	// can drive it; triton.h owns the collectives and the swmm_step call. Every rank
+	// holds one and calls it with the same global dt sequence, so the answer to
+	// "does SWMM step now" is the same on every rank, which the gather needs.
+	// ---------------------------------------------------------------------------
+
+	/// Refusal text for a cfg pair outside its legal range, or an empty string
+	/// when both values are legal. Rank 0 prints it and the run aborts.
+	static inline std::string coupling_interval_cfg_error(int interval, int lag)
+	{
+		if (interval < 1)
+			return "swmm_coupling_interval must be an integer >= 1, got " + std::to_string(interval);
+		if (lag != 0 && lag != 1)
+			return "swmm_coupling_lag must be 0 or 1, got " + std::to_string(lag);
+		return std::string();
+	}
+
+	struct coupling_interval_t
+	{
+		int interval = 1;   ///< TRITON steps per SWMM step (cfg swmm_coupling_interval)
+		int lag = 0;        ///< 1: SWMM's depths reach the surface one TRITON step later
+
+		// Carried between TRITON steps. Empty at every checkpoint (carries_state()).
+		int steps = 0;                   ///< TRITON steps accumulated since SWMM last stepped
+		double acc_dt = 0.0;             ///< sum of those steps' dt
+		std::vector<double> acc_qdt;     ///< per local node: sum of exchange_q * dt
+		std::vector<value_t> last_q;     ///< the most recent step's exchange_q, per local node
+		std::vector<value_t> mean_q;     ///< scratch: the interval-mean exchange_q handed to SWMM
+		std::vector<value_t> staged;     ///< scratch: the depths the scatter delivered this step
+		std::vector<value_t> pending;    ///< lag 1: the previous SWMM step's depths, not yet applied
+		bool has_pending = false;
+
+		/// True when either key departs from its default. False selects the
+		/// unchanged one-SWMM-step-per-TRITON-step block of triton.h.
+		bool active() const { return interval != 1 || lag != 0; }
+
+		/// Takes the two cfg values after coupling_interval_cfg_error accepted them.
+		void configure(int interval_, int lag_) { interval = interval_; lag = lag_; }
+
+		/// Sizes the per-node buffers to this rank's local coupled-node count; a
+		/// rank with none keeps empty buffers and still counts steps and dt.
+		void ensure_size(int n)
+		{
+			if ((int)acc_qdt.size() == n) return;
+			acc_qdt.assign(n, 0.0);
+			last_q.assign(n, (value_t)0.0);
+			mean_q.assign(n, (value_t)0.0);
+			staged.assign(n, (value_t)0.0);
+			pending.assign(n, (value_t)0.0);
+		}
+
+		/// Adds one TRITON step: this rank's n exchange_q values and the step's dt.
+		void accumulate(const value_t* q, int n, value_t dt)
+		{
+			ensure_size(n);
+			for (int i = 0; i < n; ++i)
+			{
+				acc_qdt[i] += (double)q[i] * (double)dt;
+				last_q[i] = q[i];
+			}
+			acc_dt += (double)dt;
+			++steps;
+		}
+
+		/// SWMM steps when N TRITON steps have accumulated, or when `drain` forces it.
+		bool step_due(bool drain) const { return drain || steps >= interval; }
+
+		/// The dt handed to swmm_step and written to the side-file, in the width of
+		/// the side-file's record so the replay passes SWMM the same number.
+		value_t interval_dt() const { return (value_t)acc_dt; }
+
+		/// The exchange_q handed to swmm_step: sum(q*dt)/sum(dt) per node. A
+		/// one-step interval passes that step's q unchanged, because (q*dt)/dt is
+		/// not always q in floating point and the one-step case should equal the
+		/// default coupling exactly.
+		value_t* interval_mean(int n)
+		{
+			ensure_size(n);
+			if (steps == 1 || acc_dt <= 0.0) return last_q.data();
+			for (int i = 0; i < n; ++i) mean_q[i] = (value_t)(acc_qdt[i] / acc_dt);
+			return mean_q.data();
+		}
+
+		/// Forgets the accumulated interval, after SWMM has stepped on it.
+		void clear_interval()
+		{
+			std::fill(acc_qdt.begin(), acc_qdt.end(), 0.0);
+			acc_dt = 0.0;
+			steps = 0;
+		}
+
+		/// The buffer the depth scatter writes into on a SWMM-stepping step.
+		value_t* staged_depths(int n) { ensure_size(n); return staged.data(); }
+
+		/// Applies the step's depth outcome to `held` (the per-rank new_depth the next
+		/// exchange reads). stepped is false on a step where SWMM did not step: held
+		/// depths stay (lag 0), or the pending depths are promoted (lag 1).
+		/// Lag 0: a stepped result lands at once. Lag 1: a stepped result waits one
+		/// more TRITON step, and a drain applies the freshest result at once and drops
+		/// the wait, so every checkpoint holds the newest depths.
+		void settle(value_t* held, int n, bool stepped, bool drain)
+		{
+			ensure_size(n);
+			if (lag == 0)
+			{
+				if (stepped) std::copy(staged.begin(), staged.begin() + n, held);
+				return;
+			}
+			if (stepped && drain)
+			{
+				std::copy(staged.begin(), staged.begin() + n, held);
+				has_pending = false;
+				return;
+			}
+			if (has_pending)
+			{
+				std::copy(pending.begin(), pending.begin() + n, held);
+				has_pending = false;
+			}
+			if (stepped)
+			{
+				std::copy(staged.begin(), staged.begin() + n, pending.begin());
+				has_pending = true;
+			}
+		}
+
+		/// True when something this struct holds would be lost at a resume: steps
+		/// accumulated and not yet given to SWMM, or lagged depths not yet applied.
+		bool carries_state() const { return steps != 0 || has_pending; }
+	};
+
+
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
 
@@ -674,6 +823,17 @@ namespace SWMM_triton
 		int num_of_swmm_links = 0; /**< Number of SWMM nodes connected to the surface per subdomain */
 		int num_of_swmm_nodes = 0; /**< Number of SWMM total nodes */
 		int global_num_of_swmm_links = 0; /**< Number of (full domain) SWMM nodes connected to the surface */
+
+		/// Coupling interval and lag state (cfg swmm_coupling_interval, swmm_coupling_lag).
+		/// Inactive at the defaults, which keeps triton.h on its one-SWMM-step-per-
+		/// TRITON-step block.
+		coupling_interval_t coupling_interval;
+
+		/// True when SWMM stepped in the current TRITON step. It is true on every
+		/// step at the defaults (the initial value is never changed there); only the
+		/// interval/lag block of triton.h sets it false, on a step it skips SWMM. A
+		/// per-SWMM-step writer reads it to write only on a step where SWMM stepped.
+		bool stepped_this_step = true;
 
 		std::vector<value_t> x;
 		std::vector<value_t> y;
