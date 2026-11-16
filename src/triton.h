@@ -2710,10 +2710,16 @@ namespace Triton
                                       swmm_model.node_to_rank_dict);
           // One side-file record per SWMM step: (sum of dt, interval-mean exchange_q),
           // the exact inputs of the swmm_step below, so a replay reproduces it.
+          // SWMM_LOG and SWMM_SOLVE are children of SWMM_STEP and are never open at the
+          // same time, exactly as in the default block below.
+          st.start(SWMM_LOG);
           swmm_model.log_exchange_step(dt_swmm, swmm_model.global_exchange_q);
-          swmm_model.stop_on_swmm_error(
-              swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, dt_swmm),
-              "swmm_step", "during a coupled timestep");
+          st.stop(SWMM_LOG);
+          st.start(SWMM_SOLVE);
+          const int swmm_step_rc =
+              swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, dt_swmm);
+          st.stop(SWMM_SOLVE);
+          swmm_model.stop_on_swmm_error(swmm_step_rc, "swmm_step", "during a coupled timestep");
           swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                       swmm_model.node_to_rank_dict);
           st.stop(SWMM_STEP);
