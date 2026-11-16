@@ -219,23 +219,38 @@ namespace diagnostics
 	}
 
 	/** @brief The minimum of the per-cell step size array and the index it sits at: a
-	 *  separate reduction beside find_min_dt, which stays unchanged. */
+	 *  separate reduction beside find_min_dt, which stays unchanged.
+	 *
+	 *  Tie rule: when several cells share the minimum, an interior cell wins over a ghost
+	 *  or halo cell, and among cells of one class the smaller index wins. The external-
+	 *  boundary kernel writes a boundary ghost cell and its interior twin with identical
+	 *  h, qx and qy, so their step sizes are bit-equal, and on the north and west edges
+	 *  the ghost has the smaller index; ordering by index alone would record a row or
+	 *  column of -1. Two passes (the value, then the smallest tie key among the cells at
+	 *  that value) because a one-pass MinLoc join does not honour a class order across
+	 *  threads. A minimum held ONLY by ghost cells is returned as that ghost index.
+	 *  @param rows,cols dimensions of the array including the ghost ring */
 	template<typename T>
-	void min_dt_loc(int size, T const* dt_arr, double& value, int& loc)
+	void min_dt_loc(int rows, int cols, T const* dt_arr, double& value, int& loc)
 	{
-		using minloc_t = Kokkos::MinLoc<double, int>;
-		using vl_t = typename minloc_t::value_type;
-		vl_t result;
-		Kokkos::parallel_reduce(std::string("diag_min_dt_loc"), size, KOKKOS_LAMBDA(const int id, vl_t& upd) {
+		const int size = rows * cols;
+		double vmin = 0.0;
+		Kokkos::parallel_reduce(std::string("diag_min_dt"), size, KOKKOS_LAMBDA(const int id, double& lmin) {
 			const double v = (double)dt_arr[id];
-			if (v < upd.val || (v == upd.val && id < upd.loc))
-			{
-				upd.val = v;
-				upd.loc = id;
-			}
-		}, minloc_t(result));
-		value = result.val;
-		loc = result.loc;
+			if (v < lmin) lmin = v;
+		}, Kokkos::Min<double>(vmin));
+		long long key = 0;
+		Kokkos::parallel_reduce(std::string("diag_min_dt_tie"), size, KOKKOS_LAMBDA(const int id, long long& lkey) {
+			if ((double)dt_arr[id] != vmin) return;
+			const int ix = id / cols;
+			const int iy = id % cols;
+			const bool ghost = ix <= GHOST_CELL_PADDING - 1 || ix >= rows - GHOST_CELL_PADDING ||
+			                   iy <= GHOST_CELL_PADDING - 1 || iy >= cols - GHOST_CELL_PADDING;
+			const long long k = ghost ? (long long)id + (long long)size : (long long)id;
+			if (k < lkey) lkey = k;
+		}, Kokkos::Min<long long>(key));
+		value = vmin;
+		loc = (int)(key >= (long long)size ? key - (long long)size : key);
 	}
 
 	/** @brief Spins the calling thread for `us` microseconds (the test-only switches'
@@ -478,7 +493,7 @@ namespace diagnostics
 		template<typename T>
 		void local_row(int rows, int cols, T const* dt_arr, T* h_dev, T* qx_dev, T* qy_dev, int row_offset)
 		{
-			min_dt_loc(rows * cols, dt_arr, local_val, local_loc);
+			min_dt_loc(rows, cols, dt_arr, local_val, local_loc);
 			local_h = 0.0; local_celerity = 0.0; local_grow = -1; local_gcol = -1;
 			if (local_val < MAX_VALUE - 1.0 && local_loc >= 0)
 			{
