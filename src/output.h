@@ -1693,6 +1693,23 @@ namespace Output
 			output.close();
 		}
 		
+		// Every array above is read only before this point (gathers, then the rank-0 write).
+		delete[] compute_time_all;
+		delete[] mpi_time_all;
+		delete[] io_time_all;
+		delete[] simulation_time_all;
+		delete[] total_time_all;
+		delete[] other_time_all;
+		delete[] init_time_all;
+		delete[] resize_time_all;
+		delete[] swmm_time_all;
+		delete[] swmm_xfer_time_all;
+		delete[] swmm_mpi_time_all;
+		delete[] swmm_step_time_all;
+		delete[] swmm_other_time_all;
+		delete[] swmm_solve_time_all;
+		delete[] swmm_log_time_all;
+		delete[] diag_time_all;
 	}
 	
 	
