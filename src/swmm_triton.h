@@ -694,6 +694,185 @@ namespace SWMM_triton
 	};
 
 
+	// ---------------------------------------------------------------------------
+	// T1 capture encoders (cfg swmm_diag_steps, swmm_diag_node_path3_per_step,
+	// swmm_diag_links). Each function below turns values already read from the SWMM
+	// getters into the bytes of one record; none calls SWMM, MPI or touches a file, so
+	// test_step_diag_log.cpp checks every layout in a plain process. The writer in
+	// swmm_triton (capture_step_diag) only reads getter outputs after swmm_step and
+	// hands them to these functions, so no capture can change a hydraulic value.
+	// Layouts are those of the shape's section 2 table and erratum E-2: every record
+	// starts with an f64 stamp (the END time of what it covers), which is what
+	// diag_log's positioners read when they truncate a resumed file.
+	// ---------------------------------------------------------------------------
+
+	/// swmm_step_diag.bin: the fixed part of a record is 48 bytes,
+	/// {f64 simtime, f64 dt, i32 trials, i32 n_nonconv, f64 p3_pos, f64 p3_neg,
+	/// f64 link_volume}, and n_nonconv i32 ordinals follow it. The count sits at byte
+	/// 20, so the positioner is counted_block_record_reader(48, 20, 4).
+	static constexpr std::size_t STEP_DIAG_FIXED_BYTES = 48;
+	static constexpr std::size_t STEP_DIAG_COUNT_OFFSET = 20;
+	static constexpr std::size_t STEP_DIAG_ITEM_BYTES = sizeof(int32_t);
+
+	/// Appends `bytes` raw bytes of `p` to `buf`.
+	static inline void step_diag_put(std::vector<char>& buf, const void* p, std::size_t bytes)
+	{
+		const char* c = static_cast<const char*>(p);
+		buf.insert(buf.end(), c, c + bytes);
+	}
+
+	/// One swmm_step_diag.bin record. `ordinals` holds n_nonconv non-outfall ordinals
+	/// (the position among non-outfall nodes in SWMM node-index order, erratum E-10).
+	static inline std::vector<char> encode_step_diag_record(double simtime, double dt, int32_t trials,
+	                                                        int32_t n_nonconv, double p3_pos, double p3_neg,
+	                                                        double link_volume, const int32_t* ordinals)
+	{
+		std::vector<char> b;
+		b.reserve(STEP_DIAG_FIXED_BYTES + (std::size_t)(n_nonconv > 0 ? n_nonconv : 0) * STEP_DIAG_ITEM_BYTES);
+		step_diag_put(b, &simtime, 8);
+		step_diag_put(b, &dt, 8);
+		step_diag_put(b, &trials, 4);
+		step_diag_put(b, &n_nonconv, 4);
+		step_diag_put(b, &p3_pos, 8);
+		step_diag_put(b, &p3_neg, 8);
+		step_diag_put(b, &link_volume, 8);
+		if (n_nonconv > 0) step_diag_put(b, ordinals, (std::size_t)n_nonconv * STEP_DIAG_ITEM_BYTES);
+		return b;
+	}
+
+	/// swmm_node_path3_step.bin (T1c): {f64 simtime, f64 dt, f64[n]} per step.
+	static inline std::size_t node_path3_step_record_bytes(int n) { return 16 + 8 * (std::size_t)n; }
+
+	static inline std::vector<char> encode_node_path3_step_record(double simtime, double dt, const double* path3, int n)
+	{
+		std::vector<char> b;
+		b.reserve(node_path3_step_record_bytes(n));
+		step_diag_put(b, &simtime, 8);
+		step_diag_put(b, &dt, 8);
+		if (n > 0) step_diag_put(b, path3, 8 * (std::size_t)n);
+		return b;
+	}
+
+	/// swmm_link_flow_diag.bin (T1d): {f64 simtime, f64[L] flow} per step.
+	static inline std::size_t link_flow_record_bytes(int n_links) { return 8 + 8 * (std::size_t)n_links; }
+
+	static inline std::vector<char> encode_link_flow_record(double simtime, const double* flow, int n_links)
+	{
+		std::vector<char> b;
+		b.reserve(link_flow_record_bytes(n_links));
+		step_diag_put(b, &simtime, 8);
+		if (n_links > 0) step_diag_put(b, flow, 8 * (std::size_t)n_links);
+		return b;
+	}
+
+	/// swmm_node_path3.bin (T1b): {f64 t_end, f64[n] pos, f64[n] neg, i32[n] n_nonconv}
+	/// per print interval, n the non-outfall node count.
+	static inline std::size_t node_path3_record_bytes(int n) { return 8 + 20 * (std::size_t)n; }
+
+	/// The per-node interval sums of T1b. They live here, in the writer's own memory,
+	/// and not in solver statics, so no value crosses a SWMM step boundary inside the
+	/// solver. take() writes the interval's record and resets the sums, which is what
+	/// the print-instant row does, so the sums are zero at every checkpoint and a
+	/// resumed process starts them from zero as the clean run does.
+	struct node_path3_interval_t
+	{
+		int                  n = 0;
+		long                 steps = 0;      ///< SWMM steps added since the last take()
+		std::vector<double>  pos;            ///< sum of the positive path-3 terms, per node
+		std::vector<double>  neg;            ///< sum of the negative path-3 terms (<= 0), per node
+		std::vector<int32_t> nonconv;        ///< steps the node ended non-converged
+
+		/// Sizes the sums for n_nodes non-outfall nodes and zeroes them.
+		void reset(int n_nodes)
+		{
+			n = n_nodes;
+			steps = 0;
+			pos.assign((std::size_t)n, 0.0);
+			neg.assign((std::size_t)n, 0.0);
+			nonconv.assign((std::size_t)n, 0);
+		}
+
+		/// Adds one SWMM step: path3[k] for every non-outfall ordinal k, and the n_nc
+		/// ordinals of the nodes left non-converged. Returns false, adding nothing,
+		/// when an ordinal is outside [0, n): the getter's contract makes that
+		/// impossible, so the caller aborts rather than skewing a count.
+		bool add_step(const double* path3, const int32_t* ordinals, int n_nc)
+		{
+			for (int j = 0; j < n_nc; ++j)
+				if (ordinals[j] < 0 || ordinals[j] >= n) return false;
+			for (int k = 0; k < n; ++k)
+			{
+				if (path3[k] > 0.0)      pos[(std::size_t)k] += path3[k];
+				else if (path3[k] < 0.0) neg[(std::size_t)k] += path3[k];
+			}
+			for (int j = 0; j < n_nc; ++j) nonconv[(std::size_t)ordinals[j]] += 1;
+			++steps;
+			return true;
+		}
+
+		/// The record of the interval ending at t_end; the sums are reset.
+		std::vector<char> take(double t_end)
+		{
+			std::vector<char> b;
+			b.reserve(node_path3_record_bytes(n));
+			step_diag_put(b, &t_end, 8);
+			if (n > 0)
+			{
+				step_diag_put(b, pos.data(), 8 * (std::size_t)n);
+				step_diag_put(b, neg.data(), 8 * (std::size_t)n);
+				step_diag_put(b, nonconv.data(), 4 * (std::size_t)n);
+			}
+			reset(n);
+			return b;
+		}
+	};
+
+	/// A sidecar: one name per line, UTF-8, no header (swmm_node_diag.nodes,
+	/// swmm_link_flow_diag.links).
+	static inline std::string format_name_list(const std::vector<std::string>& names)
+	{
+		std::string out;
+		for (const std::string& s : names) { out += s; out += '\n'; }
+		return out;
+	}
+
+	/// The links T1d writes. key "ALL" selects every link in SWMM link-index order;
+	/// otherwise `listed` (the names of the file the key points at, file order) are
+	/// matched to `all_links` case-insensitively, as SWMM's own lookup does, and the
+	/// engine's spelling is returned. Returns an empty vector and sets `err` when a
+	/// name is not a link of the model, a name repeats, or the list is empty. The
+	/// returned names are in the order they are written, so the position of a name in
+	/// all_links is its SWMM link index (`indices`, parallel to the result).
+	static inline std::vector<std::string> select_diag_links(const std::string& key,
+	                                                         const std::vector<std::string>& listed,
+	                                                         const std::vector<std::string>& all_links,
+	                                                         std::vector<int>& indices, std::string& err)
+	{
+		std::vector<std::string> out;
+		indices.clear();
+		err.clear();
+		if (key == "ALL")
+		{
+			out = all_links;
+			for (std::size_t i = 0; i < all_links.size(); ++i) indices.push_back((int)i);
+			return out;
+		}
+		if (listed.empty()) { err = "the swmm_diag_links list names no link"; return out; }
+		const std::pair<int, int> rep = find_repeated_name(listed);
+		if (rep.first >= 0) { err = "swmm_diag_links names \"" + listed[rep.second] + "\" twice"; return std::vector<std::string>(); }
+		for (const std::string& name : listed)
+		{
+			int found = -1;
+			for (std::size_t i = 0; i < all_links.size(); ++i)
+				if (swmm_upper(all_links[i]) == swmm_upper(name)) { found = (int)i; break; }
+			if (found < 0) { err = "swmm_diag_links names \"" + name + "\", which is not a link of the SWMM model"; indices.clear(); return std::vector<std::string>(); }
+			out.push_back(all_links[(std::size_t)found]);
+			indices.push_back(found);
+		}
+		return out;
+	}
+
+
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
 
@@ -738,6 +917,39 @@ namespace SWMM_triton
 		/// side-file agree on where the live segment starts. An empty list, the state
 		/// while no capture is declared, makes both hooks do nothing.
 		std::vector<diag_log::capture_file*> diag_files;
+
+		/// T1 capture of the SWMM step (cfg swmm_diag_steps, swmm_diag_node_path3_per_step,
+		/// swmm_diag_links). Rank 0 only; every method returns at once on another rank.
+		///
+		/// declare_step_diag runs once per process after init_swmm and BEFORE the clean
+		/// start or either resume route opens diag_files: it lists the nodes and links
+		/// from the engine, writes the two sidecars (swmm_node_diag.nodes,
+		/// swmm_link_flow_diag.links), declares each enabled file and adds it to
+		/// diag_files. With every toggle off it declares nothing, so no file exists.
+		void declare_step_diag(bool steps, bool node_path3_per_step, const std::string& links_key);
+
+		/// True when a T1 file was declared.
+		bool step_diag_enabled() const { return step_diag_active_; }
+
+		/// True when this TRITON step stepped SWMM and a T1 file is declared: the one
+		/// condition the per-step T1 row of triton.h opens its DIAG_TIME bracket on.
+		bool step_diag_due() const { return step_diag_active_ && stepped_this_step; }
+
+		/// True when the T1b interval file is declared (the print-instant row's condition).
+		bool node_path3_enabled() const { return sd_b_; }
+
+		/// Reads the getters of the SWMM step that just returned and writes the T1a,
+		/// T1c and T1d records of it, adding the step to the T1b interval sums.
+		/// step_end_time is the END time of the TRITON step (simtime + dt, because the
+		/// call precedes simtime += dt); swmm_dt is the dt SWMM was stepped with. It
+		/// writes nothing on a step where SWMM did not step.
+		void capture_step_diag(double step_end_time, double swmm_dt);
+
+		/// Writes the T1b record of the interval ending at t_end and resets the sums.
+		/// The print-instant row calls it every print instant; with only_if_pending a
+		/// final partial interval with no SWMM step in it writes nothing (the
+		/// end-of-run close row).
+		void write_node_path3_interval(double t_end, bool only_if_pending = false);
 
 		// --- full-precision state snapshot (bounds the resume cost) ---------
 		// The replay above is exact but its cost grows with t_k, and the GPU sits
@@ -897,6 +1109,22 @@ namespace SWMM_triton
 		/// Latched from swmm_snapshot_failed_replay, for the same reason: its
 		/// consumer, try_restore_state_snapshot, runs after initialize returns.
 		bool snapshot_failed_replay = false;
+
+		/// The output folder root (project/output/), where the T1 capture files and
+		/// sidecars are written beside performance.txt. Set by init_swmm on rank 0.
+		std::string capture_dir_;
+
+		/// T1 capture state (rank 0). One capture_file per file, registered in
+		/// diag_files by declare_step_diag; sd_a_ is T1a, sd_b_ T1b, sd_c_ T1c, sd_d_ T1d.
+		diag_log::capture_file cf_step_, cf_node_path3_, cf_node_path3_step_, cf_link_flow_;
+		bool step_diag_active_ = false;
+		bool sd_a_ = false, sd_b_ = false, sd_c_ = false, sd_d_ = false;
+		int sd_n_nodes_ = 0;                       ///< non-outfall node count (the sidecar's line count)
+		std::vector<double>  sd_path3_;            ///< per-node path-3 volume of the step just read
+		std::vector<int32_t> sd_nonconv_;          ///< non-converged ordinals of the step just read
+		node_path3_interval_t sd_interval_;        ///< T1b sums since the last print instant
+		std::vector<int>     sd_link_idx_;         ///< SWMM link index of each T1d column
+		std::vector<double>  sd_link_flow_;        ///< T1d flows of the step just read
 
 		/// Latched from swmm_node_rim_from_dem. Read only by init_swmm, to label the
 		/// SWMM rims it prints as replaced when triton.h is about to set every rim
@@ -1261,6 +1489,7 @@ namespace SWMM_triton
 			std::string filenameWithoutExtension = filenameWithoutPath.substr(0, filenameWithoutPath.rfind("."));
 
 			std::string root_dir(project_dir + "/" + output_folder + "/");
+			capture_dir_ = root_dir;
 			std::string output_dir_swmm = project_dir + "/" + output_folder + "/swmm/";
 
 
@@ -1629,6 +1858,177 @@ namespace SWMM_triton
 	{
 		if (rank_ != 0) return;
 		if (exchange_log.is_open()) { exchange_log.flush(); exchange_log.close(); }
+	}
+
+
+	// ---------------------------------------------------------------------------
+	// T1 capture of the SWMM step (rank 0). The writer only reads: it calls the
+	// swmm_get* getters after swmm_step returned, formats what they returned with the
+	// encoders above and appends it to its own files, so it cannot change SWMM's or
+	// TRITON's state. The call sites are in triton.h (the per-step row after
+	// st.stop(SWMM_TIME) and the print-instant row), both under DIAG_TIME.
+	// ---------------------------------------------------------------------------
+
+	/// Writes `content` to `path`, replacing the file; aborts the job on failure.
+	static inline void write_diag_sidecar(const std::string& path, const std::string& content)
+	{
+		std::ofstream f(path, std::ios::binary | std::ios::trunc);
+		if (!f.is_open()) diag_log::fatal("could not open " + path + " for writing");
+		f.write(content.data(), (std::streamsize)content.size());
+		f.flush();
+		if (!f.good()) diag_log::fatal("could not write " + path);
+	}
+
+	/// The engine's names of every object of one type in index order, `skip_outfalls`
+	/// leaving out outfall nodes (the numbering of the non-outfall ordinals).
+	static inline std::vector<std::string> swmm_object_names(int obj_type, bool skip_outfalls)
+	{
+		std::vector<std::string> names;
+		const int total = swmm_getCount(obj_type);
+		char buf[1024];
+		for (int i = 0; i < total; ++i)
+		{
+			if (skip_outfalls && (int)swmm_getValue(swmm_NODE_TYPE, i) == swmm_OUTFALL) continue;
+			buf[0] = '\0';
+			swmm_getName(obj_type, i, buf, (int)sizeof(buf));
+			names.emplace_back(buf);
+		}
+		return names;
+	}
+
+	void swmm_triton::declare_step_diag(bool steps, bool node_path3_per_step, const std::string& links_key)
+	{
+		if (rank_ != 0) return;
+		const bool want_links = !links_key.empty();
+		if (!steps && !node_path3_per_step && !want_links) return;
+
+		const int n = swmm_getNonOutfallNodeCount();
+		sd_n_nodes_ = n;
+		sd_path3_.assign((std::size_t)n, 0.0);
+		sd_nonconv_.assign((std::size_t)(n > 0 ? n : 1), 0);
+
+		if (steps || node_path3_per_step)
+		{
+			// The node sidecar is written on every process start, clean or resumed: its
+			// bytes are a function of the model alone, so a resume leaves them equal.
+			const std::vector<std::string> names = swmm_object_names(swmm_NODE, true);
+			if ((int)names.size() != n)
+				diag_log::fatal("the SWMM model lists " + std::to_string(names.size())
+				                + " non-outfall nodes but the capture getter counts " + std::to_string(n));
+			write_diag_sidecar(capture_dir_ + "swmm_node_diag.nodes", format_name_list(names));
+		}
+
+		if (steps)
+		{
+			cf_step_.declare_binary(capture_dir_ + "swmm_step_diag.bin", diag_log::MAGIC_SWMM_STEP_DIAG, 0,
+			                        diag_log::counted_block_record_reader(STEP_DIAG_FIXED_BYTES, STEP_DIAG_COUNT_OFFSET,
+			                                                              STEP_DIAG_ITEM_BYTES));
+			diag_files.push_back(&cf_step_);
+			cf_node_path3_.declare_binary(capture_dir_ + "swmm_node_path3.bin", diag_log::MAGIC_SWMM_NODE_PATH3, n,
+			                              diag_log::fixed_record_reader(node_path3_record_bytes(n)));
+			diag_files.push_back(&cf_node_path3_);
+			sd_interval_.reset(n);
+			sd_a_ = true;
+			sd_b_ = true;
+		}
+
+		if (node_path3_per_step)
+		{
+			cf_node_path3_step_.declare_binary(capture_dir_ + "swmm_node_path3_step.bin",
+			                                   diag_log::MAGIC_SWMM_NODE_PATH3_STEP, n,
+			                                   diag_log::fixed_record_reader(node_path3_step_record_bytes(n)));
+			diag_files.push_back(&cf_node_path3_step_);
+			sd_c_ = true;
+		}
+
+		if (want_links)
+		{
+			std::vector<std::string> listed;
+			if (links_key != "ALL")
+			{
+				// A path, as swmm_coupling_nodes is: one link name per line.
+				std::ifstream in(links_key);
+				if (!in.is_open()) diag_log::fatal("could not open the swmm_diag_links list " + links_key);
+				std::vector<int> lines;
+				read_coupling_list(in, listed, lines);
+			}
+			std::vector<int> idx;
+			std::string err;
+			const std::vector<std::string> picked =
+				select_diag_links(links_key, listed, swmm_object_names(swmm_LINK, false), idx, err);
+			if (!err.empty()) diag_log::fatal(err);
+			sd_link_idx_ = idx;
+			sd_link_flow_.assign(idx.size(), 0.0);
+			write_diag_sidecar(capture_dir_ + "swmm_link_flow_diag.links", format_name_list(picked));
+			cf_link_flow_.declare_binary(capture_dir_ + "swmm_link_flow_diag.bin", diag_log::MAGIC_SWMM_LINK_FLOW,
+			                             (int32_t)idx.size(),
+			                             diag_log::fixed_record_reader(link_flow_record_bytes((int)idx.size())));
+			diag_files.push_back(&cf_link_flow_);
+			sd_d_ = true;
+		}
+
+		step_diag_active_ = true;
+	}
+
+	void swmm_triton::capture_step_diag(double step_end_time, double swmm_dt)
+	{
+		if (rank_ != 0 || !step_diag_due()) return;
+
+		// The getters read the solution of the swmm_step that just returned and are
+		// valid only on a step in which SWMM actually stepped; a step it did not
+		// advance would read zeros by design, which step_diag_due() keeps out.
+		int32_t trials = 0, n_nc = 0;
+		double p3_pos = 0.0, p3_neg = 0.0, link_volume = 0.0;
+		int got_nc = 0;
+		if (sd_a_)
+		{
+			int t = 0, nn = 0;
+			if (swmm_getStepDiagnostics(&t, &nn, &p3_pos, &p3_neg, &link_volume) == 2)
+				diag_log::fatal("swmm_getStepDiagnostics refused its arguments");
+			trials = t; n_nc = nn;
+			const int g = swmm_getNonConvergedNodes(sd_nonconv_.data(), (int)sd_nonconv_.size());
+			got_nc = g < 0 ? 0 : g;
+			if (got_nc != n_nc)
+				diag_log::fatal("the SWMM step reports " + std::to_string(n_nc) + " non-converged nodes but lists "
+				                + std::to_string(got_nc));
+		}
+		if ((sd_b_ || sd_c_) && sd_n_nodes_ > 0)
+		{
+			const int w = swmm_getNodeStepDiagnostics(sd_path3_.data(), sd_n_nodes_);
+			if (w < 0) std::fill(sd_path3_.begin(), sd_path3_.end(), 0.0);   // no dynamic wave solution: zero by contract
+			else if (w != sd_n_nodes_)
+				diag_log::fatal("swmm_getNodeStepDiagnostics wrote " + std::to_string(w) + " of "
+				                + std::to_string(sd_n_nodes_) + " nodes");
+		}
+
+		if (sd_a_)
+		{
+			const std::vector<char> rec = encode_step_diag_record(step_end_time, swmm_dt, trials, n_nc, p3_pos, p3_neg,
+			                                                      link_volume, sd_nonconv_.data());
+			cf_step_.append(rec.data(), rec.size());
+		}
+		if (sd_b_ && !sd_interval_.add_step(sd_path3_.data(), sd_nonconv_.data(), got_nc))
+			diag_log::fatal("a non-converged node ordinal lies outside the non-outfall node range");
+		if (sd_c_)
+		{
+			const std::vector<char> rec = encode_node_path3_step_record(step_end_time, swmm_dt, sd_path3_.data(), sd_n_nodes_);
+			cf_node_path3_step_.append(rec.data(), rec.size());
+		}
+		if (sd_d_)
+		{
+			for (std::size_t k = 0; k < sd_link_idx_.size(); ++k)
+				sd_link_flow_[k] = swmm_getValue(swmm_LINK_FLOW, sd_link_idx_[k]);
+			const std::vector<char> rec = encode_link_flow_record(step_end_time, sd_link_flow_.data(), (int)sd_link_idx_.size());
+			cf_link_flow_.append(rec.data(), rec.size());
+		}
+	}
+
+	void swmm_triton::write_node_path3_interval(double t_end, bool only_if_pending)
+	{
+		if (rank_ != 0 || !sd_b_) return;
+		if (only_if_pending && sd_interval_.steps == 0) return;
+		const std::vector<char> rec = sd_interval_.take(t_end);
+		cf_node_path3_.append(rec.data(), rec.size());
 	}
 
 

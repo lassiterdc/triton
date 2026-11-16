@@ -108,6 +108,26 @@ namespace ConfigUtils
 		*   them from the second step after the SWMM step. Additive. */
 		int
 		swmm_coupling_lag;
+
+		/**< T1 capture of the SWMM step (rank 0): 1 writes swmm_step_diag.bin (per
+		*   coupled SWMM step: trials, non-converged nodes, domain path-3 volume sums,
+		*   link volume) and swmm_node_path3.bin (per print interval, per node). 0
+		*   (absent key) writes neither. Additive. */
+		int
+		swmm_diag_steps;
+
+		/**< T1c: 1 also writes swmm_node_path3_step.bin, the per-step per-node
+		*   path-3 volume (about 9 KB per step on a 1,100-node model). Independent of
+		*   swmm_diag_steps. 0 (absent key) writes no file. Additive. */
+		int
+		swmm_diag_node_path3_per_step;
+
+		/**< T1d: the links whose flow is written every SWMM step to
+		*   swmm_link_flow_diag.bin. A path names a one-column file of SWMM link
+		*   names; ALL lists every link; empty (absent key) writes no file. Resolved
+		*   like swmm_coupling_nodes. Additive. */
+		std::string
+		swmm_diag_links;
 #endif
 
 		std::string
@@ -548,6 +568,9 @@ namespace ConfigUtils
 		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
 		arglist.swmm_coupling_interval = atoi((argsd("swmm_coupling_interval", argmap, "1")).c_str());
 		arglist.swmm_coupling_lag = atoi((argsd("swmm_coupling_lag", argmap, "0")).c_str());
+		arglist.swmm_diag_steps = atoi((argsd("swmm_diag_steps", argmap, "0")).c_str());
+		arglist.swmm_diag_node_path3_per_step = atoi((argsd("swmm_diag_node_path3_per_step", argmap, "0")).c_str());
+		arglist.swmm_diag_links = argsd("swmm_diag_links", argmap, "");
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
