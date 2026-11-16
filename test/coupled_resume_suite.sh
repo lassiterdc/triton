@@ -209,6 +209,8 @@ grep -aq "path=snapshot" "$D/res$MID.log" && ok "B2 resume@$MID np8 PAR: snapsho
 compare mpi8/out_par8 mpi8/out_par8_res$MID "$ROOT/mpi8/res$MID.log"
 
 # ---------- C. OMP binary, 1 rank ----------
+# the 1-rank resume must not inherit section B2's np8 launcher (a rank-count mismatch aborts it)
+RESUME_LAUNCHER=""
 if ldd "$BIN_ABS" 2>/dev/null | grep -q "gomp"; then
   say "--- C: OpenMP binary, 1 rank ---"
   D="$ROOT/omp1"; run_case omp1 true

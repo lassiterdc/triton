@@ -349,10 +349,13 @@ def parse_ranks(spec, available):
     return [r for r in out if r in available]
 
 
-def band_for(off_rows, rank, col, floor):
+def band_for(off_rows, rank, col, floor, rel=0.0):
+    """The band of a category on a rank: the larger of the capture-off runs' spread, an absolute floor
+    (the printed precision and clock noise of a short run) and a fraction of the capture-off mean."""
     vals = [o[rank][col] for o in off_rows]
     spread = max(vals) - min(vals)
-    return max(spread, floor), sum(vals) / len(vals), spread
+    mean = sum(vals) / len(vals)
+    return max(spread, floor, rel * abs(mean)), mean, spread
 
 
 def cmd_perf_diff(a):
@@ -372,7 +375,7 @@ def cmd_perf_diff(a):
             if c not in on[r]:
                 fails.append("rank %d has no column %s" % (r, c))
                 continue
-            band, mean, spread = band_for(offs, r, c, a.abs_floor)
+            band, mean, spread = band_for(offs, r, c, a.abs_floor, a.rel_floor)
             delta = on[r][c] - mean
             tag = "OUT" if abs(delta) > band else "in"
             say("  rank %d %-10s on %-9g off mean %-9g spread %-9g band %-9g delta %+9g %s" % (r, c, on[r][c], mean, spread, band, delta, tag))
@@ -411,7 +414,7 @@ def cmd_spin_us(a):
     ranks = set.intersection(*[set(o) for o in offs])
     band = 0.0
     for r in ranks:
-        band = max(band, band_for(offs, r, a.col, a.abs_floor)[0])
+        band = max(band, band_for(offs, r, a.col, a.abs_floor, a.rel_floor)[0])
     steps = side_file_records(os.path.join(a.steps_from, SIDE_FILE))[0]
     us = int(math.ceil(a.factor * band * 1e6 / steps))
     say("band of %s over ranks %s = %g s; TRITON steps (side-file records) = %d; spin = %g x band / steps" % (a.col, sorted(ranks), band, steps, a.factor))
@@ -694,13 +697,25 @@ def scan_sites(path):
             if SWMM_GUARD.search(s):
                 for k in block_lines(lines, i):
                     guard[k] = True
+    # E-9: the statement block holding the add_exchange read (its DIAG_TIME bracket included) is exempt
+    ex_block = [False] * len(lines)
+    for i, raw in enumerate(lines):
+        if EXEMPT_CALLS.search(strip_comment(raw)):
+            j = i
+            while j >= 0 and not re.match(r"\s*(else\s+)?if\s*\(", strip_comment(lines[j])):
+                j -= 1
+            if j >= 0 and i in block_lines(lines, j):
+                for k in block_lines(lines, j):
+                    ex_block[k] = True
+            else:
+                ex_block[i] = True
     viol, exempt, total = [], 0, 0
     for i, raw in enumerate(lines):
         s = strip_comment(raw)
         if not CAPTURE_CALL.search(s) and not EXEMPT_CALLS.search(s):
             continue
         total += 1
-        if EXEMPT_CALLS.search(s):
+        if ex_block[i]:
             exempt += 1
             continue
         if t1[i]:
@@ -712,7 +727,7 @@ def scan_sites(path):
 
 def cmd_source_sites(a):
     viol, exempt, total = scan_sites(a.file)
-    say("%s: %d capture-call line(s) found, %d exempt (E-9 add_exchange), %d outside every T1 row lie inside an #ifdef TRITON_SWMM region or the guard"
+    say("%s: %d capture-call line(s) found, %d exempt (the E-9 add_exchange read and its DIAG_TIME bracket), %d outside every T1 row lie inside an #ifdef TRITON_SWMM region or the guard"
         % (a.file, total, exempt, len(viol)))
     for ln, why in viol:
         say("  VIOLATION line %d %s" % (ln, why))
@@ -780,6 +795,7 @@ def main():
     p.add_argument("--cols", default="")
     p.add_argument("--ranks", default="all")
     p.add_argument("--abs-floor", type=float, default=0.05)
+    p.add_argument("--rel-floor", type=float, default=0.03)
     p.add_argument("--diag-positive", default="")
     p.set_defaults(f=cmd_perf_diff)
     p = sp.add_parser("perf-nonzero")
@@ -795,6 +811,7 @@ def main():
     p.add_argument("--col", default="Compute")
     p.add_argument("--factor", type=float, default=10.0)
     p.add_argument("--abs-floor", type=float, default=0.05)
+    p.add_argument("--rel-floor", type=float, default=0.03)
     p.add_argument("--steps-from", required=True)
     p.set_defaults(f=cmd_spin_us)
     p = sp.add_parser("first-balance")

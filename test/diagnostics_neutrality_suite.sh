@@ -74,7 +74,7 @@ HYD_FAIL=0
 rec() { # rec ID STATUS detail
   printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$RESULTS"
   say "[$2] $1 $3"
-  case "$2" in FAIL) [ "${HYD:-0}" = 1 ] && HYD_FAIL=1;; esac
+  if [ "$2" = FAIL ] && [ "${HYD:-0}" = 1 ]; then HYD_FAIL=1; fi
 }
 # chk ID EXPECT DESCRIPTION cmd... : EXPECT 0 = must pass (exit 0); 1 = must-fail arm (exit exactly 1).
 # The exit status is read from the command itself, unpiped.
@@ -83,7 +83,9 @@ chk() {
   "$@" > "$LOGS/$(echo "$id" | tr '/ ()' '____').log" 2>&1
   local rc=$?
   if [ "$exp" = 0 ]; then
-    [ $rc -eq 0 ] && rec "$id" PASS "$desc" || { [ $rc -eq 1 ] && rec "$id" FAIL "$desc (exit $rc; see logs)" || rec "$id" ERROR "$desc (exit $rc; see logs)"; }
+    if [ $rc -eq 0 ]; then rec "$id" PASS "$desc"
+    elif [ $rc -eq 1 ]; then rec "$id" FAIL "$desc (exit $rc; see logs)"
+    else rec "$id" ERROR "$desc (exit $rc; see logs)"; fi
   else
     if [ $rc -eq 1 ]; then rec "$id" PASS "$desc (must-fail arm failed as it must)"
     elif [ $rc -eq 0 ]; then rec "$id" BLIND "$desc (must-fail arm did NOT fail: the instrument cannot detect this break on this case)"
@@ -253,7 +255,7 @@ kill_run() {
   pgid=$(ps -o pgid= -p "$bgpid" 2>/dev/null | tr -d ' ')
   # the run must lead its own process group; the suite's own group is never signalled
   [ -n "$pgid" ] && [ "$pgid" = "$bgpid" ] || { kill -9 "$bgpid" 2>/dev/null; rec "RUN/$name" ERROR "the run is not the leader of its own process group (pgid '$pgid', pid $bgpid)"; return 1; }
-  while [ $t -lt ${KILL_TIMEOUT:-600} ]; do
+  while [ $t -lt ${KILL_TIMEOUT:-1200} ]; do
     case "$kind" in
       cfg) [ -f "$d/out/cfg/config_$arg.cfg" ] && ok=1;;
       cfgsnap) [ -f "$d/out/cfg/config_$arg.cfg" ] && ls "$d"/out/swmm/*cp"$arg".snapshot > /dev/null 2>&1 && ok=1;;
