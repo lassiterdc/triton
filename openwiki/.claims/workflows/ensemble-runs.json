@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:264464a9e3d2fe28c314931127df334e59fa470f0007ae9b0998654a1d12e8c7",
+  "claims": [
+    {
+      "id": "claim_41f20de5340d4ffb875d3afca14f3656",
+      "statement": "ENSEMBLE_BUILD adds yaml-cpp, links it to triton.exe and defines the ensemble compilation switch independently of SWMM coupling.",
+      "evidence": [
+        {
+          "resource": "repo://CMakeLists.txt#L61-L81",
+          "version": "repo-lines-v1:sha256:765176903f82a52f0fa037a3d77fac6bf3102cbadecf05e59dbe55f6a85b3498:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwYTEyNWFhNWU0Zjg4YjNhYTYwYTViMmEzMTRiN2UyYTk0MzFhYzY1MGY1ZWMxY2I3OTBmOTk0ODIwYTBjYjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRkZTBiMjQxYWI3NDk0NGE0ZTAzNGEwYzI5ZTAwOGI4NmIxMmYxNzBlNDI4MWMyYjMyZTA1YzJkYjcxYTE1ZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZiZGNjYmEzODVhMGI5MmI0YmU0NzE2YWM3MDk3ZjZkYzNlYzhiMDIzYjE4ZGNhODk0NjA1NGUxNTkyM2I2NGUifQ"
+        },
+        {
+          "resource": "repo://external/CMakeLists.txt#L1-L14",
+          "version": "repo-lines-v1:sha256:54b192a834dda2f09ba987cb586a8102b05751eebcbcb1871e7fa7cc1cb0b127:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM1NGQ5YzhlZmU0YmE5ZWI5NmQ4MjIxNjY4ZDkyN2ZiNDkxYmFkYjVjNWVmNmM5YmM3YjE2YWE5NWRmMWE2YjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk4MTFlYTRhNDU2OGEwYzE2YTY0Nzg2NjJhMzk5NGUwMDJkYzgzNDk2NWNjZmY1Yjg0NGEzYTdlYjVhZTAzMDYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0f373891e329424bbd9873cd294b27f8",
+      "statement": "Ensemble configuration generates triton_ensrun.sh instead of triton_run.sh; it sources the environment, accepts a manifest and launcher override, copies the sample manifest/member cfg files, and creates an input symlink.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/util.cmake#L35-L68",
+          "version": "repo-lines-v1:sha256:07ad41cb85f12a750c9ccf9bd33808be906380852594679ec01843d0fa6ed914:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyYjNkM2MyNDQ2M2Q5MDU3NGI3M2M5ZDU4MTYyN2M5ZTEwZGRlYjcyNjM2MmNiOWUyOWFiZTg5NDIwMWFlYWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZmMTE2N2UyNDQwM2E3NzU1MWMzZDk2NWE2NGMwYTlhYTUwNjNkNGIwNzczMTBmYmQ0MjdiZDQ1MGQyYmU1OWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3MzJjZjZlYmNmMzNmZmIyZjMwZWRjMDFjZTcxZjIxMjM0MDcyOGJjZDk4MjNjNDQwNzcwZjQzOWM1NmNkYTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f96b7eb9e4034023a640424ddfad09c8",
+      "statement": "YAML ensembles are five-element sequences of inclusive parent rank endpoints, a string argument vector, and stdout/stderr filenames; only the first executable argument selects the manifest.",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L20-L58",
+          "version": "repo-lines-v1:sha256:0c2af0a257e86d790f99301c7548b5c72cb03e32f5029b5e5a14bf60bda4b9b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YjVjNDMyZjhlMTJiMDA4N2ZlMTA4MzE1MWU2ZTg0MWU2OGM0Yzc4MTI1NTUzMDg1ZjgwYjAzYzYwOTY0ZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhNmYwZDhjMmNlMzRmNTk2MWIxMjM1OTJjYWIwN2U0Njk0YjBlNzA1MTEwODBjNjU0ZDMxZDBmMWU1YmNkMTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkyMDQwZTA5NWE5NGUyYWRhNzRlNDIxZjM3MTg3NTFhOTFhODEwYmZkNjZmNDhmNGU5MzljN2I3NDgwZWI2NzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM0NGI2ZWU0NWMxOTY2NzE0MGVmNjdjNjQxYTg0ZThiODZkYzYzM2EzOWIwMTYyMzJkNzczOWY0NzAxZTU0MzYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_aa26191d8197402d9d8d76fd2a96a074",
+      "statement": "Ensify retains the original executable name and replaces model arguments with the member list; the model constructor reads its cfg from argv[1] and an optional checkpoint override from argv[3].",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L80-L89",
+          "version": "repo-lines-v1:sha256:0a608f5a7f3fe75cc340fb261cdf5c9606d0e00e93f560e35cc4eb79919b0587:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiNWYwNjdlNzU1MGQ4NzU1YTQxZTMyNDI3NGMwNWVjNGQ5NjYzMTNjNGExMzFhZjYwZmYzODY0NjI5NmEzZDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFmMTIzMTJlNzNkZDU1MmUyZTY4YjdiZmFkZmMyYjM3MjlmZGJiYTcxMDhkYzI0MDdmZmRhMDAzMDY2ZjU5MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA3ZjRjOTIxZmFlNTYxODZjZDQ2ODkwZjlhYTY1Y2RkYTZjZDE3OWYwNGY4MzU5NmQyYTQyNWY4Mzc4MTU4ZTcifQ"
+        },
+        {
+          "resource": "repo://src/main.cpp#L78-L88",
+          "version": "repo-lines-v1:sha256:8300135c08c3fafa4edfd566b5f7a09b73e900fdf269607985773b757a6cdbc0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA5MzNjMjc5ZDZkNjcxNDkyZjljZDkzZmUxNDJiMzMyMTE1ZGI2OTQ3MzcwMGZhMzMzYmIyNzRlZDE4ZTJkNzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYxZTlmNTI3MmMzYzNhNWRkZGEyMjQwMzJiM2Y4ZGFmMGMyNGY3MWU1NjZiMjAxNDYwZjUzNGExNjg5NTkyYmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVlYWMwMmY3YmJjMmU4YzhhOTNiMzg3NTg4YTdlODVkOGY1MGQ3ZmE0Nzg1YmM4MGFhMzI5MmIzOGNhYzI0ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVjZWI3MjU2NTgwOTNmOGNiMTBiZDRmMDAwNGE4ZjVhMTM1MDQyOGE2YzM1ZTc3YTUzNTIxNTFkNTQ2ODgxNzMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L363-L378",
+          "version": "repo-lines-v1:sha256:fc6b5411299158ce76b9e380c0ba8a21ce1c62858c1fec47c48b05e3bb1b739d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRiODA2NDBkZWI1MWE2NjhiZGEwNmZhN2U1OTZmZjFmZjNlNTdmNzQyZDFkMTFiNjgyNjU5ODZlNzFmZGExNTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ2ZGQ1MmNmZjI4MWQ2NWZhZTNmMDZhN2YxNjcwOTkzYTBkZDUxNDlkZjdlODBjMTBiMGMzYjIwY2MzYzE4NDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2ZDNkNjI0M2Q0NzJiNzhlNDFiZTEyMjI0N2NkMGI3MmJlYzYxMWEwYjhhNWQ3YzExZWM2ZjQ2Yjg1OTEwNjUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_90681c5c1aab417a9271c7397d42a1c4",
+      "statement": "All parent ranks split in manifest order, active ranks retain the member communicator and inactive ranks free their temporary communicator; main uses member-local rank/size and frees Ensify after Kokkos finalization and before MPI finalization.",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L116-L120",
+          "version": "repo-lines-v1:sha256:4fb149debd72b172623edbc04817f006241d071db848dc2d178aad06178ef24e:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTdjMDU0MTY5YmE5MmY5NWEyZmI4MzY1ZmE2MjczYTcwY2ExZTAyMzNmZTQ5Y2I5ZWI0MTU3OTRiZTIzMWI2NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzljNTMyMDQ0NjZkYjhkZTBjNDFiMTVmZDljNzJhMWUzMDNmNzUwYjA0NmIyNTJlMDJhZGNiOTc4MzEyZDM2YSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDBmZjRjZTFkMWY3MDUzNjljOTE4NWE2ZDY4YzQ2NmM1YjRjY2NiYzBhOTM1MTlmYTZmYjY2NDk2MmU4ODZjYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjIsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjI2ZGUzMjFlYjM5N2Y2NjAwOTM5ODkyYTAwMDlmMzFiYzM3OGY3ZTg4NmY5YWNjNWVjMGFmMThkYjZhOTlhNyJ9"
+        },
+        {
+          "resource": "repo://src/Ensify.h#L49-L78",
+          "version": "repo-lines-v1:sha256:51d3ef31368a59d2b086abbb8a25356b34c0e0026ecfb04563cb0c1027a98b7d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxZWQ5NGZjYTYwNzM3NjI0NmQyOTA0YWQyMTNjZDMyZjM2ZmFiMTc1MTkzNzk1NzIwY2Y5ODFjNmZmYTQ3MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI3NDE4NjQ1MmY5NDE4ZmMzZjNhMTViYmNkYWRhNGExMTc3NmI2NDQ0YmZkZDM0Njg1MjM2M2Q3NDU3OTE0YjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNGM2ZWVjYjRkMzg0NjEyYWI5YWJlOWYxZmM5MjYzOWJmNTFjMjIyNThiN2VjMmNiOTgxNGUyMmRhMTBkMDMifQ"
+        },
+        {
+          "resource": "repo://src/main.cpp#L66-L104",
+          "version": "repo-lines-v1:sha256:40eb23afe2c2dad18649515edc89503b5a200d3a87b07c3c16fa1b6f7b726a9a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3ZDZjZjg5NzViMGI5NzlmMmIwZmM5NGY1YTc4Y2UxMzAzODVhYTI5Mzg1NGNkNTgxNzlkNjE0NTg3MjcyNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZhNzBkZjI4YzhhNWI2OTdjMmZkMjNhNzQxODgyYzFiZDAzMzJhN2I2Y2Q4ODU2MmYxOWUyYTdhNDU3NzkwYjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNmNjc0ODI0MDNiYmM1MzkyNmU1Mzg0NWU0ZjlkM2M2NWQzMGIyZTZlN2FkZWI3MmRlM2FkY2Q0ZmIyYzg5YTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyMmZhYTUzNWJkMmVhM2Q1MmU3NDFlZDQ1NDQzNWI3ZmU0OWU4MzU4NmU5NDNkOThkODJiYmZiMjRkMWY1YzUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_982823f08ad243a7bf9203c80d30f65f",
+      "statement": "Surface halo exchange and output gathers use ENSIFY_COMM_WORLD, but init_swmm still gathers node counts and indices on MPI_COMM_WORLD, so the implementation does not consistently isolate coupled ensembles.",
+      "evidence": [
+        {
+          "resource": "repo://src/mpi_utils.h#L145-L171",
+          "version": "repo-lines-v1:sha256:8ffcc0b696d8d68d21dcdcddf03a4c48eebcba9d827c6051e501353ac85bf519:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5MWM4NGIyNjk3NzE5MDIyZTIxOGY3OTc0NGY2OWQyNGM5NzQ0MWQ0MWEyMTY2Zjk4MGQ2ZmY0NjBiNDhjYTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2YjYzMThhMjkyODZlMTU4NWFlZWMwM2Y5MzM3MThhNTcxZjg5OGExMDBkNWUyNmQzMGFjMWMyYjg3MTI4YWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhYzk5YThmODNlNTc0NzE3MGI2OTMwMGM0YTJmNmRhNDIyNjQzNzE0ZjZhYTE3YTg3YzNlNzg1Nzk5Njk3ZjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOGRmOGRiOGRmYzA5ZDdhNDY2ZjM0OTM5NzJkOWUxNWMyODVmNWMyODg2MTJhNzM2YjNkMGQwYzFmMjU0ODMifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L360-L379",
+          "version": "repo-lines-v1:sha256:a0da5c82b76ae1e570469163dda8443d9978c52cafe4f74615e19ab40236e4da:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3NzRlNzUwMTM3NDNlYjc5NzQ4OTQwZjI4NTA2MDBhNWUxNWQwZTczODI2ZTg5NTZiNTk5MjVmNDYzNzRiZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkYzI5YWVhZWYyYzdkNDc2NWE3MGQ5MmNiMWU2N2Y0ZGM5NjdlN2RlMDhhMzNhYWRlYmRjMjgyMmMxYzNkODgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkxMzQwZDkzZDRlZjcyZmVjZTJmMWE3MTJhNjM1YjZiNmY3NzliMDE3YTRhNTMxYmU3N2MyNzM3OWRhMGNhMWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1038-L1074",
+          "version": "repo-lines-v1:sha256:28017ce022a24eb8f8ed541528583e5e879badd5b7198b1cf078523599f23ce4:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwMzM4OTM3NGFlNDRiZWFiM2FiNjc4M2EwZGI5M2QzZjg4NjFiMWRlNDlhZTc2Yjk5ZjNhYjcxM2E4N2UzNGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1MmU3ZGRkZTA2ZGZjMzMyZDg4Y2UxM2RlZGY4YzE1YTMyNjJlMWE3NzI1MmY0ZTY3M2U4ZmVjZWU3N2EzMGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIxZWVkYzQxNTNiZTQyM2M1MGQ1NDFmNTQ0NzQ2MmY0NDNjYTI0NzU2YmQ2ZTY2YzkwYTA4NTFhMDYwN2U4MDIifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1324-L1329",
+          "version": "repo-lines-v1:sha256:2fc94c55c1aa3dfd882b5c4689733887d2cf9ae4dc4dcead904dc61f137f7930:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDYzNTEyYTE2MzAyMWM2ZTBkMzZmNmYxN2M0ZDdmNWFlYjA3ZjJkODRmMGU1M2JiMTQxMmZlMWIwMTU0N2ZmMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiN2Q2OTUzNWU0NmNjNWIyZDdmNmEyYzJlMDdiYzEyMmQwMDgwMjc1ZTM5ZTAwZTc4MzU4NjYyNDdkMmNlNjFlZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjk4OGU0NGZjNmI5NzlmYmE5OTcyYmE5NzkwYzZkNzFlNjlmODllYzJhM2Q5MTZiNTAxNGE2ZTUzZjIxOGJmOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzQ2NzBkZGVmN2E4YzdmMzc5MzZiODU3YTNkZTIwY2NhYTUzOWNkMzBlYWJmNmM4ZmQzOWZkM2VmMGNhZTY1MCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_f8081bf9cf994916901c5d069da3d7ca",
+      "statement": "Rank coverage, non-overlap, range ordering, launch-size compatibility, distinct output paths and stream-open success are not checked by the Ensify initialization loop; unmatched ranks never receive a member communicator and overlapping entries overwrite earlier retained state.",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L35-L78",
+          "version": "repo-lines-v1:sha256:152045b699f3a605a452c9b018ea740ae6ee0ab5cb30a40afae990e8f56cf8e3:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5OGViMmIyM2QyMzZjZWZmNDVlNDBhY2IyYTBjNmM5YWY1MzgwYmVhMzdhNWM3MDE1YjljZWE3NDg5MzVjYTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkyMDQwZTA5NWE5NGUyYWRhNzRlNDIxZjM3MTg3NTFhOTFhODEwYmZkNjZmNDhmNGU5MzljN2I3NDgwZWI2NzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNGM2ZWVjYjRkMzg0NjEyYWI5YWJlOWYxZmM5MjYzOWJmNTFjMjIyNThiN2VjMmNiOTgxNGUyMmRhMTBkMDMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_052c0d1b21f24560ae8b3fc289922dff",
+      "statement": "Missing manifest arguments, invalid YAML and MPI errors that return through mpicheck propagate as exceptions without a catch or coordinated recovery in main.",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L43-L56",
+          "version": "repo-lines-v1:sha256:d0931a2d65a574acb4272cdf8c262b3eb8d7d81ec6a232b0d666d7e59d83f6f7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM2ZWRlYzg2Nzc3NDk5YzcyNzJiMWM5MzM5ZjcwMmZlNjkxMGVlMDBiYjlhNmY2NzlhNWIwMjcxN2QwMzM2YzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFlODZhNTZiZjEzZWQ1MDQ2NzczN2QyYjNmNTc0ODdkM2EwOTQ0MTAzOTA2Y2UzNWMzNGUzZGRjY2QzMzRhNDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkyYTU1ZWE3YWRmNDYxNWY4MzZlMGYzYmQyMWY3ZGYzZmNkMjI2NWM2NWZhNDcyOTRkMTY1Mjk2YmZjMzBjMzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlMjIyMmE0MDA1YzY3ZjFkMGE2OTgzZjJkOWRlMTE3ZmUxMjhiYjdiZjU0YjRmNmJjOGFlMTI1MDQ4NWUyYTMifQ"
+        },
+        {
+          "resource": "repo://src/Ensify.h#L91-L100",
+          "version": "repo-lines-v1:sha256:3daa970277b905e7d4b63b96fbae4d9a21fa2cbe795236d77b0e23a4772c90fa:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZjOTBjOWM5ZmQ0ZmU0OTYxZDI5N2ZmY2U4MDFlNGNhYWVhMjdjYmI5NGM3ODkyYjIyNDg5MDgyMDEyNGUwMGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZlMWI3NmNjMjVmNmZmZDU4ZjA3OWIxMDk5YzQwMmVhNmZiY2U3NDQ2OGViM2MwNzFmM2M2OWZhYjM5ODhiYWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3MjM0Y2ExYjc2N2JhZWZiNTI1MTU0NzA0MTliZGRmYjk2YTMzYjU4ZGJiMTBiZTA2Y2I1Yjk4ODFkODc1OGQifQ"
+        },
+        {
+          "resource": "repo://src/main.cpp#L66-L104",
+          "version": "repo-lines-v1:sha256:40eb23afe2c2dad18649515edc89503b5a200d3a87b07c3c16fa1b6f7b726a9a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3ZDZjZjg5NzViMGI5NzlmMmIwZmM5NGY1YTc4Y2UxMzAzODVhYTI5Mzg1NGNkNTgxNzlkNjE0NTg3MjcyNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZhNzBkZjI4YzhhNWI2OTdjMmZkMjNhNzQxODgyYzFiZDAzMzJhN2I2Y2Q4ODU2MmYxOWUyYTdhNDU3NzkwYjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNmNjc0ODI0MDNiYmM1MzkyNmU1Mzg0NWU0ZjlkM2M2NWQzMGIyZTZlN2FkZWI3MmRlM2FkY2Q0ZmIyYzg5YTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyMmZhYTUzNWJkMmVhM2Q1MmU3NDFlZDQ1NDQzNWI3ZmU0OWU4MzU4NmU5NDNkOThkODJiYmZiMjRkMWY1YzUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_257d3c856e384e5e9a61f738ce129b2e",
+      "statement": "Each active rank opens the same member stream filenames with std::ofstream and redirects only std::cout/std::cerr buffers, without stream aggregation or rank-zero ownership; model output folders remain cfg-owned and the samples separate them as output_ens1 and output_ens2.",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L57-L71",
+          "version": "repo-lines-v1:sha256:147a7d7549153479aabc2e252db70e968129357d28b0172129225d9d24e814f2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjllNmQyODI0ODgxZTk3MWE4ZWYwOWE2N2U4YjY2OWRhMWU3MWI4NTQ5ZTU3YTE5MDJhOTdlNjFkYWMxODJlYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJlMDhkNWRhNjY2OTE5YTE2MDE1NjM2YWRkNzIzMmM2MzZlMjMzOWM4ZmE3OGVmNjE1YzkxMDhlNjk5YTU0YjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc0MzY1NmI4ZjJhZjAzNTIzNTNhZTY1NTYxNGUxOGNmNWRjN2Y2N2ZmNzZiOWUwN2UyNTdkMWY3ZjRjNTY0OGEifQ"
+        },
+        {
+          "resource": "repo://test/ensembles_ensify.yaml#L1-L5",
+          "version": "repo-lines-v1:sha256:f7ed1ea0d0344a393fcfb86c0df18c4d1949c372c25996e4a7dfba5d6c442f0f:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWU4MDgxODkzNjE1NDU4ZjQ4NGVjZjA4M2MzOTFkZGFiYjNlNGU4MDIzODJjZWJiNDBjNTNhMzk2NTE4M2IyNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZWVhMTk1MmQ1NzQwMmZjMGJlODRkOTY4MDczNTViYTBhNzQ0ZmIwNzg3ODUzOTMxYjc4Zjc4MzRjZjhlZmZlNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://test/paraboloid_ens1.cfg#L14-L18",
+          "version": "repo-lines-v1:sha256:4180eb5ee674ced4f986208960292c631cea313dc6066c479a9493053408b3f3:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTcwODA3OTQyYzhkYjlmNzdmMTQ1NmQ1NWE1MWNlZGFhNDBjMTA3MjMxYTAyYzNjN2UwOGIyNzljNzIwZDI4MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjMzMTUxYmQ2OWNjNjUzNWQ5MjIxOTM2ZDg0Yjg3MTk3ZmIxOTRhYWFjMWJlNGQzMzZjZGI4YmNhOThlMWFmNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDg0ZWZkYTJiYzhhNWMzODM4ODhkMWEyMDMzYjM2NGQ0ODNmOTZiY2Q4OGE1NzMwMzRlYWI4NGZhZDlkNTU5YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjM5NmFlMWM2ZWJmMDkwZWMyNjBmMjc1NzA2NjhmOTU2NTY5Y2UxODg2NTM0ZDA0MTI4N2VjMjc2MmMxZTNmNyJ9"
+        },
+        {
+          "resource": "repo://test/paraboloid_ens2.cfg#L14-L18",
+          "version": "repo-lines-v1:sha256:e532ca5c64c98ceabf5f2802a7d43370a3431df90bd6d8df602d410841f35250:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTcwODA3OTQyYzhkYjlmNzdmMTQ1NmQ1NWE1MWNlZGFhNDBjMTA3MjMxYTAyYzNjN2UwOGIyNzljNzIwZDI4MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjMzMTUxYmQ2OWNjNjUzNWQ5MjIxOTM2ZDg0Yjg3MTk3ZmIxOTRhYWFjMWJlNGQzMzZjZGI4YmNhOThlMWFmNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDg0ZWZkYTJiYzhhNWMzODM4ODhkMWEyMDMzYjM2NGQ0ODNmOTZiY2Q4OGE1NzMwMzRlYWI4NGZhZDlkNTU5YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjM5NmFlMWM2ZWJmMDkwZWMyNjBmMjc1NzA2NjhmOTU2NTY5Y2UxODg2NTM0ZDA0MTI4N2VjMjc2MmMxZTNmNyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_17968b27c7794888bcf00017ea7b1894",
+      "statement": "ENSEMBLE_PARABOLOID runs the generated launcher, requires nonempty member QY_12_00.out rasters and byte-compares that pair; it does not use the ordinary branch's clean-output fixtures.",
+      "evidence": [
+        {
+          "resource": "repo://test/CMakeLists.txt#L14-L25",
+          "version": "repo-lines-v1:sha256:5f500b067723c6a43a51e7acab1ba2b187e7ca4222cc9bcd1404a2c0613636ac:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyYWQ2OThhMDAyZjk0Y2UwODIwMzU5ZjJjMjdiYTI1ZTUzOGUzNzU5ZDczMDUzYmY2MGU1ZWNmYjAxYTk5NmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNiNzA0Y2VlZDk4YWViZGRiODIyOWYzMTNhN2E5OGI1YWUyOWNlMTExNzljZjgwMTM5ODE3NzZiNTI3MTNkOWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNzc3ZWVjZWE2ODgyMDA4YzA4Mjk0MmM5NWUwYmYzZTYwM2Q3NzRjYTcxZmNhZWFhY2RhYTdmMzVhNzA0NDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI5NjMwOTUzMjA0M2EyYjkxY2M4ODQ0OGU4YzcwNTQyYzNlNjRlZWE0N2U2NDljMGY4M2NmN2MzZWU0MjBjNWMifQ"
+        },
+        {
+          "resource": "repo://test/CMakeLists.txt#L65-L91",
+          "version": "repo-lines-v1:sha256:29340c402b921633a8a0bc1e42b02df6d6f1959625a35a7dc6b0b0ff0a55fffa:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIxZjg1MGM1ZDM2MjU0NDhiZmRhMWJkYzI5NGQ3MDU2NDM4MjNiM2FlODZlNDA3Y2UyMWIyOTk3NmU4NGQ1ODgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNTg1NDU4NDM2MDVlNTEwODNiNGRkOGQwMTgzOTc0MGI4ODUwNjMyNGE1YjJiNDJiOTNiOTJmYTVjOGUxZjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVjZGIwYWY4MmIyZDU0YTQ0ZWNhMmExMjY4NjRjODNiYWU5Y2EyOTlmNGRjMjVkM2JhNmM0NjFjN2VhODcxOGMifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:0f5b3fc11bc032e555ccf3c21241eb09bf7832e92e928bf46b9008b9e18726e4",
+  "claims": [
+    {
+      "id": "claim_c887cce00dee414eafffdb1df294384b",
+      "statement": "The single main.cpp executable drives initialize and simulate inside MPI/Kokkos lifetimes, destroying the model before Kokkos and MPI finalize.",
+      "evidence": [
+        {
+          "resource": "repo://CMakeLists.txt#L73-L98",
+          "version": "repo-lines-v1:sha256:495cc2955f2d4e698598b161958c789b64e27b830aefd9bff35a009802ffa39c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU4MTRjNWUyMWEwODk3NjgwMzkyYTIzZTlkNGFlNTIyODJhOTNiZWYwMzUyZDY4YWM3YTU5MTA2ZGJiODE4YTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE4MTMwOGFjYmM5NTMyYzA5MzgyNjNjNzBhYzgzMjUwOTY1MjhmZGI0NjU0MDVlNWE5MWZhMWRmZDI2YWFjODIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYyOWI1NGVkM2NiZmQ3YTA2N2ZkYmUzMWZiNjc3OTJmMmIyNDEzZjRlMWUzYWJlMzVkMWJkYWNlNTFmZmFlMmIifQ"
+        },
+        {
+          "resource": "repo://src/main.cpp#L66-L104",
+          "version": "repo-lines-v1:sha256:40eb23afe2c2dad18649515edc89503b5a200d3a87b07c3c16fa1b6f7b726a9a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3ZDZjZjg5NzViMGI5NzlmMmIwZmM5NGY1YTc4Y2UxMzAzODVhYTI5Mzg1NGNkNTgxNzlkNjE0NTg3MjcyNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZhNzBkZjI4YzhhNWI2OTdjMmZkMjNhNzQxODgyYzFiZDAzMzJhN2I2Y2Q4ODU2MmYxOWUyYTdhNDU3NzkwYjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNmNjc0ODI0MDNiYmM1MzkyNmU1Mzg0NWU0ZjlkM2M2NWQzMGIyZTZlN2FkZWI3MmRlM2FkY2Q0ZmIyYzg5YTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyMmZhYTUzNWJkMmVhM2Q1MmU3NDFlZDQ1NDQzNWI3ZmU0OWU4MzU4NmU5NDNkOThkODJiYmZiMjRkMWY1YzUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0c96a2ababf84114a829883a05aff7ae",
+      "statement": "The model owns configuration, forcing, matrices and partition state; host pointer tables mix matrix aliases with auxiliaries, while destruction deletes auxiliaries and frees separate execution-space buffers.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L128-L164",
+          "version": "repo-lines-v1:sha256:82b3b2290abb6cfa9e81142797ef9a52ff3f77b7abda390db366d13f3b32cd6a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE2ZWJkYzI1YjE3NjEzOTBhZmZiMWFmNWU3NGIyZmRhZDRjNDM2YTQ0ZjM1ZjJkNTkwYjBlYTM2MTYwNDc3OWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYzYWQ4ZTg1MzQ5ZmUxMTgxOTg4NTk3NmVmOTZjYmUzZjZmNjVjMjg4YjI5MDcxM2FjYWRiZGY5YTkyODAzODgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEzYTI1YzA2ZWJiNGJkMjY4M2ZhYmZkOTA4NzQ5YjIxNzVkZjZhMTAwOTY4MGU1YmI4ZjYwMGVlMzBkOGE0OGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFkOWNjYjRkZTgzZjk1NjE3MWE0ZTZlMTI4MDljOTBiODk5ZDk1MTllZWNmYjgwN2E1NmUxYmQ3YTkwNzI0YjEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1955-L1995",
+          "version": "repo-lines-v1:sha256:372d95b24bb879afb9967bbe06a7cbc6b743536dee499b79a435ecdb2152196a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2155-L2196",
+          "version": "repo-lines-v1:sha256:8a1387856dabb2ee6dd1f3b0e54f84810ec45f2bd5d1dae2ab440d874dea420b:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJjYWRhM2JlMTlhNTc5Y2RkY2NjYTUwOGE1MGEwYzY3ZWEyMGFjNDA2ZDQwOWRhNDkwMTc0ZTJkMmYxNTg2YzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_284202a2535a4502ae5dbaaaf98b045c",
+      "statement": "Initialization reads configuration and forcing before DEM/partition setup and spatial mapping, then prepares runoff and host/device buffers; hydrograph and runoff readers convert input units before simulation.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L383-L426",
+          "version": "repo-lines-v1:sha256:f6b7bbf53e978653912ada90d77320fd27eea722b517de02cf10a01739ce2b17:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE0YTdkY2U2ZDE1MWMxNzFjNzE2YTgyMzVmMDNiMzI2Y2Q1MTcxZTIzMDc0YTViNzM0Y2MyMmE4MjA1YzJkYWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1MjQ5OTRjZTA3ODFiNDBkMzI2NDY3ZDRkZTA5MjNmMWIwNzUyYTEyNzFhYjg0MjE5ZDZkNWU0MGIyZGIyNDIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L525-L528",
+          "version": "repo-lines-v1:sha256:bf422f55621160e559f953ba4535dc1aaea9b1df37ec7afc43e64c2efe00329b:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzZkNmYyM2UwYTEzYWNhNmJjZmQ0YjY3NTg4M2FhMDEyOWJiNDFlMjc4NTJkNTdmODFiZmVjNDU4MTFhMDM3MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTY1OGJhMTBmYmUzM2I4MmUyZmI4MDc0MTQyZTdmYzIyN2YyMzI5ZmNmM2NmYjZkOGIzYzVhYjc4MjcxMTA0YyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDViOWYzYzg0OGZkMzA0OWZlOWUzZTZmNTBlNGFiMDU5ZWNmY2JjNTgzNWRmMTAzZTY1ZmE3ZmVmZWJlMzY2YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWFkMTAwZjY4YjQwYzU2MTEzYTVmOWUzZTIwYWU1MWYwNGJlYzJkNTg2YTM2OWQ5ZGYzMzUwMmU4ZTVjYjYxOCJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L631-L738",
+          "version": "repo-lines-v1:sha256:4b9e0a1dd92e1a580915e69b8bbec5ec3b040922726fdbbb1b6de82d0668b273:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2MjgzZjRjMDZhZGIxZDJlYzZmYmUyZTAxOWE2MjY1YjYxMzA0OGY5ZTgzYmI5OWQwMDkwMjhhMjAzMjY1Mjg5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyN2U1Nzg4ZDVkOWQ3M2QyNGE4MWRiYzBhNWE3NGJmYTgyYzljM2IzYWY5OWU1MmFmNzk2ZTkwYjQ2OGE4YTNkIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwNTY4YmJmZTZlZmNmNzFhYTU5YzI3MWMxNGFjY2IzMGM2Njk2YmNjNzdlMzAxODg0YTkxZmQ5OGI5MjRlNTk4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJmMGE3OTFiMjdmNjZkODc2NjllODg5ZTM0ZWJhOTMyNWViZTAyNDZlODNkZDdiNzE0NGMyMzVjZGY3NTRmMDZlIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_9e244d8abc56448787bc0f958bb625c1",
+      "statement": "A coupled build supports an absent inp_filename as uncoupled operation; coupled resumes restore/replay SWMM and distribute restored node depths before coupling buffers are copied to device.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L428-L528",
+          "version": "repo-lines-v1:sha256:8569a10aef58300cca7f987ecf58acab5cb1642034b23e849f5182a3ff0551e2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2NGU5YzQzZTY2N2YwNGFkN2U3NmE1NzBiMWM1YjI1YzI0ZTljZjUzODIzOTY4NzQ3NTg0MDA1YThiZWIyMzFiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1NjU4YmExMGZiZTMzYjgyZTJmYjgwNzQxNDJlN2ZjMjI3ZjIzMjlmY2YzY2ZiNmQ4YjNjNWFiNzgyNzExMDRjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhYWEyNDM2NmEzMTljMzRlODI4NTkwYmU5ODQ4ZWUwOGI3OTY4MDQ1YWYyYmE3Yjc5Y2U0ZjhkYjQ0OWIwZjk0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1YWQxMDBmNjhiNDBjNTYxMTNhNWY5ZTNlMjBhZTUxZjA0YmVjMmQ1ODZhMzY5ZDlkZjMzNTAyZThlNWNiNjE4In0"
+        },
+        {
+          "resource": "repo://src/triton.h#L576-L625",
+          "version": "repo-lines-v1:sha256:9465d47a941c510de198f8547bbe1fea90c490bee5a8f83f8ccf1e8467baec68:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiYzEwYjBjMzU1NTc2YjcxNDNhYzU5NjAxYmExYzczOTAzMzM2ZGIyNmNiMjBmOGE2YzY0YzQ4OWUwODZhYjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA0YjlhMGIxNmI5OTEwYmFhNWQwYTRkY2FmZjhhNjBjNDI5NjMzYmYyYWUzY2JhY2M4MjAyOTA3NTgwZDEwY2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg2MzJjZTc4YjhiZDkzYTI1MTU5MWVmYWRmYjYwYzE0YmNjZmI3ZWRiMDlhYzM0MGI4Y2I4NjE2Mzg5NmRhNGMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bf749c6cd2d34cf38d6526a55bdc3699",
+      "statement": "simulate initializes output and observation state, restores persisted ghost rings before the first resumed flux, and loops until sim_duration with adaptive timestep calculation only when fixed increments are disabled.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2200-L2288",
+          "version": "repo-lines-v1:sha256:86fe5aa08aece0a619ebb377a1bdd69a2d9d67be8a5f79eb31837f66e38a2554:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiYTkwNWNmNDJjNjJmOTM5MTMyMmI1ZjJkNzg3MzcyNjBjNTY1MjQxODdjYmM3Mjc0MjNkZTA2Y2RmOWMxMjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAyZmNlMzIwZDk4ZjE5NTAyNDBmY2ExMjQwZDNjNDU4NmEzZGViNjliYWJhODU2YWU1Yjk3ZGJmN2U2MTEzN2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRiOTQ2MjM3YWEyN2EyMTBhZWViN2E1NTA5NTE2N2RlMTJiYzU2NjZlNjRiZTc5MjA2NWZjNzZhMjljYzZjZGEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_743e6b5c08454d32a906b11f6a408f38",
+      "statement": "A state update orders X flux, Y flux, cell update, forcing, boundary conditions, SWMM exchange, wet/dry enforcement and halo enforcement.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2478-L2687",
+          "version": "repo-lines-v1:sha256:e3812fa169aebba3dc8f6ce3980bde4a8b97ccd52f2f1686a4d2b2f236908a2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmOWVhYjMwZDg1YWNhMWY1NDM4NjY4MDI3MjQ5YjhiMmQ2NjU4MWZjNjY2MGIyYWRiNjUxYTkyYmVkZjZmNDBjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3OWYyMmExOWEwYzFmYjZiNzliNTFlOTllMmNlOWI4ODZlMjY5ZjRjOWMwMzY1MzZiZWEwZGJlMGIwNTNlNjRmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYTliNjMxNGQ2MmFiMzhjNjc2ZTg1YTg1OWUyODM0MGM0MWZiYzk0NzUwMDZhYzU4ZWFhZDIwNTNlY2JkYzg3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlYTkxYzNhMjI5MjliYTE0MTUzMjgxNjJlMjRlYjkyMzM0OTZjMjdlZjExNmU1NzlhMWU3ZTdlZmQ0MjU3MmY0In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_aff8f9cf1e1942ec842d94412c415b67",
+      "statement": "The dry-domain fallback timestep reduction explicitly uses MPI_COMM_WORLD rather than ENSIFY_COMM_WORLD when size exceeds one.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2411-L2434",
+          "version": "repo-lines-v1:sha256:276cc386942555ffe23db9701917a0f41480184f85154cadad3c4978f3a89c28:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2ZDNkNjI0M2Q0NzJiNzhlNDFiZTEyMjI0N2NkMGI3MmJlYzYxMWEwYjhhNWQ3YzExZWM2ZjQ2Yjg1OTEwNjUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_cba38a8b36b24c51953855ff80d9db85",
+      "statement": "Checkpoint scheduling synchronizes host copies, flushes coupled exchange history before raster/ghost/config publication, writes the SWMM snapshot afterward, and records the current dynamic partition before any rebalance.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L703-L719",
+          "version": "repo-lines-v1:sha256:5a6a41623f3e15d0a4c46d40fdb998446a6c5ba57a430a81da118087c5579951:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYzViNjViMzAzZTk0ZDU0M2IxMDEyMjFmOTU5MGY3YjI1ZTRhYzRhNGVkNDUxMWU1OTRiZTQ5ZTRhZGYxNTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhMmM4YjgwZmEwZWEzNGEwNzQwNWI2ZmIzYjAzNjFhYTFlODNlNjY2ODYzODMyNWE5MTM4YTZkMGVmMWJmNDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxNzE3OTgzMWY3M2VkZWQ3ODFhZTQ5NGVjNGYzOThmYzJhZDgzMTZlZTRiMjZkYzQ3OWE3MWQzZjM3NzM1ZGMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2300-L2361",
+          "version": "repo-lines-v1:sha256:f3aa7a05b8a35eb2c4a220c40c241d06d47d5b326bba72db5a99e589b89a5501:eyJzZWxlY3RlZExpbmVDb3VudCI6NjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3MDljYmUzNzQ5NmQ2MDJjZmEzMGQxOWFkNDk2YTI1ZTIwMDFmYzE4ODc3MzRkZTA1OThlZTRiYmFlMTljYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmNmUxYTQzNWQyMDE5N2IyNjE1ZGJlYzRiOTVlMDc4MGVkZWFhY2RlYzRkMDBkZGYyZTE3MWM1MTE3ZjgxODMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ0OGU2NzliNzIyZjcxNDE3N2Y4M2UzNzA3MmEyYTcxZGExYmFmNmMxOWJjMDQwMTE3MGRkOTllMjIyYjhiMDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZmMDA1NmNmYzljN2ZmZDk2ZTM4ZmJjZjQ2ODg1OTEzYTc4ZTk2YWQ5MzZkZWMwNTBjMzI0MDE2ZmNmN2I3MWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8eb77bc27b8349318dfc7d8681878bca",
+      "statement": "Simulation ends is printed before coupled finalization; rank-zero end_swmm closes exchange history and runs swmm_end, swmm_report and swmm_close before the driver destroys the model.",
+      "evidence": [
+        {
+          "resource": "repo://src/main.cpp#L94-L104",
+          "version": "repo-lines-v1:sha256:fd6cce36a1f0f10dceb030bca57dbe142147459b6cd1f08111a15c04cc0b0c94:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYxMDc3NGZjOWVkZTM1ODJiNGUwZmJkZDE4NjMwYTlmNzQ4OTEwZjVmODY5ZjBhNDZlMGFjOTNiMmM3YjA2Y2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZhNzBkZjI4YzhhNWI2OTdjMmZkMjNhNzQxODgyYzFiZDAzMzJhN2I2Y2Q4ODU2MmYxOWUyYTdhNDU3NzkwYjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwOTA0N2Y2NGE2OGQyOTJlMzVlMDY2ZGUwNTIxYzQzZmNiODkzZDRiZTNiY2ExMGJiN2E2OTE4MzE4MmU4ZGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyMmZhYTUzNWJkMmVhM2Q1MmU3NDFlZDQ1NDQzNWI3ZmU0OWU4MzU4NmU5NDNkOThkODJiYmZiMjRkMWY1YzUifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1370-L1377",
+          "version": "repo-lines-v1:sha256:d204115e1d417066075634dc3cc807aabbebc70265540849f1ec4cc72c470f3e:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjM2YWE3ZTc4ZDk4MjE2YTRiMTYzYWZiZGEzNjZjYWJmZTcwYTgxY2VjMjliYzI5NzViOGQxMDc4Zjk0YjYxOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODI3MDBhYTVkMGI2ZjBjZGMzNDFkYTYwNTVhMjRmZTJjNDFlZDRiODljZDcxMjY4MjA2OTg2NTQ3YzIwOTNlMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDY3MDY0NmUxODJjY2M2M2RmMGRmMTc1NzNlNWZmNWE1ZjhlYzZiM2FiMGQwNGZjNWM3MGQ3NDdiZGEwNDg2ZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDg4YjI5OTQyMmJhYWFhMmQwMjUyYTU5ZDMyNzJlMWYzZGEyYWY1NzUwNGE1MmFkMjhhM2MxMzdlYzE3Y2Y4ZiJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2366-L2405",
+          "version": "repo-lines-v1:sha256:e8c847f0b9ef6f8754aeb378898ed2e9dfa34340c3edbaa95570dc2070a40fc9:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlhMzQ5YmJkMWEyMTEwNGYwNTFlMzRiMmM4YTllNzBjYzdmYmI1MGJjMTlhNjc3ODFmMmExNDBjMzg2ZDk0MzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNjQ2YWI3ODlkY2FjNDU4MDhlNWUyMzVlNDNhODJjNjA4OGIzZjdjN2UyNjNlOWE4MzlmNzUyNGM0MDE3NWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM4Y2M0YzI5NTdkZmE1OWY0ODQ1YTlhODUwODVlODE5YmExMDliZTE2NGQ3OGIwZDE1MDBhZjdjYTlmNTk2YzYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_018b0eb39fe34e2895686537b9b40ab7",
+      "statement": "Unusable coupled snapshot restore aborts the ensemble communicator from the rank-zero restore path instead of exiting only that rank.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L482-L489",
+          "version": "repo-lines-v1:sha256:74e71ee6230bec440d7789fbc549c14daca469b3aa004efe987a722dc735c01b:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzc5OGU0ZGJlMzg2ZGQ0Y2I0ZWZkMTBjOWMwN2Q5Y2YyYmE0MDljM2JhMDVhNGZjMzNhMWU0YmQ3NDI3ODVjOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGE1NTY2MTE1OTM4MzY2NTRjNmM5OGMwYjYyNjc1MjVjZmZiNTk3NGU3NjMxMDM3YjA0YmEzN2YxM2U4ZmMxMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMWZkMmFhN2Y2NGY0MzEwMjk2NGQ4NDY2MTFlZmM1Y2Y2NzZhNGVmMTlhOTYxY2ZiODBkNTg3NzNiMWEzYWQzOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjMxOTU3OWYzOTMyMmQxNWQzM2RkYWYyZWU3NmI2MTkzMmE2NGQ4MDc3MTA0YWNiMTIxYWMyMmYyMDdlMGZjZCJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

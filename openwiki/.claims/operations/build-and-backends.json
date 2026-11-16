@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:e521ef5fb7ac434e69f13b6fcd01051b56329eb55106fe35ffcfa7dead81fd17",
+  "claims": [
+    {
+      "id": "claim_25ada431d8ba4e0399e99699bf234de7",
+      "statement": "The root CMake project sets the environment before compiler initialization, requires Python and C++17, builds triton.exe from main.cpp, and always links Kokkos; yaml-cpp is conditional on ENSEMBLE_BUILD.",
+      "evidence": [
+        {
+          "resource": "repo://.gitmodules",
+          "version": "repo-file-v1:sha256:25479d552494cdfb31d48af31f291cbbcfbbbffed123f3e4c5f1273690245376"
+        },
+        {
+          "resource": "repo://CMakeLists.txt#L1-L19",
+          "version": "repo-lines-v1:sha256:235cad7fb901bb5a5e03834c5437cd181e0cdbf7c179bd0a2feb842e538198f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4YWRlOTNlYTAyYzExZWEwMjE2NDg1NjMyOTVkOWU0MmVlYWU0NzkzODQ3ZWE0NjAyMThlZTMxOTJmNjZjM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhYmE0M2IwZGQwMGRmMTk0ZWVlNzBjNmE0YmI3OTk5YWNlYzE3ZDMxMDU4NTgzZTIxYzM1ZmU3MTA4MDZkNDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU0MjI5YzNiOTRiNGJhZTQwNjZkNDZkMzdiZWEyMDU2MGJjNDc5MzIyNjMzY2E2ZGM1NGU1M2Q2OWMxMTJhZDQifQ"
+        },
+        {
+          "resource": "repo://CMakeLists.txt#L70-L81",
+          "version": "repo-lines-v1:sha256:872ead832d5d112b08d8144907cf8b2e80d4461a420161e0d7b0705ef876c1f5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzMWI0MjgzNWIyYzYyZDlkMmY3YzczYWZjMGUzZDQ5ZDAxY2E4MTA3ZTk5MDYzMjFkMWE1Y2VlM2Y4MjZlZjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlNzI2ZGY5MmRjMGIyOTdhYmZmMGQ0OGViYTc1YWMxNGQyNTQxOWQ1NDZhYzJmYzRlNzcxZDNhZDU4OTU0ZTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZiZGNjYmEzODVhMGI5MmI0YmU0NzE2YWM3MDk3ZjZkYzNlYzhiMDIzYjE4ZGNhODk0NjA1NGUxNTkyM2I2NGUifQ"
+        },
+        {
+          "resource": "repo://external/CMakeLists.txt#L1-L5",
+          "version": "repo-lines-v1:sha256:ee5fbb1fd6192ea4cb78e5f7eb15547f9b729a72b0ada7242429a34da6a6e936:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzU0ZDljOGVmZTRiYTllYjk2ZDgyMjE2NjhkOTI3ZmI0OTFiYWRiNWM1ZWY2YzliYzdiMTZhYTk1ZGYxYTZiMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMTU4MGM2MjMxNjhlYTZjMGE3ODlkM2JlMDAwODUyYTU2OWRmNTE5OGVlYjM2NTBjZjViMmE3NWU4NjNmMjE3OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2JjZjkyMDgxNzQ0NTdlN2MzZmVjMjliYzgyODFlNDkxYzQ1NDFlNTExZGRiYWFkODBmNDk2YmI0ZGY2MjUxMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_292be9a8e659432db39362626c29d18a",
+      "statement": "Profile selection uses explicit MACHINE or TRITON_MACHINE before OS defaults, supports custom paths and FQDN/environment detection, rejects ambiguous or missing profiles, and materializes the selected script in the build directory.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/machine.cmake#L4-L21",
+          "version": "repo-lines-v1:sha256:597d1baa484d3f8c305c14c3234a0afbf033f8bfeffbff33101a5c567bc5c2f5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwODJlZjFiZjAwODAyNjgyOTVjOWI5ODI1MDdmNWM1YjU2ODRhOWE2YTY4OTQ2NzNkMjk1YjAxNDdjMjY2YjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyZjk3YTk1NDg3MDgyOWU2MzJiZTc2ZWFjMzc2ZTA3N2I5ZDkyNmFkMGQzZjZkNWMyZjY0MmYxYjYwMjVmNDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJmZTkzODMzYzJhNzNhNDI4NzMwODRhYWMxNTgyNWM2ZWM1YWUwMzg2M2RjZTZkZDg3MTZmMjkxNDIzNDcxNzIifQ"
+        },
+        {
+          "resource": "repo://cmake/machine.cmake#L93-L224",
+          "version": "repo-lines-v1:sha256:1037f83ed92c867042e58d0f9c40d351a8bfece5500fbc1252d342a34a705f13:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1MDJiOWY1M2ExOTA0MzQ4MGM0ODIzOGJjNmZjOGQ1YjUxMzdhMDY2ZDRlN2I1MmQyOGVjZGI5NWI1YTFhYTkwIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIxNTgwYzYyMzE2OGVhNmMwYTc4OWQzYmUwMDA4NTJhNTY5ZGY1MTk4ZWViMzY1MGNmNWIyYTc1ZTg2M2YyMTc4IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiZTMwODQ2NTc3YzQ1OWU1OTk2YzI0YWNiYjA3ODJkOWNiZTAwODg0MDE0NDg5MTg5YzJlZDg5MzI0NGJjZTUwIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlNGE0NGFmOTRmNDliMzQwODc3MDhjNjcxZDA3YWI3NzM3YzZlZTMyNmM0Yzg1ZTEwNDRiY2NhZDE2M2U4MWU0In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_19863ac31b1a4eb5936b55def0e6f08a",
+      "statement": "In profile mode existing CMake settings normally outrank calling-environment TRITON settings and sourced values, with special handling for default BACKEND and the COMPILER profile nickname; sourced non-TRITON environment values are imported.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/machine.cmake#L12-L21",
+          "version": "repo-lines-v1:sha256:fdb3086a75c5873dbaf9cb754a18577a9644849c5c71298a8f252ede25b16fa3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ0MGJhZjIwMDFlZjgzNjI0YWQzOGE3MzZlOTRkMmY5MDU0NjNiZTVkMTFkZmYyZDZiMTQ0YTY5YzZiOWI4OTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1ZTk4NzY4YjYwZjczMjJmZmFiNDAxYjU5OTBiZGI0MGRlYjAwOTA5YmZmYTZlY2EyODk1ZWE0MDI1NGIzNTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJmZTkzODMzYzJhNzNhNDI4NzMwODRhYWMxNTgyNWM2ZWM1YWUwMzg2M2RjZTZkZDg3MTZmMjkxNDIzNDcxNzIifQ"
+        },
+        {
+          "resource": "repo://cmake/machine.cmake#L226-L281",
+          "version": "repo-lines-v1:sha256:90ece71ea0f2bdf0dab1461b2cfef1159a0861009d3052f08897d9e85a2d1d46:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkMGVjOGFjOWNkZjM1ZmNkODc3MDhlOTZkM2JhNmFkY2MwYWY2ZTZkMzkwMzk3MTcxMzZmN2M3OTA0YTcwMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3NmE2MjY0M2NmODBmZDg5YWVlNTBjZDY5MTUwYTkxM2NmZmI0MGMyZWExMzBkOWEwMzI1NzRjNTgzMjQwMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNkNzA5ZjA2ZDdkYTA2M2E1ZmMyNWQ3YjQ4MGI2OGI2NDQ0YzRjYjFhMjBiMzkyYWZhODBmY2NlNDc4NTUxNDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e8d82ca1edb84aa4888c687771fc9af4",
+      "statement": "Machine configuration assigns compiler and linker flags from TRITON flag channels, enables the selected Kokkos backend and optional architecture, and adds CUDA constexpr support and the requested debug definition.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/machine.cmake#L283-L314",
+          "version": "repo-lines-v1:sha256:a1f2144ab30f70b006375f5a3f8b66d15c45e12a883ac886a6b4248b0fb731fa:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNjOGU1MWY3YWIzMjVhOGRhNDlhYzcyZjRjNTZkMTU0ZWJjMzYxMWU2YTk1Y2Q4ZmIzMjQwMDUzMzM3NjhjMmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExODg3NTUyMDE1YjA4MmI4NjViYzdhZGI1ZDE4NTQ1MTVhNjM1MjE0ZWNhNGQwODYzZmJkMGZhMzRlMjkyMmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNmMWJkZDk0ZjA2YjVhZjIzZDE4OThiNmM2MDViZDNiMGVmOTM4YjFmM2M2ZTM2YzFhZDY1MTFmYjMyMzQ2ZjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU4Yzk1ZGRhYzk2ZmRjMmExMTBiMmNhOTg3ODk5MDUwNDRlZmQ0NzI0NTQ3M2M0OTVlM2I4MDVhNTUwMWZlODYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_32a3124da9be4c92b843686002e013a4",
+      "statement": "Linux CPU/CUDA and Frontier HIP profiles supply distinct MPI compiler, launcher and architecture defaults; Frontier additionally loads modules and site-specific library paths.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/machines/Linux/default_CUDA.sh",
+          "version": "repo-file-v1:sha256:3efd556a6b58704ecacbbb6d6c77c0e687dceb4b1e9a6d825e1e00d3be281168"
+        },
+        {
+          "resource": "repo://cmake/machines/Linux/default_SERIAL.sh",
+          "version": "repo-file-v1:sha256:1eb951a33c6a5d13b1adaddd0b250691cd7c1267881b345d4b90e2ceb36c0b44"
+        },
+        {
+          "resource": "repo://cmake/machines/frontier/cray_HIP.sh",
+          "version": "repo-file-v1:sha256:e784261f99e6498d91682c49abb8dcd506cbd890e4eec300db65e40019179f29"
+        }
+      ]
+    },
+    {
+      "id": "claim_0256496200c6423aba9fa8f19ada5786",
+      "statement": "The ignore-machine-files branch applies manual defaults and Kokkos switches but does not create ENVFILE, whereas generated build/run/test helpers still source that variable's relative path.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/machine.cmake#L25-L89",
+          "version": "repo-lines-v1:sha256:3608ed686c258a42764dee4004714dc4f03cd508a9eabbf5c7c3c15a26a9f904:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxMzAyZGMxMWIwOWFiYjY3ZWQ3Zjk5ZTcwNzM3NGEyNzljYTRmMWRjZmZhNDVjMThiYWQ5M2MyNGQ1ZDgwMWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNiNzA0Y2VlZDk4YWViZGRiODIyOWYzMTNhN2E5OGI1YWUyOWNlMTExNzljZjgwMTM5ODE3NzZiNTI3MTNkOWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJmZTkzODMzYzJhNzNhNDI4NzMwODRhYWMxNTgyNWM2ZWM1YWUwMzg2M2RjZTZkZDg3MTZmMjkxNDIzNDcxNzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJlMzA4NDY1NzdjNDU5ZTU5OTZjMjRhY2JiMDc4MmQ5Y2JlMDA4ODQwMTQ0ODkxODljMmVkODkzMjQ0YmNlNTAifQ"
+        },
+        {
+          "resource": "repo://cmake/util.cmake#L23-L78",
+          "version": "repo-lines-v1:sha256:68c8c4b48f6254efb777d425db3e0bd2291e3fff5ca837530b1b058ff54546a2:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjOTRkNTZkOTBjYmU5MmVhZjQwOTAyNzgxZTBkMzA1NzViNzJhZDA3OWQ3NGE5MTJiODkxMzg0NTJlMzdhMjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5OWU0YTI2N2U2MjZkMWI3OWExMmQxODUzM2I4YTQxNWZjODAxZWQ3ZTdkMzBjZWIyNTAxNzlmNGU4OGY1ZDYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkMzlhMDE1MmQxZTNkMjk3NWIxNjIyODlhYjI0NzNmZGZhMzkwMTdlOGYxZTc3ZGM0MWNhZTkyNTg2M2FkNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc4ZDRjMzIyMzc1YjUyMTljNzJkMzZkNDJjNTBmYjRlYmFjNjI5OWJkYTM1ZTllZjBkMGQ2NTc3MWVhZTVlZDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f4182f96354045f6a05ff0345b1903cc",
+      "statement": "Optional SWMM coupling defines TRITON_SWMM and links swmm5 with solver headers, can add flooding debugging, and rejects a missing bundled build entry; GDAL discovery controls raster integration, and BUILD_TESTS controls test registration.",
+      "evidence": [
+        {
+          "resource": "repo://CMakeLists.txt#L61-L107",
+          "version": "repo-lines-v1:sha256:84a4602d67072f2e7da2eedd1d289aa6a532a4f50c076191fe580190f1acf17f:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwYTEyNWFhNWU0Zjg4YjNhYTYwYTViMmEzMTRiN2UyYTk0MzFhYzY1MGY1ZWMxY2I3OTBmOTk0ODIwYTBjYjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRkZTBiMjQxYWI3NDk0NGE0ZTAzNGEwYzI5ZTAwOGI4NmIxMmYxNzBlNDI4MWMyYjMyZTA1YzJkYjcxYTE1ZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZlMDVhZGZjMGRhN2UxMTI0NmY3NzZjOWVhZmVkNThjMGU4MTZhZTE2ZTZmOWZlMmI2MjMyMDg2ZTA4MzdiZDgifQ"
+        },
+        {
+          "resource": "repo://external/CMakeLists.txt#L7-L23",
+          "version": "repo-lines-v1:sha256:042b15344e7cbbf98ee75fdb6772d9bb51c62aac09478c4c9613dacc904598d2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmNjNlMjRmMDdkZGQ2Mzg4ODMwOTEzMDFhMjViYWUwYzYxZDQyYWRlNzcxOTNkMTk3NjBhOTdkYmUwOWMzNzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg3NTJlMTFiNTMxZjIyZmZmNDIyZjZiZmQ2YzBlY2QyODE1NzU3NzdmYzZhNGZhZmYxNTQxMTI0ZTY2ZmU0OTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc1YTExZGE0NGM4MDI0ODZiYzZmNjU2NDBhYTQ4YTczMGYwZjY4NGM1YzA3YTQyYmEzY2QxNzM1ZWIzZmIwNzAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9217015495dc4a308c89cbdda6907837",
+      "statement": "Generated helpers assume the build working directory, accept configuration and launcher overrides, distinguish ensemble and ordinary launch paths, and provide a clean script that removes outputs as well as build state.",
+      "evidence": [
+        {
+          "resource": "repo://cmake/util.cmake#L23-L121",
+          "version": "repo-lines-v1:sha256:ef7d1bd9f2c92ccb128abeb69354d9d47a379eadf9f2d72a7b7dcb8aec21cfd7:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjOTRkNTZkOTBjYmU5MmVhZjQwOTAyNzgxZTBkMzA1NzViNzJhZDA3OWQ3NGE5MTJiODkxMzg0NTJlMzdhMjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZTNmMjU4NmU0MmUyYzE3Mzg0ODU3MGIyZmRlODgzNmMyMDgxMDliMGUyOTQ2ODJiZWE2NjIzZDlmN2YyZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkMzlhMDE1MmQxZTNkMjk3NWIxNjIyODlhYjI0NzNmZGZhMzkwMTdlOGYxZTc3ZGM0MWNhZTkyNTg2M2FkNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6bb68acd37d5495083877429df054cf8",
+      "statement": "The root Makefile provides documentation and Docker targets rather than solver compilation; the MPICH-based multistage Docker recipe builds copied sources, exposes directory-changing wrappers, and does not itself initialize submodules or enable BUILD_TESTS.",
+      "evidence": [
+        {
+          "resource": "repo://Dockerfile#L1-L41",
+          "version": "repo-lines-v1:sha256:20740e8cfbb8250f2a5709f6379be9482c7508af7852e5b399b006b262aee3e9:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3OGIyZGUxNWI2NTFjYzAxMGM5NWMwMDc3ODJlZmMyNDYxODZiY2UwYTBiYzI5ZDBhOWQ2M2UzOGQ0NTEyOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM2YjZmYjI5MjRkODQ2MmVmNWIxYjZhYWExZDBjNTQ3ZjU2NjUxMWVmMzc2ZWUzOWRkYTA2ZTFlNTUyN2YzMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://Makefile#L25-L77",
+          "version": "repo-lines-v1:sha256:71ffc4060a18538cdbff8135692b717274cc3bf03ea115e259e33598ab13507f:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkYjlhZjA3MDYyYWUxNzRjOTYxNzRkNzY5NzU2MDc2OGI5ZjkzNzA1ZjYwMTBmZDFmNjUyNTFlYzQ5MzNkZDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZlMzRhYTAyNWVhNDA4ZGNjNTg3YmU1NzlhZmUxZmM5NGNiNjcyYTk2MzMwYTIxYjNmOGNhNzMxMWQwNjRkMTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjViNjQzZmVhMDFkNWQwYmMzM2VkNDIwM2U4YTM3MTEzMTMxMzFjYWE5YmYyZDZkODlhYmMzOTU4MzI2Y2FhNDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

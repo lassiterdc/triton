@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:67603351e2806489cd43fb02a81ca0ad474be549bb20f79f55d743923d7d07ff",
+  "claims": [
+    {
+      "id": "claim_b9ecd4f23f14498997006b2f860b3af1",
+      "statement": "MPI decomposition retains the full raster width, distributes quotient rows plus remainder rows to early ranks, and pads every strip; scatter sends overlapping padded row ranges.",
+      "evidence": [
+        {
+          "resource": "repo://src/constants.h#L64-L66",
+          "version": "repo-lines-v1:sha256:68e1685c368a11cb61191c17e6b28e9a9a43b7eb39280d40bc9bf2623854a735:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGQzYzNhMGRlMjZkZDVlODA4YjI4YjdmMDNiZmNjY2E1YWQwNWU1MzQwNWFjNGFmZjU1ZTJlY2JmZGE3Njc5OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzRkNDViYWJmOTJkZWMyM2MyZDYyYWVlZGFmODhiNzAwNmZkZjk1NzYyOWNmYTZkZGQ0OTNiZDJhNGVmODJmNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjQyMDYwYmYzMjE1NzFlOWMxNzBlMmNmYzJjY2RiODZhZjQyN2M1ODlmYWM5ZTY2Y2E3OTc4N2YyMjE1MTJkMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzg5OTNjNmMxMGQ5NjU3Yzc0YTE4NjEwZTY4ZmFmNmRkMmUzY2U0OGYyYTQ5NzlmMjA5NWY0MDFkNWFiOWFhOSJ9"
+        },
+        {
+          "resource": "repo://src/mpi_utils.h#L188-L229",
+          "version": "repo-lines-v1:sha256:376f10b431959344a6cd38dfc5f8220354f5136e0b6eda2245f5bf67713ba496:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhMDA2YTBlOTllYzA2YTkyYzllNjE3YjZiNDJiODc3YmNjNzU0NzU3NTg2ODcxNzY4ZWI3ZDY4ZGI5NDliZTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/mpi_utils.h#L72-L88",
+          "version": "repo-lines-v1:sha256:8f6edca518a145e0f0e7ba26d9af306dd3983485bcc51897dc1f68c6b6be0f4f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczNjBlY2ZhOTQwNTcxNzNhZWQ1ZDg4NzM3NGQ4NDllOGU2YTM0MjEwY2MxNTBlMzNmNDlkMzNlMGYxYzEzYTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4ZTRhMWZmNTBhNDhlOWE4OWJjNDUwMGE1YzNiODExYWY5Y2M3ZWI3NGM2OGUyOWYxMDA4YzRiNDk1MGM3YTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk5OWY4NTcxM2Y0MGI1YmVhYzQ3M2JkOWNlNjQzMjg0ODY2MDFmNGQ5YzQ1MzRhMDExYzk1MGVkNmRiMDRhNmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0e0b4af20daf4f0a9b21409cc6757a1d",
+      "statement": "The simulation builds indexed host/device buffer tables and initializes execution-space arrays by copying host state and synchronizing.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L1955-L2020",
+          "version": "repo-lines-v1:sha256:5ca337151400eb4ede47fdb8741eb420c89bbcd254b901718fe976766e3c0722:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjYzA4ZWJkMjc0ZGVjN2M1MjMxN2MwZGY5OTQ4YmM3NWYzY2E3ZGI1MGNmMDQwMzViMjYxYzNiZTM5Yjg3ZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwZDI2MjQyOTAzODZlMzVlMzJjNTdkOWZkNWIwMzM4MjQzOGNkODhmM2Q2OTYwODJiNDUwYjBiMDk0MzczODMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2103-L2137",
+          "version": "repo-lines-v1:sha256:a12b8bc824218a4b4bbeb8e9d27b24f2748b6aeb8a3a3cf368034c4316b77899:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2ZDIxM2I3YjI1ZDc0YTE4OGM5YWJiNmI4ZmFiZjM1ODhjNWM4OWQ2YTQ0ZGI1YjkwMjhjNWUzZWQyZmRjNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2Yzg3ODM5MzkwNDUyYmRlMDJiNjBlZjgyODE4YjlhZmM2MzUxZTE1MDUzYmE4NWZhMGQzODg1ZTBjM2YxY2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhNDQ0YmRlODAxNjUxMzdhMmQ3ODU5YjlhMmYzYjlhNWU2YjZlZjRiYzFkZGFkNjgzYmNlZmJjOTNhZWQzOGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6e160978e3a94109b9a945ae2a9c0411",
+      "statement": "The included Kokkos wrapper implements gpu memory operations through allocation, deep_copy and fences, while parallel_for selects Kokkos or an explicit HIP/CUDA launcher at compile time.",
+      "evidence": [
+        {
+          "resource": "repo://src/kokkos_utils.h#L18-L83",
+          "version": "repo-lines-v1:sha256:a60f2ad9030a0e32b98faa548302b08a56ec624ac3c676a048a649b5ff518ca4:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1OGE5ZjNmNTE2YmE3NWJiN2E5ZmJhY2E2ZjVhY2U2ZmUxNjliY2MzOTM0ZDM1ZWJmNTNkYzBlZmRmZjg4ZjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjYTE2ZGMwNThlMmJmYjdlOWQ2M2E5M2I2M2M5Y2Y5Mzk4ZTVjN2VjNDgxMjI4MWVjOTE4NDI0NDNiNmJhMDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRiZTI2YmYwOTEyNTVjMzU0NzBiMjAxMTUyYmFiMTM0NTQxOGExMjZhZmQzZGJlY2IxY2Q3MjljYzQ1NjM5OTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L22-L27",
+          "version": "repo-lines-v1:sha256:d7d93af67a75ce830afa97564bbbf2a6e3c7204b71bc88c4f2a996af58c56936:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODcyYTJlMWM0OWNmOWU0ZWVhZmViOWZlNTczYjlhNTc4YmU5MGE4ZTNmMzliYjFhOGNhNTVjOGJkY2EwNDk1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWJkYmU5M2YxNDVlNWM2YjY5YzQ1M2ZlZjVkZWZjNjVkNTYyZDU2NzIzYTM5NjlhNmExMzNiNjk3ZDUzZjc0MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNGZkY2YzZmU2YmMxMWIxMWRhNGYzODFiNzBjY2YyMjY3YjcxOGI4YzA5Mzg4NzdjODJhYzQ5ZjliY2E3ZjUxMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmNlZTgwYmYzNWRmNzE4ZTUwOTkxZDBmOWE5YWU2ODUyZmM0NGU5YTJjZGI2YmM5OTBhMDViYmVhMjllODI5ZiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_1cdc8ec23d424cca9636e6c4a76c4408",
+      "statement": "Multi-rank timesteps use a global MPI_MIN reduction and clamp to the next output boundary; halo exchange selects direct device-pointer MPI or host-staged transfers and then applies cross-halo wet/dry enforcement.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2451-L2474",
+          "version": "repo-lines-v1:sha256:cfe58171ebb350c60c7984f38cea9f273080a95dab9556ba3f2f37446a03badd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmMzg1ZTc0NjkyYTliOWI2N2UxMjg1ZDgxNDQwMWM2YzMwN2NjOWZmZWY0MmI4ODgzY2I3NjQzNGI2YWUwNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODcifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2649-L2687",
+          "version": "repo-lines-v1:sha256:ad28d0c8b524288bdf7aa9c3f4bdbd9941fb29176b2d3147787146f211006784:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4Njg5MGRmN2Y5ODU3ZjQwZTQ4YmNlNmRkMzVjODhmMjMyYzAxZTZiN2Y5ZDIxYTczZTMzZjg1ZGU2YjI1NzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5ZjIyYTE5YTBjMWZiNmI3OWI1MWU5OWUyY2U5Yjg4NmUyNjlmNGM5YzAzNjUzNmJlYTBkYmUwYjA1M2U2NGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1YjlmM2M4NDhmZDMwNDlmZTllM2U2ZjUwZTRhYjA1OWVjZmNiYzU4MzVkZjEwM2U2NWZhN2ZlZmViZTM2NmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhOTFjM2EyMjkyOWJhMTQxNTMyODE2MmUyNGViOTIzMzQ5NmMyN2VmMTE2ZTU3OWExZTdlN2VmZDQyNTcyZjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e61e9107c60144ba86a8f551677eebc2",
+      "statement": "SWMM collectives use the global coupled-node guard and direct coupling-vector buffers on every rank; only local device work uses the local-node guard, and rank zero advances SWMM before wet/dry enforcement.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2557-L2649",
+          "version": "repo-lines-v1:sha256:be27122b830114c875d40a5ca3163b83373ef9942a482aeb6a510ab2d598a567:eyJzZWxlY3RlZExpbmVDb3VudCI6OTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0ZTljNDNlNjY3ZjA0YWQ3ZTc2YTU3MGIxYzViMjVjMjRlOWNmNTM4MjM5Njg3NDc1ODQwMDVhOGJlYjIzMWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4Njg5MGRmN2Y5ODU3ZjQwZTQ4YmNlNmRkMzVjODhmMjMyYzAxZTZiN2Y5ZDIxYTczZTMzZjg1ZGU2YjI1NzIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM0OWIzZDRhZjA0M2QyZDE2NDdjMjJmZjNmZDkxMWYyZTY2MTk2ZDBlYTllOWM5N2QyNDg1YjliZDczMDQ3MWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVmZmY2NGE1MGQ4NmI0Mjg3MmYxZGFkOTIyZTAyMTY1MGExMzlhZGRjZTU0NGYzMDc2ODFmYjg4MDMwNzdhOWYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_eae50e69762343fdbf7d2205d78d8f42",
+      "statement": "ENSIFY_COMM_WORLD resolves to the split ensemble communicator in ensemble builds and MPI_COMM_WORLD otherwise.",
+      "evidence": [
+        {
+          "resource": "repo://src/Ensify.h#L116-L120",
+          "version": "repo-lines-v1:sha256:4fb149debd72b172623edbc04817f006241d071db848dc2d178aad06178ef24e:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTdjMDU0MTY5YmE5MmY5NWEyZmI4MzY1ZmE2MjczYTcwY2ExZTAyMzNmZTQ5Y2I5ZWI0MTU3OTRiZTIzMWI2NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzljNTMyMDQ0NjZkYjhkZTBjNDFiMTVmZDljNzJhMWUzMDNmNzUwYjA0NmIyNTJlMDJhZGNiOTc4MzEyZDM2YSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDBmZjRjZTFkMWY3MDUzNjljOTE4NWE2ZDY4YzQ2NmM1YjRjY2NiYzBhOTM1MTlmYTZmYjY2NDk2MmU4ODZjYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjIsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjI2ZGUzMjFlYjM5N2Y2NjAwOTM5ODkyYTAwMDlmMzFiYzM3OGY3ZTg4NmY5YWNjNWVjMGFmMThkYjZhOTlhNyJ9"
+        },
+        {
+          "resource": "repo://src/Ensify.h#L49-L78",
+          "version": "repo-lines-v1:sha256:51d3ef31368a59d2b086abbb8a25356b34c0e0026ecfb04563cb0c1027a98b7d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxZWQ5NGZjYTYwNzM3NjI0NmQyOTA0YWQyMTNjZDMyZjM2ZmFiMTc1MTkzNzk1NzIwY2Y5ODFjNmZmYTQ3MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI3NDE4NjQ1MmY5NDE4ZmMzZjNhMTViYmNkYWRhNGExMTc3NmI2NDQ0YmZkZDM0Njg1MjM2M2Q3NDU3OTE0YjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNGM2ZWVjYjRkMzg0NjEyYWI5YWJlOWYxZmM5MjYzOWJmNTFjMjIyNThiN2VjMmNiOTgxNGUyMmRhMTBkMDMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_916b1b8eaf384a4bb282613e943482d6",
+      "statement": "Dynamic decomposition is checkpoint-triggered, uses accumulated balancing MPI time and a five-percent threshold, then rebuilds mapped inputs, state buffers and output layout when a change is selected.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2351-L2361",
+          "version": "repo-lines-v1:sha256:ae84dd42a8b5a17206b0150c1b724629ee710c221c6c68ad7303119f0cbef4b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFmZTQwN2RjM2E0MTIwYWExYjY4M2Y3MmRkM2I1ZDQwNzgyZTU3YzIzMGIwODA2OWQ2MDZmODVkNTY1YmFkMmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmNmUxYTQzNWQyMDE5N2IyNjE1ZGJlYzRiOTVlMDc4MGVkZWFhY2RlYzRkMDBkZGYyZTE3MWM1MTE3ZjgxODMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQzNzBiZjFhOWNjNjFjMTVkMjNhMjFlYWIyYzEyZDhmZWYxNjY4ZjZkOWNjY2IyY2UzOWY0MGU2ODc4OWRmOTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZmMDA1NmNmYzljN2ZmZDk2ZTM4ZmJjZjQ2ODg1OTEzYTc4ZTk2YWQ5MzZkZWMwNTBjMzI0MDE2ZmNmN2I3MWEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2719-L2825",
+          "version": "repo-lines-v1:sha256:1272487e52eb73b4949a24ec5d6661937fc5efc9764c1d20ccbd32a144bf581b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmOWVhYjMwZDg1YWNhMWY1NDM4NjY4MDI3MjQ5YjhiMmQ2NjU4MWZjNjY2MGIyYWRiNjUxYTkyYmVkZjZmNDBjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3NDczN2NkNzYyNWI2MDYxOWJmZWE3MDA1ZjhkMmIyNWYwYjgxNDg3MDRmNDFmNmNlM2JkYzA0NGNmNjExZjYyIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYjI2ZTcyNzQ5MjlhNzk0MzFmMTY5MDJiMzZlNTVmODExNDQyYjUwOGFiZDdlMjFkMmI1YzNiNjJlZjFmMDg1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0NmQzZDYyNDNkNDcyYjc4ZTQxYmUxMjIyNDdjZDBiNzJiZWM2MTFhMGI4YTVkN2MxMWVjNmY0NmI4NTkxMDY1In0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2882-L2999",
+          "version": "repo-lines-v1:sha256:7b2b8734d2d3fca6bf72c5e54a0c098b9632dd31ac93c2ca2b0ac7f78ac1bfc9:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyZDlhMDY5Y2VmYjcyNTZjMmNlMTljNThlMjNjMTc2MzJmZTlhNjEwNDlhNzYzZDNhYjNmYWNkZjYzMmI3YzA2IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5ZTJiYjFiNmYyZDM3NzQ0ZTVlZTY0ZmE0MzM5YWQyOWYzODJmNDM5NjFjMjBjZWRkNmUzM2QyZmIzOGRjOTU3IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1MWRkMDdjYmNkMzM2MjgwNWU0MGIzOGZjNmVmMjg2YzMyZjNiZmJjYThjNDAyMWIzMGJhNjczY2ExMDJiOTYxIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhNTljMDk0MGIwZDc4Yzg1Yzk3YjUzOThjZWRlZDgxNDFlM2FlNzE4ZmY0ZDRlOWJiYTIzMWUzNTU4NTkwZDNlIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_4d742d048da24f4cb4743d235d9ec9d0",
+      "statement": "Dynamic repartitioning rebuilds generic host/device tables without rebuilding SWMM ownership and conditional coupling buffers, so the collective buffer fix does not establish dynamic coupled correctness.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L1955-L1995",
+          "version": "repo-lines-v1:sha256:372d95b24bb879afb9967bbe06a7cbc6b743536dee499b79a435ecdb2152196a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2565-L2569",
+          "version": "repo-lines-v1:sha256:900d1b8cc65b8c90005421bc17cd1e47422df19779af5c70955f1c0668e40d42:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzM0NGI5NDEzM2E2NjlhMTJmOTcyYTYxYzZiNTg2OGU1ODczOWRmMTI3NTljMzc5ODFiN2E0NmIyZDE4YTRiMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMGM4YmE1NzY2ZDBhZGJkNzUxYzgyMDhlZWQ1ZjM1MDY5OTRjZTYwYWFhZGZkMTFhNTI5N2M4OWE5YTY1MjY3MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTY3ZjQ5MGUzM2YzODJkYmFlM2E3NmRmMzI3MjBlY2U2Yzc0OTgwY2ZkMmFkODc4NWU5MzY3ZDlkMDY4ZWZkMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGE0MGY4OTczNTI1YmQ0ODdlZGMyMDQ2ZTUzOTM5MTExMDA0YzY0ZTNmOTcwZjY0YzE0YTdiM2UwZjgxOTk5OSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2719-L2750",
+          "version": "repo-lines-v1:sha256:f1f27e3df6aa92d1c579b9283b2404e9829bc51e382017763171dd4bdcba61a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMjZlNzI3NDkyOWE3OTQzMWYxNjkwMmIzNmU1NWY4MTE0NDJiNTA4YWJkN2UyMWQyYjVjM2I2MmVmMWYwODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFiNmMwMGEzMmI5YWI3YzJjMWVjODk1OWU1ODZiNDAyNTU5NzgzMjA4NjhhM2ExYjhkY2RjNjJlZDFkMmNiOGUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_294409ed9fcc4cd89fcb590f91973b35",
+      "statement": "Dynamic multi-rank resume restores saved real-row partition counts before distribution, and checkpoints record the active partition before subsequent rebalancing.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2351-L2361",
+          "version": "repo-lines-v1:sha256:ae84dd42a8b5a17206b0150c1b724629ee710c221c6c68ad7303119f0cbef4b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFmZTQwN2RjM2E0MTIwYWExYjY4M2Y3MmRkM2I1ZDQwNzgyZTU3YzIzMGIwODA2OWQ2MDZmODVkNTY1YmFkMmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmNmUxYTQzNWQyMDE5N2IyNjE1ZGJlYzRiOTVlMDc4MGVkZWFhY2RlYzRkMDBkZGYyZTE3MWM1MTE3ZjgxODMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQzNzBiZjFhOWNjNjFjMTVkMjNhMjFlYWIyYzEyZDhmZWYxNjY4ZjZkOWNjY2IyY2UzOWY0MGU2ODc4OWRmOTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZmMDA1NmNmYzljN2ZmZDk2ZTM4ZmJjZjQ2ODg1OTEzYTc4ZTk2YWQ5MzZkZWMwNTBjMzI0MDE2ZmNmN2I3MWEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L400-L423",
+          "version": "repo-lines-v1:sha256:56b30663b4c72693491ec1d78449a091678802dc9d7dad7eab551ea117413514:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1Mzc2MWY3ODNhMjMxMGI4MmRhNzBkZGUwNTI2YTRiYmIyMjBhN2I2ODcwM2RiYWVmMWIyZTY4M2EzODRlY2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzYzQ4Y2I1ZDAwYTM3NmVjODg5OGU5ZjBlZWQ3YzU4Mjg0NmQzMTM4ODYyMzU0MzdiNmU4NTY0MjdhOGE2MDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI0MTE5YTk1ZjMzZGI0YWIxMjg0ZGZkNjU4Y2NhMTM4MDRlNTU5YTJhZDZlYWJhNDQ5YTEzYTNhZWEzZDk3MmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwOWVlNGRmODM2ZjlhMDIwMTU3OTRmZmE2NzlmZTVkMDNiNTFiODBmYjJlOTc4YWI5NWE5ZDUyMzU0M2RjODgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e9d0d1ec40724ca2a6e95507a6375409",
+      "statement": "The source guard regression distinguishes global SWMM operations from local optional-buffer indexing but documents lexical brace-walk limitations rather than proving MPI/GPU runtime correctness.",
+      "evidence": [
+        {
+          "resource": "repo://test/test_swmm_guard_predicate_closure.py#L3-L103",
+          "version": "repo-lines-v1:sha256:83fceff751641229ebc690d235cc82e1fc52bcf9fa101c6bb936fbeb5804caa9:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2YWY4MTFhZjBkZjcwYjAxYjY5ZGY3ODVmZGE0ZTEzN2QzOGMzM2JiMmNjZWQ1ZTQ2YjQxZjk2Y2U3YjExYjcwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MiwicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5Yzc0YTJhMzRjMTQxMTQwYmFjOTEwNGE4MjMzN2M1MDMxMDliNTNmMjQ4OTk4YjIwNWUwODA2YTAxNmU2YjhhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1YTY0MThkMWE1NzFlZGVkMThhYWU5ZDJmZDlkZmVlZDM4YmM4OTJlNjM2M2Q4ZWU4MGY5NDhmNDkyM2MwYzJmIn0"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

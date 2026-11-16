@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:d93fdcb1bbeb6b1af991ddffe41da7ad7a307bb18e572ec677ef64b6d665ebdd",
+  "claims": [
+    {
+      "id": "claim_b2cfe0070e00425295b86391806b48a0",
+      "statement": "Resume can be selected by passing a saved checkpoint cfg; its writer replaces existing start-time, checkpoint, timestep and iteration lines, while artifact paths depend on a project root derived from the executable invocation path without resolving symlinks.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L608-L645",
+          "version": "repo-lines-v1:sha256:d08350a6ccb6971b27cf20df14f26ce285504f4481c15fa1e02d5c3376bb89a8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmZWQzZmY2MzcxMWMyNmEwMGU0OGYwNTYwNWRmZmU5NmI5Y2RjNjEwNTc4ODhmYTE3YzkxMjA3MTBhNmM5YjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlN2FjY2QyOWRiYWYwZDE5NTRhZWJkZGRhMDk5MGM2ZjFkYTg1MTdjMzBhNmU0ZTkwY2RmYzdlZTY2YzI2YTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzdmYjA3OGMyODFhN2I5NDNhZTNhNzE2YmNjNjNjYjRlZWQ2ZGNiY2E3NTZkNTc2ODNiMWNlMjA4ODUzNjQifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1503-L1564",
+          "version": "repo-lines-v1:sha256:66f5ee27a6cd98eaf770c4fd7d1085228d9c61e22ee87a97cfc0ecdd75bfe142:eyJzZWxlY3RlZExpbmVDb3VudCI6NjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzNzA3ODJmMzUyMDMyMWMyMjcyMTg0ZDRmMGJkYjM0MGRkYjFjYmVjODA5ZDUxNjU4MDAxOTg4ODQzNmZkYTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkZmEzMzczMDg3ZGViZDliZjJjMzgwZTJkNTVjYjczNjA5MzE5ZWVlZGJkNjNmNjFlMjFmMjc0NWMzNDNlNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkODQ4YTIwMmQ2MTAzZjVhNGFlMjMxOWRhNGVlNDgyYzUyMDNlZjdiYjRkYzBhMTQ0OWIzYTBiYmM3MzllM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1091-L1149",
+          "version": "repo-lines-v1:sha256:d61eabe2ba957f0db629accafd54d38aca5a4a489b07e388515a473931bcc3d8:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1M2VkYzNkNmY0ODQzNDE5YzNjZjFjZWY0Njg1YTVhYTVmMDgxMWU4YzRiYWYzZTE3NWY2NzJjOTcwMDk5MzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJkMDVkMjlkYWQ1ODk5N2IzOWFmYTI2ODc4Njk3MWFkN2UyM2U4Nzk0NmI0NWNiMzZhMmZhMDVmYTViN2EzNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVmOGQ4MDkzY2MzYjZjMjM2MWM2MTcwZDhkY2U1N2IxMjgwNTBmOGY5YzE5ODFmOGNhMTdiNGMxMmI4OGI2NDEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L363-L378",
+          "version": "repo-lines-v1:sha256:fc6b5411299158ce76b9e380c0ba8a21ce1c62858c1fec47c48b05e3bb1b739d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRiODA2NDBkZWI1MWE2NjhiZGEwNmZhN2U1OTZmZjFmZjNlNTdmNzQyZDFkMTFiNjgyNjU5ODZlNzFmZGExNTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ2ZGQ1MmNmZjI4MWQ2NWZhZTNmMDZhN2YxNjcwOTkzYTBkZDUxNDlkZjdlODBjMTBiMGMzYjIwY2MzYzE4NDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2ZDNkNjI0M2Q0NzJiNzhlNDFiZTEyMjI0N2NkMGI3MmJlYzYxMWEwYjhhNWQ3YzExZWM2ZjQ2Yjg1OTEwNjUifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L631-L650",
+          "version": "repo-lines-v1:sha256:c7748777cb67239255ff2fcc1fc76a7f4db97e934f6d2d55d0d6b2c021ea7ed0:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYyODNmNGMwNmFkYjFkMmVjNmZiZTJlMDE5YTYyNjViNjEzMDQ4ZjllODNiYjk5ZDAwOTAyOGEyMDMyNjUyODkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2OGE1ZTlkZWZlYmUxM2I1YTg3YTY2NDg2NjJhZjhkZDllMGE1ZTkzNDg5ODU0ZDQzYTc2NzRmMzBkZmJmY2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhNzQ1OTkyMTUxMGNhMGMzZGUyZjI1OTdjYmZkZGRhNjdjOTcxNzI5NWEwN2NmOGM4NDcxYzgyODg3MjU5ZWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8fd0b71a210b4da0ba727086f9600958",
+      "statement": "Surface restart loads binary H/QX/QY, optionally historical MH, per-rank ghost rings and dynamic partition metadata; output field selection and configurable writer names can omit or rename artifacts that fixed checkpoint readers expect.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1423-L1437",
+          "version": "repo-lines-v1:sha256:e32fd02770a61c459d88676264685f292b6baecc70021a794058cf2b858c1b23:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNGUyZmU4Yzc2NmFkYmFkYjc2ZmMwYmNiNDQ2ZjBlMTU0YWE1YTQ5NDg1ZjI4MWZhNGM2ZTNjZjY1MDQ0MDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFmYTNjZWU4NTJlZTIyZGMwZTI4MDQ1YzdhZjA2Njk3ZDNlMmVlZWM0NTE1ZTliNmY1NmYxMmUzZjk4Y2IwZjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1NzQ3ZmIwZWRmNmNjNTRlMTMzMTA0NWUxZTcxYzAxOTAxZjFiMzIwNWZjZjIwZGUyNGM2MjRjOTMyYWJhZDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJlYmFmOWYwN2ExNGZiNzliMTZkYjQwNzk3NjE4MGQ1MmIzMzgwMTYyMjQ1N2E4NTY0MTM4NDhmOTc5MGFhMDQifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L525-L704",
+          "version": "repo-lines-v1:sha256:56c8dd4db26aea5e88bcbb631a5f8888b31eb7de7398cc2bf910cf384db72fb5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyNjczY2RkZDJiMDY4MTdkMzhhNjgwYmMwNjMzOWNlYTFiZThjYTNhZGQ3YmVhNTgwZDMxNzRlNDYwMDk2Zjk0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzN2I5Y2QyMzkzMTdiM2VjMDBmYWFlOWNhNmNkMWQ4YmIxZDc0MDFlMDEyMDJiMzQxMmEzZjBmNDcxOGQ1ODkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwYzFiNzAzM2I5NzBkNDU5OTNmNjY5NjUxMzNjZjVjODI2ZDQ0MGRjMTQzZGM5YzRiMDM1NTJiMDE2ZWE5ZGM2IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyNDk3MDAwMzU1MGYyOTQ5MGI0OGY5ZmRlMGU4NTgzOWFkYTg5YzAzNTNkNDIxMjA1NWE0MjUxZGU3YzQyOTljIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L1683-L1774",
+          "version": "repo-lines-v1:sha256:a01177a9ef11744fd6eaa537da609597652884cb3718b1c6f45a703d39997f24:eyJzZWxlY3RlZExpbmVDb3VudCI6OTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwNzZiZTNmMjFhYzI4NmI0YTQwZTI1Zjg1ZThiNjQzZWI0MDZlNTJkZjdjMDgyNmVkOTQ1YjRhZThjN2UzZTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM0MDZmM2Y1YzRhZjhmZmRmMmYxMmZkYzkyNmRkODYwNjM0ODFjODBiMTk5YTA4YzU4ZTBhNWRhODhlZTg1MjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBhNDRlMTMxYmE0ZDA0OGU4ODYyNTFjZGRkZTRlMzdiYmEzYzc0MDczY2MwNTUxNjQ1Nzk5ZTEyZmM3NjljNjMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L400-L424",
+          "version": "repo-lines-v1:sha256:4200e6266d4fb257d83d4dbe4fecd735bf9891b119e5fba71055c3985a78fc29:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1Mzc2MWY3ODNhMjMxMGI4MmRhNzBkZGUwNTI2YTRiYmIyMjBhN2I2ODcwM2RiYWVmMWIyZTY4M2EzODRlY2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM5NjBmODEwYjE3Mjk0YWU1NDQzMDcwNjM5MzBhNGI0NjczMzExNmRmMGM1MDlhMGEyZTVlYjViMzFiN2E5ZjUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI0MTE5YTk1ZjMzZGI0YWIxMjg0ZGZkNjU4Y2NhMTM4MDRlNTU5YTJhZDZlYWJhNDQ5YTEzYTNhZWEzZDk3MmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhYTI0MzY2YTMxOWMzNGU4Mjg1OTBiZTk4NDhlZTA4Yjc5NjgwNDVhZjJiYTdiNzljZTRmOGRiNDQ5YjBmOTQifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L849-L888",
+          "version": "repo-lines-v1:sha256:d2b66afbf239f7c6483ed5ca64a16c1bc3880a04ee7960b1961b350d231789c9:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3MzMyYzY1OWIwOWUyMDU2ZmEyMjVkMDk2NzkwMGE5MzMxNDViYjU4OGMzMTEwZTA2MWRiMGE3ODczZjVhZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzNmJmNjdiY2Y5ZWI2N2E0YzZiYzAyNDYwZjkzZTc0MDE1ZDM2OWQxNmQ2NTU0ODQ3ZjkxNzg5ZGEwZjJhMmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlYWFlODE5Y2E3MTRjODVhOWQyMjYzZjY5MzE4NDE1Mzg3MGVmOGY3MTUwY2U3NDM1NmJhMjc2OWUwYWEwODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI2NWQ3ZjA2MzMwZjY5MGE5YThjNGY4MmNjMWUxYjNiMGQwZDE3ZDgzZWY5M2M3M2M1YWIyY2Y3NmU1Nzk3MGEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3ba56b3c72324099a68aeb36a5ec6907",
+      "statement": "Exact resumed ghost state is read by rank with dimension and truncation checks and recopied to device before flux evaluation; dynamic restart uses saved rank row counts without a complete rank-count validator and writes checkpoint partition metadata before rebalancing.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L649-L679",
+          "version": "repo-lines-v1:sha256:54236a9b1d4411321cf56c57c7fcbcc75fdcd7149aca09abd50a861400e3e5d0:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ4YTc2Y2UyYjlmY2RlYTAwZjA5MDNmZDU0YTAzYzBiN2U5NTI2MmU1YTkxMWU3NTFkNDA3MTVmZDY3MDI5YjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4NmYzMzc3N2I1MzgyMTQ2ZDk3MDFlOGRkYTJmZjE3YTY1MThjYzJkZTdmYjMzZWEwOWJkYjhiNjliN2ZlYzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU5MzdmYjA3OGMyODFhN2I5NDNhZTNhNzE2YmNjNjNjYjRlZWQ2ZGNiY2E3NTZkNTc2ODNiMWNlMjA4ODUzNjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMzOTg0ZWJjMmYxNTkxYjc5OTljMWJkZDhiZjI4MjlmMjJiNDAzYjlhNTMxYzM5Yjk1NjZlOTg3YjkzYTUwOGYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L796-L882",
+          "version": "repo-lines-v1:sha256:6abcc88645106695022edd7fb42e1011f4dc4086e3164b357355c4fb24884764:eyJzZWxlY3RlZExpbmVDb3VudCI6ODcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg5MjIyNTc2MjIyNDgxZDEyZDRiODczNTk5MmMzYTAxNDhmYjJhYzZiMWU3YjJhNDhiZTQxYzgzOTI1MTZiNzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5YmYyYThmZTZiZjM4OTczYzUyOTIyOTU4NGUxMDRjM2JkMGZkYTE2ZTEzMzk2ZTNhZGI4NTJlMTU5N2M5NmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkODQ4YTIwMmQ2MTAzZjVhNGFlMjMxOWRhNGVlNDgyYzUyMDNlZjdiYjRkYzBhMTQ0OWIzYTBiYmM3MzllM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2227-L2245",
+          "version": "repo-lines-v1:sha256:306ef13baead4c91cdeaddf12762c30ecfec5f1285398215ff91b10847075ca2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdkMjg5MmE0NDIyNjA5YmYzZmY0MWU2MWRlODVjYTg4M2IzOTA0Zjg3MzJiZTBiODU1ZWY0ZGI4ZGI4Nzg5YWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0MGUyOTUxNjMzNmM0YWExNWE4Mjk5ZjBkMGM5YzJjMWM2YjU4YWU2YTI5MDg0MjMyMzY1YzdlZmE2N2ExZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2351-L2361",
+          "version": "repo-lines-v1:sha256:ae84dd42a8b5a17206b0150c1b724629ee710c221c6c68ad7303119f0cbef4b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFmZTQwN2RjM2E0MTIwYWExYjY4M2Y3MmRkM2I1ZDQwNzgyZTU3YzIzMGIwODA2OWQ2MDZmODVkNTY1YmFkMmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmNmUxYTQzNWQyMDE5N2IyNjE1ZGJlYzRiOTVlMDc4MGVkZWFhY2RlYzRkMDBkZGYyZTE3MWM1MTE3ZjgxODMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQzNzBiZjFhOWNjNjFjMTVkMjNhMjFlYWIyYzEyZDhmZWYxNjY4ZjZkOWNjY2IyY2UzOWY0MGU2ODc4OWRmOTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZmMDA1NmNmYzljN2ZmZDk2ZTM4ZmJjZjQ2ODg1OTEzYTc4ZTk2YWQ5MzZkZWMwNTBjMzI0MDE2ZmNmN2I3MWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_22daabd4ab214a0f8d721f336f74f571",
+      "statement": "Coupled checkpoint publication flushes exchange history before surface output/cfg publication and writes the SWMM snapshot afterwards; exchange append/flush failure aborts, while snapshot save failure warns and leaves the next resume policy to surviving artifacts.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L704-L716",
+          "version": "repo-lines-v1:sha256:8183a86c9e9feeb88d378626a40eb7eea8fe8259680bf51e89f0c4522ba2884e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3YjljZDIzOTMxN2IzZWMwMGZhYWU5Y2E2Y2QxZDhiYjFkNzQwMWUwMTIwMmIzNDEyYTNmMGY0NzE4ZDU4OTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZjZTMzYzAzZmE1N2MxMmZmNzc4YjI5ZDJjNWYzMDMxNTIyN2VmYTE5ZTYxYzVlM2U3NzVkYTg5MzdmZDFlNDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxOTZjMjk4MDc4YTNmYWI2OGZlYWI2ZWVhZGU2MWUxYzVmNTEwYWJmNjY1MmIwZTJhNDI2ZmNjOGRjODNjNGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRiMDkyYmYyMTQ0YTY5Y2VkNDdlYjA5MzQ4NGRmNzVlM2QyZTkzNjk1MDEzY2YxYWVkZjI3MzExYWVhMGI2NDkifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1411-L1453",
+          "version": "repo-lines-v1:sha256:a62f478ee64728df2c9cc888eb954413f1edab3a3cec0ddc90be3eadaf8e214a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwMWU4NGFmMDljMDhhY2Y0YTgxZDM2M2E3Y2IzOGJjZTNjZTdhMGQzZjZhN2MxMmI5YTk0MWQ2MzhmNTgyZjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1774-L1812",
+          "version": "repo-lines-v1:sha256:723af4a95b041ee6e9b65381f26d939abfd082fa4ca49aff1e416ab18390c55c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3MDAxMjU4YThhOWU2MGQ2YmIwYTkzODMyMzRjNTAwMGIwMDcwN2Y1NWQ1YmU1ZGJiODg2ZTM2YmQ1OGVhZjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzYmJjOWI4NzRjN2U1ZjUwMjZiY2RhODQ5ODAyOTRmNzI3NzUxNDk2ZTIwZWUwNDI5MDViYzQ3ODQ2YTMwNGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFlMTU5Yzg1ZmYyNmM1MjM0YzAyODY1YTJlM2IzYTBiMDZmODVhODJmYTlkNzA1NjhmMzAzOTNmMzgzZjRlYWIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2300-L2335",
+          "version": "repo-lines-v1:sha256:6fd53ca4b33ca0bdbe6dd879b16921da8e425341b513eaa99b36210aefdfeb89:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3MDljYmUzNzQ5NmQ2MDJjZmEzMGQxOWFkNDk2YTI1ZTIwMDFmYzE4ODc3MzRkZTA1OThlZTRiYmFlMTljYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlhMzQ5YmJkMWEyMTEwNGYwNTFlMzRiMmM4YTllNzBjYzdmYmI1MGJjMTlhNjc3ODFmMmExNDBjMzg2ZDk0MzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ0OGU2NzliNzIyZjcxNDE3N2Y4M2UzNzA3MmEyYTcxZGExYmFmNmMxOWJjMDQwMTE3MGRkOTllMjIyYjhiMDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM0NjEyNWEzNWZkMjhhMWUwN2M3MTA5YzZjOWVjMGE1YTNlNjcxMTkzMWYwOGIxNDEwOGVmYjkxZmJhYjYyZTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f2bc908aa1444897a6ca5d72d0d7596d",
+      "statement": "Coupled resume tries the snapshot first and otherwise replays only eligible absent or explicitly opted-in failed-write cases; both routes validate and position the exchange log, trim its tail, reopen for append and distribute restored sewer depths across ranks.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1603-L1735",
+          "version": "repo-lines-v1:sha256:9502ea318b7e94b0e695f48e366bf4e0b7d4eb2ac522dc858096c8368c2024e2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1YTBhMTY0ZGEyMmM3OTI1NjI1MzZlMGI2ZjA4ODI4NmIzYTM0ZDJlMDA1YTBiMjIwOTI4ZTJmNzdjNjRkMjM4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJhODQ5OTdmZmYxZGQ0YjhkZmQwMGVkYTFiNDRlZTg0NTdmNDZiNWE5YzNiZmQwNWFiZDgwM2UzM2VmN2ZjNDUyIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIn0"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L2032-L2080",
+          "version": "repo-lines-v1:sha256:fa2360ffcae786ef20e3a78794af1b7dc2bbde960a3ead0d2ddfc878cc11aff0:eyJzZWxlY3RlZExpbmVDb3VudCI6NDksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5NzM3MTgzN2ZhZjRjNzJjNmJkYzI0NGRkNDhiOTZlM2IyODA2ZGVmOTQ5YmZiN2NlZGYxNDQwNGUyZTUzYWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjMzY3YmMwZjk3Zjc3OTMzODkwY2Y5OWI1YWQ0N2Y2ODc4ZDhlYTkwNTEyYzNmMWY1OGJiN2I1YzY3OTdiMGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjllYTQ5MzE4NDU1NWYzNmY3ZGFiZGRmZWMzZDlmZTI2YzExZDliOTNjODI2NTg3NTJhZWI2ZTQyNzI5NTczODEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L453-L521",
+          "version": "repo-lines-v1:sha256:9eb75b10a9dab3b71e4eb7d0053243fb3b2a98d566341528b29a0703eadebd10:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlOWMxYzc0YWQ3ZDhjNjcxNzZkY2ViOTg2MGVhMjNkNDEwZGM1YzI5MzUyN2EyYTcwMmNhMDRiMTM0NmIxM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3MGI3YmQ4NjAxNDdlN2EwZDE5Zjk2YjQ3YzU5MmZhYmNmM2Q3MTE5OTU0Zjg1NjRlYjhmM2EwYzlkZmYxZjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQzODhiMDQxMmM3MjQ3NGM5NTg5OWNlY2JiZjMxNjlkNGVkNDUyMzhlZGNlMTYxOTg2MGQ1NTA3NTgyYTFlMWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA1YjlmM2M4NDhmZDMwNDlmZTllM2U2ZjUwZTRhYjA1OWVjZmNiYzU4MzVkZjEwM2U2NWZhN2ZlZmViZTM2NmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c84d57f753984197941d58e146cb1c1d",
+      "statement": "The replay V2 header checks complete magic, node count and stored precision in order, while record scanning requires a covering time prefix; these checks do not fingerprint every model setting or same-count node identity.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1619-L1735",
+          "version": "repo-lines-v1:sha256:7255f703d34fedb082c224384c91ffa8954c0469043b996b2efae3540a3c6980:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyYjliM2RhZDY1NzZhYTAwNzczNmRlNTMyYTU2MTg2MmUyODI3YWJiMjVjYWQ5NGVhMmMwN2QzN2Q4YmI3MjZhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJhODQ5OTdmZmYxZGQ0YjhkZmQwMGVkYTFiNDRlZTg0NTdmNDZiNWE5YzNiZmQwNWFiZDgwM2UzM2VmN2ZjNDUyIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIn0"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L72-L140",
+          "version": "repo-lines-v1:sha256:4b22926ce3373d3172a22779e10dd0678927ac10b6014bbd6c3eec15d59a0d8d:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxMTRhODQzMDNlMDU3Njg4YjM0YWY0NWEyM2YwZWUzZWVjYzAxMDg0NTEyZjY4OTBjZjZiYjYzN2QxZTYyYTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFmNGI3MmExYTRiYzdhZjA4NWFhMTgwYTI3YTJkYWE2ZTJlMmRmMjJhYWU3OGViZjk1YTA1YjgzMDYzZTFiMzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRhMzgzYzRiMmZiZTc2ODNhZTQzY2RlMWRkOTdjNzUxY2RjMGJlZjczNTVjOTAzZjYwMGVkMzliMWIyZTQ1MjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2NzUzYmM3NGFlODA5NGUwN2YyMGE1MzNmMWU0M2I2ZTdlZTU4NWM1OTc4YzgwMzUzY2ZiOWJhZTNkMzI1NTAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_10c0bb730af3431f821be9879f9f0e8d",
+      "statement": "Snapshot-disabled runs take replay with an empty snapshot stem; present incompatible snapshots and post-restore output mismatches refuse automatic fallback, while no-published-snapshot markers distinguish failed-write stop or explicit replay opt-in from interrupted-write step-back guidance.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L531-L534",
+          "version": "repo-lines-v1:sha256:0c787f8529009c1b524b5da786149e970e7dadf900ff352b1f4f057fd2581f72:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDJkY2MwMWI3MWFjZTAyOWUwNWI0OTMwODI5YTZiYjRlMGQ0NjhiZjhjMzQ3NWVjMTc0NTg5ODlmMzg3ZDU3NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjVkOWFhYzg1YTJhMDBhYWYyYzlmMDRlYzNiNTkzNDhlNDQ4NGQ4YjJiZmJjOThiNGNiMjk3ZDU5NTQyNzYzZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTdhNWM0Mjg1MjhiNzc1NmZlY2I5NTk2ODdlMGY5MDkzODYwYjdiN2QzYjgwNjczYTA3NThjYTBhZGRiZWUwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWNmYzAyMTMzYTk0MDgxYmM3MzEzYThlYmQ1MmMzNzAxNTIxNmJjOWZhNDFiY2JmYzk2YzJjYThjOGYyNGM5MSJ9"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1133-L1149",
+          "version": "repo-lines-v1:sha256:e9c0b32d7dd556886363cafa318c30b79c2939cfa27a6d97881576ad3212ea6a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1MTc2ZTczNmZhMzJjNDhkN2JmMmI2YjlkNWFlMmVjZTE3NDZkMzU0MDkyYjljZWFjM2Y2NGYyZmZlN2I0ZWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkzNTZmMmU5NzZmYjU0M2U3NTExNmM5NzBlM2ZmYjU4ZDA1MWU5YTdmMTkzODE4MzI2M2RiZmM1YjA3ZDQ1OWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVmOGQ4MDkzY2MzYjZjMjM2MWM2MTcwZDhkY2U1N2IxMjgwNTBmOGY5YzE5ODFmOGNhMTdiNGMxMmI4OGI2NDEifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1827-L2058",
+          "version": "repo-lines-v1:sha256:51b3877f7139c37908d9d129bb30a33a5d20691a3d02222f8e0e739e8e2737f9:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4MzBlNTAyYTJkNjBlYjE1OGQ1MjFhYmQ0Y2M0NjA1Y2Y3Yzc5NTdmYjQ1MTg5Y2Q4MjdiMDgxNmViYmZjMzFkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzNzg4MTMzNzljMTU4OWVhY2IwOTljMzc2MmVhMDIzYzRhMjRlNmYyYTJhNGMyMGYyY2M2OTAzYTIxZjU5NDc2IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4ZTI4ZDQ3YzA1NTk3Y2EyMzRjZjBiNjc0ZGY1OTJlNGEwZDZiYjMyYjhmOWY4OWJhYWM4YWYxYjYxYTVjMWQxIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L466-L501",
+          "version": "repo-lines-v1:sha256:1ff366d7366760a368d9946dbc46d21ba1403f4b9c78951f52a8bdab188a124e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEyMGM5ZjcwY2FiYTU2N2Q2ZjU4OTM1ZWVjZWZjMWJlNTczNWUzMjhkNjMzOWJkNzM2ZWE2YTVmNDU2YmRiZmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmMWRiYzQ0MjNjNjI5YzI1NWVhYjFmMDA5MmUwMTViNzgwZDRlNTE3MDI3YTA3Y2QwZTI2NDNmZDM2NTA0NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFmMTE5YTBhNjU1OWZhOTIzNmZjODNmZWVhN2UyMWMzNzllNTQ1ZGE3NTI2YjBiMDFhYTM1MDkzNjc2NGZjMDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA0YjlhMGIxNmI5OTEwYmFhNWQwYTRkY2FmZjhhNjBjNDI5NjMzYmYyYWUzY2JhY2M4MjAyOTA3NTgwZDEwY2EifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_69ca8aef60cd4e3c81d3a5fd6380571e",
+      "statement": "A refusing interrupted-write launch does not itself load an earlier checkpoint; it emits target guidance and aborts, and a later successful earlier-snapshot launch can confirm the step-back through a higher live marker.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1876-L1996",
+          "version": "repo-lines-v1:sha256:323f87173ea44e89e26df60160b72c70ba723cf82dae217e73abae1c1541af31:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMTk4ZTUxZWM4NjNmZGRlM2U5NDk5ZWRhYmYwYTU1YWZkYWVkMTliNGYxY2EyZmMzMmRlOWRiMmRjMWMzMGUxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1ODU2NWE0MjZjYWU1NDhmZjg0MGM1MTQ3OTU4NzhhNmUxM2NlZDI4NDZjOTBmYTliZGM1MTkzNGRlZDI3NzQ4IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0MjM3NTBmMmUwZmRlYmFkYWJmNDk0ZjE0YTY0MDUyOTdjNGY5YTdlYjM3ODNiMjY0NTQwZTcxNTQxY2Q4NmUwIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4ZTI4ZDQ3YzA1NTk3Y2EyMzRjZjBiNjc0ZGY1OTJlNGEwZDZiYjMyYjhmOWY4OWJhYWM4YWYxYjYxYTVjMWQxIn0"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L2069-L2080",
+          "version": "repo-lines-v1:sha256:6872f400cfa8c4e302ddf0a666f348e0e3d7d2e914e02e38734d48b145287d7b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1MDdlMDA3NzJiOGFkZjM1ODdiYzE1M2NkYWU4MTU1ZGQ5ODUzMWUxNmYxMDhkZDg0MjJiZDNiNTEwZjA3MDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjMzY3YmMwZjk3Zjc3OTMzODkwY2Y5OWI1YWQ0N2Y2ODc4ZDhlYTkwNTEyYzNmMWY1OGJiN2I1YzY3OTdiMGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdkNWU1MjIxMTc1MzBmZjcwYmYxMjljODdlZjBjNDljOTBjNTY5ZGQ4YjYzNTFiMWRlNTdhYWVmNjZlZjVmMjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L482-L489",
+          "version": "repo-lines-v1:sha256:74e71ee6230bec440d7789fbc549c14daca469b3aa004efe987a722dc735c01b:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzc5OGU0ZGJlMzg2ZGQ0Y2I0ZWZkMTBjOWMwN2Q5Y2YyYmE0MDljM2JhMDVhNGZjMzNhMWU0YmQ3NDI3ODVjOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGE1NTY2MTE1OTM4MzY2NTRjNmM5OGMwYjYyNjc1MjVjZmZiNTk3NGU3NjMxMDM3YjA0YmEzN2YxM2U4ZmMxMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMWZkMmFhN2Y2NGY0MzEwMjk2NGQ4NDY2MTFlZmM1Y2Y2NzZhNGVmMTlhOTYxY2ZiODBkNTg3NzNiMWEzYWQzOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjMxOTU3OWYzOTMyMmQxNWQzM2RkYWYyZWU3NmI2MTkzMmE2NGQ4MDc3MTA0YWNiMTIxYWMyMmYyMDdlMGZjZCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_86ebc2da50834cad90ef78431c0a898f",
+      "statement": "Successful saves normally prune N-2 unless keep_all is set; clean-start disposal separately removes or prev-renames prior snapshot artifacts, always preserving failed markers, refusing undisposable published snapshots and only warning for marker disposal failures.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1470-L1571",
+          "version": "repo-lines-v1:sha256:4b9a54550cca741d953b454c5607e8a612a2fd118b8fb2490d0c19de6e36b438:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2ODkzZTgyMTE3OGNhZDRlM2Q0NjU2MDMzMTBjZDUzY2Q2ZjE3NjgzNGEyMzRjMzdlMGY5YjZiYjg1MTdmYWMxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzYWNlNTAzNDUzNmIyZGJkOGY5MzMyOTAxMTdjMmQzOTdiNGJlOTE0NmZjMjcwM2IyMDc3MmQ2NTAxMjVjMjAzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIn0"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1815-L1823",
+          "version": "repo-lines-v1:sha256:734ac54483c7a08940ee4b320e92e55d44dec05edb31d1de80442239075957bb:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODBmZjg5Njk4MzJlMWViZWYzZTM1Njk4ZDBhZmQ1NmZkNmE3MzQ5NTJhYWNkMTRjNjQxOTMzOGNlNWZlNDZkYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODI3MDBhYTVkMGI2ZjBjZGMzNDFkYTYwNTVhMjRmZTJjNDFlZDRiODljZDcxMjY4MjA2OTg2NTQ3YzIwOTNlMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODJiMGRkOTk2N2ExMDdhMmU1MmI4YjQzNGRlOTE2NmM0ODllMTcxNjMxYWVlODliOTg1N2ZiOGNhYTIyM2QxMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDg4YjI5OTQyMmJhYWFhMmQwMjUyYTU5ZDMyNzJlMWYzZGEyYWY1NzUwNGE1MmFkMjhhM2MxMzdlYzE3Y2Y4ZiJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L492-L501",
+          "version": "repo-lines-v1:sha256:09e35d05638e981e61f713cc1224c55cd67b8bee669dce7d24288a48f9f80296:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxMjMxYjZiZjQ5Zjg1NzlkMDFhMTY4NWIzMTA0ZWJmZDk4NTAxMzE1YTAzMGE4NDliZTY2YTExMTFhZDYxYmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmMWRiYzQ0MjNjNjI5YzI1NWVhYjFmMDA5MmUwMTViNzgwZDRlNTE3MDI3YTA3Y2QwZTI2NDNmZDM2NTA0NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhMzM3MDdiMDNhNTIxZWFmZGZjNmI5Yzk3N2NmN2IwYTgyZDc5NTI4YjMyMmQzZmNhNTM4NmEzOWUxMDY4YzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA0YjlhMGIxNmI5OTEwYmFhNWQwYTRkY2FmZjhhNjBjNDI5NjMzYmYyYWUzY2JhY2M4MjAyOTA3NTgwZDEwY2EifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e341aee3cf8f4d65bd3bfe6830b3f4d9",
+      "statement": "Missing-snapshot resume reasons classify the current directory's published series as pre-snapshot-checkpoint, retention-collision or absent, while tests clone output trees and update output_folder before mutating resumed history.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L2084-L2113",
+          "version": "repo-lines-v1:sha256:4d61d9a7833e6cf902914d096e3433f8b040547a504f91ea77a3b22c94387ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlM2VhYTliYzIxODZlZTM5M2UxZDBhZjRhYTRkODkyODU0ZGQyOGQyOWU1ZjA3ZGJkNmFiNTk3M2M5YTViZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhNzU4MjQ5NmZmMGFlNDBiOWM5Mjc2NDY2YTlmNWI5N2UyZDY0NWMyMzgwYjM2YWZiYTExMjliYmViYmVkMDYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://test/coupled_resume_suite.sh#L72-L102",
+          "version": "repo-lines-v1:sha256:c91dbcf0f55598df61308a8fa57b04b426a262af659e6f83fd08faa73f4f0cf6:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3MTE3M2ZhNWZlOTZlYWYyYjcwYjRiMDg1NWM0MzY1YWJiMjFlYzY5N2IwNDJmYjA5ODJiN2JmZmNlODEzMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNkYjhkMGJhMzg4ZDQxYmQxYTJmMWIwMjUxZmE5MmVhOTI0YmMwMDFlOTA4NjllNDk3NDdlZDQ5NmJmNGY1NDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM4OGNhYTUyYmExZjczOTAwMjcyZjMyZDkyMjFmOGFjOGI0ZmRjY2VjNjRhNzlmZWVjY2U2ZDg3YmJlZDU5NjcifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_quality_resume.py#L324-L356",
+          "version": "repo-lines-v1:sha256:3ee0f0b6e8dd5e138d86f351981a4e8036d675c695671e7f59a81b6d51aa0755:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkZWZlMDQ4ODNkNDg5ODZiYjNlODAzYjQwZDcxNjJhYWM5NjUzYjkzNDE2MzY2OWI2YjczZjM3M2ZkZmQzMDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5NzgxMThjOTU2Yzc0NWVjMTEwYzJjMzJiNmNlOWI2NDkyMzNiZWJjNDlhZDQ2MjEzY2E0YTcyOGMwZDY1YjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlhMzI4OTI0MDg3NjJlZTQ3NTM2Y2I4ODlhNDg3MTQyODM1ODEyNzA0MjI2N2VhZjQ0OGNlODY0NmRlMGJjOGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRiNDVhZWVlOTAzZGQ5ZmE2NTU0ZjdhZjlmNjMxODc2OGZjNjQyMTIxZTFmMDZkMzAyOTM1YmJiYWZlMzU2ZWYifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

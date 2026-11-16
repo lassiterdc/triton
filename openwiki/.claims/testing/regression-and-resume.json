@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:8060de603ed39d99623ddc6e14e8b0382a72a26dada54a1017c90a6c0dde2aa9",
+  "claims": [
+    {
+      "id": "claim_d46759721c2c400ebd8338cb41b5e90f",
+      "statement": "BUILD_TESTS enables CTest and its generated helper; the test tree branches between ordinary and ensemble regressions, adds unit/snapshot targets only for SWMM builds, and registers zero-node and quality integrations only for SERIAL.",
+      "evidence": [
+        {
+          "resource": "repo://CMakeLists.txt#L100-L107",
+          "version": "repo-lines-v1:sha256:64195d4b37f4e3f2a3544b1c0a40ae45ebabf02ff460c211c9b3f943fc339ce9:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzA2ZDgwMjk0NDZmNTE5MzU1YTRmZmI0ZThjMjcyMmI3MWJiNDBlNTQ3NmM1MGUxZTcyM2M3ZDQ5M2YzNWM4ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMTU4MGM2MjMxNjhlYTZjMGE3ODlkM2JlMDAwODUyYTU2OWRmNTE5OGVlYjM2NTBjZjViMmE3NWU4NjNmMjE3OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTVlOTg3NjhiNjBmNzMyMmZmYWI0MDFiNTk5MGJkYjQwZGViMDA5MDliZmZhNmVjYTI4OTVlYTQwMjU0YjM1MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmUwNWFkZmMwZGE3ZTExMjQ2Zjc3NmM5ZWFmZWQ1OGMwZTgxNmFlMTZlNmY5ZmUyYjYyMzIwODZlMDgzN2JkOCJ9"
+        },
+        {
+          "resource": "repo://cmake/util.cmake#L72-L83",
+          "version": "repo-lines-v1:sha256:bec2d64c8fd6e3f1c9950395ded8c0e6fde9a724ef11e039958e60e3ec4f1e9c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0Y2I5YTdmNGMwODJlMDhmMjQ4MTU5MzM5ZWQ2MjdkN2EzNjg4MGFkNjIzOGQ4M2Q3OGFkMTM1NGFjNWM4MjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZTNmMjU4NmU0MmUyYzE3Mzg0ODU3MGIyZmRlODgzNmMyMDgxMDliMGUyOTQ2ODJiZWE2NjIzZDlmN2YyZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc3MzJjZjZlYmNmMzNmZmIyZjMwZWRjMDFjZTcxZjIxMjM0MDcyOGJjZDk4MjNjNDQwNzcwZjQzOWM1NmNkYTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcxZTgwMjVkZjRiOWM2YTNkYTE5ZGYyOTRkZDcwOGY1NDFjZDQ1ZjRjODFkOTUzZmQyNjI1MDc0ZWNhNWMwOWQifQ"
+        },
+        {
+          "resource": "repo://test/CMakeLists.txt#L14-L109",
+          "version": "repo-lines-v1:sha256:58e3634dc7b39ea0a55fd7b4cd6c64c8d0a4a3fd0d6d6114e1b9d4c1365875fa:eyJzZWxlY3RlZExpbmVDb3VudCI6OTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyYWQ2OThhMDAyZjk0Y2UwODIwMzU5ZjJjMjdiYTI1ZTUzOGUzNzU5ZDczMDUzYmY2MGU1ZWNmYjAxYTk5NmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNzc3ZWVjZWE2ODgyMDA4YzA4Mjk0MmM5NWUwYmYzZTYwM2Q3NzRjYTcxZmNhZWFhY2RhYTdmMzVhNzA0NDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/CMakeLists.txt#L7-L19",
+          "version": "repo-lines-v1:sha256:a30ff6c2ceafeefb716cdd9f8ce0780e368d9607041d921382e069f1eddf3bfb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlOTA3NGZjZmM0YjdhZDUxMzNhODUzOGNiYmU2YTU2M2Y3ZmYwNmEwY2Y1MDdhOTA1ZDExN2I0OWEzMmIyNDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiMDY4M2M5Y2Y3Y2ZlZWM5NzcxM2EwY2Q2MDY1MmQ1YzQxZWZjMGQyY2U2OWJiMjM3OGVkZWQ2ZmUwZDc1NGEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE3NTlhZjFlY2NjNmViOGMwYTI0ZDE4ZjJhOTVkZmY3Zjk2N2YzM2U5MTBjZWUwMjA3NWMyMTUzMDVhZmYwNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE2MjQ2ZWI5ODVkYTk4OTg2OGRjMWZkZGQxNTM2ZWZmYTQ5Y2Y5Yjk1ZGJkOGE2YmQ4M2JmNWNjN2M0YzAwZDEifQ"
+        },
+        {
+          "resource": "repo://test/unit/CMakeLists.txt#L146-L169",
+          "version": "repo-lines-v1:sha256:00ce0c612ab94797103aa81d744ddb5cf3baa9329b8b51b341ca9bbdc98fc138:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiNmZhNjQxOTZkNWZmZGMxNWM2NmE5ZTJlOTM1NDc2MTYyYTdjYzAxZWI0MGVkNWJlMTg2MDA1ZTRkOTNhOTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk5N2Y4MGQ5YjIxNGQ2NjhiZTc1NDVmNmJlZTg1NDA0OWQzZmQzNWU0YmIzZTMwNTIwZjMwMGNmODhmZWJmMzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_db3c85b7ed934f5c9e539f6faa37886b",
+      "statement": "Ordinary regression comparators require simulation output fixtures, which in turn require clean-output fixtures; the ensemble regression instead checks two nonempty member rasters with cmp.",
+      "evidence": [
+        {
+          "resource": "repo://test/CMakeLists.txt#L14-L89",
+          "version": "repo-lines-v1:sha256:6fdacf99be8f7f578ffc466e3df8c6a0ffd6e6f59c88afec158107d176d307ae:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyYWQ2OThhMDAyZjk0Y2UwODIwMzU5ZjJjMjdiYTI1ZTUzOGUzNzU5ZDczMDUzYmY2MGU1ZWNmYjAxYTk5NmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyM2E2YmVkOTBjOTUxZThlMmE5Yzg4OTEwYTM5ZGMxMWNhOTQ1MzcyZmJiOTJjZDYxYTBiM2VhOTRiYTA4ZjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNzc3ZWVjZWE2ODgyMDA4YzA4Mjk0MmM5NWUwYmYzZTYwM2Q3NzRjYTcxZmNhZWFhY2RhYTdmMzVhNzA0NDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBlYjk2MjdlNTY3YTgwMGZlNGQzYzgyNzFmZDJhY2I5M2QyMDEzZjg1ODNjZDQ4MTZkMGE5YWUwMzg0NjZlMjcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8aab104342a14efc88f745ce7c8edfe6",
+      "statement": "Coupled unit registrations cover replay-header refusals, coupled-node parsing and declarations, shared-cell exchange, and a near-zero several-node conservation review whose inputs and volume residual are explicitly checked.",
+      "evidence": [
+        {
+          "resource": "repo://test/unit/CMakeLists.txt#L7-L144",
+          "version": "repo-lines-v1:sha256:6e6bf2e461ae210dea375eb761111e81d05474413097cfaca26df582e93f8404:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjNmVkMmYxZDk5NDg3ZGI2MWFhNmFiN2VhNzBhYjE0ZjM2ZWExOTRkMTg5Y2MxMzE2NjQ0NDBkNjFhOGNlYjE3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2ZDk4ZDI5NmJjYjdlOGRkZjQzYjRjMjRlZDE2MzI2YWMzNzU3Mzg1N2Y2MjIyOWExNThmMDNmOWY0ODE0NGMyIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyMzNhZDM4ZDU1NDk5NjI4MWZmMzBkMjAyNmYyZmMyMTFmMmNkMjY4YTUxN2EwNDAxZmM0NGM2YWYwMWIzOGYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyNzM0ZjgyYmZmNzc2MmI4YzZiODZlMmFiMDI4NTQ4MWU0MjY4MjEzOWQ4NjZmZmJiNTUyNWRjNDk5MDM3MTRlIn0"
+        },
+        {
+          "resource": "repo://test/unit/test_coupled_cells_review.cpp#L41-L125",
+          "version": "repo-lines-v1:sha256:c5648655a46884b703148a371dab064ebc22afd599a101efeac3fe23c6bd121f:eyJzZWxlY3RlZExpbmVDb3VudCI6ODUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhZTRkODBhNjBmYzNlNjdmMTIxNjA1NTIxODcyNjlkOTZjMjQ5OTI2OGI0YjVjOWU2YmI0NmE4OGM2ZTI4N2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJlYjljMzEwNzZhNmRiOTMzZWRjOWNkMTEwZTIzYWUxN2FhNjRjY2E5N2E4ZDExYjcxMGU2NDQ3MWVhMzM1M2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_51ff7c9f70534bf5806fd3b3be35ed71",
+      "statement": "Zero-node integration requires both an unsuccessful solver exit and the couples-no-node diagnostic from an isolated current-executable launch, with SERIAL-only registration and a five-second CTest timeout.",
+      "evidence": [
+        {
+          "resource": "repo://test/unit/CMakeLists.txt#L146-L156",
+          "version": "repo-lines-v1:sha256:d993010ee4c055ce717b6c167d9c3b2cf4971fe5992d08fd78ae7e72f3d97a09:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiNmZhNjQxOTZkNWZmZGMxNWM2NmE5ZTJlOTM1NDc2MTYyYTdjYzAxZWI0MGVkNWJlMTg2MDA1ZTRkOTNhOTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk5N2Y4MGQ5YjIxNGQ2NjhiZTc1NDVmNmJlZTg1NDA0OWQzZmQzNWU0YmIzZTMwNTIwZjMwMGNmODhmZWJmMzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA3ZDVjMGI5ZGMwYWFhZjUyOWE3NzFkMmMxNWUxN2U5ZGY0MDFhMWIwYzZlMmM4NDJjOTRkNmVmZDRjZDNkNjMifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_zero_node_refusal.py#L122-L153",
+          "version": "repo-lines-v1:sha256:f4ecf04ff85ffda1c3d4f2217ef12adb4755c72dafadbc0c15bd51c65ba7284c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyZTMxMjU3ZGMwYWUxZDU5MzAzN2MyODBjOWFkNTA4MTliOGE2YzhjZjcyOGJlMDcxNmQwMGEzZWVjYzA0YmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZmNWIyOWRhNjZiODFkOWUzYjgzMzIwZWM3NDg4MmI5NWEzMzIzMmRiOTU3YjZjZDk0NWZiNDg4NTNhM2ZlNGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFmNDRmMWI4Njg4ODRjN2RiYTM3OGE2YTZlOTc0MTc1NTQwZjhlZTFiNDVkYTI1MTNkMjRjM2Y4N2VhNjhiNGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkNDEzNDBjYzIzOWExNTljZTliNjAyMmU5ZjYzMjI4MzJlMmVhZDc2Y2FlOWU0NzU0ZDIxMGViOGZiNmQ1ZTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ba0b100703a944598add57b7303cb2a6",
+      "statement": "Quality-resume integration compares snapshot and forced-replay checkpoint-2 arms with an uninterrupted run, requiring positive pollutant concentration, run completion and route diagnostics, removal/regeneration of report and node files, binary rewrite stamps, byte-equal outputs and matching named report sections.",
+      "evidence": [
+        {
+          "resource": "repo://test/unit/CMakeLists.txt#L158-L169",
+          "version": "repo-lines-v1:sha256:53e8f9bcb3fd23e3ce05713a082412f47d058ffaedb8b6420a2ca42065329b87:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmODQ5ZGMwOTc0YzlhODdhOTFkYjJiYTUzOGViZWFmOTVjNDQ4YzA3ZjY1NWE5ODc0YzA4OGE5MmMyMjljZDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcyMWU1NDAxNDY1OTNkMmYzNWVmMGE4OGE2NWM3ZDRjZWI0NzkxMGYwNjEzNGFjYTU2YzAwMjNiM2E1MzQ5MDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_quality_resume.py#L186-L363",
+          "version": "repo-lines-v1:sha256:27d18cc98808908f8e7750a357cffeaf5c3a9787c7c2a3b022a46ccef25a9f53:eyJzZWxlY3RlZExpbmVDb3VudCI6MTc4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3YzBhYzE0MzMxZGYyNWQxZTI3OTQ3OWQ4MWQyNWQxZTc5Yjc3ZTJiYzg1MWJkZTI2YzQ1NjgwMDc2ZjBkZDIzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MjIyMzI1Y2RjZjllMzhmODE1NzEzZDM5Nzc3YmRhN2JmZTJhNDU2OTQ5ZWQ1MDZkODc2OGQzODU0ODg3MzJhIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxZjQ0ZjFiODY4ODg0YzdkYmEzNzhhNmE2ZTk3NDE3NTU0MGY4ZWUxYjQ1ZGEyNTEzZDI0YzNmODdlYTY4YjRmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDQxMzQwY2MyMzlhMTU5Y2U5YjYwMjJlOWY2MzIyODMyZTJlYWQ3NmNhZTllNDc1NGQyMTBlYjhmYjZkNWU4In0"
+        },
+        {
+          "resource": "repo://test/unit/test_quality_resume.py#L58-L61",
+          "version": "repo-lines-v1:sha256:8910d3e0dc01cf7deb167b76b426e52bd1b32cea698ce5eefb65d3260295db09:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWNjOTg5MzM2NWViNjg2MjE2MzUwMTk0MDc5Y2ZjNmQzZDE4OTkyMTQyZmIxMzNlNjVhYTFiMDg2ZmEyMjEwZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzIzZmYwZjYzOWEzY2ZhOTdkZGFhOTUwYWY0OTYyZjYzZDM5ODg3NTkyZTg4ZTU5NjY5MDNiNWRhNjg2YjcxOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDkyZmFiNTFiNDc4ODVjMDY1ZTA4ZTNiYjdkNjYxYWRhZDVkYmI5MThkOTkwYTk1ODA0ZmM5ZjkzZTM3MGQyOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmQyMDNkMzIxN2VjYTljMDZkZWVmNGEzODZhODI1N2I3NDRlZWFmMmZiMTc3YTJhN2ZlMWRhN2IxNGVlODM3MiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_fd341004b9af4b079743de24100ff493",
+      "statement": "Snapshot tests distinguish stored double precision, model-shape and corrupt/version refusals, absent versus unreadable outcomes, marker lifecycle and output continuity, and quality-state restoration including a missing-array failed-save test and independent quality review.",
+      "evidence": [
+        {
+          "resource": "repo://test/snapshot/CMakeLists.txt#L23-L99",
+          "version": "repo-lines-v1:sha256:61e8cb367c2ebe298cd0f7ae305ad99ba7030ad0a3dae8d4419f06333234277a:eyJzZWxlY3RlZExpbmVDb3VudCI6NzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmODk2NGE2NGE2YmQwZTE2N2YzYTZlNTRkYzhiNTE2NzE2ODNhNWI5ZDVjM2VlNWU1ZDkwNjNiYmZhNThlYjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyNjg3NDQwYWU0Y2NkOWU2OGE4N2Q3NWVlZmQ5YmYzZGFkZWNkOTFiYzk2NDRkYzJjYzE2OTg5ZDAwMzg1YmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE2MjQ2ZWI5ODVkYTk4OTg2OGRjMWZkZGQxNTM2ZWZmYTQ5Y2Y5Yjk1ZGJkOGE2YmQ4M2JmNWNjN2M0YzAwZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_quality_snapshot_review.cpp#L223-L242",
+          "version": "repo-lines-v1:sha256:cdcac527877816adda403534b2bc924735523526efdf5b5fa2039f330d57dd66:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUzNjU5YWMxMTI3MmQyZmRmMTkxMGEyOTVlNDY4YzUzZWEyYjA4YWRiOGYwYWI4ZmU1OTU1NGM3YzIzNjFlN2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY2MjJmMzgzMjI2ZTRkNzQ3OWQyNmNkYTAxYjBiODUzNzM3ZDEwMTU2OWVlYzA2YmUwNGRmZTFkNzdhODk0ZDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhMTkwMDI0ODQ0MGRkZDc4YWIwMTA3N2RiYzk1ZDQ5M2RlNWExZGQ4Y2YxZjVjMjRiOWNmZmYzZTkyYjUzYmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIzNDZmNTdjOGZjNWRmMjIwOGQ1NjU0OTFmM2Y1NWI2MWI1Y2VmMDM2NmEyNGQzNTgyZmNkNjExMWU4Y2IxMzAifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L2929-L2958",
+          "version": "repo-lines-v1:sha256:bb5665f15eeda5d9b783437955fe3f4f830931cceb631812b3e98763234c4f10:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkYmVkYTBhOGI1NTdjNmZlMThjYTI0NmZkMDY2Nzg2MzJjY2ZlN2MxMTkyMjU5MzdiMGYxYTllMzA1ZjQwNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA0YWMzMjY1NzgwODI5OGFjM2QwOThiYjVhM2NhMWE2OGEwNTE4OTU3NmQxZDdlNjczNTE4YjM2OWY2MGI0MDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZkNzdhZTEzOTk2Y2JiNTIxNGU4ODExMmZmMWFiZTliODE5YTA0M2Q2ZDk2NWEyOGNlYWM2ZWViNTQwMjM4M2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhMmJmNDgwMjU1M2ZmYmU2ZTNjZDlhOTgxYTdkY2Y0MjM2ODE1NzZlNTNlNzY1MDBjMTgxN2U4MmZlZDMzMGUifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L492-L578",
+          "version": "repo-lines-v1:sha256:bbcf9202f3d785070103834466dc6397acc293dc23138213d85ccca3f32cb851:eyJzZWxlY3RlZExpbmVDb3VudCI6ODcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4MGM4MzI1YWMwOTg5NDExYmE4ZmEwM2M3ZGIzZjZhNDljNDg0N2U1NjE0NTcxYjA0YzRjNWZmYmZjZmI0MDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVkMTJkZGIwZmU0ZDhhMjI3OThhZGY5OWU3ZGM2NjYyZjJlMzdhYjhlOTgzNDEwMjUyOTYxZWMwZDE4MDg0MmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRhMGE5NmQ3M2IzZDk4ODdjMjk3MTZmNzVjODNmYjMwN2E2MWU3OTIwNDJkYjkwNzhlNDhiYTAxZmU2ODc0MWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhMmJmNDgwMjU1M2ZmYmU2ZTNjZDlhOTgxYTdkY2Y0MjM2ODE1NzZlNTNlNzY1MDBjMTgxN2U4MmZlZDMzMGUifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L904-L953",
+          "version": "repo-lines-v1:sha256:28f6ace4db59cc4cd0cf4b104770b8ac4620ab723584d020c4a75e4cc4df74b7:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5ZTJkMDZiZDBmMGU2MGYzYTE5NzU5NWFiNDRjYmQ2MjUyODAyNjIzZGYxY2ZhNjVmNWFlM2M4NmEzYjE3OTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg1YTE2YWYzY2ZhZWM4NWY2YTc5MjNlM2MzMjRkNDQ2ZjA4ZjY2OWQyMTA5NWUwZDhlMThiNjkwMmVmZWIzNTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFiYTJmMDk4MDU0M2VhY2ZjMDUwNGQ4NDEzOGE1OGUyMjI3Zjg3MjE4MzI1YTQwZmE0OTYwNDUxMGY3NzRjYmQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2dce0aafcb8142c6880c273180a0fb5f",
+      "statement": "Guard closure requires global-count whole-model guards, excludes MPI/method calls from local-count blocks, and requires SWMM vector indexing under local guards with scope and non-vacuity checks; return-code scanning separately uses synthetic controls and a population floor.",
+      "evidence": [
+        {
+          "resource": "repo://test/test_swmm_guard_predicate_closure.py#L193-L390",
+          "version": "repo-lines-v1:sha256:5e1348878ef92160ff887991028d7e5b1bc3bb710d24233c4d9e6557a2f6e79b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTk4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5NmYyMTExNWRhMTVkN2IxNmYyNzBmMGFiNzE1NmVkMjVmZDVmYWVlMzc2N2MyMWI1ODhmNzBkOGI4MDU3NzVmIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIxNjIzM2IzZmZlYTMyYTIzZGY1MzA2NTM0MzQ4ZjJkZWU3NzZhNWE2Zjc0ZmI1MzMxNzVkZGM1MzlhOGZlNDY0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjNDUyYThmMTZhYzlhYjljMTA2MjA4MzRhZTEwZjFlNTk0MzJkNmEwM2I5NDM3ZDJiOTQ1YzRmYmQ2ZjU1OTM1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDQxMzQwY2MyMzlhMTU5Y2U5YjYwMjJlOWY2MzIyODMyZTJlYWQ3NmNhZTllNDc1NGQyMTBlYjhmYjZkNWU4In0"
+        },
+        {
+          "resource": "repo://test/test_swmm_return_codes_source.py#L64-L119",
+          "version": "repo-lines-v1:sha256:933c1f63514a341acc7372226972cfe9ed4d86137f6206bdcc8a37d238109622:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZmOTJiOWQ3ZWRmMTBjNTJlOWM3MjM1NDU3OTNmODk0ZmViYzA4NTY1MmVmM2ZlY2ZjZDhmODVlMzZlNzZkNzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZmNWIyOWRhNjZiODFkOWUzYjgzMzIwZWM3NDg4MmI5NWEzMzIzMmRiOTU3YjZjZDk0NWZiNDg4NTNhM2ZlNGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE4OGE2NjcyYzc3Y2NmYTM0ZmUzZWMzMTJiMjI0NWMxNjczMzYyZDU2M2ZiNmEwZjk0YjJlNGVlMDQzODAxNDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkNDEzNDBjYzIzOWExNTljZTliNjAyMmU5ZjYzMjI4MzJlMmVhZDc2Y2FlOWU0NzU0ZDIxMGViOGZiNmQ1ZTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9bbf6390d97d405b8eeb8933c71c05f9",
+      "statement": "Inventory CTest registration labels regeneration and closure-mode mutation checks slow while keeping Criterion-P and SWMM guard checks in the fast tier.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/CMakeLists.txt#L33-L80",
+          "version": "repo-lines-v1:sha256:1612a8dd01836dbe124c2ff7193d729bd914532c88ada48767f0f45ba9e60633:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkOGE2Yjc0Y2IxZWZlYjNmNmYxYzI3YTgyOTRkMTIzZTkzOWNkN2Q4NWVmODM5OGJkY2EwY2VkOTI0MjkxYWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImViZGYwNTc0ZDYzODMzMDhkNzNlMTMwZDViMDI1MWQ2NDllYzE1NDYzOGY1NjhlYmJhOWYzYmZiZmZkNzI1YzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_46c262b024ed466ebc96364a76001fc5",
+      "statement": "The standalone resume suite depends on benchmark inputs and hard-coded MPI launch commands, tests multiple resume routes and MPI output modes, requires completion before byte comparison, and separately checks degraded startup, failure diagnostics and performance accounting; its np16 leg checks completion rather than resume.",
+      "evidence": [
+        {
+          "resource": "repo://test/CMakeLists.txt",
+          "version": "repo-file-v1:sha256:d1263be35cc458a043b2e7af0ae5c911a7c141c116b5d24b04550d635872c865"
+        },
+        {
+          "resource": "repo://test/coupled_resume_suite.sh#L179-L285",
+          "version": "repo-lines-v1:sha256:3b37026ac04de732d0c4630b05fa3fa50862c2689d965dd2ecde1799b287a15e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5NDkzZjlhNDE3MDBhNDcxNGZhN2UzNDc3ZGZhOTA2NTM1Y2RiOTYxZDUyN2Y5YjdjYmEyOWZlMTExYmQwMWM3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5ZGVjMzYxMGNiOWNmNDZjOGY2NGU5ZGRkZjRkZWExOTdkYzYzNDgwY2UwMjhkYmY2NmQxMjI2NjNmZDJlYWU5IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1YWMwMjlhZTU5ZDRhOWY2ZWM5NDA4NjU5NzZmMWE4ZWI4MjRjYTg0NGE5ODA5MWE3YWI4ZGU4MmY4NjAwYjhhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        },
+        {
+          "resource": "repo://test/coupled_resume_suite.sh#L37-L177",
+          "version": "repo-lines-v1:sha256:11a8deb3746b61acb479b6a074bcf9e53deb22771ff76f4a1535f75b5cc4c51c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzNGU5MDVjMjhlM2M2YWQxZDg4ZjJkNTdjNGVmYThjMjk4OTMxZmM0NjQ1ZjFjOTJhZDRmYWQyZDZmMzc3ZjRmIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI4YjBkZTRjODZlNDE1NjQ1YTQ4YzA2NGIwNzU1MmVjZDU4YmQ0OWQxMjdhZTNmMWNhNzI3Y2Q4MjQ5ZjVkNDVjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiNzRkYWNjNzMyNDkyMzllNGJjZmE0MmEzNTYzZjQ0Yzc3NjQ0MDFjMmY5NDgxNTNkZmIyY2YyYTk4MzMzMDBkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkNDEwNjM5NDBlMDc4NjJlY2NhYmU2OWRlNjYwODliNGRkMTg1ZmIyMmEwNzUwMWQwMzY1NGQ5MmJkY2RhN2EzIn0"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}
