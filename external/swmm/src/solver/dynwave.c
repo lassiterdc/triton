@@ -87,6 +87,17 @@ static TXnode* Xnode;                  // extended nodal information
 static double  Omega;                  // actual under-relaxation parameter
 static int     Steps;                  // number of Picard iterations
 
+// --- coupling-diagnostics capture state (TRITON). Capture only: no routing
+//     statement reads any of these. Allocated and freed here, written by
+//     setNodeDepth/getFloodedDepth and dynwave_execute/swmm_step, read by the
+//     dynwave_get*StepDiagnostics functions after the step.
+static double* DiagPath3;              // signed path-3 volume per node, last trial (ft3) //TRITON
+static int     DiagStepRan;            // TRUE once dynwave_execute ran in the current swmm_step //TRITON
+#ifdef TRITON_DIAG_TEST_OMP_REDUCTION
+static double  DiagTestP3Pos;          // test-only: thread-order sum of positive path-3 (ft3) //TRITON
+static double  DiagTestP3Neg;          // test-only: thread-order sum of negative path-3 (ft3) //TRITON
+#endif
+
 //-----------------------------------------------------------------------------
 //  Function declarations
 //-----------------------------------------------------------------------------
@@ -168,6 +179,14 @@ void dynwave_init()
             " Not enough memory for dynamic wave routing.");
         return;
     }
+    DiagPath3 = (double *) calloc(Nobjects[NODE], sizeof(double));       //TRITON
+    DiagStepRan = FALSE;                                                  //TRITON
+    if ( DiagPath3 == NULL )                                              //TRITON
+    {
+        report_writeErrorMsg(ERR_MEMORY,
+            " Not enough memory for dynamic wave routing.");
+        return;
+    }
     
     // --- initialize node surface areas & crown elev.
     for (i = 0; i < Nobjects[NODE]; i++ )
@@ -206,6 +225,7 @@ void  dynwave_close()
 //
 {
     FREE(Xnode);
+    FREE(DiagPath3);                                                      //TRITON
 }
 
 //=============================================================================
@@ -269,6 +289,7 @@ int dynwave_execute(double tStep)
 
     // --- initialize
     if ( ErrorCode ) return 0;
+    DiagStepRan = TRUE;                                                   //TRITON
     Steps = 0;
     converged = FALSE;
     Omega = OMEGA;
@@ -636,13 +657,21 @@ int findNodeDepths(double dt)
 {
     int i;
     double yOld = 0.0;       // previous node depth (ft)
+#ifdef TRITON_DIAG_TEST_OMP_REDUCTION
+    double diagPos = 0.0;    // test-only: thread-order sums of path-3 (ft3) //TRITON
+    double diagNeg = 0.0;                                                 //TRITON
+#endif
 
     // --- compute outfall depths based on flow in connecting link
     for ( i = 0; i < Nobjects[LINK]; i++ ) link_setOutfallDepth(i);
 
     // --- compute new depth for all non-outfall nodes and determine if
     //     depth change from previous iteration is below tolerance
+#ifdef TRITON_DIAG_TEST_OMP_REDUCTION
+#pragma omp parallel num_threads(NumThreads) reduction(+:diagPos,diagNeg)
+#else
 #pragma omp parallel num_threads(NumThreads)
+#endif
 {
     #pragma omp for private(yOld)
     for ( i = 0; i < Nobjects[NODE]; i++ )
@@ -650,6 +679,10 @@ int findNodeDepths(double dt)
         if ( Node[i].type == OUTFALL ) continue;
         yOld = Node[i].newDepth;
         setNodeDepth(i, dt);
+#ifdef TRITON_DIAG_TEST_OMP_REDUCTION
+        if ( DiagPath3[i] > 0.0 )      diagPos += DiagPath3[i];           //TRITON
+        else if ( DiagPath3[i] < 0.0 ) diagNeg += DiagPath3[i];           //TRITON
+#endif
         Xnode[i].converged = TRUE;
         if ( fabs(yOld - Node[i].newDepth) > HeadTol )
         {
@@ -657,6 +690,10 @@ int findNodeDepths(double dt)
         }
     }
 }
+#ifdef TRITON_DIAG_TEST_OMP_REDUCTION
+    DiagTestP3Pos = diagPos;                                              //TRITON
+    DiagTestP3Neg = diagNeg;                                              //TRITON
+#endif
 
    // --- return FALSE if any non-Outfall node failed to converge
     for (i = 0; i < Nobjects[NODE]; i++)
@@ -790,7 +827,11 @@ void setNodeDepth(int i, double dt)
     {
         yNew = getFloodedDepth(i, canPond, dV, yNew, yMax, dt);
     }
-    else Node[i].newVolume = node_getVolume(i, yNew);
+    else
+    {
+        Node[i].newVolume = node_getVolume(i, yNew);
+        DiagPath3[i] = Node[i].newVolume - (Node[i].oldVolume + dV);      //TRITON
+    }
 
     // --- compute change in depth w.r.t. time
     Xnode[i].dYdT = fabs(yNew - yOld) / dt;
@@ -819,11 +860,15 @@ double getFloodedDepth(int i, int canPond, double dV, double yNew,
     {
         Node[i].overflow = dV / dt;
         Node[i].newVolume = Node[i].fullVolume;
+        DiagPath3[i] = MAX(0.0, Node[i].fullVolume -
+                           (Node[i].oldVolume + dV));                     //TRITON
         yNew = yMax;
     }
     else
     {
         Node[i].newVolume = MAX((Node[i].oldVolume+dV), Node[i].fullVolume);
+        DiagPath3[i] = MAX(0.0, Node[i].fullVolume -
+                           (Node[i].oldVolume + dV));                     //TRITON
         Node[i].overflow = (Node[i].newVolume - 
             MAX(Node[i].oldVolume, Node[i].fullVolume)) / dt;
     }
@@ -972,4 +1017,151 @@ void dynwave_getVariableStepRef(double** variableStep)                    //TRIT
 //
 {
     if ( variableStep ) *variableStep = &VariableStep;
+}
+
+//=============================================================================
+
+void dynwave_resetStepDiagnostics(void)                                   //TRITON
+//
+//  Input:   none
+//  Output:  none
+//  Purpose: marks the capture state as "dynwave_execute has not run in this
+//           swmm_step". Called at the top of every swmm_step so that a step
+//           which skips dynamic wave routing (steady state, past the routing
+//           duration) reads as zero trials and zero volume rather than as the
+//           previous step's values. Writes only DiagStepRan.
+//
+{
+    DiagStepRan = FALSE;
+}
+
+//=============================================================================
+
+int dynwave_getStepDiagnostics(int* trials, int* nNonConverged,
+                               double* p3Pos, double* p3Neg,
+                               double* linkVolume)                        //TRITON
+//
+//  Input:   pointers receiving the outputs (all required)
+//  Output:  returns 0 on success, 1 if routing is not dynamic wave
+//  Purpose: reads the capture state of the swmm_step that just returned.
+//           Reads solver state and writes only the caller's variables.
+//           trials        = trials used (Steps), 0 if dynwave_execute did not run
+//           nNonConverged = non-outfall nodes left non-converged after the
+//                           last trial, 0 if dynwave_execute did not run
+//           p3Pos, p3Neg  = domain sums of the signed path-3 volume (ft3),
+//                           the positive and the negative terms, taken
+//                           SERIALLY in node-index order here (never by an
+//                           OpenMP reduction), so the bytes do not depend on
+//                           NumThreads. Under the test-only switch
+//                           TRITON_DIAG_TEST_OMP_REDUCTION they are instead the
+//                           thread-order sums taken inside findNodeDepths.
+//           linkVolume    = sum of Link[j].newVolume over all links (ft3),
+//                           serial in link-index order
+//
+{
+    int    i;
+    int    nc = 0;
+    double pos = 0.0, neg = 0.0, lv = 0.0;
+
+    *trials = 0;
+    *nNonConverged = 0;
+    *p3Pos = 0.0;
+    *p3Neg = 0.0;
+    *linkVolume = 0.0;
+    if ( Xnode == NULL || DiagPath3 == NULL ) return 1;
+
+    for ( i = 0; i < Nobjects[LINK]; i++ ) lv += Link[i].newVolume;
+    *linkVolume = lv;
+    if ( !DiagStepRan ) return 0;
+
+    for ( i = 0; i < Nobjects[NODE]; i++ )
+    {
+        if ( Node[i].type == OUTFALL ) continue;
+        if ( DiagPath3[i] > 0.0 )      pos += DiagPath3[i];
+        else if ( DiagPath3[i] < 0.0 ) neg += DiagPath3[i];
+        if ( Xnode[i].converged == FALSE ) nc++;
+    }
+#ifdef TRITON_DIAG_TEST_OMP_REDUCTION
+    pos = DiagTestP3Pos;
+    neg = DiagTestP3Neg;
+#endif
+    *trials = Steps;
+    *nNonConverged = nc;
+    *p3Pos = pos;
+    *p3Neg = neg;
+    return 0;
+}
+
+//=============================================================================
+
+int dynwave_getNodeStepDiagnostics(double* path3, int capacity)           //TRITON
+//
+//  Input:   path3 = caller buffer; capacity = its length
+//  Output:  returns the number of non-outfall nodes written, or -1 if routing
+//           is not dynamic wave or the buffer is NULL or shorter than that
+//           count (nothing is written then)
+//  Purpose: copies the signed path-3 volume (ft3) of the last trial of the
+//           swmm_step that just returned, one value per NON-OUTFALL node in
+//           SWMM node-index order; all zero if dynwave_execute did not run.
+//
+{
+    int i, k = 0;
+
+    if ( Xnode == NULL || DiagPath3 == NULL || path3 == NULL ) return -1;
+    for ( i = 0; i < Nobjects[NODE]; i++ )
+        if ( Node[i].type != OUTFALL ) k++;
+    if ( capacity < k ) return -1;
+    k = 0;
+    for ( i = 0; i < Nobjects[NODE]; i++ )
+    {
+        if ( Node[i].type == OUTFALL ) continue;
+        path3[k++] = DiagStepRan ? DiagPath3[i] : 0.0;
+    }
+    return k;
+}
+
+//=============================================================================
+
+int dynwave_getNonConvergedNodes(int* ordinals, int capacity)             //TRITON
+//
+//  Input:   ordinals = caller buffer; capacity = its length
+//  Output:  returns the number of non-converged non-outfall nodes written, or
+//           -1 if routing is not dynamic wave, the buffer is NULL or it is
+//           shorter than that count (nothing is written then)
+//  Purpose: lists the non-outfall nodes left non-converged after the last
+//           trial of the swmm_step that just returned, as ORDINALS in the
+//           non-outfall node numbering (the k-th non-outfall node in SWMM
+//           node-index order), ascending; empty if dynwave_execute did not run.
+//
+{
+    int i, k = 0, n = 0;
+
+    if ( Xnode == NULL || DiagPath3 == NULL || ordinals == NULL ) return -1;
+    if ( !DiagStepRan ) return 0;
+    for ( i = 0; i < Nobjects[NODE]; i++ )
+        if ( Node[i].type != OUTFALL && Xnode[i].converged == FALSE ) n++;
+    if ( capacity < n ) return -1;
+    n = 0;
+    for ( i = 0; i < Nobjects[NODE]; i++ )
+    {
+        if ( Node[i].type == OUTFALL ) continue;
+        if ( Xnode[i].converged == FALSE ) ordinals[n++] = k;
+        k++;
+    }
+    return n;
+}
+
+//=============================================================================
+
+int dynwave_getNonOutfallNodeCount(void)                                  //TRITON
+//
+//  Input:   none
+//  Output:  returns the number of non-outfall nodes, 0 if none are open
+//  Purpose: the length of the per-node reads above.
+//
+{
+    int i, k = 0;
+    for ( i = 0; i < Nobjects[NODE]; i++ )
+        if ( Node[i].type != OUTFALL ) k++;
+    return k;
 }
