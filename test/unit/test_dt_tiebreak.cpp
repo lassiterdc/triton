@@ -7,10 +7,12 @@
  *  twin with identical state, so their DT is bit-equal; the north and west ghost has
  *  the smaller index, and a smaller-index tie-break recorded grow or gcol of -1.
  *
- *  Class: REGRESSION (red on the tree with the index-only tie-break; control T4 below
- *  runs that old rule over the same fixture and requires it to pick the ghost, so the
- *  fixture is shown to discriminate). Second correct implementation: a single pass
- *  with a custom reducer ordering (class, index) passes the same cases.
+ *  Class: REGRESSION. T1 and T2 are the discriminators: they were measured red on the
+ *  index-only tie-break (tree 5896190) and are green on the fix. T3 and T4 pin the
+ *  behaviour the fix keeps (smaller index among interior ties; a strict ghost minimum is
+ *  reported as the ghost index, erratum E-13 Form A) and are not claimed to discriminate
+ *  the old rule. Second correct implementation: a single pass with a custom reducer
+ *  ordering (class, index) passes the same cases.
  *  One-time chunk test of 2b.1: retire at the run's final landing.
  */
 // The headers below assume the translation unit already pulled in these standard and
@@ -79,15 +81,9 @@ int main(int argc, char** argv)
 			auto v = base; v[2 * COLS + 4] = 0.7; v[3 * COLS + 2] = 0.7;
 			CHECK(run(v) == 2 * COLS + 4, "T3 an interior tie did not take the smaller index");
 		}
-		if (want("T4_old_rule_picks_the_ghost")) {
-			auto v = base; v[ghost_nw] = 0.5; v[twin] = 0.5;
-			int old_loc = -1; double best = 1e300;
-			for (int i = 0; i < (int)v.size(); i++) if (v[i] < best) { best = v[i]; old_loc = i; }
-			CHECK(old_loc == ghost_nw, "T4 control: the index-only rule did not pick the ghost cell on this fixture");
-		}
-		if (want("T5_strict_ghost_minimum_reports_the_ghost")) {
+		if (want("T4_strict_ghost_minimum_reports_the_ghost")) {
 			auto v = base; v[ghost_nw] = 0.1; v[twin] = 0.5;
-			CHECK(run(v) == ghost_nw, "T5 a strict ghost minimum was not reported as the ghost index");
+			CHECK(run(v) == ghost_nw, "T4 a strict ghost minimum was not reported as the ghost index");
 		}
 	}
 	Kokkos::finalize();
