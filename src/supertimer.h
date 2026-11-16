@@ -260,11 +260,18 @@ namespace SuperTimer
 	}
 
 
+	// start() reads the clock BEFORE it looks the category up, and stop() looks the category
+	// up ONCE, before it reads the clock. The category lookup (a std::map with a
+	// case-insensitive comparison) costs microseconds, and any lookup that runs between one
+	// call's clock read and the next call's clock read belongs to no category, so it
+	// surfaces in the Other column of performance.txt: with the lookups on the far side of
+	// the clock reads, a category change leaves no unattributed gap.
 	void super_timer::start(std::string category)
 	{
-		timeval* t = &all_timers_[get_cat_index_(category)];
+		timeval t;
+		gettimeofday(&t, NULL);
 
-		gettimeofday(t, NULL);
+		all_timers_[get_cat_index_(category)] = t;
 	}
 
 
@@ -272,12 +279,12 @@ namespace SuperTimer
 	{
 		timeval t1, t2;
 		int catidx = get_cat_index_(category);
-		gettimeofday(&t2, NULL);
 		t1 = all_timers_[catidx];
+		gettimeofday(&t2, NULL);
 
 		Constants::ull time_usecs = ((((Constants::ull) t2.tv_sec * 1000000) + t2.tv_usec) - (((Constants::ull) t1.tv_sec * 1000000) + t1.tv_usec));
 
-		upd_time_(category, time_usecs);
+		times_[catidx] += time_usecs;
 	}
 
 	void super_timer::restart(std::string category)
