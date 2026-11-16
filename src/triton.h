@@ -2319,6 +2319,7 @@ namespace Triton
     diag_surface.place(rank, size, (double)cell_size);
     diag_surface.enable_dt_limiter(arglist.diag_dt_limiter != 0);
     diag_surface.enable_domain_balance(arglist.diag_domain_balance != 0);
+    diag_surface.enable_wet_cells(arglist.diag_wet_cells != 0);
     if (diag_surface.any())
     {
       st.start(DIAG_TIME);
@@ -2599,6 +2600,12 @@ namespace Triton
 #ifdef TRITON_DIAG_TEST_EARLY_MINLOC
       diag_surface.minloc_collective();
 #endif
+      st.stop(DIAG_TIME);
+    }
+    if (diag_surface.wet_cells)
+    {
+      st.start(DIAG_TIME);
+      diag_surface.sample_wet(rows, cols, device_vec[H], (double)arglist.hextra);
       st.stop(DIAG_TIME);
     }
   }
