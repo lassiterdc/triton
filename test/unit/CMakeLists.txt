@@ -204,7 +204,8 @@ set(TRITON_STEP_DIAG_LOG_TESTS
   P3_interval_csv_cut_at_every_offset
   W1_resumed_file_equals_clean_file
   F1_flow_units_convert_to_cfs
-  B1_swmm_step_and_log_call_sites_are_bracketed)
+  B1_swmm_step_and_log_call_sites_are_bracketed
+  B2_close_row_writes_the_t1b_tail)
 
 foreach(_t IN LISTS TRITON_STEP_DIAG_LOG_TESTS)
   add_test(NAME UNIT-STEP-DIAG-LOG-${_t}

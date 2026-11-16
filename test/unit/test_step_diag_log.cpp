@@ -527,6 +527,45 @@ static void B1_swmm_step_and_log_call_sites_are_bracketed()
     CHECK(!calls_are_bracketed(mutant, "swmm_step(", "SWMM_SOLVE", n), "control: with one start removed the predicate fails");
 }
 
+/// True when the end-of-run close row of `t` calls write_node_path3_interval(..., true)
+/// before diag_log::close_all(), inside the TRITON_DIAG_TEST_NO_TAIL guard and inside
+/// #ifdef TRITON_SWMM.
+static bool close_row_has_t1b_tail(const std::string& t)
+{
+    const size_t close = t.find("diag_log::close_all();");
+    if (close == std::string::npos) return false;
+    const size_t call = t.rfind("write_node_path3_interval(", close);
+    const size_t guard = t.rfind("#ifndef TRITON_DIAG_TEST_NO_TAIL", close);
+    const size_t swmm = t.rfind("#ifdef TRITON_SWMM", close);
+    if (call == std::string::npos || guard == std::string::npos || swmm == std::string::npos) return false;
+    const size_t args_end = t.find(';', call);
+    return guard < swmm && swmm < call && close - call < 400
+        && t.substr(call, args_end - call).find("true") != std::string::npos;
+}
+
+// Property: the end-of-run close row of src/triton.h writes the T1b final partial interval
+// (write_node_path3_interval(simtime, true)) before diag_log::close_all(), under the same
+// TRITON_DIAG_TEST_NO_TAIL switch as the surface rows and inside #ifdef TRITON_SWMM.
+// Class: REGRESSION (red on the round-1 tree, whose close row had no T1b call).
+// Killed by: deleting the call, moving it after close_all(), or moving it out of the switch.
+// Second correct implementation: the call inside a helper the row invokes would NOT pass this
+// reader, which pins the call text; the Rivanna run checks the behaviour.
+// Control: the predicate on a copy with the call erased must fail.
+static void B2_close_row_writes_the_t1b_tail()
+{
+    std::ifstream in(TRITON_H_PATH);
+    CHECK(in.is_open(), "src/triton.h opens");
+    std::stringstream ss;
+    ss << in.rdbuf();
+    const std::string t = ss.str();
+    CHECK(close_row_has_t1b_tail(t), "the close row calls write_node_path3_interval(..., true) before close_all, inside the T-C switch");
+    std::string mutant = t;
+    const size_t k2 = mutant.find("write_node_path3_interval((double)simtime, true)");
+    CHECK(k2 != std::string::npos, "control: the tail call exists to erase");
+    if (k2 != std::string::npos) mutant.erase(k2, std::string("write_node_path3_interval((double)simtime, true)").size());
+    CHECK(!close_row_has_t1b_tail(mutant), "control: with the call erased the predicate fails");
+}
+
 struct test_entry { const char* name; void (*fn)(); };
 static const test_entry kTests[] = {
     {"S1_step_record_layout", S1_step_record_layout},
@@ -540,6 +579,7 @@ static const test_entry kTests[] = {
     {"W1_resumed_file_equals_clean_file", W1_resumed_file_equals_clean_file},
     {"F1_flow_units_convert_to_cfs", F1_flow_units_convert_to_cfs},
     {"B1_swmm_step_and_log_call_sites_are_bracketed", B1_swmm_step_and_log_call_sites_are_bracketed},
+    {"B2_close_row_writes_the_t1b_tail", B2_close_row_writes_the_t1b_tail},
 };
 
 /** Runs the test named in argv[1], or every test; exits 1 on any failure. */
