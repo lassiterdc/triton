@@ -318,3 +318,11 @@ foreach(_t IN LISTS TRITON_SURFACE_DIAG_REVIEW_TESTS)
   add_test(NAME UNIT-SURFACE-DIAG-REVIEW-${_t}
            COMMAND test_surface_diag_review ${CMAKE_SOURCE_DIR}/src/triton.h ${_t})
 endforeach()
+
+# Chunk 2b.1 repair: the timer-call order of super_timer start() and stop() (Other residual).
+add_executable(test_supertimer_order test_supertimer_order.cpp)
+foreach(_t IN ITEMS T1_start_reads_the_clock_before_the_lookup T2_stop_looks_up_once_before_the_clock
+                    T3_control_old_start_is_flagged T4_control_old_stop_is_flagged)
+  add_test(NAME UNIT-SUPERTIMER-ORDER-${_t}
+           COMMAND test_supertimer_order ${CMAKE_SOURCE_DIR}/src/supertimer.h ${_t})
+endforeach()
