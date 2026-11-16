@@ -19,7 +19,7 @@
 #       [--cpu-cmake-flags-from FILE]  the same for the CPU backend (default: hhemt's CPU flags,
 #                                      without its conda libstdc++ fragment; recorded in the record)
 #       [--repo DIR] [--work DIR] [--kokkos-dir DIR] [--cases N1,N3,...] [--np-big 8] [--no-gpu]
-#       [--keep-going] [--sec-floor 0.05]
+#       [--keep-going] [--sec-floor 0.05] [--build-only]
 # Without --cmake-flags-from (or with --no-gpu) the A100 arms (N6, the A100 arm of N9) are SKIPPED
 # and reported as SKIPPED, never as passed.
 #
@@ -31,7 +31,7 @@ set -u
 THIS=$(readlink -f "$0")
 REPO=$(cd "$(dirname "$THIS")/.." && pwd)
 BASE_SHA=""; TEST_SHA=""; GPU_FLAGS_FILE=""; CPU_FLAGS_FILE=""; WORK=""; KOKKOS_DIR=""
-CASES="N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12"; NP_BIG=8; NO_GPU=0; KEEP_GOING=1; SEC_FLOOR=0.05
+CASES="N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12"; NP_BIG=8; NO_GPU=0; KEEP_GOING=1; SEC_FLOOR=0.05; BUILD_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --baseline-sha) BASE_SHA=$2; shift 2;;
@@ -44,9 +44,10 @@ while [ $# -gt 0 ]; do
     --cases) CASES=$2; shift 2;;
     --np-big) NP_BIG=$2; shift 2;;
     --no-gpu) NO_GPU=1; shift;;
+    --build-only) BUILD_ONLY=1; shift;;   # build every variant the selected cases need, run nothing (a node without the GPU can check the A100 builds)
     --keep-going) KEEP_GOING=1; shift;;
     --sec-floor) SEC_FLOOR=$2; shift 2;;
-    -h|--help) sed -n '2,32p' "$THIS"; exit 0;;
+    -h|--help) sed -n '2,34p' "$THIS"; exit 0;;
     *) echo "unknown argument: $1" >&2; exit 2;;
   esac
 done
@@ -208,6 +209,7 @@ launcher() { # launcher NP -> the command prefix
 ARM_DIR=""; ARM_OUT=""
 run_arm() {
   local name=$1 b=$2 np=$3; shift 3
+  [ "$BUILD_ONLY" = 1 ] && { rec "RUN/$name" SKIP "--build-only"; return 1; }
   local d; d=$(rundir "$name" "$b")
   mkcfg "$d" arm.cfg out "$@"
   ARM_DIR=$d; ARM_OUT="$d/out"
@@ -246,6 +248,7 @@ last_cfg() { ls "$1"/cfg/config_*.cfg 2>/dev/null | sed 's/.*config_\([0-9]*\)\.
 # the output folder reaches ARG2 bytes, then a pause of 2 s), none.
 kill_run() {
   local name=$1 b=$2 np=$3 kind=$4 arg=$5; shift 5
+  [ "$BUILD_ONLY" = 1 ] && { rec "RUN/$name" SKIP "--build-only"; return 1; }
   local d; d=$(rundir "$name" "$b")
   mkcfg "$d" arm.cfg out "$@"
   ARM_DIR=$d; ARM_OUT="$d/out"
@@ -487,6 +490,7 @@ case_N5() {
 # n5_paraboloid LABEL BUILD NP : clean arm and arm (f) of the uncoupled paraboloid case with T2, T5, T6 on
 n5_paraboloid() {
   local lab=$1 b=$2 np=$3 tag="N5_np${3}_$1"
+  [ "$BUILD_ONLY" = 1 ] && { rec "RUN/$tag" SKIP "--build-only"; return 1; }
   local d="$WORK/run/${tag}_clean"; rm -rf "$d"; mkdir -p "$d/test" "$d/input"
   cp -r "$TEST_SRC/input/paraboloid" "$d/input/"; cp "$TEST_SRC/test/paraboloid.cfg" "$d/test/"
   ln -sf "$(exe "$b")" "$d/triton.exe"
@@ -565,6 +569,7 @@ set_threads() { # set_threads DIR N : SWMM THREADS option of the case's .inp
 }
 run_threads() { # run_threads NAME BUILD THREADS KEYS... -> ARM_OUT
   local name=$1 b=$2 th=$3; shift 3
+  [ "$BUILD_ONLY" = 1 ] && { rec "RUN/$name" SKIP "--build-only"; return 1; }
   local d; d=$(rundir "$name" "$b"); set_threads "$d" "$th"
   mkcfg "$d" arm.cfg out "$@"
   ARM_DIR=$d; ARM_OUT="$d/out"
