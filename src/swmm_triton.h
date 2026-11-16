@@ -743,6 +743,8 @@ namespace SWMM_triton
 	/// swmm_node_path3_step.bin (T1c): {f64 simtime, f64 dt, f64[n]} per step.
 	static inline std::size_t node_path3_step_record_bytes(int n) { return 16 + 8 * (std::size_t)n; }
 
+	/// One swmm_node_path3_step.bin record: the step's END time, the dt SWMM was
+	/// stepped with, and the signed path-3 volume (ft3) of each of the n non-outfall nodes.
 	static inline std::vector<char> encode_node_path3_step_record(double simtime, double dt, const double* path3, int n)
 	{
 		std::vector<char> b;
@@ -756,6 +758,8 @@ namespace SWMM_triton
 	/// swmm_link_flow_diag.bin (T1d): {f64 simtime, f64[L] flow} per step.
 	static inline std::size_t link_flow_record_bytes(int n_links) { return 8 + 8 * (std::size_t)n_links; }
 
+	/// One swmm_link_flow_diag.bin record: the step's END time and the getter's flow of
+	/// each listed link, in the order of the swmm_link_flow_diag.links sidecar.
 	static inline std::vector<char> encode_link_flow_record(double simtime, const double* flow, int n_links)
 	{
 		std::vector<char> b;
