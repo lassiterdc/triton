@@ -97,6 +97,15 @@ namespace ConfigUtils
 		std::string
 		swmm_coupling_nodes;
 
+		/**< Per-node manhole table: a path names a file with one coupling node per
+		*   line, the node name, the diameter in metres and the dimensionless loss
+		*   coefficient, whitespace separated. With a table the two constants
+		*   manhole_diameter and manhole_loss are not read for any node and the
+		*   table must cover the coupling nodes 1:1. Empty (absent key) gives every
+		*   node the two constants, as every earlier build did. Additive. */
+		std::string
+		swmm_manhole_table;
+
 		/**< TRITON steps per SWMM step. 1 (absent key) steps SWMM every TRITON
 		*   step as every earlier build did; N > 1 sums each node's exchange over N
 		*   steps and steps SWMM once with the summed dt and the mean exchange. A
@@ -584,6 +593,7 @@ namespace ConfigUtils
 		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
 		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
 		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
+		arglist.swmm_manhole_table = argsd("swmm_manhole_table", argmap, "");
 		arglist.swmm_coupling_interval = atoi((argsd("swmm_coupling_interval", argmap, "1")).c_str());
 		arglist.swmm_coupling_lag = atoi((argsd("swmm_coupling_lag", argmap, "0")).c_str());
 		arglist.swmm_diag_steps = atoi((argsd("swmm_diag_steps", argmap, "0")).c_str());
