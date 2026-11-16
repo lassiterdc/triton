@@ -30,6 +30,19 @@
 #include "swmm_triton.h"
 #endif
 
+#ifdef TRITON_SWMM
+// TEST-ONLY T-D2 (TRITON_DIAG_TEST_NO_END_DRAIN, undefined by default): 1 keeps the
+// end-of-run SWMM step of the coupling interval/lag block, 0 removes only that step,
+// so a run whose duration is not a whole number of print intervals leaves its last
+// partial interval's exchange unsent. A macro rather than an #ifdef inside the block,
+// so the block's one compile-time split stays TRITON_DIAG_TEST_NO_DRAIN.
+#ifdef TRITON_DIAG_TEST_NO_END_DRAIN
+#define TRITON_T3_END_DRAIN 0
+#else
+#define TRITON_T3_END_DRAIN 1
+#endif
+#endif
+
 #include "Ensify.h"
 
 namespace Triton
@@ -2624,7 +2637,7 @@ namespace Triton
       // print block and the loop condition of the step loop, on the same values,
       // taken before simtime advances.
       const bool ends_print_interval = (simtime + global_dt >= arglist.print_interval * (swmm_print_id + 1));
-      const bool ends_run = (simtime + global_dt >= arglist.sim_duration);
+      const bool ends_run = (TRITON_T3_END_DRAIN && simtime + global_dt >= arglist.sim_duration);
 #ifdef TRITON_DIAG_TEST_NO_DRAIN
       // TEST-ONLY (undefined by default): no print-instant drain, so SWMM steps only
       // every N TRITON steps and a checkpoint can fall inside an interval with a

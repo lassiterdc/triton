@@ -32,6 +32,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -347,6 +349,44 @@ static void I9_cfg_range()
           "the lag refusal names its key");
 }
 
+// ---------------------------------------------------------------------------
+// Property: src/triton.h carries the test-only row T-D2: a compile switch
+// TRITON_DIAG_TEST_NO_END_DRAIN, off by default, that removes only the end-of-run
+// SWMM step, wired into the end-of-run term of the T3 block's drain.
+// Class: the three places the row lives (the switch arm, the default arm, the
+// end-of-run term); a source-structure check, because the switch is a compile-time
+// choice no unit build of this file can flip.
+// Why: without the row the case that shows the end-of-run step is needed cannot fail.
+// Killed by: deleting the switch, leaving the default arm off, or leaving the
+// end-of-run term unconnected to it. Second correct implementation: an #ifdef
+// around the end-of-run term inside the block instead of a macro, which this test
+// would reject only if it also dropped the macro name; the check is on the macro.
+// Control: the existing TRITON_DIAG_TEST_NO_DRAIN switch must be found by the same
+// reader, or a zero here would mean a broken reader.
+static void I10_t_d2_switch_is_wired()
+{
+    std::ifstream in(TRITON_H_PATH);
+    CHECK(in.is_open(), "src/triton.h opens");
+    std::stringstream ss;
+    ss << in.rdbuf();
+    const std::string t = ss.str();
+    CHECK(t.find("#ifdef TRITON_DIAG_TEST_NO_DRAIN") != std::string::npos, "control: the T-D switch is found by this reader");
+    const size_t sw = t.find("#ifdef TRITON_DIAG_TEST_NO_END_DRAIN");
+    CHECK(sw != std::string::npos, "the T-D2 switch exists");
+    if (sw == std::string::npos) return;
+    const size_t off = t.find("#define TRITON_T3_END_DRAIN 0", sw);
+    const size_t els = t.find("#else", sw);
+    const size_t on = t.find("#define TRITON_T3_END_DRAIN 1", sw);
+    CHECK(off != std::string::npos && els != std::string::npos && on != std::string::npos && off < els && els < on,
+          "the switch arm turns the end-of-run drain off and the default arm leaves it on");
+    const size_t er = t.find("const bool ends_run");
+    CHECK(er != std::string::npos, "the end-of-run term exists");
+    if (er == std::string::npos) return;
+    const std::string line = t.substr(er, t.find(';', er) - er);
+    CHECK(line.find("TRITON_T3_END_DRAIN") != std::string::npos && line.find("sim_duration") != std::string::npos,
+          "the end-of-run term is gated by the switch's macro and still tests the run duration");
+}
+
 struct test_entry { const char* name; void (*fn)(); };
 static const test_entry kTests[] = {
     {"I1_defaults_are_inactive", I1_defaults_are_inactive},
@@ -358,6 +398,7 @@ static const test_entry kTests[] = {
     {"I7_drain_leaves_nothing_carried", I7_drain_leaves_nothing_carried},
     {"I8_held_depths_between_steps", I8_held_depths_between_steps},
     {"I9_cfg_range", I9_cfg_range},
+    {"I10_t_d2_switch_is_wired", I10_t_d2_switch_is_wired},
 };
 
 /** Runs the test named in argv[1], or every test; exits 1 on any failure. */
