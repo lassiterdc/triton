@@ -193,6 +193,15 @@ namespace diag_log
 			const std::size_t block = (std::size_t)n * item_bytes;
 			if (block > 0)
 			{
+				// A block longer than what is left of the stream is an incomplete record;
+				// asking the allocator for it first would let a count field of a corrupted
+				// or mismatched file request gigabytes. A killed run's prefix never reaches
+				// this: its count field is valid, so the block read below fails instead.
+				const std::streamoff here = in.tellg();
+				in.seekg(0, std::ios::end);
+				const std::streamoff end = in.tellg();
+				in.seekg(here);
+				if (here < 0 || end < here || (std::uintmax_t)block > (std::uintmax_t)(end - here)) return false;
 				std::vector<char> blk(block);
 				in.read(blk.data(), (std::streamsize)block);
 				if (in.gcount() != (std::streamsize)block) return false;

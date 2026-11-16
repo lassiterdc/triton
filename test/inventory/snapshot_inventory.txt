@@ -277,7 +277,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #   contributes culvert.c: writes through a global
 #   contributes datetime.c: declares 1 non-const file-scope static(s)
 #   contributes dwflow.c: writes through a global
-#   contributes dynwave.c: declares 4 non-const file-scope static(s)
+#   contributes dynwave.c: declares 8 non-const file-scope static(s)
 #   contributes error.c: defines 1 file-scope global(s)
 #   contributes exfil.c: writes through a global
 #   EXCLUDED    findroot.c: declares no mutable state and writes no global
@@ -316,7 +316,7 @@ TotalStepCount	-	long	no	globals.h	extern
 #   none -- every declared exclusion holds at this pin
 #
 # scalar-scope census -- a row key is the bare NAME:
-#   none -- each of the 140 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
+#   none -- each of the 144 file-scope statics the walk reaches is owned by exactly one unit, and none shadows a global
 # SCALAR-SCOPE COLLISIONS: 0
 #
 # TRIAGE -- object<TAB>field<TAB>liveness<TAB>disposition<TAB>reason
@@ -337,6 +337,10 @@ TotalStepCount	-	long	no	globals.h	extern
 -	CrownCutoff	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 -	DateFormat	LIVE	EXCLUDED	report date formatting, set from configuration at start by datetime_setDateFormat; it selects presentation, not state
 -	DeepFlowExpr	LIVE	EXCLUDED	pointer/array name: the value is a heap address produced during open/init, meaningless to carry between processes; any state behind it is carried on its own axis
+-	DiagPath3	LIVE	EXCLUDED	pointer/array name: `static double* DiagPath3` (dynwave.c) is a heap address allocated by dynwave_init, meaningless to carry between processes. The values behind it are the signed path-3 volume per node: setNodeDepth (non-flooded branch) or getFloodedDepth (flooded branch) writes the node's entry on every trial of every step that runs dynwave_execute, and only the capture getters read it, after the step and only while DiagStepRan is TRUE, so no value crosses a step boundary and no routing statement reads it
+-	DiagStepRan	LIVE	EXCLUDED	derived within the step: dynwave_resetStepDiagnostics writes FALSE at the top of every swmm_step, before dynwave_execute's TRUE, so the flag is per-step. It is read only by the capture getters after the step, to tell a step that skipped dynamic wave routing (zero trials, zero path-3) from one that ran; no routing statement reads it
+-	DiagTestP3Neg	LIVE	EXCLUDED	derived within the step: test-only (compiled only under TRITON_DIAG_TEST_OMP_REDUCTION, undefined by default). findNodeDepths assigns it from the thread-order reduction on every trial before the capture getter reads it after the step; no value crosses a step boundary and no routing statement reads it
+-	DiagTestP3Pos	LIVE	EXCLUDED	derived within the step: test-only (compiled only under TRITON_DIAG_TEST_OMP_REDUCTION, undefined by default). findNodeDepths assigns it from the thread-order reduction on every trial before the capture getter reads it after the step; no value crosses a step boundary and no routing statement reads it
 -	DoRouting	LIVE	EXCLUDED	derived at swmm_start from the .inp-derived object counts (swmm5.c), so it is re-derived identically on resume
 -	DoRunoff	LIVE	EXCLUDED	derived at swmm_start from Nobjects[SUBCATCH], which the coupled build forces to 0 (swmm5.c:377), so it is re-derived identically on resume
 -	DryStep	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
@@ -675,4 +679,4 @@ TTable.file	objects.h member of TTable	EXCLUDED	per-time-series cursor. It SELF-
 # TFILE-TRIAGE ADMITTED: 1 (an empty admitted set is a PASSING result)
 # TFILE-TRIAGE UNTRIAGED COUNT: 0
 #
-# CRITERION P ROWS: 341
+# CRITERION P ROWS: 345

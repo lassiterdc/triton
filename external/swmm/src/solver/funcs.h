@@ -313,6 +313,17 @@ void    routing_getSnapshotRefs(double** newRuleTime, int** nextEvent,
 // Address of dynwave.c's static VariableStep sentinel.
 void    dynwave_getVariableStepRef(double** variableStep);                //TRITON
 
+// Coupling-diagnostics capture (dynwave.c). Read-only views of what the step
+// just taken left behind; Xnode is `static` and TXnode appears in no header, so
+// these functions are the only opening. dynwave_resetStepDiagnostics is called
+// at the top of every swmm_step; the others are called by the swmm5.c getters.
+void    dynwave_resetStepDiagnostics(void);                               //TRITON
+int     dynwave_getStepDiagnostics(int* trials, int* nNonConverged,
+        double* p3Pos, double* p3Neg, double* linkVolume);                //TRITON
+int     dynwave_getNodeStepDiagnostics(double* path3, int capacity);      //TRITON
+int     dynwave_getNonConvergedNodes(int* ordinals, int capacity);        //TRITON
+int     dynwave_getNonOutfallNodeCount(void);                             //TRITON
+
 // Write/restore SWMM's state at full double precision; snapshot_load refuses
 // with a reason naming the mismatching quantity. Caller frees the manifest.
 // SNAPSHOT_ABSENT is the legitimate fall-back-to-replay case; anything else

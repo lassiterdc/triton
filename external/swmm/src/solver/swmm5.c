@@ -422,7 +422,7 @@ int DLLEXPORT swmm_step(double *elapsedTime, double *exchange_q, double *swmm_ne
 //
 {
     // --- check that simulation can proceed
-    *elapsedTime = 0.0;
+    *elapsedTime = 0.0; dynwave_resetStepDiagnostics(); //TRITON: capture reads "no solve" until dynwave_execute runs (same line: no cited line moves)
     if ( ErrorCode ) 
         return ErrorCode;
     if ( !IsOpenFlag )
@@ -968,6 +968,97 @@ void  DLLEXPORT swmm_decodeDate(double date, int *year, int *month, int *day,
     datetime_decodeDate(date, year, month, day);
     datetime_decodeTime(date, hour, minute, second);
     *dayOfWeek = datetime_dayOfWeek(date);
+}
+
+//=============================================================================
+//   Coupling-diagnostics getters (TRITON)
+//
+//   Read-only views of the dynamic wave solution left by the swmm_step that
+//   just returned. They write only the caller's variables. All SWMM-native
+//   units (volumes in ft3). Call them after swmm_step and before the next one.
+//   A step in which dynamic wave routing did not run (steady-state skip, or a
+//   step past the routing duration) reads as 0 trials, 0 non-converged nodes
+//   and zero path-3 volume.
+//
+//   "Non-outfall ordinal" k = the position of a node among the non-outfall
+//   nodes in SWMM node-index order (the numbering of a sidecar that lists the
+//   non-outfall node names in node-index order). To list those names: loop
+//   i over swmm_getCount(swmm_NODE), skip nodes whose
+//   swmm_getValue(swmm_NODE_TYPE, i) == swmm_OUTFALL, and take swmm_getName.
+//=============================================================================
+
+int DLLEXPORT swmm_getStepDiagnostics(int *trials, int *nNonConverged,
+              double *p3Pos, double *p3Neg, double *linkVolume) //TRITON
+//
+//  Input:   pointers receiving the outputs (all required)
+//  Output:  trials        = trials used by the last dynwave_execute
+//           nNonConverged = non-outfall nodes left non-converged after the
+//                           last trial
+//           p3Pos, p3Neg  = domain sums (ft3) of the signed path-3 volume:
+//                           the sum of its positive terms and the sum of its
+//                           negative terms (p3Neg <= 0), summed serially in
+//                           node-index order
+//           linkVolume    = sum of Link[].newVolume over all links (ft3)
+//           returns 0 on success, 1 if no dynamic wave solution is open
+//           (outputs zero), 2 if an argument is NULL
+//  Purpose: step diagnostics for coupling-diagnostics capture T1a.
+//  path-3 volume of a non-outfall node = newVolume - (oldVolume + dV), the
+//  volume SWMM adds or removes at the node beyond what its inflow minus
+//  outflow gave it (dV), at the last trial of the step.
+{
+    if ( trials == NULL || nNonConverged == NULL || p3Pos == NULL ||
+         p3Neg == NULL || linkVolume == NULL ) return 2;
+    if ( !IsOpenFlag || !IsStartedFlag )
+    {
+        *trials = 0; *nNonConverged = 0;
+        *p3Pos = 0.0; *p3Neg = 0.0; *linkVolume = 0.0;
+        return 1;
+    }
+    return dynwave_getStepDiagnostics(trials, nNonConverged, p3Pos, p3Neg,
+                                      linkVolume);
+}
+
+//=============================================================================
+
+int DLLEXPORT swmm_getNonOutfallNodeCount(void) //TRITON
+//
+//  Input:   none
+//  Output:  returns the number of non-outfall nodes, 0 if no project is open
+//  Purpose: the length of the buffer swmm_getNodeStepDiagnostics fills.
+{
+    if ( !IsOpenFlag ) return 0;
+    return dynwave_getNonOutfallNodeCount();
+}
+
+//=============================================================================
+
+int DLLEXPORT swmm_getNodeStepDiagnostics(double *path3, int capacity) //TRITON
+//
+//  Input:   path3 = caller buffer; capacity = its length (>= the count above)
+//  Output:  path3[k] = signed path-3 volume (ft3) of non-outfall ordinal k at
+//           the last trial of the step; returns the count written, or -1
+//           (nothing written) if no dynamic wave solution is open, path3 is
+//           NULL or capacity is too small
+//  Purpose: per-node capture T1b and T1c.
+{
+    if ( !IsOpenFlag || !IsStartedFlag ) return -1;
+    return dynwave_getNodeStepDiagnostics(path3, capacity);
+}
+
+//=============================================================================
+
+int DLLEXPORT swmm_getNonConvergedNodes(int *ordinals, int capacity) //TRITON
+//
+//  Input:   ordinals = caller buffer; capacity = its length
+//  Output:  ordinals[0..n-1] = non-outfall ordinals of the nodes left
+//           non-converged after the last trial, ascending; returns n, or -1
+//           (nothing written) if no dynamic wave solution is open, ordinals
+//           is NULL or capacity is too small. n equals nNonConverged of
+//           swmm_getStepDiagnostics, so a buffer of that length always fits.
+//  Purpose: which nodes failed to converge, for capture T1a.
+{
+    if ( !IsOpenFlag || !IsStartedFlag ) return -1;
+    return dynwave_getNonConvergedNodes(ordinals, capacity);
 }
 
 //=============================================================================

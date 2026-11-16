@@ -176,6 +176,85 @@ foreach(_t IN LISTS TRITON_COUPLING_INTERVAL_TESTS)
            COMMAND test_coupling_interval ${_t})
 endforeach()
 
+# The T1 SWMM-step capture writer (swmm_diag_steps, swmm_diag_node_path3_per_step,
+# swmm_diag_links): the byte layout of every T1 record, the link selection, and the
+# positioner of the capture files cut at every byte offset of a final record (a fixed-size
+# binary file, the variable-block T1a file and an interval csv). Same build arrangement.
+add_executable(test_step_diag_log test_step_diag_log.cpp)
+
+target_include_directories(test_step_diag_log PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_step_diag_log PRIVATE kokkos swmm5)
+
+# B1 reads the solver source to check the SWMM_SOLVE and SWMM_LOG brackets.
+target_compile_definitions(test_step_diag_log PRIVATE
+  TRITON_H_PATH="${CMAKE_SOURCE_DIR}/src/triton.h")
+
+set(TRITON_STEP_DIAG_LOG_TESTS
+  S1_step_record_layout
+  S2_interval_sums_and_reset
+  S3_other_record_layouts
+  H1_headers_and_magics
+  L1_link_selection
+  P1_fixed_record_file_cut_at_every_offset
+  P2_variable_block_file_cut_at_every_offset
+  P3_interval_csv_cut_at_every_offset
+  W1_resumed_file_equals_clean_file
+  F1_flow_units_convert_to_cfs
+  B1_swmm_step_and_log_call_sites_are_bracketed
+  B2_close_row_writes_the_t1b_tail)
+
+foreach(_t IN LISTS TRITON_STEP_DIAG_LOG_TESTS)
+  add_test(NAME UNIT-STEP-DIAG-LOG-${_t}
+           COMMAND test_step_diag_log ${_t})
+endforeach()
+
+# The 2a.2 reviewer test: a garbage count field of a T1a-shaped record is an incomplete
+# record and never an allocation (diag_log.h counted_block_record_reader).
+add_executable(test_step_diag_log_review test_step_diag_log_review.cpp)
+
+target_include_directories(test_step_diag_log_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_step_diag_log_review PRIVATE kokkos swmm5)
+
+foreach(_t
+    R1_garbage_count_is_an_incomplete_record_not_an_allocation
+    R2_position_keeps_the_records_before_a_garbage_count
+    R3_whole_blocks_are_still_read)
+  add_test(NAME UNIT-STEP-DIAG-LOG-REVIEW-${_t}
+           COMMAND test_step_diag_log_review ${_t})
+endforeach()
+
+# The 2a.1 reviewer test: the SWMM step-capture getters driven through the public swmm5.h
+# API on a generated dynamic-wave network. It links the swmm5 target alone and was
+# committed with chunk 2a.1 without a registration.
+add_executable(test_swmm_step_capture_review test_swmm_step_capture_review.cpp)
+
+target_include_directories(test_swmm_step_capture_review PRIVATE
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include)
+
+target_link_libraries(test_swmm_step_capture_review PRIVATE swmm5)
+
+set(TRITON_SWMM_STEP_CAPTURE_REVIEW_CASES
+  contracts_outside_a_solve
+  argument_and_capacity_refusals
+  no_solve_step_reads_zero
+  domain_sums_equal_serial_sum_of_per_node_values
+  capture_is_thread_count_independent
+  ordinals_follow_non_outfall_order
+  model_reaches_every_branch)
+
+foreach(_t IN LISTS TRITON_SWMM_STEP_CAPTURE_REVIEW_CASES)
+  add_test(NAME UNIT-SWMM-STEP-CAPTURE-REVIEW-${_t}
+           COMMAND test_swmm_step_capture_review ${_t})
+endforeach()
+
 # The T3 drain, read from src/triton.h: a source-structure test with no solver link.
 add_executable(test_coupling_interval_review test_coupling_interval_review.cpp)
 
@@ -222,12 +301,6 @@ target_link_libraries(test_dt_tiebreak PRIVATE kokkos)
 foreach(_t IN ITEMS T1_interior_wins_over_ghost_twin T2_west_ghost_twin T3_smaller_index_among_interior
                     T4_strict_ghost_minimum_reports_the_ghost)
   add_test(NAME UNIT-DT-TIEBREAK-${_t} COMMAND test_dt_tiebreak ${_t})
-# Chunk 2b.1 repair: the timer-call order of super_timer start() and stop() (Other residual).
-add_executable(test_supertimer_order test_supertimer_order.cpp)
-foreach(_t IN ITEMS T1_start_reads_the_clock_before_the_lookup T2_stop_looks_up_once_before_the_clock
-                    T3_control_old_start_is_flagged T4_control_old_stop_is_flagged)
-  add_test(NAME UNIT-SUPERTIMER-ORDER-${_t}
-           COMMAND test_supertimer_order ${CMAKE_SOURCE_DIR}/src/supertimer.h ${_t})
 endforeach()
 
 # Chunk 2b.1 reviewer test: source-structure properties of the surface captures (rule 6).
@@ -244,4 +317,12 @@ set(TRITON_SURFACE_DIAG_REVIEW_TESTS
 foreach(_t IN LISTS TRITON_SURFACE_DIAG_REVIEW_TESTS)
   add_test(NAME UNIT-SURFACE-DIAG-REVIEW-${_t}
            COMMAND test_surface_diag_review ${CMAKE_SOURCE_DIR}/src/triton.h ${_t})
+endforeach()
+
+# Chunk 2b.1 repair: the timer-call order of super_timer start() and stop() (Other residual).
+add_executable(test_supertimer_order test_supertimer_order.cpp)
+foreach(_t IN ITEMS T1_start_reads_the_clock_before_the_lookup T2_stop_looks_up_once_before_the_clock
+                    T3_control_old_start_is_flagged T4_control_old_stop_is_flagged)
+  add_test(NAME UNIT-SUPERTIMER-ORDER-${_t}
+           COMMAND test_supertimer_order ${CMAKE_SOURCE_DIR}/src/supertimer.h ${_t})
 endforeach()
