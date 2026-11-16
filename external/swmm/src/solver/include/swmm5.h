@@ -135,6 +135,18 @@ int    DLLEXPORT swmm_end(void);
 int    DLLEXPORT swmm_report(const char *f1); //TRITON
 int    DLLEXPORT swmm_close(void);
 
+// --- coupling-diagnostics getters (TRITON); see swmm5.c for the contract.
+//     Call after swmm_step and before the next one; SWMM-native units (ft3).
+//     swmm_getStepDiagnostics returns 0 ok, 1 no dynamic wave solution, 2 NULL
+//     argument. The per-node functions index the NON-OUTFALL nodes in SWMM
+//     node-index order ("non-outfall ordinal") and return the count written
+//     or -1 (nothing written).
+int    DLLEXPORT swmm_getStepDiagnostics(int *trials, int *nNonConverged,
+                 double *p3Pos, double *p3Neg, double *linkVolume); //TRITON
+int    DLLEXPORT swmm_getNonOutfallNodeCount(void);                 //TRITON
+int    DLLEXPORT swmm_getNodeStepDiagnostics(double *path3, int capacity); //TRITON
+int    DLLEXPORT swmm_getNonConvergedNodes(int *ordinals, int capacity);   //TRITON
+
 int    DLLEXPORT swmm_getMassBalErr(float *runoffErr, float *flowErr, float *qualErr);
 int    DLLEXPORT swmm_getVersion(void);
 int    DLLEXPORT swmm_getError(char *errMsg, int msgLen);

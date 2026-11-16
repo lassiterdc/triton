@@ -1030,6 +1030,41 @@ EXCLUDED_ROUTING_STATE = {
         "derived within the step: `Steps = 0` (dynwave.c:285) opens "
         "dynwave_execute's Picard loop before any read of it, so the iteration "
         'count is per-step and no value crosses the boundary',
+    # --- coupling-diagnostics capture statics (dynwave.c) ------------------
+    #
+    # Four statics added for the TRITON coupling-diagnostics capture. Each is
+    # written by the step and read only by the capture getters
+    # (dynwave_getStepDiagnostics and the two per-node reads) after the step
+    # returns; no routing statement reads any of them, and no value crosses a
+    # step boundary: the getters read the arrays only while DiagStepRan is TRUE,
+    # and swmm_step resets DiagStepRan to FALSE before anything else in the step.
+    ("-", 'DiagPath3'):
+        'pointer/array name: `static double* DiagPath3` (dynwave.c) is a heap '
+        'address allocated by dynwave_init, meaningless to carry between '
+        'processes. The values behind it are the signed path-3 volume per '
+        'node: setNodeDepth (non-flooded branch) or getFloodedDepth (flooded '
+        'branch) writes the node\'s entry on every trial of every step that '
+        'runs dynwave_execute, and only the capture getters read it, after the '
+        'step and only while DiagStepRan is TRUE, so no value crosses a step '
+        'boundary and no routing statement reads it',
+    ("-", 'DiagStepRan'):
+        'derived within the step: dynwave_resetStepDiagnostics writes FALSE at '
+        "the top of every swmm_step, before dynwave_execute's TRUE, so the "
+        'flag is per-step. It is read only by the capture getters after the '
+        'step, to tell a step that skipped dynamic wave routing (zero trials, '
+        'zero path-3) from one that ran; no routing statement reads it',
+    ("-", 'DiagTestP3Neg'):
+        'derived within the step: test-only (compiled only under '
+        'TRITON_DIAG_TEST_OMP_REDUCTION, undefined by default). findNodeDepths '
+        'assigns it from the thread-order reduction on every trial before the '
+        'capture getter reads it after the step; no value crosses a step '
+        'boundary and no routing statement reads it',
+    ("-", 'DiagTestP3Pos'):
+        'derived within the step: test-only (compiled only under '
+        'TRITON_DIAG_TEST_OMP_REDUCTION, undefined by default). findNodeDepths '
+        'assigns it from the thread-order reduction on every trial before the '
+        'capture getter reads it after the step; no value crosses a step '
+        'boundary and no routing statement reads it',
     ("-", 'T'):
         "derived within the step: `T = getFlowSpread(Q)` (inlet.c:1353) is the "
         'first step event on this row. It read as live-on-entry until comments '
