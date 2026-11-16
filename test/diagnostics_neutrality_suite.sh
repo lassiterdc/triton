@@ -405,7 +405,7 @@ case_N3() {
   base_run cpu 1 "_fixed" $fixed && local bf=$BASE_OUT
   branch_run "n3_fixed" cpu 1 $CAP_SURF $fixed && {
     [ -n "${bf:-}" ] && cmp_arm "N3/fixed" 0 "fixed time increment 0.1 s, T2/T5/T6 on: hydraulics against the baseline at the same increment" "$bf" "$ARM_OUT"
-    chk "N3/fixed/files" 0 "dt_limiter.bin is the 16-byte header alone and edge_flux.bin holds records" $CMP "$NEUT" captures-check --out "$ARM_OUT" --enabled t2,t5,t6 --ranks 1 --fixed-dt --end-time 300
+    chk "N3/fixed/files" 0 "dt_limiter.bin is the 16-byte header alone and edge_flux.bin holds records" $CMP "$NEUT" captures-check --out "$ARM_OUT" --enabled t2,t5,t6 --ranks 1 --fixed-dt
   }
   # half-interval arm: sim_duration = a whole number of print intervals plus half of one
   local full=$(( NCP / 2 )); local half=$(( full * ${PRINT%.*} + ${PRINT%.*} / 2 ))

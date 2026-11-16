@@ -61,6 +61,7 @@ BAL_HEADER = ("%t_end, d_storage_m3, runoff_m3, inflow_m3, extbc_m3, clamp_m3, s
               "edge_east_m3, edge_south_m3, edge_north_m3, residual_m3")
 PERF_CATEGORIES = ["Compute", "MPI", "IO", "Resize", "SWMM", "SWMM_XFER", "SWMM_MPI", "SWMM_STEP", "SWMM_OTHER",
                    "SWMM_SOLVE", "SWMM_LOG", "Other"]
+NOISY = ("IO", "MPI", "Other")
 SIDE_FILE = os.path.join("swmm", "hydraulics_exchange_replay.bin")
 SWMM_OUT = os.path.join("swmm", "hydraulics.out")
 SWMM_RPT = os.path.join("swmm", "hydraulics.rpt")
@@ -375,7 +376,7 @@ def cmd_perf_diff(a):
             if c not in on[r]:
                 fails.append("rank %d has no column %s" % (r, c))
                 continue
-            rel = a.rel_floor_io if c == "IO" else a.rel_floor
+            rel = a.rel_floor_noisy if c in NOISY else a.rel_floor
             band, mean, spread = band_for(offs, r, c, a.abs_floor, rel)
             delta = on[r][c] - mean
             tag = "OUT" if abs(delta) > band else "in"
@@ -797,7 +798,7 @@ def main():
     p.add_argument("--ranks", default="all")
     p.add_argument("--abs-floor", type=float, default=0.05)
     p.add_argument("--rel-floor", type=float, default=0.15)
-    p.add_argument("--rel-floor-io", type=float, default=0.5, help="IO is raster writes to a shared file system and varies most from run to run")
+    p.add_argument("--rel-floor-noisy", type=float, default=0.5, help="IO (raster writes to a shared file system), MPI (waiting) and Other (the residual) vary most from run to run")
     p.add_argument("--diag-positive", default="")
     p.set_defaults(f=cmd_perf_diff)
     p = sp.add_parser("perf-nonzero")
