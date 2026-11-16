@@ -31,7 +31,13 @@
 #      baseline dir is provided via $BASELINE
 #   F. failure semantics: missing side-file, V1-magic side-file, corrupt
 #      snapshot -- each must abort with its specific diagnostic
-#   G. performance.txt: 14 columns, SWMM_OTHER >= 0 on every row
+#   G. performance.txt: 17 columns in the documented order, SWMM_OTHER >= 0 on
+#      every row, SWMM_SOLVE + SWMM_LOG <= SWMM_STEP, DIAG == 0 with every
+#      capture off, SWMM_SOLVE > 0 on rank 0, and the per-rank identity
+#      Compute+MPI+IO+SWMM+Resize+DIAG+Other == Simulation as a file-integrity
+#      check (it holds by the construction of Other whatever DIAG covers, so it
+#      detects a malformed or mis-ordered file and does NOT detect capture work
+#      charged to the wrong category -- the neutrality suite's differential does)
 set -u
 
 BIN_ABS=$(readlink -f "$1")
@@ -259,10 +265,13 @@ grep -aq "UNUSABLE" "$D/f3.log" && grep -aq "Coupled resume aborted" "$D/f3.log"
 # ---------- G. performance.txt shape ----------
 say "--- G: performance.txt accounting ---"
 P="$ROOT/serial/out_ka/performance.txt"
+# The exact header string: the column order is part of the interface hhemt's
+# readers were told (they select by name, but a reordered file is a different file).
+G_HEADER='%Rank, Compute, MPI, IO, Resize, SWMM, SWMM_XFER, SWMM_MPI, SWMM_STEP, SWMM_OTHER, SWMM_SOLVE, SWMM_LOG, DIAG, Other, Simulation, Init, Total'
 if [ -s "$P" ]; then
-  head -1 "$P" | grep -q "SWMM_XFER, SWMM_MPI, SWMM_STEP, SWMM_OTHER" \
-    && ok "G performance header carries the four SWMM child columns" \
-    || bad "G performance header missing child columns"
+  [ "$(head -1 "$P" | tr -d '\r')" = "$G_HEADER" ] \
+    && ok "G performance header: 17 columns, SWMM_SOLVE and SWMM_LOG after SWMM_OTHER, DIAG before Other" \
+    || bad "G performance header differs from the documented 17-column order"
   python3 - "$P" <<'EOF' && ok "G SWMM_OTHER >= 0 on every row (residual sign)" || bad "G SWMM_OTHER negative"
 import csv, sys
 rows = [[c.strip() for c in r] for r in csv.reader(open(sys.argv[1]))]
@@ -274,6 +283,47 @@ for r in rows[1:]:
     assert v[i_other] >= 0.0, r
     # the file prints 4 significant digits, so the identity holds only to that precision
     assert abs(v[i_x]+v[i_m]+v[i_s]+v[i_other] - v[i_p]) < 0.05, r
+EOF
+  python3 - "$P" <<'EOF' && ok "G SWMM_SOLVE + SWMM_LOG <= SWMM_STEP; SWMM_SOLVE > 0 on rank 0; DIAG == 0 with captures off" || bad "G SWMM_SOLVE/SWMM_LOG/DIAG accounting"
+import csv, math, sys
+rows = [[c.strip() for c in r] for r in csv.reader(open(sys.argv[1]))]
+hdr = rows[0][1:]
+col = {n: hdr.index(n) for n in ('SWMM_STEP', 'SWMM_SOLVE', 'SWMM_LOG', 'DIAG')}
+
+def half_unit(x):
+    """Largest rounding error of x printed with setprecision(4): half a unit in
+    the fourth significant digit."""
+    return 0.0 if x == 0.0 else 0.5 * 10.0 ** (math.floor(math.log10(abs(x))) - 3)
+
+for r in rows[1:]:
+    v = [float(x) for x in r[1:]]
+    # Children of SWMM_STEP are bracketed inside it and never open together.
+    tol = half_unit(v[col['SWMM_STEP']]) + half_unit(v[col['SWMM_SOLVE']]) + half_unit(v[col['SWMM_LOG']]) + 1e-9
+    assert v[col['SWMM_SOLVE']] + v[col['SWMM_LOG']] <= v[col['SWMM_STEP']] + tol, r
+    # No capture is on in this suite, so the DIAG bracket is never entered.
+    assert v[col['DIAG']] == 0.0, r
+# Must-be-nonzero control for the two zeros-by-assumption above: the SWMM solve runs
+# on rank 0 of this live-SWMM case, so a SWMM_SOLVE bracket that never runs reads 0.
+rank0 = [float(x) for x in rows[1][1:]]
+assert rows[1][0] == '0' and rank0[col['SWMM_SOLVE']] > 0.0, rows[1]
+EOF
+  python3 - "$P" <<'EOF' && ok "G per-rank identity Compute+MPI+IO+SWMM+Resize+DIAG+Other == Simulation (file integrity)" || bad "G per-rank identity does not close"
+import csv, math, sys
+rows = [[c.strip() for c in r] for r in csv.reader(open(sys.argv[1]))]
+hdr = rows[0][1:]
+terms = ['Compute', 'MPI', 'IO', 'SWMM', 'Resize', 'DIAG', 'Other']
+idx = [hdr.index(n) for n in terms]
+i_sim = hdr.index('Simulation')
+
+def half_unit(x):
+    return 0.0 if x == 0.0 else 0.5 * 10.0 ** (math.floor(math.log10(abs(x))) - 3)
+
+for r in rows[1:]:
+    v = [float(x) for x in r[1:]]
+    # Other is Simulation minus the other terms in the solver, so the identity is exact
+    # before printing; the bound is the sum of the eight printed values' rounding errors.
+    tol = sum(half_unit(v[i]) for i in idx) + half_unit(v[i_sim]) + 1e-9
+    assert abs(sum(v[i] for i in idx) - v[i_sim]) <= tol, r
 EOF
 else
   bad "G performance.txt not found"

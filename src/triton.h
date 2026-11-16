@@ -25,6 +25,7 @@
 #include "kernels.h"
 #include "output.h"
 #include "mpi_utils.h"
+#include "diag_log.h"
 
 #ifdef TRITON_SWMM
 #include "swmm_triton.h"
@@ -2323,6 +2324,25 @@ namespace Triton
         // Inside the IO_TIME bracket, where a file flush belongs.
         if (rank == 0 && swmm_model.global_num_of_swmm_links > 0) swmm_model.flush_exchange_log();
 #endif
+        // Diagnostics-capture files are flushed here, outside #ifdef TRITON_SWMM and
+        // outside the coupling-count guard, because a capture file exists in every
+        // build configuration and an uncoupled build still writes a checkpoint cfg
+        // next. It sits after every capture write of this print instant and before the
+        // cfg, because the cfg is what makes this checkpoint resumable: flushing after
+        // it would leave a resumable checkpoint whose capture files, if the process were
+        // killed in between, end before t_k, and the resumed run would append after a
+        // gap. diag_log::flush_all aborts on a failed flush for the reason
+        // flush_exchange_log does. DIAG_TIME replaces IO_TIME for its duration (the
+        // categories are independent accumulators), and the bracket is skipped when
+        // no capture file is open so a captures-off run reports DIAG exactly 0.
+        if (diag_log::any_open())
+        {
+          st.stop(IO_TIME);
+          st.start(DIAG_TIME);
+          diag_log::flush_all();
+          st.stop(DIAG_TIME);
+          st.start(IO_TIME);
+        }
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
 #ifdef TRITON_SWMM
         // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
@@ -2625,10 +2645,19 @@ namespace Triton
         swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
                                     swmm_model.node_to_rank_dict);
         // Durably log this step's (dt, exchange_q) so a future resume can replay 0..t_k.
+        // SWMM_LOG and SWMM_SOLVE are children of SWMM_STEP and are never open at
+        // the same time, so SWMM_SOLVE + SWMM_LOG <= SWMM_STEP holds per rank.
+        st.start(SWMM_LOG);
         swmm_model.log_exchange_step(global_dt, swmm_model.global_exchange_q);
-        swmm_model.stop_on_swmm_error(
-            swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt),
-            "swmm_step", "during a coupled timestep");
+        st.stop(SWMM_LOG);
+        // The return code is captured inside the SWMM_SOLVE bracket and checked after
+        // it, so the bracket holds the swmm_step() call alone; the check still runs
+        // before anything reads global_new_depth.
+        st.start(SWMM_SOLVE);
+        const int swmm_step_rc =
+            swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
+        st.stop(SWMM_SOLVE);
+        swmm_model.stop_on_swmm_error(swmm_step_rc, "swmm_step", "during a coupled timestep");
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
         st.stop(SWMM_STEP);

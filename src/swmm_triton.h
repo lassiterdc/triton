@@ -58,6 +58,7 @@ extern "C" int routing_setCouplingNodes(const int* nodeIndex, int n);
 #include "constants.h"
 #include "string_utils.h"
 #include "mpi_utils.h"
+#include "diag_log.h"
 #include <sys/stat.h>
 #include <dirent.h>
 
@@ -580,6 +581,14 @@ namespace SWMM_triton
 		void log_exchange_step(value_t dt, const value_t* gq);   ///< append one step's (dt, exchange_q) record
 		void flush_exchange_log();                               ///< flush (called at each checkpoint write)
 		void close_exchange_log();                               ///< close (called at end_swmm)
+
+		/// SWMM-side diagnostics-capture files (rank 0 writes them), declared by the
+		/// capture that owns each file. They are opened by the same two events that
+		/// open the exchange side-file: open_exchange_log_truncate (clean start) and
+		/// position_exchange_log (either resume route), so the capture files and the
+		/// side-file agree on where the live segment starts. An empty list, the state
+		/// while no capture is declared, makes both hooks do nothing.
+		std::vector<diag_log::capture_file*> diag_files;
 
 		// --- full-precision state snapshot (bounds the resume cost) ---------
 		// The replay above is exact but its cost grows with t_k, and the GPU sits
@@ -1405,6 +1414,8 @@ namespace SWMM_triton
 		}
 		write_exchange_log_header(exchange_log, static_cast<int32_t>(exchange_num_nodes));
 		exchange_log.flush();
+		// Clean start of the declared capture files, beside the side-file's own.
+		diag_log::open_clean_all(diag_files);
 	}
 
 
@@ -1731,6 +1742,14 @@ namespace SWMM_triton
 			          << exchange_log_path << std::endl;
 			exit(EXIT_FAILURE);
 		}
+
+		// Both resume routes (the replay and the snapshot) end here, so this is the one
+		// site that positions the declared capture files at t_k. It runs after the
+		// side-file's own validation, which refuses most bad resumes first. The snapshot
+		// route can still stop afterwards (output_positionForResume); that leaves the
+		// capture files truncated to t_k, which is where a repeated resume truncates them
+		// again, so the files stay consistent with the checkpoint either way.
+		diag_log::open_resume_all(diag_files, (double)up_to_time);
 
 		return rec_count;
 	}
