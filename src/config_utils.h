@@ -96,6 +96,18 @@ namespace ConfigUtils
 		*   earlier build did. Additive. */
 		std::string
 		swmm_coupling_nodes;
+
+		/**< TRITON steps per SWMM step. 1 (absent key) steps SWMM every TRITON
+		*   step as every earlier build did; N > 1 sums each node's exchange over N
+		*   steps and steps SWMM once with the summed dt and the mean exchange. A
+		*   forced SWMM step at each print instant keeps checkpoints whole. Additive. */
+		int
+		swmm_coupling_interval;
+
+		/**< 0 (absent key) applies SWMM's depths from the next TRITON step; 1 applies
+		*   them from the second step after the SWMM step. Additive. */
+		int
+		swmm_coupling_lag;
 #endif
 
 		std::string
@@ -534,6 +546,8 @@ namespace ConfigUtils
 		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
 		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
 		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
+		arglist.swmm_coupling_interval = atoi((argsd("swmm_coupling_interval", argmap, "1")).c_str());
+		arglist.swmm_coupling_lag = atoi((argsd("swmm_coupling_lag", argmap, "0")).c_str());
 #endif
 
 		arglist.sim_start_time = atof((args("sim_start_time", argmap)).c_str());
