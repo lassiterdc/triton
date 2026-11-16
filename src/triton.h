@@ -26,6 +26,7 @@
 #include "output.h"
 #include "mpi_utils.h"
 #include "diag_log.h"
+#include "diagnostics.h"
 
 #ifdef TRITON_SWMM
 #include "swmm_triton.h"
@@ -207,6 +208,8 @@ namespace Triton
 
     Output::output<T> out; /**Object to manage output files. */
 
+    diagnostics::surface_t diag_surface; /**< State of the surface diagnostics captures T2, T5 and T6 (diagnostics.h). */
+
 #ifdef TRITON_SWMM
     SWMM_triton::swmm_triton swmm_model; /**< SWMM coupling model object */
     T swmm_local_elapsedTime; /**< Local elapsed time for SWMM */
@@ -241,6 +244,18 @@ namespace Triton
 *
 */    
     void compute_new_state();
+
+/** @brief Interior rows held by the ranks before this one: the offset that turns a local row index into a global one.
+*
+*/
+    int diag_row_offset() const;
+
+/** @brief The print-instant row of the surface captures: the interval's reductions and writes. Collective.
+*
+*  @param print_id Id of the print or checkpoint that closes the interval
+*  @param t_end End time of the interval
+*/
+    void diag_print_row(int print_id, T t_end);
 
 /** @brief This function is used to get observation data to host. 
 *
@@ -2292,7 +2307,29 @@ namespace Triton
     if(print_id==0 && simtime>0.0){
       print_id=simtime/arglist.print_interval;
     }
-    
+
+    // Surface captures (T2, T5, T6): switches, files and the stored-volume seed S(t_start).
+    // The files open here, in every build configuration, because the SWMM resume hook
+    // only runs inside TRITON_SWMM on a coupled model. The seed sits after the hotstart
+    // restoration above, so at a resume it reads the restored depth, and before the step
+    // loop; the held S is what the first print instant differences against. DIAG_TIME
+    // under SIMULATION_TIME only, which is the parent it sits under. Skipped with every
+    // capture off, so such a run reports DIAG exactly 0. TRITON_DIAG_TEST_NO_SEED
+    // (TEST-ONLY, undefined by default) omits the seed read, leaving held S at zero.
+    diag_surface.place(rank, size, (double)cell_size);
+    diag_surface.enable_dt_limiter(arglist.diag_dt_limiter != 0);
+    diag_surface.enable_domain_balance(arglist.diag_domain_balance != 0);
+    diag_surface.enable_wet_cells(arglist.diag_wet_cells != 0);
+    if (diag_surface.any())
+    {
+      st.start(DIAG_TIME);
+      diag_surface.init_files(project_dir + "/" + arglist.output_folder + "/", arglist.checkpoint_id, (double)arglist.sim_start_time);
+#ifndef TRITON_DIAG_TEST_NO_SEED
+      diag_surface.seed_storage(rows, cols, device_vec[H]);
+#endif
+      st.stop(DIAG_TIME);
+    }
+
     while (simtime < arglist.sim_duration)
     {
       it_count++;
@@ -2302,6 +2339,15 @@ namespace Triton
       {
         compute_local_dt();
         compute_global_dt(print_id);
+        // T6 record write (rank 0): the step's limiting cell, stamped with the step's end
+        // time, after global_dt is final and before the print block. Nothing is written
+        // under a fixed time increment.
+        if (diag_surface.dt_limiter)
+        {
+          st.start(DIAG_TIME);
+          diag_surface.write_t6_record((double)(simtime + global_dt), (double)global_dt, (double)init_dt);
+          st.stop(DIAG_TIME);
+        }
       }
 #ifdef TRITON_SWMM
       swmm_print_id = print_id;
@@ -2349,6 +2395,14 @@ namespace Triton
         gpuStreamSynchronize(streams);
         st.stop(COMPUTE_TIME);
 
+        // Print-instant row of the surface captures: the interval's reductions and
+        // writes, the last capture write of this print instant (the capture flush
+        // below follows it and precedes the checkpoint cfg). TRITON_DIAG_TEST_LATE_INTERVAL
+        // (TEST-ONLY, undefined by default) moves it after the cfg and the snapshot.
+#ifndef TRITON_DIAG_TEST_LATE_INTERVAL
+        diag_print_row(print_id, simtime);
+#endif
+
         st.start(IO_TIME);
 #ifdef TRITON_SWMM
         // Tie exchange-replay side-file durability to each checkpoint write so a future
@@ -2379,6 +2433,13 @@ namespace Triton
           st.stop(DIAG_TIME);
           st.start(IO_TIME);
         }
+#ifdef TRITON_DIAG_TEST_PAUSE_AFTER_FLUSH
+        // TEST-ONLY (undefined by default): pause between the capture flush and the
+        // checkpoint cfg at print id diag_test_pause_id, so a suite can kill the run in
+        // that state (shape row T-P, position flush_to_cfg).
+        if (print_id == arglist.diag_test_pause_id && arglist.diag_test_pause_at == "flush_to_cfg")
+          std::this_thread::sleep_for(std::chrono::duration<double>(arglist.diag_test_pause_s));
+#endif
 	out.write_output(sub_hin, sub_qxin, sub_qyin, arglist.output_format, arglist.projection, arglist.print_option, print_id, it_count, simtime, average_dt, sub_max_value_h, arglist.max_value_print_option);
 #ifdef TRITON_SWMM
         // Full-precision SWMM state snapshot for THIS checkpoint, so a resume from
@@ -2390,6 +2451,15 @@ namespace Triton
           swmm_model.write_state_snapshot(print_id);
 #endif
         st.stop(IO_TIME);
+#ifdef TRITON_DIAG_TEST_PAUSE_AFTER_FLUSH
+        // TEST-ONLY: the pause after the cfg and the SWMM snapshot (shape row T-P, position
+        // after_cfg), ahead of the late interval row when both switches are defined.
+        if (print_id == arglist.diag_test_pause_id && arglist.diag_test_pause_at == "after_cfg")
+          std::this_thread::sleep_for(std::chrono::duration<double>(arglist.diag_test_pause_s));
+#endif
+#ifdef TRITON_DIAG_TEST_LATE_INTERVAL
+        diag_print_row(print_id, simtime);
+#endif
 
         #if WRITE_PERFORMANCE
           // Synchronize before stopping timers to ensure all async operations complete
@@ -2432,6 +2502,24 @@ namespace Triton
 	st.stop(IO_TIME);
     }
 
+    // End-of-run close row of the capture files: writes the surface captures' pending rows
+    // of a partial final interval (a run whose duration is not a whole number of print
+    // intervals), then flushes and closes every open capture file. After the step loop and
+    // before the timers stop, outside #ifdef TRITON_SWMM; entered by every rank because
+    // pending() reads rank-identical state. The interval id is the one the unfinished
+    // interval would have carried. TRITON_DIAG_TEST_NO_TAIL (TEST-ONLY, undefined by
+    // default) skips the pending rows and keeps the flush and close.
+    if (diag_surface.any() || diag_log::any_open())
+    {
+      st.start(DIAG_TIME);
+#ifndef TRITON_DIAG_TEST_NO_TAIL
+      if (diag_surface.any() && diag_surface.pending())
+        diag_surface.print_instant(rows, cols, device_vec[H], arglist.hextra, print_id + 1, (double)simtime);
+#endif
+      diag_log::close_all();
+      st.stop(DIAG_TIME);
+    }
+    diag_surface.release();
 
     // Synchronize before stopping timers to ensure all async operations complete
     gpuStreamSynchronize(streams);
@@ -2500,6 +2588,26 @@ namespace Triton
     local_dt = Kernels::find_min_dt(rows*cols, device_vec[DT]);
     gpuStreamSynchronize(streams);
     st.stop(COMPUTE_TIME);
+
+    // T6 local MinLoc reduction and T5 wet-cell count: read-only reductions beside the
+    // unchanged find_min_dt, taken once COMPUTE_TIME is closed. TRITON_DIAG_TEST_EARLY_MINLOC
+    // (TEST-ONLY, undefined by default) also issues the T6 collective here, before the
+    // step's MPI_MIN allreduce.
+    if (diag_surface.dt_limiter)
+    {
+      st.start(DIAG_TIME);
+      diag_surface.local_row(rows, cols, device_vec[DT], device_vec[H], device_vec[QX], device_vec[QY], diag_row_offset());
+#ifdef TRITON_DIAG_TEST_EARLY_MINLOC
+      diag_surface.minloc_collective();
+#endif
+      st.stop(DIAG_TIME);
+    }
+    if (diag_surface.wet_cells)
+    {
+      st.start(DIAG_TIME);
+      diag_surface.sample_wet(rows, cols, device_vec[H], (double)arglist.hextra);
+      st.stop(DIAG_TIME);
+    }
   }
 
 
@@ -2513,6 +2621,19 @@ namespace Triton
       MPI_Allreduce(&local_dt, &global_dt, 1, MPI_DATA_TYPE, MPI_MIN, ENSIFY_COMM_WORLD);
       st.stop(MPI_TIME);
       st.stop(BALANCING_MPI_TIME);
+
+      // T6 collective: MPI_Allreduce with MPI_MINLOC on (dt, rank) and the gather of the
+      // limiting cell's details, issued after the MPI_MIN allreduce above has synchronised
+      // the ranks. One call on every rank under the cfg key, which is identical on all
+      // ranks. Not issued here when TRITON_DIAG_TEST_EARLY_MINLOC moves it to compute_local_dt.
+#ifndef TRITON_DIAG_TEST_EARLY_MINLOC
+      if (diag_surface.dt_limiter)
+      {
+        st.start(DIAG_TIME);
+        diag_surface.minloc_collective();
+        st.stop(DIAG_TIME);
+      }
+#endif
     }
     else
     {
@@ -2536,17 +2657,60 @@ namespace Triton
   {
     st.start(COMPUTE_TIME);
 
+    // T2 rows below swap COMPUTE_TIME for DIAG_TIME around one read-only reduction each,
+    // so DIAG never overlaps another category. The fence charges the preceding kernels
+    // to Compute before the reduction can wait on them.
+    auto diag_open = [&]() { gpuStreamSynchronize(streams); st.stop(COMPUTE_TIME); st.start(DIAG_TIME); };
+    auto diag_close = [&]() { st.stop(DIAG_TIME); st.start(COMPUTE_TIME); };
+
     Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
     device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
     device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
+
+    // T2 west/east edge read, between the flux_x and flux_y launches: flux_y accumulates
+    // into the same rhsh arrays, so this is the only point holding the x contribution.
+    // TRITON_DIAG_TIMER_MUTANT (TEST-ONLY, undefined by default) drops the COMPUTE_TIME
+    // swap, so DIAG runs while COMPUTE is open; TRITON_DIAG_TEST_BUSYWAIT adds a spin
+    // of diag_test_busywait_us inside the DIAG bracket.
+    if (diag_surface.domain_balance)
+    {
+      gpuStreamSynchronize(streams);
+#ifndef TRITON_DIAG_TIMER_MUTANT
+      st.stop(COMPUTE_TIME);
+#endif
+      st.start(DIAG_TIME);
+      diag_surface.read_west_east(rows, cols, (double)global_dt, device_vec[QX], device_vec[RHSH0], device_vec[RHSH1]);
+#ifdef TRITON_DIAG_TEST_BUSYWAIT
+      diagnostics::spin_us(arglist.diag_test_busywait_us);
+#endif
+      st.stop(DIAG_TIME);
+#ifndef TRITON_DIAG_TIMER_MUTANT
+      st.start(COMPUTE_TIME);
+#endif
+    }
 
     Kernels::flux_y(rows*cols, rows, cols, cell_size, global_dt,
     device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[SQRTH],
     device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
 
+    // T2 south/north edge read and the negative-depth clamp reduction, between the flux_y
+    // and update_cells launches (the clamp must see h, rhsh0 and rhsh1 as update_cells does).
+    if (diag_surface.domain_balance)
+    {
+      diag_open();
+      diag_surface.read_north_south_and_clamp(rows, cols, (double)global_dt, (double)(simtime + global_dt),
+                                              device_vec[H], device_vec[QY], device_vec[RHSH0], device_vec[RHSH1]);
+      diag_close();
+    }
+
     Kernels::update_cells(rows*cols, rows, cols, global_dt,
     device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN],
     device_vec[RHSH0], device_vec[RHSH1], device_vec[RHSQX0], device_vec[RHSQX1], device_vec[RHSQY0], device_vec[RHSQY1], arglist.hextra);
+#ifdef TRITON_DIAG_TEST_SKEW
+    // TEST-ONLY (undefined by default): rank 0 alone spins after the update_cells launch,
+    // inside COMPUTE_TIME, so the other ranks wait for it at the next collective (shape row T-S).
+    if (rank == 0) diagnostics::spin_us(arglist.diag_test_skew_us);
+#endif
 
     if (arglist.num_runoffs > 0)
     {
@@ -2564,6 +2728,16 @@ namespace Triton
 
       Kernels::update_runoff(rows*cols, rows, cols, global_dt,
       device_vec_int[RUNID], index_row_runoff, roff.get_num_inflow_rows(), device_vec[RUNIN], device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra);
+
+      // T2 runoff volume, directly after the update_runoff launch.
+      if (diag_surface.domain_balance)
+      {
+        diag_open();
+        diag_surface.runoff_m3 += diagnostics::runoff_volume(rows, cols, (double)cell_size, (double)global_dt,
+                                                             device_vec_int[RUNID], index_row_runoff,
+                                                             roff.get_num_inflow_rows(), device_vec[RUNIN]);
+        diag_close();
+      }
     }
 
     if (num_of_src > 0)
@@ -2587,6 +2761,15 @@ namespace Triton
 
       Kernels::compute_flow(num_of_src, device_vec[HYGT], device_vec[HYGV],
       cell_size, global_dt, simtime, idx_low, idx_high, device_vec[H], device_vec_int[SRCP]);
+
+      // T2 inflow-hydrograph volume, directly after the compute_flow launch.
+      if (diag_surface.domain_balance)
+      {
+        diag_open();
+        diag_surface.inflow_m3 += diagnostics::inflow_volume(num_of_src, device_vec[HYGT], device_vec[HYGV],
+                                                             (double)global_dt, (double)simtime, idx_low, idx_high);
+        diag_close();
+      }
     }
 
 
@@ -2599,8 +2782,23 @@ namespace Triton
 
     if (num_of_extbc > 0 && num_extbc_cells > 0)
     {
+      // T2 external-boundary volume: the depth sum over the boundary list's distinct
+      // cells directly before and directly after the kernel, which writes real cells.
+      if (diag_surface.domain_balance)
+      {
+        diag_open();
+        diag_surface.ensure_extbc_mask(host_vec_int[BCRELATIVEINDEX], num_extbc_cells);
+        diag_surface.extbc_before_read(num_extbc_cells, device_vec_int[BCRELATIVEINDEX], device_vec[H]);
+        diag_close();
+      }
       Kernels::compute_extbc_values(num_extbc_cells, rows, cols, global_dt, device_vec[H], device_vec[QX], device_vec[QY], device_vec[DEM], device_vec[NMAN], device_vec_int[BCRELATIVEINDEX], device_vec_int[BCTYPE], device_vec_int[BCINDEXSTART], device_vec_int[BCNROWSVARS], device_vec[EXTBCV1], device_vec[EXTBCV2], simtime, rank, size);
 
+      if (diag_surface.domain_balance)
+      {
+        diag_open();
+        diag_surface.extbc_after_read(num_extbc_cells, device_vec_int[BCRELATIVEINDEX], device_vec[H]);
+        diag_close();
+      }
     }
 
     // SWMM exchange must run BEFORE wet_dry. The exchange kernel rewrites manhole depths, and the
@@ -2711,6 +2909,14 @@ namespace Triton
       swmm_model.coupling_interval.settle(swmm_model.new_depth.data(), n_local, step_swmm, drain);
 
       st.stop(SWMM_TIME);
+      // T2 net exchange with SWMM, read at the position after the coupling block closes
+      // SWMM_TIME, where every rank holds this step's local exchange_q.
+      if (diag_surface.domain_balance)
+      {
+        st.start(DIAG_TIME);
+        diag_surface.add_exchange(swmm_model.exchange_q.data(), swmm_model.num_of_swmm_links, (double)global_dt);
+        st.stop(DIAG_TIME);
+      }
       st.start(COMPUTE_TIME);
     }
     else
@@ -2810,6 +3016,13 @@ namespace Triton
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
       st.stop(SWMM_TIME);
+      // T2 net exchange with SWMM (see the same read after the interval/lag block).
+      if (diag_surface.domain_balance)
+      {
+        st.start(DIAG_TIME);
+        diag_surface.add_exchange(swmm_model.exchange_q.data(), swmm_model.num_of_swmm_links, (double)global_dt);
+        st.stop(DIAG_TIME);
+      }
       st.start(COMPUTE_TIME);
     }
 #endif
@@ -2859,6 +3072,28 @@ namespace Triton
 
     st.stop(COMPUTE_TIME);
   }
+
+  template<typename T>
+  int triton<T>::diag_row_offset() const
+  {
+    int offset = 0;
+    for (int k = 0; k < rank && k < (int)pd.part_dims.size(); k++)
+    {
+      offset += pd.part_dims[k].first - 2 * GHOST_CELL_PADDING;
+    }
+    return offset;
+  }
+
+
+  template<typename T>
+  void triton<T>::diag_print_row(int print_id, T t_end)
+  {
+    if (!diag_surface.any()) return;
+    st.start(DIAG_TIME);
+    diag_surface.print_instant(rows, cols, device_vec[H], (double)arglist.hextra, print_id, (double)t_end);
+    st.stop(DIAG_TIME);
+  }
+
 
 	template<typename T>
 	void triton<T>::get_observation_data_to_host()
