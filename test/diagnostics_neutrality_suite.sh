@@ -848,7 +848,7 @@ def cmd_xfer(argv):
     names = [x.strip() for x in lines[0].lstrip("%").split(",")]
     ranks = []
     for l in lines[1:]:
-        if l.strip():
+        if l.strip() and l.replace(",", " ").split()[0].isdigit():   # the per-rank rows; the "Average" row is skipped
             row = dict(zip(names, l.replace(",", " ").split()))
             if float(row["SWMM_XFER"]) > 0.0:
                 ranks.append(int(row["Rank"]))
@@ -890,7 +890,7 @@ n13_refusal() {
   mkcfg "$d" arm.cfg out "swmm_manhole_table=$tbl"
   ( cd "$d" && timeout 300 $(launcher "$NP_BIG") ./build/triton.exe arm.cfg > run.log 2>&1 ); rc=$?
   local left=0 pid
-  for pid in $(pgrep -u "$(id -u)" -f "build/triton.exe arm.cfg" 2>/dev/null); do
+  for pid in $(pgrep -u "$(id -u)" -f "[b]uild/triton.exe arm.cfg" 2>/dev/null); do
     [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$d" ] && { left=$((left+1)); kill -9 "$pid" 2>/dev/null; }
   done
   local rasters; rasters=$(find "$d/out/bin" -name 'H_*' 2>/dev/null | wc -l)
