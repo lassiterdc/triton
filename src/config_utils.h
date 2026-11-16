@@ -114,6 +114,7 @@ namespace ConfigUtils
 		*   the keys exist in every build configuration because the capture files do. */
 		int diag_dt_limiter;	/**< 1 writes dt_limiter.bin: per step, the cell whose step size is the global minimum. */
 		int diag_domain_balance;	/**< 1 writes edge_flux.bin and domain_balance.csv: the open-edge fluxes and the per-interval mass balance. */
+		int diag_wet_cells;	/**< 1 writes wet_cells.csv: per rank and print interval, the mean and the print-instant count of wet cells. */
 
 #ifdef TRITON_DIAG_TEST_BUSYWAIT
 		double diag_test_busywait_us;	/**< TEST-ONLY: microseconds each step's T2 bracket spins (shape row T-B). */
@@ -569,6 +570,7 @@ namespace ConfigUtils
 
 		arglist.diag_dt_limiter = atoi((argsd("diag_dt_limiter", argmap, "0")).c_str());
 		arglist.diag_domain_balance = atoi((argsd("diag_domain_balance", argmap, "0")).c_str());
+		arglist.diag_wet_cells = atoi((argsd("diag_wet_cells", argmap, "0")).c_str());
 #ifdef TRITON_DIAG_TEST_BUSYWAIT
 		arglist.diag_test_busywait_us = atof((argsd("diag_test_busywait_us", argmap, "0")).c_str());
 #endif

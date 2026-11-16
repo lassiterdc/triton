@@ -201,6 +201,23 @@ namespace diagnostics
 		return total;
 	}
 
+	/** @brief Number of interior cells with h > hextra, the wet-cell test of
+	 *  compute_dt_and_sqrt. */
+	template<typename T>
+	long wet_count(int rows, int cols, T const* h, double hextra)
+	{
+		long total = 0;
+		const int size = rows * cols;
+		Kokkos::parallel_reduce(std::string("diag_wet"), size, KOKKOS_LAMBDA(const int id, long& acc) {
+			const int ix = id / cols;
+			const int iy = id % cols;
+			if (ix <= GHOST_CELL_PADDING - 1 || ix >= rows - GHOST_CELL_PADDING ||
+			    iy <= GHOST_CELL_PADDING - 1 || iy >= cols - GHOST_CELL_PADDING) return;
+			if ((double)h[id] > hextra) acc += 1;
+		}, total);
+		return total;
+	}
+
 	/** @brief The minimum of the per-cell step size array and the index it sits at: a
 	 *  separate reduction beside find_min_dt, which stays unchanged.
 	 *
@@ -255,12 +272,14 @@ namespace diagnostics
 	{
 		bool dt_limiter = false;       ///< cfg diag_dt_limiter (T6)
 		bool domain_balance = false;   ///< cfg diag_domain_balance (T2)
+		bool wet_cells = false;        ///< cfg diag_wet_cells (T5)
 		int rank = 0;
 		int nprocs = 1;
 		double dx = 0.0;
 
 		diag_log::capture_file edge_flux_file, domain_balance_file;
 		diag_log::capture_file dt_limiter_file;
+		diag_log::capture_file wet_cells_file;
 
 		// T2 interval state: per-step fluxes (m3/s, into the domain: west, east, south, north),
 		// the step's end time and dt, and the interval sums of the balance's other terms.
@@ -275,6 +294,10 @@ namespace diagnostics
 		std::vector<int> bc_cache;
 		int* bc_mask_dev = nullptr;
 		int bc_mask_n = 0;
+
+		// T5 interval state.
+		double wet_sum = 0.0;
+		long wet_steps = 0;
 
 		// T6 step state: the local minimum, its cell's details, and the collective's outcome.
 		double local_val = 0.0;
@@ -304,6 +327,7 @@ namespace diagnostics
 			return false
 				|| dt_limiter
 				|| domain_balance
+				|| wet_cells
 				;
 		}
 
@@ -318,6 +342,9 @@ namespace diagnostics
 
 		/** @brief Switches T2 on or off (cfg diag_domain_balance). */
 		void enable_domain_balance(bool on) { domain_balance = on; }
+
+		/** @brief Switches T5 on or off (cfg diag_wet_cells). */
+		void enable_wet_cells(bool on) { wet_cells = on; }
 
 		/** @brief Opens the enabled capture files on rank 0: clean when the run starts at
 		 *  checkpoint 0, positioned at the checkpoint time otherwise. Every build opens
@@ -340,6 +367,11 @@ namespace diagnostics
 				dt_limiter_file.declare_binary(dir + DiagWriters::DT_LIMITER_NAME, diag_log::MAGIC_DT_LIMITER, 0,
 				                               diag_log::fixed_record_reader(DiagWriters::DT_LIMITER_RECORD_BYTES));
 				files.push_back(&dt_limiter_file);
+			}
+			if (wet_cells)
+			{
+				wet_cells_file.declare_text(dir + DiagWriters::WET_CELLS_NAME, DiagWriters::WET_CELLS_HEADER, 1);
+				files.push_back(&wet_cells_file);
 			}
 			if (checkpoint_id == 0) diag_log::open_clean_all(files);
 			else diag_log::open_resume_all(files, sim_start_time);
@@ -445,6 +477,15 @@ namespace diagnostics
 
 		// ---- T5 and T6 (the compute_local_dt row) ----
 
+		/** @brief T5 sample: the interior wet-cell count of the state this step starts from,
+		 *  added to the interval's running sum. */
+		template<typename T>
+		void sample_wet(int rows, int cols, T const* h_dev, double hextra)
+		{
+			wet_sum += (double)wet_count(rows, cols, h_dev, hextra);
+			wet_steps += 1;
+		}
+
 		/** @brief Local minimum of the per-cell step size, with the limiting cell's global
 		 *  interior indices, depth and celerity (the same expression compute_dt_and_sqrt
 		 *  evaluates).
@@ -525,6 +566,7 @@ namespace diagnostics
 		 *  instant). Identical on every rank. */
 		bool pending() const { return false
 			|| !step_t_end.empty()
+			|| wet_steps > 0
 			; }
 
 		/** @brief The print-instant row: reduces the interval's terms and edge values to
@@ -560,6 +602,19 @@ namespace diagnostics
 					held_storage = s_end;
 				}
 			}
+			if (wet_cells && wet_steps >= 0)
+			{
+				const long at_print = wet_count(rows, cols, h_dev, hextra);
+				const double local[2] = { wet_steps > 0 ? wet_sum / (double)wet_steps : 0.0, (double)at_print };
+				std::vector<double> all;
+				if (rank == 0) all.assign((std::size_t)nprocs * 2, 0.0);
+				MPI_Gather(local, 2, MPI_DOUBLE, rank == 0 ? all.data() : nullptr, 2, MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
+				if (rank == 0)
+				{
+					for (int r = 0; r < nprocs; r++)
+						DiagWriters::write_wet_cells_row(wet_cells_file, print_id, t_end, r, all[2 * r], (long)all[2 * r + 1]);
+				}
+			}
 			reset_interval();
 		}
 
@@ -568,6 +623,7 @@ namespace diagnostics
 		{
 			step_t_end.clear(); step_dt.clear(); step_flux.clear();
 			runoff_m3 = inflow_m3 = extbc_m3 = clamp_m3 = exchange_m3 = 0.0;
+			wet_sum = 0.0; wet_steps = 0;
 		}
 
 	private:

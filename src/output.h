@@ -2046,8 +2046,10 @@ namespace DiagWriters
 {
 	static const char* const EDGE_FLUX_NAME = "edge_flux.bin";
 	static const char* const DT_LIMITER_NAME = "dt_limiter.bin";
+	static const char* const WET_CELLS_NAME = "wet_cells.csv";
 	static const char* const DOMAIN_BALANCE_NAME = "domain_balance.csv";
 
+	static const char* const WET_CELLS_HEADER = "%print_id, simtime, rank, wet_mean, wet_at_print";
 	static const char* const DOMAIN_BALANCE_HEADER =
 		"%t_end, d_storage_m3, runoff_m3, inflow_m3, extbc_m3, clamp_m3, swmm_exchange_m3, "
 		"edge_west_m3, edge_east_m3, edge_south_m3, edge_north_m3, residual_m3";
@@ -2078,6 +2080,15 @@ namespace DiagWriters
 		std::memcpy(buf + o, &h, 8); o += 8;
 		std::memcpy(buf + o, &celerity, 8);
 		f.append(buf, sizeof(buf));
+	}
+
+	/** @brief Appends one wet_cells.csv row. */
+	static inline void write_wet_cells_row(diag_log::capture_file& f, int print_id, double t_end, int rank,
+	                                       double wet_mean, long wet_at_print)
+	{
+		char buf[256];
+		std::snprintf(buf, sizeof(buf), "%d, %.9f, %d, %.9g, %ld", print_id, t_end, rank, wet_mean, wet_at_print);
+		f.append_row(buf);
 	}
 
 	/** @brief Appends one domain_balance.csv row from the interval's terms. */
