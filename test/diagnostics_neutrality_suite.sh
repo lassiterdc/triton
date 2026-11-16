@@ -348,11 +348,13 @@ case_N8() {
 }
 
 # ------------------------------------------------------------------ band arms: the capture-off runs, twice
-off_band() { # off_band BACKEND NP GPU_DIRECT -> sets OFF1 OFF2
+off_band() { # off_band BACKEND NP GPU_DIRECT -> sets OFF1 OFF2 OFF3 and OFFS
   local be=$1 np=$2 gd=${3:-0}
   local tag="${be}_np${np}_gd${gd}"
   branch_run "band_${tag}_1" "$be" "$np" gpu_direct_flag=$gd || return 1; OFF1=$ARM_OUT
   branch_run "band_${tag}_2" "$be" "$np" gpu_direct_flag=$gd || return 1; OFF2=$ARM_OUT
+  branch_run "band_${tag}_3" "$be" "$np" gpu_direct_flag=$gd || return 1; OFF3=$ARM_OUT
+  OFFS="$OFF1 $OFF2 $OFF3"   # three capture-off runs: their spread, floored, is the band
 }
 
 # ------------------------------------------------------------------ N2
@@ -366,7 +368,7 @@ case_N2() {
     cmp_arm "N2/cpu_np$np" 0 "T1 on (ALL links, T1c on), CPU np$np: hydraulics against the baseline" "$BASE_OUT" "$ARM_OUT"
     chk "N2/cpu_np$np/files" 0 "every T1 file exists with 16 + records x record size bytes (np$np)" $CMP "$NEUT" captures-check --out "$ARM_OUT" --enabled t1,t1c,t1d --end-time "$SIM"
     chk "N2/cpu_np$np/perf" 0 "per-rank differential of the timers against the capture-off band, DIAG > 0 on rank 0 (np$np)" \
-      $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off "$OFF1" "$OFF2" --cols Compute,MPI,IO,Resize,SWMM,SWMM_XFER,SWMM_MPI,SWMM_STEP,SWMM_OTHER,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive 0
+      $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off $OFFS --cols Compute,MPI,IO,Resize,SWMM,SWMM_XFER,SWMM_MPI,SWMM_STEP,SWMM_OTHER,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive 0
     # must-be-nonzero control for N1's absence check: the same check on a capture-ON run must fail
     chk "N2/cpu_np$np/absent-control" 1 "captures-absent on a T1-on run (the absence check must see the files)" $CMP "$NEUT" captures-absent --out "$ARM_OUT"
     # the reviewer's end-to-end consistency script of chunk 2a.2, called rather than re-implemented
@@ -391,7 +393,7 @@ case_N3() {
     cmp_arm "N3/cpu_np$np" 0 "T2, T5, T6 on, CPU np$np: hydraulics against the baseline" "$BASE_OUT" "$on"
     chk "N3/cpu_np$np/files" 0 "every surface capture file exists with 16 + records x record size bytes (np$np)" $CMP "$NEUT" captures-check --out "$on" --enabled t2,t5,t6 --ranks "$np" --end-time "$SIM"
     chk "N3/cpu_np$np/perf" 0 "per-rank differential against the capture-off band, DIAG > 0 on every rank (np$np)" \
-      $CMP "$NEUT" perf-diff --on "$on" --off "$OFF1" "$OFF2" --cols Compute,MPI,IO,Resize,SWMM,SWMM_XFER,SWMM_MPI,SWMM_STEP,SWMM_OTHER,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive all
+      $CMP "$NEUT" perf-diff --on "$on" --off $OFFS --cols Compute,MPI,IO,Resize,SWMM,SWMM_XFER,SWMM_MPI,SWMM_STEP,SWMM_OTHER,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive all
     chk "N3/cpu_np$np/first-balance" 0 "row 1's delta stored volume equals S(t_end) - S(0) from the t=0 and first-print H rasters (np$np)" $CMP "$NEUT" first-balance --out "$on" --init-h "$CASE_SRC/init_h.dem" --cell "$CELL"
     if [ "$np" = 1 ]; then
       # T-U: the unseeded build must fail the first-balance check
@@ -539,7 +541,7 @@ case_N6() {
       cmp_arm "N6/$suf" 0 "A100 np$np gpu_aware_mpi=$gd, all captures on: hydraulics against the baseline" "$bo" "$ARM_OUT"
       chk "N6/$suf/files" 0 "every capture file exists with whole records" $CMP "$NEUT" captures-check --out "$ARM_OUT" --enabled all --ranks "$np"
       chk "N6/$suf/perf" 0 "per-rank differential against the capture-off band, DIAG > 0 on rank 0" \
-        $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off "$OFF1" "$OFF2" --cols Compute,MPI,IO,Resize,SWMM,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive 0
+        $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off $OFFS --cols Compute,MPI,IO,Resize,SWMM,SWMM_SOLVE,SWMM_LOG,Other --abs-floor "$SEC_FLOOR" --diag-positive 0
     done
   done
   # np8, gpu_aware_mpi on, T6 only: clean+T-S twice, T-E+T-S mutant
@@ -615,16 +617,16 @@ case_N10() {
   build cpu_tb "$TEST_SRC" cpu "-DTRITON_DIAG_TEST_BUSYWAIT" "" on
   build cpu_tmtb "$TEST_SRC" cpu "-DTRITON_DIAG_TEST_BUSYWAIT -DTRITON_DIAG_TIMER_MUTANT" "" on
   off_band cpu 1 0 || return 1
-  local spin; spin=$($CMP "$NEUT" spin-us --offs "$OFF1" "$OFF2" --col Compute --factor 10 --abs-floor "$SEC_FLOOR" --steps-from "$OFF1" | sed -n 's/^SPIN_US //p')
+  local spin; spin=$($CMP "$NEUT" spin-us --offs $OFFS --col Compute --factor 10 --abs-floor "$SEC_FLOOR" --steps-from "$OFF1" | sed -n 's/^SPIN_US //p')
   say "N10: diag_test_busywait_us = $spin"
   run_arm "n10_tb_1" cpu_tb 1 diag_domain_balance=1 diag_test_busywait_us=$spin && local c1=$ARM_OUT
   run_arm "n10_tb_2" cpu_tb 1 diag_domain_balance=1 diag_test_busywait_us=$spin && local c2=$ARM_OUT
   [ -n "${c1:-}" ] && chk "N10/clean" 0 "clean+T-B arm: the spin lands in DIAG, Compute stays inside the capture-off band, DIAG > 0 (run 1)" \
-    $CMP "$NEUT" perf-diff --on "$c1" --off "$OFF1" "$OFF2" --cols Compute --abs-floor "$SEC_FLOOR" --diag-positive 0
-  [ -n "${c2:-}" ] && chk "N10/clean2" 0 "clean+T-B arm, second run" $CMP "$NEUT" perf-diff --on "$c2" --off "$OFF1" "$OFF2" --cols Compute --abs-floor "$SEC_FLOOR" --diag-positive 0
+    $CMP "$NEUT" perf-diff --on "$c1" --off $OFFS --cols Compute --abs-floor "$SEC_FLOOR" --diag-positive 0
+  [ -n "${c2:-}" ] && chk "N10/clean2" 0 "clean+T-B arm, second run" $CMP "$NEUT" perf-diff --on "$c2" --off $OFFS --cols Compute --abs-floor "$SEC_FLOOR" --diag-positive 0
   run_arm "n10_tmtb" cpu_tmtb 1 diag_domain_balance=1 diag_test_busywait_us=$spin && \
     chk "N10/T-M" 1 "T-M+T-B mutant: the spin runs while COMPUTE_TIME is open, so Compute leaves the band" \
-      $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off "$OFF1" "$OFF2" --cols Compute --abs-floor "$SEC_FLOOR"
+      $CMP "$NEUT" perf-diff --on "$ARM_OUT" --off $OFFS --cols Compute --abs-floor "$SEC_FLOOR"
 }
 
 # ------------------------------------------------------------------ N11

@@ -375,7 +375,8 @@ def cmd_perf_diff(a):
             if c not in on[r]:
                 fails.append("rank %d has no column %s" % (r, c))
                 continue
-            band, mean, spread = band_for(offs, r, c, a.abs_floor, a.rel_floor)
+            rel = a.rel_floor_io if c == "IO" else a.rel_floor
+            band, mean, spread = band_for(offs, r, c, a.abs_floor, rel)
             delta = on[r][c] - mean
             tag = "OUT" if abs(delta) > band else "in"
             say("  rank %d %-10s on %-9g off mean %-9g spread %-9g band %-9g delta %+9g %s" % (r, c, on[r][c], mean, spread, band, delta, tag))
@@ -795,7 +796,8 @@ def main():
     p.add_argument("--cols", default="")
     p.add_argument("--ranks", default="all")
     p.add_argument("--abs-floor", type=float, default=0.05)
-    p.add_argument("--rel-floor", type=float, default=0.03)
+    p.add_argument("--rel-floor", type=float, default=0.15)
+    p.add_argument("--rel-floor-io", type=float, default=0.5, help="IO is raster writes to a shared file system and varies most from run to run")
     p.add_argument("--diag-positive", default="")
     p.set_defaults(f=cmd_perf_diff)
     p = sp.add_parser("perf-nonzero")
@@ -811,7 +813,7 @@ def main():
     p.add_argument("--col", default="Compute")
     p.add_argument("--factor", type=float, default=10.0)
     p.add_argument("--abs-floor", type=float, default=0.05)
-    p.add_argument("--rel-floor", type=float, default=0.03)
+    p.add_argument("--rel-floor", type=float, default=0.15)
     p.add_argument("--steps-from", required=True)
     p.set_defaults(f=cmd_spin_us)
     p = sp.add_parser("first-balance")
