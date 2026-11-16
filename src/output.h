@@ -1675,7 +1675,9 @@ namespace Output
 			// SWMM_SOLVE and SWMM_LOG are children of SWMM_STEP and follow SWMM_OTHER,
 			// then DIAG (the top-level capture category) before Other. Readers select
 			// columns by name, but section G of test/coupled_resume_suite.sh checks
-			// this exact header string, so reordering it fails that suite.
+			// this exact header string, so reordering it fails that suite. SWMM_SOLVE
+			// and SWMM_LOG are rank-0-only like SWMM_STEP, and DIAG differs by rank, so
+			// their Average entries are not per-rank values either: read the rank rows.
 			output << "%Rank, Compute, MPI, IO, Resize, SWMM, SWMM_XFER, SWMM_MPI, SWMM_STEP, SWMM_OTHER, SWMM_SOLVE, SWMM_LOG, DIAG, Other, Simulation, Init, Total" << std::endl;
 
 			for(int j=0;j<size_;j++){
