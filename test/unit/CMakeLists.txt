@@ -143,6 +143,34 @@ target_link_libraries(test_coupled_cells_review PRIVATE kokkos swmm5)
 add_test(NAME UNIT-COUPLED-CELLS-REVIEW-RV2_several_node_limiter_conserves_at_the_band_edge
          COMMAND test_coupled_cells_review)
 
+# The coupling interval and lag (swmm_coupling_interval, swmm_coupling_lag): the
+# bookkeeping that decides when SWMM steps and when its depths reach the surface.
+# Same build arrangement as above.
+add_executable(test_coupling_interval test_coupling_interval.cpp)
+
+target_include_directories(test_coupling_interval PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_coupling_interval PRIVATE kokkos swmm5)
+
+set(TRITON_COUPLING_INTERVAL_TESTS
+  I1_defaults_are_inactive
+  I2_interval_mean_is_dt_weighted
+  I3_one_step_interval_passes_q_unchanged
+  I4_step_due_every_n_or_on_drain
+  I5_lag_applies_depths_from_the_second_step_after
+  I6_drain_applies_freshest_depths_under_lag
+  I7_drain_leaves_nothing_carried
+  I8_held_depths_between_steps
+  I9_cfg_range)
+
+foreach(_t IN LISTS TRITON_COUPLING_INTERVAL_TESTS)
+  add_test(NAME UNIT-COUPLING-INTERVAL-${_t}
+           COMMAND test_coupling_interval ${_t})
+endforeach()
+
 # A coupled cfg whose SWMM model couples no node must stop at startup with
 # "couples no node" rather than finish as a surface-only run. One triton.exe launch
 # under the simulation tests' run command, held to a hard 5 s budget. Registered

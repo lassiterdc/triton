@@ -196,6 +196,7 @@ namespace Triton
 #ifdef TRITON_SWMM
     SWMM_triton::swmm_triton swmm_model; /**< SWMM coupling model object */
     T swmm_local_elapsedTime; /**< Local elapsed time for SWMM */
+    int swmm_print_id = 0; /**< The step loop's print_id for the step in progress, read by the interval/lag coupling block to tell whether the step ends a print interval */
 #endif
 
     gpuStream_t streams;  /**< Cuda stream */
@@ -433,6 +434,25 @@ namespace Triton
     // at their declarations, so every downstream node-count guard correctly
     // takes its uncoupled branch.
     swmm_local_elapsedTime = 0.0;
+
+    // Coupling interval and lag: refuse an out-of-range value before the heavy
+    // SWMM start-up, then hand the pair to the bookkeeping. At the defaults
+    // (1, 0) the bookkeeping stays inactive and the coupling block below runs
+    // exactly as it always has.
+    {
+      const std::string coupling_cfg_err =
+          SWMM_triton::coupling_interval_cfg_error(arglist.swmm_coupling_interval, arglist.swmm_coupling_lag);
+      if (!coupling_cfg_err.empty())
+      {
+        if (rank == 0) std::cerr << ERROR << coupling_cfg_err << std::endl;
+        MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+      }
+      swmm_model.coupling_interval.configure(arglist.swmm_coupling_interval, arglist.swmm_coupling_lag);
+      if (rank == 0 && swmm_model.coupling_interval.active())
+        std::cerr << INFO << "SWMM coupling interval " << arglist.swmm_coupling_interval << " TRITON step(s) per SWMM step, lag "
+                  << arglist.swmm_coupling_lag << " (SWMM also steps at every print instant and at the last step)." << std::endl;
+    }
+
     if (!arglist.inp_filename.empty())
     {
       swmm_model.initialize(rank, size, arglist.inp_filename, project_dir, arglist.output_folder, dem.get_xll_corner(),
@@ -2269,6 +2289,9 @@ namespace Triton
         compute_local_dt();
         compute_global_dt(print_id);
       }
+#ifdef TRITON_SWMM
+      swmm_print_id = print_id;
+#endif
       compute_new_state();
 
       simtime += global_dt;
@@ -2555,6 +2578,107 @@ namespace Triton
     // (wet_dry sees pre-exchange depth, wet_dry_qy_halo sees post-exchange depth), which breaks
     // serial/parallel byte-for-byte reproducibility.
 #ifdef TRITON_SWMM
+    // SWMM coupling interval / lag branch (cfg swmm_coupling_interval, swmm_coupling_lag).
+    // A separate block, entered only when a key departs from its default; at the
+    // defaults the block after it runs exactly as it always has. Every TRITON step
+    // still computes and applies its own exchange to the surface. What differs is
+    // the SWMM side: each node's exchange volume is summed, SWMM is stepped once
+    // per N steps (and at every print instant and the last step, so a checkpoint
+    // never falls inside an interval) with the summed dt and the mean exchange_q,
+    // and the depths it returns are held, or applied one TRITON step later under
+    // lag 1. The block sits inside the same SWMM_TIME bracket as the default one.
+    // Every rank counts the steps from the same global dt sequence, so every rank
+    // agrees on which steps run the Gatherv/Scatterv pair.
+    if (swmm_model.global_num_of_swmm_links > 0 && swmm_model.coupling_interval.active()) {
+      gpuStreamSynchronize(streams);
+      st.stop(COMPUTE_TIME);
+      st.start(SWMM_TIME);
+      int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
+      const int n_local = swmm_model.num_of_swmm_links;
+
+      if (n_local > 0) {
+        st.start(SWMM_XFER);
+
+        gpuMemcpyAsync(device_vec[SWMM_NEWD], host_vec[SWMM_NEWD], nbytes_swmm, gpuMemcpyHostToDevice, streams);
+        gpuStreamSynchronize(streams);
+
+        SWMM_triton::compute_swmm_triton_exchange(swmm_model.num_of_swmm_cells,
+                                                    device_vec_int[SWMMCELLSTART], device_vec_int[SWMMCELLNODES],
+                                                    cell_size, global_dt,
+                                                    device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
+                                                    device_vec_int[SWMMP], device_vec[SWMM_LOSS],
+                                                    device_vec[SWMM_DIAMETER], device_vec[SWMM_MAXD],
+                                                    device_vec[SWMM_NEWD], device_vec[SWMM_Q]);
+
+        gpuMemcpyAsync(host_vec[SWMM_Q], device_vec[SWMM_Q], nbytes_swmm, gpuMemcpyDeviceToHost, streams);
+        gpuStreamSynchronize(streams);
+
+        st.stop(SWMM_XFER);
+      }
+
+      // Runs on every rank, including one with no local coupled node (n_local == 0),
+      // because the step counter and dt sum decide the collectives below.
+      swmm_model.coupling_interval.accumulate(swmm_model.exchange_q.data(), n_local, global_dt);
+
+      // Does this TRITON step end a print interval or the run? Same tests as the
+      // print block and the loop condition of the step loop, on the same values,
+      // taken before simtime advances.
+      const bool ends_print_interval = (simtime + global_dt >= arglist.print_interval * (swmm_print_id + 1));
+      const bool ends_run = (simtime + global_dt >= arglist.sim_duration);
+#ifdef TRITON_DIAG_TEST_NO_DRAIN
+      // TEST-ONLY (undefined by default): no print-instant drain, so SWMM steps only
+      // every N TRITON steps and a checkpoint can fall inside an interval with a
+      // nonzero accumulator. The shape's test T-D: a resume must differ from the
+      // clean run under this switch.
+      (void)ends_print_interval;
+      const bool drain = ends_run;
+#else
+      const bool drain = ends_print_interval || ends_run;
+#endif
+      const bool step_swmm = swmm_model.coupling_interval.step_due(drain);
+      swmm_model.stepped_this_step = step_swmm;
+
+      if (step_swmm) {
+        const value_t dt_swmm = swmm_model.coupling_interval.interval_dt();
+        value_t* q_mean = swmm_model.coupling_interval.interval_mean(n_local);
+
+        st.start(SWMM_MPI);
+        MPI_Gatherv(q_mean, n_local, MPI_DATA_TYPE,
+                    swmm_model.aux_global_exchange_q, swmm_model.counts, swmm_model.displs,
+                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+        st.stop(SWMM_MPI);
+
+        if (rank == 0) {
+          st.start(SWMM_STEP);
+          swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
+                                      swmm_model.node_to_rank_dict);
+          // One side-file record per SWMM step: (sum of dt, interval-mean exchange_q),
+          // the exact inputs of the swmm_step below, so a replay reproduces it.
+          swmm_model.log_exchange_step(dt_swmm, swmm_model.global_exchange_q);
+          swmm_model.stop_on_swmm_error(
+              swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, dt_swmm),
+              "swmm_step", "during a coupled timestep");
+          swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
+                                      swmm_model.node_to_rank_dict);
+          st.stop(SWMM_STEP);
+        }
+
+        st.start(SWMM_MPI);
+        MPI_Scatterv(swmm_model.aux_global_new_depth, swmm_model.counts, swmm_model.displs,
+                     MPI_DATA_TYPE, swmm_model.coupling_interval.staged_depths(n_local), n_local,
+                     MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
+        st.stop(SWMM_MPI);
+
+        swmm_model.coupling_interval.clear_interval();
+      }
+
+      // Hold, apply or delay the depths the next TRITON step's exchange reads.
+      swmm_model.coupling_interval.settle(swmm_model.new_depth.data(), n_local, step_swmm, drain);
+
+      st.stop(SWMM_TIME);
+      st.start(COMPUTE_TIME);
+    }
+    else
     // SWMM-TRITON coupling. Guard on the GLOBAL count: this block encloses an
     // MPI_Gatherv and an MPI_Scatterv over ENSIFY_COMM_WORLD, so it is a
     // collective region every rank enters or none may. num_of_swmm_links is
