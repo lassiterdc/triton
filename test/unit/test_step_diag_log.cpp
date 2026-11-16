@@ -54,6 +54,7 @@
 using namespace SWMM_triton;
 namespace fs = std::filesystem;
 
+static std::string g_triton_h = TRITON_H_PATH;   // argv[2] overrides it, for the mutant runs
 static int g_checks = 0;
 static int g_failures = 0;
 
@@ -512,7 +513,7 @@ static bool calls_are_bracketed(const std::string& text, const std::string& call
 // Control: the same predicate on a copy with the first SWMM_SOLVE start removed must fail.
 static void B1_swmm_step_and_log_call_sites_are_bracketed()
 {
-    std::ifstream in(TRITON_H_PATH);
+    std::ifstream in(g_triton_h.c_str());
     CHECK(in.is_open(), "src/triton.h opens");
     std::stringstream ss;
     ss << in.rdbuf();
@@ -525,6 +526,71 @@ static void B1_swmm_step_and_log_call_sites_are_bracketed()
     CHECK(k != std::string::npos, "control: a SWMM_SOLVE start exists to remove");
     if (k != std::string::npos) mutant.erase(k, std::string("st.start(SWMM_SOLVE)").size());
     CHECK(!calls_are_bracketed(mutant, "swmm_step(", "SWMM_SOLVE", n), "control: with one start removed the predicate fails");
+}
+
+/// True when the end-of-run close row of `t` calls write_node_path3_interval(..., true)
+/// before diag_log::close_all(), inside the TRITON_DIAG_TEST_NO_TAIL guard and inside
+/// #ifdef TRITON_SWMM.
+static bool close_row_has_t1b_tail(const std::string& t)
+{
+    const size_t close = t.find("diag_log::close_all();");
+    if (close == std::string::npos) return false;
+    const size_t call = t.rfind("write_node_path3_interval(", close);
+    const size_t guard = t.rfind("#ifndef TRITON_DIAG_TEST_NO_TAIL", close);
+    const size_t swmm = t.rfind("#ifdef TRITON_SWMM", close);
+    if (call == std::string::npos || guard == std::string::npos || swmm == std::string::npos) return false;
+    const size_t args_end = t.find(';', call);
+    // The call must lie INSIDE the guard's block: walking the lines from the guard to the
+    // call, an #endif that closes more than the #if/#ifdef/#ifndef opened after the guard
+    // ends the block before the call.
+    int depth = 0;
+    std::istringstream is(t.substr(guard, call - guard));
+    std::string line;
+    std::getline(is, line);   // the guard line itself
+    while (std::getline(is, line)) {
+        const size_t b = line.find_first_not_of(" \t");
+        if (b == std::string::npos) continue;
+        if (line.compare(b, 3, "#if") == 0) ++depth;
+        else if (line.compare(b, 6, "#endif") == 0 && --depth < 0) return false;
+    }
+    return guard < swmm && swmm < call && depth >= 1 && close - call < 400
+        && t.substr(call, args_end - call).find("true") != std::string::npos;
+}
+
+// Property: the end-of-run close row of src/triton.h writes the T1b final partial interval
+// (write_node_path3_interval(simtime, true)) before diag_log::close_all(), under the same
+// TRITON_DIAG_TEST_NO_TAIL switch as the surface rows and inside #ifdef TRITON_SWMM.
+// Class: REGRESSION (red on the round-1 tree, whose close row had no T1b call).
+// Killed by: deleting the call, moving it after close_all(), or moving it out of the switch.
+// Second correct implementation: the call inside a helper the row invokes would NOT pass this
+// reader, which pins the call text; the Rivanna run checks the behaviour.
+// Control: the predicate on a copy with the call erased must fail.
+static void B2_close_row_writes_the_t1b_tail()
+{
+    std::ifstream in(g_triton_h.c_str());
+    CHECK(in.is_open(), "src/triton.h opens");
+    std::stringstream ss;
+    ss << in.rdbuf();
+    const std::string t = ss.str();
+    CHECK(close_row_has_t1b_tail(t), "the close row calls write_node_path3_interval(..., true) before close_all, inside the T-C switch");
+    std::string mutant = t;
+    const size_t k2 = mutant.find("write_node_path3_interval((double)simtime, true)");
+    CHECK(k2 != std::string::npos, "control: the tail call exists to erase");
+    if (k2 != std::string::npos) mutant.erase(k2, std::string("write_node_path3_interval((double)simtime, true)").size());
+    CHECK(!close_row_has_t1b_tail(mutant), "control: with the call erased the predicate fails");
+
+    // Second control, the outswitch mutant: the call moved out of the #ifndef block, still
+    // before close_all() and still after an #ifdef TRITON_SWMM, so only the nesting test sees it.
+    const std::string call = "write_node_path3_interval((double)simtime, true);";
+    const std::string tail_end = "#endif\n#endif\n      diag_log::close_all();";
+    std::string outswitch = t;
+    const size_t c = outswitch.find(call);
+    if (c != std::string::npos) outswitch.erase(c, call.size());
+    const size_t e = outswitch.find(tail_end);
+    CHECK(c != std::string::npos && e != std::string::npos, "control: the outswitch mutant can be built from this file");
+    if (c != std::string::npos && e != std::string::npos)
+        outswitch.insert(e + std::string("#endif\n#endif\n").size(), "      " + call + "\n");
+    CHECK(!close_row_has_t1b_tail(outswitch), "control: with the call moved out of the T-C switch the predicate fails");
 }
 
 struct test_entry { const char* name; void (*fn)(); };
@@ -540,12 +606,14 @@ static const test_entry kTests[] = {
     {"W1_resumed_file_equals_clean_file", W1_resumed_file_equals_clean_file},
     {"F1_flow_units_convert_to_cfs", F1_flow_units_convert_to_cfs},
     {"B1_swmm_step_and_log_call_sites_are_bracketed", B1_swmm_step_and_log_call_sites_are_bracketed},
+    {"B2_close_row_writes_the_t1b_tail", B2_close_row_writes_the_t1b_tail},
 };
 
 /** Runs the test named in argv[1], or every test; exits 1 on any failure. */
 int main(int argc, char** argv)
 {
     const char* want = (argc > 1) ? argv[1] : nullptr;
+    if (argc > 2) g_triton_h = argv[2];
     int ran = 0;
     for (const test_entry& t : kTests) {
         if (want && std::strcmp(want, t.name) != 0) continue;

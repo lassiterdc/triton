@@ -2534,6 +2534,13 @@ namespace Triton
 #ifndef TRITON_DIAG_TEST_NO_TAIL
       if (diag_surface.any() && diag_surface.pending())
         diag_surface.print_instant(rows, cols, device_vec[H], arglist.hextra, print_id + 1, (double)simtime);
+#ifdef TRITON_SWMM
+      // T1b tail (rank 0): the final partial interval's per-node path-3 sums; the true skips
+      // an interval with no SWMM step, so a whole-interval run writes nothing extra. Same
+      // switch as the surface rows: the T-C build drops it too.
+      if (rank == 0 && swmm_model.global_num_of_swmm_links > 0 && swmm_model.node_path3_enabled())
+        swmm_model.write_node_path3_interval((double)simtime, true);
+#endif
 #endif
       diag_log::close_all();
       st.stop(DIAG_TIME);
@@ -2612,19 +2619,23 @@ namespace Triton
     // unchanged find_min_dt, taken once COMPUTE_TIME is closed. TRITON_DIAG_TEST_EARLY_MINLOC
     // (TEST-ONLY, undefined by default) also issues the T6 collective here, before the
     // step's MPI_MIN allreduce.
-    if (diag_surface.dt_limiter)
+    // One DIAG bracket for both rows: each bracket costs two timer-call pairs whose
+    // lookups fall between the category clocks and surface in Other, so two adjacent
+    // reads at one position share one bracket.
+    if (diag_surface.dt_limiter || diag_surface.wet_cells)
     {
       st.start(DIAG_TIME);
-      diag_surface.local_row(rows, cols, device_vec[DT], device_vec[H], device_vec[QX], device_vec[QY], diag_row_offset());
+      if (diag_surface.dt_limiter)
+      {
+        diag_surface.local_row(rows, cols, device_vec[DT], device_vec[H], device_vec[QX], device_vec[QY], diag_row_offset());
 #ifdef TRITON_DIAG_TEST_EARLY_MINLOC
-      diag_surface.minloc_collective();
+        diag_surface.minloc_collective();
 #endif
-      st.stop(DIAG_TIME);
-    }
-    if (diag_surface.wet_cells)
-    {
-      st.start(DIAG_TIME);
-      diag_surface.sample_wet(rows, cols, device_vec[H], (double)arglist.hextra);
+      }
+      if (diag_surface.wet_cells)
+      {
+        diag_surface.sample_wet(rows, cols, device_vec[H], (double)arglist.hextra);
+      }
       st.stop(DIAG_TIME);
     }
   }
@@ -2677,9 +2688,10 @@ namespace Triton
     st.start(COMPUTE_TIME);
 
     // T2 rows below swap COMPUTE_TIME for DIAG_TIME around one read-only reduction each,
-    // so DIAG never overlaps another category. The fence charges the preceding kernels
-    // to Compute before the reduction can wait on them.
-    auto diag_open = [&]() { gpuStreamSynchronize(streams); st.stop(COMPUTE_TIME); st.start(DIAG_TIME); };
+    // so DIAG never overlaps another category. The fence that drains the preceding kernels
+    // runs inside the DIAG bracket, after COMPUTE_TIME is stopped: a fence inside the open
+    // Compute bracket would charge the capture's forced synchronisation to Compute.
+    auto diag_open = [&]() { st.stop(COMPUTE_TIME); st.start(DIAG_TIME); gpuStreamSynchronize(streams); };
     auto diag_close = [&]() { st.stop(DIAG_TIME); st.start(COMPUTE_TIME); };
 
     Kernels::flux_x(rows*cols, rows, cols, cell_size, global_dt,
@@ -2693,11 +2705,11 @@ namespace Triton
     // of diag_test_busywait_us inside the DIAG bracket.
     if (diag_surface.domain_balance)
     {
-      gpuStreamSynchronize(streams);
 #ifndef TRITON_DIAG_TIMER_MUTANT
       st.stop(COMPUTE_TIME);
 #endif
       st.start(DIAG_TIME);
+      gpuStreamSynchronize(streams);
       diag_surface.read_west_east(rows, cols, (double)global_dt, device_vec[QX], device_vec[RHSH0], device_vec[RHSH1]);
 #ifdef TRITON_DIAG_TEST_BUSYWAIT
       diagnostics::spin_us(arglist.diag_test_busywait_us);
