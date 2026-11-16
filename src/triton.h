@@ -492,7 +492,8 @@ namespace Triton
                             arglist.swmm_snapshot_keep_previous,
                             arglist.swmm_node_rim_from_dem,
                             arglist.swmm_coupling_nodes,
-                            arglist.swmm_snapshot_failed_replay);
+                            arglist.swmm_snapshot_failed_replay,
+                            arglist.swmm_manhole_table);
     }
     else if (rank == 0)
     {
