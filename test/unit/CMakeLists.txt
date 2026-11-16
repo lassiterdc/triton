@@ -326,3 +326,35 @@ foreach(_t IN ITEMS T1_start_reads_the_clock_before_the_lookup T2_stop_looks_up_
   add_test(NAME UNIT-SUPERTIMER-ORDER-${_t}
            COMMAND test_supertimer_order ${CMAKE_SOURCE_DIR}/src/supertimer.h ${_t})
 endforeach()
+
+# Package 1f: the per-node manhole table (swmm_manhole_table): the table reader and its
+# refusals, the assignment of both columns by case-folded name in coupling order, the
+# bit-identity of a constant-equal table with the constant fill loop, and the loader's
+# exit status, message and rank-0 warning (run in a forked child). One node id per
+# property. Same build arrangement as the tests above.
+add_executable(test_manhole_table test_manhole_table.cpp)
+
+target_include_directories(test_manhole_table PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_manhole_table PRIVATE kokkos swmm5)
+
+set(TRITON_MANHOLE_TABLE_TESTS
+  P1_table_with_comments_blank_lines_and_mixed_case_parses
+  F1_a_line_that_is_not_a_name_and_two_numbers_is_refused_with_its_line
+  F2_a_diameter_not_finite_or_not_above_zero_is_refused_with_its_line
+  F3_a_loss_coefficient_not_finite_or_negative_is_refused_with_its_line
+  F4_a_name_repeated_after_the_case_fold_is_refused_with_its_line
+  F5_a_name_that_is_no_coupling_node_is_refused_with_its_line
+  F6_a_coupling_node_with_no_row_is_reported
+  A1_assignment_of_both_columns_follows_the_case_folded_name_in_coupling_order
+  A2_a_table_equal_to_both_constants_is_bit_identical_to_the_constant_loop
+  L1_every_refusal_stops_the_run_naming_the_file_and_the_line
+  W1_rank_0_warns_how_many_diameters_exceed_dx_and_the_largest)
+
+foreach(_t IN LISTS TRITON_MANHOLE_TABLE_TESTS)
+  add_test(NAME UNIT-MANHOLE-TABLE-${_t}
+           COMMAND test_manhole_table ${_t})
+endforeach()

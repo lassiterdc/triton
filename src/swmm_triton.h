@@ -51,6 +51,7 @@ extern "C" int routing_setCouplingNodes(const int* nodeIndex, int n);
 #include <cstring>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <vector>
 #include <cstdint>
 #include <filesystem>
@@ -361,6 +362,171 @@ namespace SWMM_triton
 				if (swmm_upper(names[i]) == swmm_upper(names[j]))
 					return {static_cast<int>(j), static_cast<int>(i)};
 		return {-1, -1};
+	}
+
+	/** @brief One refusal of the per-node manhole table (swmm_manhole_table).
+	 *
+	 *  `what` is empty when there is no refusal. `line` is the 1-based line of the
+	 *  table the refusal is about, or 0 when it names no line (a coupling node with
+	 *  no row). The caller prefixes the file name.
+	 */
+	struct manhole_table_error_t
+	{
+		int line = 0;
+		std::string what;
+	};
+
+	/** @brief A whole token read as one double: strtod must consume every character. */
+	static inline bool parse_manhole_number(const std::string& tok, double& v)
+	{
+		if (tok.empty()) return false;
+		char* end = nullptr;
+		v = std::strtod(tok.c_str(), &end);
+		return end == tok.c_str() + tok.size();
+	}
+
+	/** @brief Reads a per-node manhole table: one coupling node per line.
+	 *
+	 *  A line is the node name, the diameter in metres and the loss coefficient,
+	 *  whitespace separated. Surrounding whitespace is stripped; blank lines and
+	 *  lines beginning with ';' are skipped; there is no header (the coupling list's
+	 *  rules with two more tokens). Each row's 1-based line number is kept so a
+	 *  refusal can name the line. Stops at the first refusal, which is returned: a
+	 *  line that is not exactly a name and two numbers, a diameter that is not
+	 *  finite or not above zero, or a loss coefficient that is not finite or is
+	 *  negative. A row with only one of the two values is the first of these.
+	 */
+	static inline manhole_table_error_t read_manhole_table(std::istream& in, std::vector<std::string>& names, std::vector<value_t>& diameters, std::vector<value_t>& losses, std::vector<int>& lines)
+	{
+		manhole_table_error_t err;
+		std::string line;
+		int n = 0;
+		while (std::getline(in, line)) {
+			++n;
+			const std::size_t b = line.find_first_not_of(" \t\r");
+			if (b == std::string::npos) continue;
+			const std::size_t e = line.find_last_not_of(" \t\r");
+			const std::string text = line.substr(b, e - b + 1);
+			if (text[0] == ';') continue;
+
+			std::istringstream ss(text);
+			std::vector<std::string> tok;
+			std::string t;
+			while (ss >> t) tok.push_back(t);
+			double d = 0.0, l = 0.0;
+			if (tok.size() != 3 || !parse_manhole_number(tok[1], d) || !parse_manhole_number(tok[2], l)) {
+				err.line = n;
+				err.what = "expected a node name, a diameter in metres and a loss coefficient, found '" + text + "'";
+				return err;
+			}
+			if (!std::isfinite(d) || !(d > 0.0)) {
+				err.line = n;
+				err.what = "the diameter of " + tok[0] + " must be finite and above zero, found '" + tok[1] + "'";
+				return err;
+			}
+			if (!std::isfinite(l) || l < 0.0) {
+				err.line = n;
+				err.what = "the loss coefficient of " + tok[0] + " must be finite and not negative, found '" + tok[2] + "'";
+				return err;
+			}
+			names.push_back(tok[0]);
+			diameters.push_back(static_cast<value_t>(d));
+			losses.push_back(static_cast<value_t>(l));
+			lines.push_back(n);
+		}
+		return err;
+	}
+
+	/** @brief The table's names against the coupling nodes: a name repeated after
+	 *         SWMM's case fold, then a name that is no coupling node. */
+	static inline manhole_table_error_t check_manhole_table_names(const std::vector<std::string>& names, const std::vector<int>& lines, const std::vector<std::string>& coupling_names)
+	{
+		manhole_table_error_t err;
+		const std::pair<int, int> rep_pair = find_repeated_name(names);
+		if (rep_pair.first >= 0) {
+			err.line = lines[rep_pair.second];
+			err.what = "node " + names[rep_pair.second] + " repeats " + names[rep_pair.first] + " on line "
+			           + std::to_string(lines[rep_pair.first]) + " (SWMM compares node names case-insensitively)";
+			return err;
+		}
+		for (std::size_t i = 0; i < names.size(); ++i) {
+			bool found = false;
+			for (std::size_t j = 0; j < coupling_names.size(); ++j)
+				if (swmm_upper(names[i]) == swmm_upper(coupling_names[j])) { found = true; break; }
+			if (!found) {
+				err.line = lines[i];
+				err.what = "node " + names[i] + " is not a coupling node";
+				return err;
+			}
+		}
+		return err;
+	}
+
+	/** @brief Gives each coupling node the two values of the row whose name equals
+	 *         it after SWMM's case fold, in coupling order.
+	 *
+	 *  diameter and loss are indexed by the coupling node's global index, as the
+	 *  constant fill loop's are. Returns the index of the first coupling node with
+	 *  no row, or -1 when every node has one; a node with no row is left untouched.
+	 */
+	static inline int assign_manhole_table(const std::vector<std::string>& coupling_names, const std::vector<std::string>& names, const std::vector<value_t>& diameters, const std::vector<value_t>& losses, std::vector<value_t>& diameter, std::vector<value_t>& loss)
+	{
+		int first_missing = -1;
+		for (std::size_t i = 0; i < coupling_names.size(); ++i) {
+			bool found = false;
+			for (std::size_t j = 0; j < names.size(); ++j) {
+				if (swmm_upper(coupling_names[i]) == swmm_upper(names[j])) {
+					diameter[i] = diameters[j];
+					loss[i] = losses[j];
+					found = true;
+					break;
+				}
+			}
+			if (!found && first_missing < 0) first_missing = static_cast<int>(i);
+		}
+		return first_missing;
+	}
+
+	/** @brief Reads the manhole table at `path` and fills diameter[] and loss[] from it.
+	 *
+	 *  Every rank reads the same file, so every refusal stops every rank with
+	 *  exit(EXIT_FAILURE), naming the file and the line, and none waits in a
+	 *  collective. The solver fills nothing: the table is 1:1 with the coupling
+	 *  nodes or the run stops. Rank 0 warns how many table diameters exceed dx.
+	 */
+	static inline void load_manhole_table(const std::string& path, const std::vector<std::string>& coupling_names, const value_t dx, const int rank, std::vector<value_t>& diameter, std::vector<value_t>& loss)
+	{
+		std::ifstream in(path.c_str());
+		if (!in.is_open()) {
+			std::cerr << ERROR "Cannot read the manhole table " << path << " (swmm_manhole_table)." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		std::vector<std::string> names;
+		std::vector<value_t> diameters, losses;
+		std::vector<int> lines;
+		manhole_table_error_t err = read_manhole_table(in, names, diameters, losses, lines);
+		if (err.what.empty()) err = check_manhole_table_names(names, lines, coupling_names);
+		if (!err.what.empty()) {
+			std::cerr << ERROR "Manhole table " << path << " line " << err.line << ": " << err.what << "." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		const int missing = assign_manhole_table(coupling_names, names, diameters, losses, diameter, loss);
+		if (missing >= 0) {
+			std::cerr << ERROR "Manhole table " << path << " has no row for coupling node " << coupling_names[missing]
+			          << ": every coupling node needs a row (swmm_manhole_table)." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		int above = 0;
+		value_t largest = 0;
+		for (std::size_t j = 0; j < diameters.size(); ++j) {
+			if (diameters[j] > dx) ++above;
+			if (diameters[j] > largest) largest = diameters[j];
+		}
+		if (above > 0 && rank == 0) {
+			std::cerr << WARN "Manhole table: " << above << " of " << diameters.size()
+			          << " diameters are greater than grid resolution (largest " << largest
+			          << " m). This may cause numerical instabilities" << std::endl;
+		}
 	}
 
 	/** @brief The coupled list with no coupling declaration (the legacy branch).
@@ -921,7 +1087,7 @@ namespace SWMM_triton
 		/// false, which keeps the stop there. swmm_node_rim_from_dem only labels
 		/// the rims init_swmm prints; triton.h applies the DEM rim.
 		/// swmm_coupling_nodes is the coupling declaration (empty: legacy).
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string(), const bool swmm_snapshot_failed_replay = false);
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string(), const bool swmm_snapshot_failed_replay = false, const std::string& swmm_manhole_table = std::string());
 
 
 		void end_swmm(std::string output_dir);
@@ -1187,7 +1353,7 @@ namespace SWMM_triton
 
 		int calc_swmm_node_row(value_t  node_y, value_t  yllc, value_t  cell_size_, int nrows);
 
-		void read_inp_file(std::string inp_filename, const value_t  dx, const value_t manhole_diameter, const value_t manhole_loss);
+		void read_inp_file(std::string inp_filename, const value_t  dx, const value_t manhole_diameter, const value_t manhole_loss, const std::string& manhole_table);
 
 
 		void process_swmm_node_locations(const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd);
@@ -1218,7 +1384,7 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes, const bool swmm_snapshot_failed_replay)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes, const bool swmm_snapshot_failed_replay, const std::string& swmm_manhole_table)
 	{
 		rank_=rank;
 		size_=size;
@@ -1229,14 +1395,14 @@ namespace SWMM_triton
 		this->node_rim_from_dem = swmm_node_rim_from_dem;
 		this->coupling_nodes_key = swmm_coupling_nodes;
 
-		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss);
+		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss, swmm_manhole_table);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
 		init_swmm(project_dir, inp_filename, swmm_snapshot_disable);
 	}
 
 
 
-	void swmm_triton::read_inp_file(std::string inp_filename, const value_t  dx, const value_t manhole_diameter, const value_t manhole_loss)
+	void swmm_triton::read_inp_file(std::string inp_filename, const value_t  dx, const value_t manhole_diameter, const value_t manhole_loss, const std::string& manhole_table)
 	{
 
 		std::ifstream infile(inp_filename.c_str());
@@ -1345,6 +1511,15 @@ namespace SWMM_triton
 				  }
 			 }
 		}
+		// With swmm_manhole_table set, each coupling node takes the two values of its
+		// table row and the two constants are not read for any node; this happens
+		// before process_swmm_node_locations, so each value travels with its node to
+		// the one rank that owns it. With the key empty the loop below is the
+		// constant fill every earlier build ran.
+		if (!manhole_table.empty()) {
+			load_manhole_table(manhole_table, nodeID, dx, rank_, diameter, loss);
+		}
+		else {
 	//to be changed in the future, mainly the diameter
 		for (int i = 0; i < global_num_of_swmm_links; i++) {
 			loss[i]=manhole_loss;
@@ -1356,6 +1531,7 @@ namespace SWMM_triton
 			if (rank_ == 0){
 				std::cerr << WARN "Manhole diameter is greater than grid resolution. This may cause numerical instabilities" << std::endl;
 			}
+		}
 		}
 
 		if (rank_ == 0){
