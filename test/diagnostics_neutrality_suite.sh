@@ -896,6 +896,8 @@ n13_refusal() {
   local rasters; rasters=$(find "$d/out/bin" -name 'H_*' 2>/dev/null | wc -l)
   if [ $rc -eq 0 ] && grep -aq "Simulation ends" "$d/run.log"; then
     rec "$id" BLIND "$desc: the run was NOT refused (exit 0, simulation completed; see $d/run.log): the instrument cannot detect this break"
+  elif [ $rc -eq 0 ]; then
+    rec "$id" FAIL "$desc: exit 0 without a completed simulation: a refusal must exit non-zero (see $d/run.log)"
   elif [ $rc -eq 124 ] || [ $left -gt 0 ]; then
     rec "$id" FAIL "$desc: exit $rc, $left rank process(es) left running (see $d/run.log)"
   elif grep -aq "Simulation starts" "$d/run.log" || [ "$rasters" -gt 0 ]; then
@@ -1003,6 +1005,11 @@ case_N13() {
       rec "N13/$lab/np1-vs-np$NP_BIG" REPORT "($lab) np1 against np$NP_BIG not read: (a) is not byte-identical across the two rank counts, so the reading is an instrument unable to detect a mis-split value on this case (R4)"
     fi
   done
+  # the detector refuses a first differing record that names two columns: a control the real case cannot supply, because its two nodes first exchange at different records
+  $PYTHON -I -c 'import struct,sys; d=sys.argv[1]; h=struct.pack("<3i",0x4F4B5832,2,8)
+a=[[0.1,0.0,0.0],[0.2,0.0,0.0]]; b=[[0.1,0.0,0.0],[0.2,5.0,5.0]]
+for n,r in (("two_a.bin",a),("two_b.bin",b)): open(d+"/"+n,"wb").write(h+b"".join(struct.pack("<3d",*x) for x in r))' "$TB"
+  HYD=0 chk "N13/detector/two-columns" 1 "(control) the detector expecting column 0 on a first differing record that differs in columns 0 and 1: must FAIL" $PYTHON -I "$H" firstcols "$TB/two_a.bin" "$TB/two_b.bin" 0
   # (c') a different node's diameter doubled, serial: the detector expecting N* must FAIL, and its control (expecting N') must pass
   branch_run "n13_cprime_np1" cpu 1 swmm_manhole_table="$TB/cprime.txt" && {
     n13_must_differ "N13/cprime/np1/differs" "(c') N'=$NP_NAME diameter doubled, CPU np1, against (a)" "${AO[1]}" "$ARM_OUT"
