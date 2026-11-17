@@ -380,3 +380,33 @@ foreach(_t IN LISTS TRITON_MANHOLE_TABLE_REVIEW_TESTS)
   add_test(NAME UNIT-MANHOLE-TABLE-REVIEW-${_t}
            COMMAND test_manhole_table_review ${_t})
 endforeach()
+
+# Package 1m: the per-node exemption of the DEM-rim loop (swmm_dem_rim_exempt_nodes): a
+# source-structure test of src/triton.h and src/config_utils.h with no link line. The rim
+# loop is entered only with a DEM, MPI and Kokkos, so the properties are read from the
+# source: the skip precedes the loop's own refusal, an absent key reaches no new statement,
+# every refusal exits, no collective sits in the key block, and the rim line counts one node
+# fewer. Each property is also run on a copy broken on purpose and must fail there.
+add_executable(test_dem_rim_exemption test_dem_rim_exemption.cpp)
+
+foreach(_t
+    K1_key_is_read_with_an_empty_default
+    E1_a_listed_node_is_skipped_before_the_refusal
+    E2_an_absent_key_reaches_no_new_statement
+    R1_every_refusal_exits_and_the_inert_key_is_named
+    M1_no_collective_in_the_key_block
+    L1_the_rim_line_counts_one_node_fewer)
+  add_test(NAME UNIT-DEM-RIM-EXEMPTION-${_t}
+           COMMAND test_dem_rim_exemption ${CMAKE_SOURCE_DIR}/src/triton.h
+                   ${CMAKE_SOURCE_DIR}/src/config_utils.h ${_t})
+endforeach()
+add_executable(test_dem_rim_exemption_review test_dem_rim_exemption_review.cpp)
+
+foreach(_t
+    F1_case_fold_on_both_sides
+    O1_refusal_order_and_the_coupling_refusal_exits
+    S1_set_include_inside_the_swmm_guard
+    Z1_the_skip_assigns_no_running_total)
+  add_test(NAME UNIT-DEM-RIM-EXEMPTION-REVIEW-${_t}
+           COMMAND test_dem_rim_exemption_review ${CMAKE_SOURCE_DIR}/src/triton.h ${_t})
+endforeach()
