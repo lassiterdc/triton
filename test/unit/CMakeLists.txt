@@ -445,3 +445,13 @@ foreach(_t IN LISTS TRITON_MANHOLE_TABLE_REVIEW_TESTS)
   add_test(NAME UNIT-MANHOLE-TABLE-REVIEW-${_t}
            COMMAND test_manhole_table_review ${_t})
 endforeach()
+
+# Package 1j reviewer test (adopted from the 1j.1 reviewer round): the position table of the
+# coupling blocks and the agreement of the backflow volume between kernel, record and cell.
+add_executable(test_driven_outfall_review test_driven_outfall_review.cpp)
+target_include_directories(test_driven_outfall_review PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+target_link_libraries(test_driven_outfall_review PRIVATE kokkos swmm5)
+target_compile_definitions(test_driven_outfall_review PRIVATE TRITON_H_PATH="${CMAKE_SOURCE_DIR}/src/triton.h")
+foreach(_t IN ITEMS RV1_feature_calls_follow_the_position_table_in_both_blocks RV2_backflow_volume_agrees_between_kernel_record_and_cell)
+  add_test(NAME UNIT-DRIVEN-OUTFALL-REVIEW-${_t} COMMAND test_driven_outfall_review ${_t})
+endforeach()
