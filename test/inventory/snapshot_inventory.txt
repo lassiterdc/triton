@@ -565,7 +565,7 @@ Orifice	hCrit	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Orifice	length	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Orifice	surfArea	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Orifice	type	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
-Outfall	fixedStage	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
+Outfall	fixedStage	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open; with swmm_driven_outfalls set, written by TRITON before every routing step and read at node.c:1443 in that step, so no value crosses a step boundary, and restored on resume by the stage replay
 Outfall	routeTo	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Outfall	stageSeries	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
 Outfall	tideCurve	LIVE	EXCLUDED	config: re-read from the .inp at swmm_open
