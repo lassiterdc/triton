@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:3a0d9b4cd983108d0aec80097abcad3ab2805b2b4cbfde2ce65c08838c625252",
+  "claims": [
+    {
+      "id": "claim_26553700dc2a4d91b469a027d741c126",
+      "statement": "Surface QX/QY are unit discharges from which flux kernels recover velocity by division by depth, and prepared Manning arrays are squared before numerical use.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L106-L133",
+          "version": "repo-lines-v1:sha256:3caee32f2ad511a8409be637ec144663cf323ba026465c5ed9e6975b713bc00a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiZGI4NjllZmEzZmMyNjkzZDBjMmY3MTk3YjVmYjhiYTMyNTZjMmQ2ZmYzY2JjMjAwN2IyNTdiN2RkNzllM2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNTFiZmFiY2ZiNmQ4OWZkOWY0ZTNiN2JjNGExNzRmZDkwYzk5ODE4NmU0ZmRlMmM4ZmEzNGU2ZDVjMjkzYWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNmMmViYTcwOWE5YjAxMGJjZmU4YmI0MTU4NDUzM2IyYzYyNzUzNzcwYThjOTlhOThiNmUzYjAzYTMxOGYzNDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM5MGVhMjUyMjYzNWU0MTY3MjlkNjVkYmVlZjJmZjM4Njk5NWE4NDM4ZDZkNzhkZTEzOThhNTQ2NWE2NzAxM2QifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1011-L1015",
+          "version": "repo-lines-v1:sha256:af15a9017efd4ab2f434a8b40b8bc493a1d431ef0821acd95e7879d086cc8b78:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZWI0ZGQ0ZjlhYzEyOTY0MmRiNjFkNzdmNmJmOTM2NWU1MjJjNDQzM2U0ZmQ3NGYzNTlmZGU3OWQyZGMwYWNjNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDg5ZjcwNWVhMTJlMjBiM2ZkOGQ1ZThmNzc1NGM1ZTdiNWVhZDM4OTIzOGIxNjQ3NThlNTViZjM2NTMxMzM1OSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWE5MWMzYTIyOTI5YmExNDE1MzI4MTYyZTI0ZWI5MjMzNDk2YzI3ZWYxMTZlNTc5YTFlN2U3ZWZkNDI1NzJmNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDQ5OTM4NjI5YTcxNzQ3ZDQzYzMwNmM3MmZhOGQzYzRiMGJmZTk4ZjBmOTRhZjczMWNlODYxMDczMjQxZmQwOSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L767-L783",
+          "version": "repo-lines-v1:sha256:378db0864b542c7712803b6087f293c71a121f4ad54c079d2d6285b96ecab41d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUwYmM2NjNjNTgxMTJkODkwYTIzODUyNDA3NGIxNDkwMDVhNzlmZDlhNmUwNWMzMDFjZWIxZGQyMzdlNGRhNDMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQyMTFkNTlmY2RhYmY1ZGNkNjMxNTEwZjQ5OTJkMDIzMGZkNzM4NzU0NTFhNmZhZDIzYjI4ZWNlN2U2OGZkNmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFkNzIwM2YwM2Q5ZmY1MzI0OTI1M2UzZmJjODM1M2YzOWM4ZjU4MGQzYjY4MWZlZTI3ZGFjYzc4Yjg2MmNlN2QifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e0301a5b9b764d65991a9f82d11d3141",
+      "statement": "Precision selects float/MPI_FLOAT/EPS12=1e-6 or double/MPI_DOUBLE/EPS12=1e-12, with finite MAX_VALUE=1e10 and separate configured depth threshold hextra.",
+      "evidence": [
+        {
+          "resource": "repo://src/constants.h#L37-L51",
+          "version": "repo-lines-v1:sha256:eff3a6e658a6464c2977e95e12ee1e09bbc8e0f49a26692883a20f8e84381e20:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhMDBjNDFjN2E2YzBmZTdjMjYxNTI4YmNmNDdiMTJhZGVmN2FlMmY3N2ZhYzA2ZjM0YWEyMjBkZjNkYzA0NmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYzViNjViMzAzZTk0ZDU0M2IxMDEyMjFmOTU5MGY3YjI1ZTRhYzRhNGVkNDUxMWU1OTRiZTQ5ZTRhZGYxNTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhiZmM5N2EwZDU5ZmIwZTUyMTc3MzcyZDkzMjlhZGQ0ZjNlMzNjNmQ0ZGYzMGQ4NjVhMmMyOGViYjE5MDIwZjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVmMmJiMzIwMzE4MzI4YTM4NWQ1MzIxODI1Zjg4ZmQ3ZjhjNDQ2YzMxYjk1M2YyNjJlYzA3M2E2MGY0ZWU4MjAifQ"
+        },
+        {
+          "resource": "repo://src/kernels.h#L629-L657",
+          "version": "repo-lines-v1:sha256:661782a4c87092078ed8647876f0a0dd1dceef8a1f773de83431be5950a3446d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0NzA4NWRmM2M0NzJlYTU5MmQ0NDYxNzY2ZmIxYjNmMmExMDc0MmEyYTQwN2UzMDQwYTc3YzJjYWYxNjZmY2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA0MjM0NTkxODY3MjY1YWY0ZTAwYjFiNGZlNjIwMmNiMWUyY2U2ZDZiZmFhMzc0N2JhYjExMDFmYTczNzk4NWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhNDM2M2E0MzAzOTk3YzYzZDg3NGM3OGQ5YTFmNjY5MmJkMDYxZjg0ZGIwYzcyMzI1MTE0MDI1ZjhmOTBhZDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ1YWYwYTUzMmI1ZTJmNGY3MDIzNGRhOWViZTJlYTJkYWQ3YWU5YTYyZmM0ZmZiZDM1Y2E5MTA0NzY4OWJlNmIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e0ab931ce32344c29cc3c765b84fb4aa",
+      "statement": "Directional fluxes use weighted characteristic states, entropy and bed-step corrections; X assigns RHS contributions and Y accumulates them, requiring X then Y then cell-update ordering.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L135-L298",
+          "version": "repo-lines-v1:sha256:5b3220d2c9616a0665886dd453448b6322f3ea22d3e509811906700d2d9491d5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTY0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3ODQxNzdkZjYyMzFiMzg2MGM2YWNkMmMxNGVmODY5ZWQ4OWQyNTNhNzg5YWQ1MzNlNmQ0OGIyNDEwNTg3MGJkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlZTEyMzZmMmFlYTFjZTQyZmEyYjBjY2IyNzgzMmM3OGY1ZDhjMWMxOTIzOGEyNDA5MjIxMDY2M2Q1MzllZDYxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhNzM3NDJmOWJlZjBkMWZhYTMwZjg0ODkxZDhjOGRjMWRmY2M0M2M4YWQ3Y2FhNTU3MDk1MWY4MTdkMDhhNTJhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2ZWVmMmE5NTcyOTM5MDYyY2Q3ZjdhYjQ5ZDExOThjNTNmM2UxYzBhODNiNjIzNjAwNDM1MjIzOWRiOGE1NDNlIn0"
+        },
+        {
+          "resource": "repo://src/kernels.h#L397-L572",
+          "version": "repo-lines-v1:sha256:bcf450a63feec7aac415f5e70070486cef86604d8bb86529cd704b510efd387f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTc2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5NzhkZmU5ODNkOTI5MGVmZTU1MWJmN2NiODI4NjdhNmNhOTNkMWQ4MWMzMjI0M2JlY2RjOTBiMTQwZTQ4N2YzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1MzMxYTE0M2EzNDQ3ZTM1ZDkxNjUyMDcxN2JlNDAzOGU0YjBlM2E4Zjg4YTg2YzAxNDM5NzY4ZDI4MTJjZWY1IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhZTM2OThhOWM3MTExNjRkMDIxMjAwYjA1ODBhMWZkY2FlZDIxNzc5YjhlNWExZDgzMzEzYzAzZjVjNmYxYjI4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1Y2Y3MTg2YjFlMzFjOWZjODg1YzVlOWU0ODNiOWE0NzJiMWUyNGEzODFkNzkxNjczNmRhMzliMTc0MzhlMGFmIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2478-L2493",
+          "version": "repo-lines-v1:sha256:49cc1df75376033e332470d9fc99e7c239bbd4427d9ae69d87794b282f2a0783:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkYTk0YjE2YzE0M2VhMDlhZjcyZmVjMGEwNTFkNjViNDEzNTE3MTVjYjVmZTYwOTZlNjYwMjUwY2RmN2ZhZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZkMzllNzIxMWZkMzlhZjIxZmU1Njk2MjZhNmY3ZGZiYTg5N2Y4MDRiODU0ZTNiMWMwN2VlNDlmMjE4NTA5NjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_16aa8262180a4a51b0bfad3ad0ce78ed",
+      "statement": "Cell update clips negative depth, zeroes discharges below hextra and otherwise applies guarded Manning friction using the old-depth hn*hn*cbrt(hn) denominator and sqrt(1+4*tt) component formula.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L597-L670",
+          "version": "repo-lines-v1:sha256:0e6dcaf136b6c8db56205e7e7bb698d83cfaf49c1ed682ae6dd2fe630ef742c0:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxNDliNDExODY1ZjNiZjEyNWJjMTBlMGZiNDk1ZWNlODFiMzA3MzYzZDk2OGVmMjU5MTMyYjcyNTA3MDg1ZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxMDU5YzhjZmI1YTA3MmM2ZjY0ZGQzZDFiZmRiYzM1NmZiZWM5M2FlZWM4ODc5MWRhN2VkYmE4OWMwODg1ZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcwNzQ5OTljMjdiYzgzZTkyYjJlMjMyYzdkMGU5NGE4ZWU1Zjc3OTFhNmE0ZTYyNjE3YTgwMmZmNzRjMjE0ODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJmMDQ3MTg0NTlkMjEwNTUyMDgyMzQ4MGRlYjNiNzU3MGJjOTdlMTFmYmE4ZTc0MjNlYWE1MTlmYjI2ZTU2YTkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_244ad026f56c475dbc6fde2a61f1fdce",
+      "statement": "Adaptive timestep computation refreshes square roots, uses Courant times cell size divided by max component velocity plus wave speed, reduces the minimum and clamps to the next raster output time, with a forcing/output-derived fallback for dry domains.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L1006-L1052",
+          "version": "repo-lines-v1:sha256:9cc43070fb30a448090309377a4f8e9ecb5bb2d6aa61563a164b2195aa471f6e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxNDliNDExODY1ZjNiZjEyNWJjMTBlMGZiNDk1ZWNlODFiMzA3MzYzZDk2OGVmMjU5MTMyYjcyNTA3MDg1ZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcxMzQ1MTgwMTA1YjBjNjZhNzdkYWQ1MWJiMzc5MDFhMzczMmM5NjU0YmE0ZGUzOTgxZjgxZTE4MTc1MjQ4YmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQzMTQ3NTFkYjY5ZDFlMTMzNGJhNjQyYzYyYzg2YmIyMGY5NTBlODg4NTY5ZjRmNmE5YWEzNGFkNzZkNjQwZjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE3MTVkYjhiNTcwY2FkNDEyZjQ3MzRmMjRkZGRjMmNmNGZlZTFlNjQxZGYwYzVkZmQ5MDRjZmQxNTg3YjNhYjAifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2411-L2474",
+          "version": "repo-lines-v1:sha256:a7bc786e2c5d84f8c3b9e4791e89d6246484489fe1768f640d24137f4f937194:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_28bb2371b36d4a63a398b939d0d22316",
+      "statement": "Fixed mode bypasses both timestep functions and therefore the adaptive output clamp and square-root refresh, while its host square-root storage is initialized to zero.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L1917-L1921",
+          "version": "repo-lines-v1:sha256:d875521172239f6a8e7144289a64ea9c7ce9ffbb49fa294de2e94dd8e154ae57:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjlhMWQ5ZDMzOGI4NzA1MDBlYmU5MjhjNzc2YzNhYWM1YWUyMzgzMzdmMTQ4MTI2ZWE5NzhjMzFmZDliMDJhNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg5M2Y0MGUzNzgxZWI4OTZjODJkMDQ2YTA4MDY3YTExZTM1Y2RmMmYxZGZhZjI2ZmVhOTBiOGRiNjY3NjQxMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDgzNGU1ZmM1NmYwN2MzNDA4YmJmZTQyYTYyZTRmYmM5NTMyNzAzOGEwOGUwNDU4MGU4YTU5Mjk2ZjgyMjg0ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjBhNjdlMzQ0NGFjZmE0MjczZmFlOTc2OGNiZjk5OWRiZWY0OGQwMmIxOTllYmU2NTI5MWZhOWNiNzdhOGM0MCJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2249-L2274",
+          "version": "repo-lines-v1:sha256:39c5faa79e2d3e899499b949a73159b9d10e3dcf0d1c20d57aa4d1cc6d1eb26f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1OTBlYzEzZDk5YjU4MDU3N2E0OWQ5NzUwNWUwYjFhYjY4NGM0ZDRiYmZmYzAxZjFkODk5ZDViMzBkZWVhZDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjllZmNjMmJlOGZlYjgzODM0OTJmNTdkMTBiN2IwNDgwNjM0NGI1MzVjYTQ4MTk0NzkwMGI0MGE4NDEwMTdlMGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjOGIzZWNlOWFjYzhjOTJkOTk3NTFmMjk0YWNmNWI3Y2Q1MWM4MTg5ZWQwODgwZDc4ZDY5MzY5MGZjODBjMTMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2440-L2474",
+          "version": "repo-lines-v1:sha256:6c4a936ce4eaaf7894bc6ce5a9ed58b5b442c4cfbab4e98d72a8e4ba0b2e16b9:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRjY2UzODBjZDgyYzM4NjU4OWJmNGQ2ZjI5NmQ1ZTI0MDA3NGQxM2ViZGYxYWU2NTdiZTUzYjUxZjkwMzY1ZGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2c7543cd2b0744298a6be75329b57e96",
+      "statement": "Point hydrographs interpolate at current simtime and add flow*dt/cell-area to depth without momentum, while runoff holds a selected region intensity row and adds intensity*dt with shallow/negative-depth handling.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L890-L992",
+          "version": "repo-lines-v1:sha256:d9e3870fd83edbd1fbcd393e2343bda15a930212162dab72b1d05556a46355ea:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1MTQ5YjQxMTg2NWYzYmYxMjViYzEwZTBmYjQ5NWVjZTgxYjMwNzM2M2Q5NjhlZjI1OTEzMmI3MjUwNzA4NWY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3MTM0NTE4MDEwNWIwYzY2YTc3ZGFkNTFiYjM3OTAxYTM3MzJjOTY1NGJhNGRlMzk4MWY4MWUxODE3NTI0OGJmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJkY2MzYjkwNmUwMjBlMjU0ODcxMzlhOGQ0ZGU3ZmFlMGJmMzhlYmEyNzYxODJjN2RjNmRjYmQ5Y2M4YmMyMWVmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2QzMzA5Y2IzODg2OTM3ODkyMDNhZDY5NDcxMjhkNGIxYzlkY2ZkMmUyM2I1NWI2NDhhOTE4NWQzZjcyYmM5In0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2495-L2533",
+          "version": "repo-lines-v1:sha256:e9d232ea2aa02ad0c87cb512f43d1db2cca1e19e83b79244134cf60c7ef29725:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ODgxZjEyZGFjMzdiZDRmZmY5ZjhiYTczOGE1NzQxYzM4OGFhM2RmNDVlNzMxODRkNzE3ZjVkNmVkMWU4ODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyNGJjMTdiZWY0ZDM1NjZmMDhjYjExZGFmNjgwNzgwZDQ5MzYzNDJjMDMwZDRlY2RlNGU3OTBhNWNmNjJmYzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxNmUwYTFmMzIyNGU5ZGZhNTFmMzNiMGM4NDdkMjMzNTU0YmQxYzdmOTFiZGRiOGRiNzdhNWI4NWEzZjM2ZjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b915a6d73a8240d9a4cf75b6035c0dfe",
+      "statement": "Hydrograph times convert hours to seconds and runoff additionally converts millimetre hourly rates into metre-per-second rates before simulation.",
+      "evidence": [
+        {
+          "resource": "repo://src/inflow.h#L255-L296",
+          "version": "repo-lines-v1:sha256:bab1590e73d16e54304f349f2c7ad033cdb96b188105390e9bdfd35af2ab0461:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNjUyNThkODZmMGUyYzI1YTY1NzIwYTMxZTNhM2NlZmY3ZGJhYzc2YTgyZjZiZjA5OTJmYTU0Mjg3ZDEzMTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMjZlNzI3NDkyOWE3OTQzMWYxNjkwMmIzNmU1NWY4MTE0NDJiNTA4YWJkN2UyMWQyYjVjM2I2MmVmMWYwODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQzZmQxMjhiNDMxN2I1Y2FjYzVlOTFiYWVjNGUyMTkxMTlhYzMzNzg0YmZjMDU1ZmU0Yzg1YzNkYTczNjhkMmMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L686-L713",
+          "version": "repo-lines-v1:sha256:29af07f4768138c94179b98be04c456328c7375e6576d23f7156e4bd818f2bd5:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5MzRhMDRlYjUxMDI0NDE3ZDU3MGIwMjBkZjQ2NmIxM2E1NmViYzdjNjIxODk5NTRkYjcwMWU4YjQzNjRiYzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3211dacced5d46a6b3e888804ecd4973",
+      "statement": "Explicit external boundary conditions follow open-boundary mirroring; type 0 propagates state, type 1 interpolates midpoint stage and subtracts DEM, and types 2/3 derive normal-slope/Froude discharge with orientation-dependent inner and ghost writes.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L1094-L1258",
+          "version": "repo-lines-v1:sha256:ac7fe763d91c2ebcf7ade61f49f35a2b955cd002ec8252e8c2525a3aae73437f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTY1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0YzZhNjg3YzJlODQ5ZmJlYzIzZjhiZmVhM2JiNmIwMmU3NmFjMmIzYjA4NDMwYjQzYWQyZGNjNzg4OGMwYWY3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlZTEyMzZmMmFlYTFjZTQyZmEyYjBjY2IyNzgzMmM3OGY1ZDhjMWMxOTIzOGEyNDA5MjIxMDY2M2Q1MzllZDYxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4MmUwMzBjNTlkNjg2Zjg3MTFlMDUzNjQzYjVmZjMzNzI3YmIyNDM1NDJhNDdiMGIxNWFjMzRkMjdlMDRkN2ZhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhNzA2NjE1ZDBhNDVhOTI4ZDFhNDIwOGRmYWZlNmRlMGY1MTc5MjJjZjYyNGJmYjQ2ZWRiYWEwZGU1M2VlZWM1In0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2537-L2547",
+          "version": "repo-lines-v1:sha256:1beef751db44a045d19996c168dfeaff34dd1276ebfc1cf1b25ce1f720049a48:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlZDI4NDZhZTBhZmJjZDhlMDY0NTQ3NTM2NWNkNTY1MWJmMmE4Zjg1M2U2ZGFhZTdlMTBiNmNhZDZiZDA3ZjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNlNjVmMTVlNmFhMmEyZTkyZjA3NGYwMTRjMDgxNTM3MTcwZGFmMzI0NTY1ZTE0ZDlmYTE0NTAwZWIzZGI4MzgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_dc41350c89924342926db6caeec5bb86",
+      "statement": "SWMM exchange precedes wet/dry enforcement, which zeros directional discharge against dry higher neighbors and updates maximum depth, with a post-halo Y-discharge correction across partition seams.",
+      "evidence": [
+        {
+          "resource": "repo://src/kernels.h#L687-L795",
+          "version": "repo-lines-v1:sha256:8c684c4ff41c66c16b67745d7b0e9b3227a7d66684d7dce57fd4daa062e8aeff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1MTQ5YjQxMTg2NWYzYmYxMjViYzEwZTBmYjQ5NWVjZTgxYjMwNzM2M2Q5NjhlZjI1OTEzMmI3MjUwNzA4NWY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3MTM0NTE4MDEwNWIwYzY2YTc3ZGFkNTFiYjM3OTAxYTM3MzJjOTY1NGJhNGRlMzk4MWY4MWUxODE3NTI0OGJmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJkODEzZWRjNzM1Y2NjOWRmNTY3ZTZhMmJiNWQ5OTUzZTY0M2ZjMWJkZWUxNjcxYTc2YzkyOGY4NGQ3MzRkMzQ0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhZWE1MmQyNzIzMGI4OWNhMWI3MzI4NjZhZmJlMTM3YTk4ZTY1MTAwMDQ5YTU2YjMyOTNkZWY4ZDVmZTdkZGEwIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2550-L2556",
+          "version": "repo-lines-v1:sha256:7c87378e1ce98cc227a16c82087a716d3c3d32f726ccc9d9dcae7addef67ae54:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg5N2I0NTYyMWI3NDQ3Mzk4MTkyM2VjYzhjODJmNGNjNDRiNDRlNGVjODdjODJmMDM3OGMwYzk5MWU0MmJlMiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDgyMzExNmFhODA0OWM4OWU1YTg4NjI2YWJlMjFiNjNkNDQxYWIzMWVjNWQ2ODU5YTQwZjg5YWQ4MjFhOTJlNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWE5MWMzYTIyOTI5YmExNDE1MzI4MTYyZTI0ZWI5MjMzNDk2YzI3ZWYxMTZlNTc5YTFlN2U3ZWZkNDI1NzJmNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDc2NTlhMDAyMWYyOTc2YmU1NTU5N2VkNzgzMzczOTExNTFjYmEwZDJkNzExNmVlZmI1Y2EyNzJmN2M1OWMyNyJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2649-L2687",
+          "version": "repo-lines-v1:sha256:ad28d0c8b524288bdf7aa9c3f4bdbd9941fb29176b2d3147787146f211006784:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4Njg5MGRmN2Y5ODU3ZjQwZTQ4YmNlNmRkMzVjODhmMjMyYzAxZTZiN2Y5ZDIxYTczZTMzZjg1ZGU2YjI1NzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5ZjIyYTE5YTBjMWZiNmI3OWI1MWU5OWUyY2U5Yjg4NmUyNjlmNGM5YzAzNjUzNmJlYTBkYmUwYjA1M2U2NGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1YjlmM2M4NDhmZDMwNDlmZTllM2U2ZjUwZTRhYjA1OWVjZmNiYzU4MzVkZjEwM2U2NWZhN2ZlZmViZTM2NmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhOTFjM2EyMjkyOWJhMTQxNTMyODE2MmUyNGViOTIzMzQ5NmMyN2VmMTE2ZTU3OWExZTdlN2VmZDQyNTcyZjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_91c0be8ec26b4e06aca7964c84e13971",
+      "statement": "Numerical regression routes include paraboloid, circular dam-break and Allatoona simulations whose raster comparisons are fixture-ordered after clean output and execution.",
+      "evidence": [
+        {
+          "resource": "repo://test/CMakeLists.txt#L27-L89",
+          "version": "repo-lines-v1:sha256:a4f5564046a954146163fd78b310a10229c24ea2fe75707f931d596df8d2ea7a:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM5MThmNTQyMTM3YzU4OWY5M2ZkYzU0NjQ2ZmNiNjNmMjc2Y2NlOTBhZTRjNjYzNzMxZTQzYTMxZDYyNDVhNWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyM2E2YmVkOTBjOTUxZThlMmE5Yzg4OTEwYTM5ZGMxMWNhOTQ1MzcyZmJiOTJjZDYxYTBiM2VhOTRiYTA4ZjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZhOTE0MGNlMzllMTRhOWNjNjBmMTdhYmFiNjc1ZTM3NzU2MDQzYzcyODgyOTU1ZjRhNDk1MDFlZDJhYzg5NDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBlYjk2MjdlNTY3YTgwMGZlNGQzYzgyNzFmZDJhY2I5M2QyMDEzZjg1ODNjZDQ4MTZkMGE5YWUwMzg0NjZlMjcifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

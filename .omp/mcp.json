@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "openwiki": {
+      "command": "openwiki",
+      "args": [
+        "mcp",
+        "--host",
+        "omp"
+      ],
+      "env": {
+        "OPENWIKI_TELEMETRY_DISABLED": "1",
+        "DO_NOT_TRACK": "1"
+      }
+    }
+  }
+}

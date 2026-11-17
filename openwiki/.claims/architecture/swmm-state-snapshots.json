@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:57c2445fcd2d717ee69ec24a15ce1568290b274338e4d3415edd7623a2cbd1fe",
+  "claims": [
+    {
+      "id": "claim_b9b3828eb1854b019044c36cc2d04f6c",
+      "statement": "Snapshot version 7 writes four native int header words (magic, version, double width, manifest length), twelve shape dimensions, the manifest and a field-by-field double payload; it performs no endian conversion.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L194-L267",
+          "version": "repo-lines-v1:sha256:f2e8cc5f8b74d7ea412dc0550b6a5bab004a42edcca1a1d0134915780ffbda43:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBmNTRmMjQ1MWYyNzA2NjE2ZDNhNTAwNmRlMWZhZTc1MjAzMGZjOWNhM2UwOTU4M2IxZTRhZWUwNTNhOWFlOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0YTk2OGIwMmE0ZWEwNWIzYTRjNzJiYzYwNzY2OTM3ZTUxOGZkZTE3MzkzMWFmMTcwM2E4MTliYzFlM2NkNjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUxMDg1NjUyMjg0YTdjNWEzNzUxZmNiY2QyMjcyN2NkZWMxMDFlZTUyOWE2M2NkZWFiMzUxNTczN2Y4ZmM5MDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzZjY0MGQ0MGM5ZGU3MGU2NzQ0YjQ3MTVhNGZkOTRhZTI0NzQwYTFiMGI2OGRkN2E1YzZjZGM0NDkwM2FlODUifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L62-L145",
+          "version": "repo-lines-v1:sha256:a6c49a53c89422fcfa962d971346274364f8271a2336e7b270937b7cec8ec5ba:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwYzAzZmVjZmExNDMzOTkxOTZiNmExYzA4YzFmNDY4YmQ4NGRkMjJiODdlNTg0YjllNzNiNDcwZjAyZTZjMmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3ZDFkMzE3MDRkYjI5OGE4NTFmMmZiNzE0NTRlNGYwMGRkZjQ2MWJmOGJhODEwMGRkNjY4NGRhYTY2Y2Q5MjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhY2IxODk3MDUwMWU0ZTE0MTU2NGQ0MzBiMWVlOGM5MTdmNDgwMzYzODZlMzM0NDk5Y2UxZDYzMzc1MGEzNzEifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L946-L955",
+          "version": "repo-lines-v1:sha256:1a8d1cdc1204b4327292e591fbdbd10ce2bfe236276cc128783ac0768a2e41d6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0ODhhZDYzYTg2MDU1YzI1NGY1NzRlYjE5YjEyNDc2OTVmMTJkMjdiM2JhNWUzODE3ZDcwYTdiOWUzNjcwZmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhYzc2YzE5NTIwOWZiMmE4ZWFlMzljNTc2ODczMmI3YjJhYjU2MTIxNTkzYjhlNGI3ZjFmZjExYjZlZDBjNjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQwZTBiMDM0NDY3ZDlmY2EyOWRhZmY1NjA1ODE0ZDYwODI1MjlkZjZiYmU4NmYyNzk1NGQ2MGZlNWFhMjMyYzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk2ZmFiMTc0YzFhNmMxNzBkYzQ0ZDY2OTU3ZGVkNzI1NGY3NDc1MGNhZWFjNGJhMWQ5NDFlYTJiZTQzY2RhYmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_20d08ddf44d846a4b6600005d84d409b",
+      "statement": "Snapshot load distinguishes ENOENT from unusable files and requires exact magic, version, width, shape and manifest compatibility rather than migrating old formats.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L1044-L1150",
+          "version": "repo-lines-v1:sha256:962dafe1d246f2aff3597d67d05c3433a4eb7f4ff50e1f8455bf5c4b51f4a9b7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwZDlkYTVkMTFjZmYzNDYzMmNkYmUwMDFlMTQ1NDg5NjU5YTYwZDZiMDQ4ZWJlYjViNTY0MjkzZTliY2ZmNTEzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyOTQzNzE5MjMyODAyZTAyM2NmZTM2OGVjYzI3YTAyNDllYzZkNjViYmQ2Y2ExNGYyZDE0MmNlZWFmNjQxMGI2IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5MGJhYmRlNzIzODM1MDhhOTU1NTFmZTU2NDFmNDc1YWQ5Zjk0OTdlOTFkNDMyMmZkZWQ5MWE5MDc2OWNiMjY2IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNWNiMGJmZDkxMjE4ZmE5NmU0MmFjNTkwOGQ0MGEzYWFlYzEzZjQwMTkyYjVkZGY1YmQ5Mjg4ZGVhYWIwNjg5In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_0ba898438713420b816d7f57d7d1ab6e",
+      "statement": "Manifest, write, read and count modes share one traversal; save validates the write count against a live-model count pass, while selected struct-size guards cannot detect additions within padding.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L823-L855",
+          "version": "repo-lines-v1:sha256:ca42e92df87eebb37cce88329c6f7698b4044287620f50ba41425108c86186ea:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4YWMyYWFiY2NlODhlOWRjNjc1NzU5NzM2YzFiZmUyZmQwYjVkZTc0ZTIxYTRlOTJkMTQ5MDNjOWYxNThlNzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L85-L169",
+          "version": "repo-lines-v1:sha256:e4ddb23ea21c2a90e33a9dd8a089f03ad4672e33e6c7f7bbec096f6234d5147d:eyJzZWxlY3RlZExpbmVDb3VudCI6ODUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NTZkZjIxNGFiYTc3Nzk1ZmUyYWZjNmM1NjcwYzAxMTcxYTE1YmQ1M2JjYmE0ZWIyYjA3Mzk4ZjU1ODdkZjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViYjcwZDIxMmQwN2VkYTdlODExNTNhNzU1MTdkNTE1M2E0NGEyYzJjZWYwMDhkNjgxMmVlMWVkNWZiNTc5YTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc2ZDMwZWRkNjZhMGQxZmVlMDc4NjZmYWIyMjhkMDJkYTM5Yjk0MTU2YTMwMDc4ZDM0YjJkZmQ4YjkzODg3NzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVjN2RiMjg3ODRjMWU3NTEyNWQ2ZGMzMmIwODYxNmY1NWNiNjM1MWQxNDY1MGU3NmZlNzBjODM1MTA4ODZjMTYifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L910-L995",
+          "version": "repo-lines-v1:sha256:b36bbb62f13cacf1388463360303b4995b1031bffb7b7a697ee71084612e33f1:eyJzZWxlY3RlZExpbmVDb3VudCI6ODYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJjNjUyNDI5MmNiMjgyOTVkYmVkMjkxNTJhY2QxNjkxOTdmY2Y2MDU5MjI3YzJlYjI0MjZhMDg4MWYyYjc2ODQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5MzQ3NWFlMGU5ZjI1ZmU5ZTY0NjczOTcwOTczYzYzYzU5N2QyYTQwYjk5NjlhNzQ5OGZjOGViNzY1ZWFlMmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhOGJlMzYyYTM1ZGZhZjcwZDU5NjI2ZDA5Y2NlMWQwYWY0MDNiZDJlYTIwN2IwMjdlYjg5ZWE3YTA4MzY0YjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f54276605d0e406bad4d183fdc61d779",
+      "statement": "The load traversal modifies live state directly and reports measured payload counts on failure without enforcing a pre-read exact-length equality or checksum.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L1152-L1183",
+          "version": "repo-lines-v1:sha256:60e1e6d052b4e19f27fc81ea1093623e8dce0e5750b87131952438eb53d43ff0:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhMmFhMTMxNGE3ZTBjYTkwYTdiYmQ4NzEwZTIyN2MxNDg4YjZiMGRhY2Y4ZWQxY2Y5NDczYTEzMmYxZTQxMDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMxYzIyMmI0MzlmYzBiZGU2MDg1NTI1MjY1OGJiNGRjZTA5NmZlODU5ZDhmMjMwNWZmNGQxN2Q1MTEzN2Y5YzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJlNDc0YmZlNGI4ZTg4NzBiN2I3YmJhZmEyZDdmYTJlZDJjYThjZWM1YzNiN2FlZDg0NzU2MjVjZmE1Y2NlOTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0e13961bd1084472941ca0747fbe2d7a",
+      "statement": "Snapshot state includes statistics, mass-balance accumulators, routing objects, clocks and sentinels, Nperiods, node/link quality arrays, link totalLoad and per-pollutant StepQualTotals.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L322-L818",
+          "version": "repo-lines-v1:sha256:f015e8def938d9af59a797dd839a7ab02e48ef0498ffac95e16466b076b3544e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDk3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2NTJjODA1YTdhM2EwMmU1OTYwNWJlNDE4MDYxYzAxOGQ0YWQwMWU2MjA2NWNiMzUxNDk2NmNlMDNjMjljZWJjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhMmY1OTQ0NjRmOThkZjBiYzMwYTIxNmExZjNlMWZmYTI5NDljOTIxM2Y1MmY1MmJiYTJjN2M4ZDllNDc0OTBiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3ZTIxYzBjMDk4NmM2MWY3MjZjNWJkOWVjZjQ2MWU4NmViNDg3N2M1MTA1OTg0ZWY2MzQxNTYwYzM5ZTgyZGI5In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_446a9186504248d4b599f29952f03c6a",
+      "statement": "Quality state emission does not depend on IgnoreQuality, and route-less outfalls reserve pollutant-width wRouted placeholders so payload length depends on shape rather than routeTo.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L646-L704",
+          "version": "repo-lines-v1:sha256:b4540a01036d4063e2ae6331cb149945c561720cb0ac45c31cda409cfbabcf02:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ4NjdmZDVkNmNhNzI2MTAyOGZhNTdiNzhlMTk4MjdmYzcyMjNiZWNjMTBjM2I4M2E5OGIwNDYxZWY0ZmE2YTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE2ZTk5MTAzMGM2OWVhNmM2MGJjOTA2Zjk0ZmNjODcwNjljZGVkOTljMmEyNDc4OWVkMDU1NzA1ZTVkZTA2ZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFiNGM0MGNiZGFhZDlhNjMyMDBiYWVlYzRhODc0MmNjM2Q0ZGY1NTExNTE0NTI4NTYyZGJhNzAwZDlkOTQwYWIifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L720-L753",
+          "version": "repo-lines-v1:sha256:8171b49b81323505248ff92fccc3367b90a63986b41b489612bd90a56784d9b0:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZjNTk3YWNkNDhiY2NiMzUxMmFkZDA1M2I1NzM4ODc0MmNlMzZkYTFmMjg2NmI1YTJjMTI2YzFlMGRiZWMyNjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZhOTEyNzkxMGE4MTdkYzRhYmM1ODJlNGU4NmNhYjczMzdhMTY1ZGY2Mzg2NDM2MjhlZGU1NTI3OWI0YWQ0YTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM3NjgzNzA5MWRjNmQ0N2M0YTZmMjZkOWI5ODlkYTc3YTZjMGZlNDIzNDRkNDBjOWJkMTQzMmE3N2M3ZGM1MzMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e53e2da7a7af41099fe45d1391cbde6f",
+      "statement": "Snapshot publication writes and validates a .part file before rename, attempts .failed markers for structural or payload failures, and explicitly lacks fsync and measured filesystem rename atomicity.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L859-L1012",
+          "version": "repo-lines-v1:sha256:ddca07b84cc02469f8cdf2799caa19f2d1f4e761a80bec0acc1b4ea44a73ec2f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhNjZhMzJhMTM5ZjA5NmUxNzFhNjYyZjgyNDQzMTg3NDg3ZWQ0NzViZmI5NzY1ZDZjZWUwNzI4ZTQ2NDEwYWE4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI4OGNmZmIzNWZjMzFkMmJmYWQ1NjNkZmI2MDg0MTYzNmMyNTIwYWMxY2FiZTMxN2E0YmU3ZjU3N2JkZGZmMGUwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwZjdhMWM2MTY3NjA4M2M3YzU5MjgyY2E0ZTMwMzNiYTVhMTk1ZmQ2NWE4YjRlNTEwZDEwNWU4NWQ2ZjU5MjdiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3ZTIxYzBjMDk4NmM2MWY3MjZjNWJkOWVjZjQ2MWU4NmViNDg3N2M1MTA1OTg0ZWY2MzQxNTYwYzM5ZTgyZGI5In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_121e5d49f2744fc4980f4400dc625264",
+      "statement": "A published snapshot takes precedence over markers; without one the wrapper recognizes .part/.killed/.failed, renames .part when possible, and supports an explicit failed-write replay policy rather than treating all markers as absence.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1833-L1901",
+          "version": "repo-lines-v1:sha256:8b10893611c90235cf14ab23265313ead8a4b300e1531f874de3af2083e4290d:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhMGJkZjYyMjEyOWE2NDU5ODUxNThlNjBhZWU0NjBiYzgxZjNhYjc1ZmU1ZWY1NjJkNDNlM2I0NGMxNTU1NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmODU3MzNiZjlhZWMyNGQ2NjdlMzZhYzY3YWM0MjM3YmRiZDY5NGFkZjU5MTM2NjEwNmIyMmNiOGJmZmU1NWYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJlNzQzZWFmYzQ0OTliZDJjNmMyYTlmOWE2MjdhODM5NmU5OTdjYWI3NTQ3ZDJkMzEzMzM5OWQ2ZTYyMjk4ZDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJjZTQwYWVkNmI3N2MwNTc3OWY3ZTY0NzU5ZTY5MDQzNjRhYzY5MjgwYWI0ZmFkMmEwMDkwMjQwYzgwMmFiY2EifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L598-L620",
+          "version": "repo-lines-v1:sha256:ddc90b378f98d3bfd464082d2a3ec5e7841a0418b876f99ef4d57a68234bef49:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYyODcxODgxODQwYWJkOWUzYjFiNWMzZGY2ZDRhOTBlOGIyN2NkZmY3MzdmMmY0MGVhMzkxODc2ZThjMjQ4MjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImExMzJmM2IxMjM3OTdmYmY3NjhiYzhiZWU2NDVhZDZiMGE1Yjk1MjhlZjFhYzc3ZTUyNGRlZTk2OGY3YTcwZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRiNGZmNGEyNzgzZjA3ZTZjODZkNmM1ZDMwYjBiY2UxYzcwMTI0NjRmZWQxMGMwMmY3MzQ3NjNmNzhmMjNiM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA0YWFjNTAyOTg3OTc3MjFlM2M5NGE1ZGEyMTFiMGE5ZTVhZTJkOThlNTMyODA4NjcxMTZkMDBhMGUxYjNkMTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_62d24480e3c741c3965293b2d97b17c1",
+      "statement": "SWMM output attempts a non-truncating reopen and compares the current prologue against existing bytes via a scratch file, refusing a mismatch without overwriting the old prologue.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/output.c#L213-L228",
+          "version": "repo-lines-v1:sha256:79848bf21296187b7a05a060b537bed8dc68c103f1f3a760a4b11829683bc957:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkYzc5MDcwZmQ0M2E4NGQ2ZTJjYjU5MzY4ZmJjNTM3ODMyMzRjN2FmZWE2YTk5ZThhZjIyYjVhZGRlMWUzNmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcwNGIzYWNiNmFkNjk2YmQxMTZhY2RlYjBiNTI2ODY1ZGZhOWZhMTkzNmY0Nzg3ZTY5ZmViM2U3NDc5OGEzMDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwNDUxNzIxNzZkMGIzZWUwNzNjYWU5ODgxNmQwODkzOGIxY2MxNGFhNjNlZDU5Y2JmYWVhYWI3NWI2MGM3NjYifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/output.c#L439-L463",
+          "version": "repo-lines-v1:sha256:ec4e75d3283d4df72b110adbf20574929cae81d42cdb8a1f889b73d9da6628a8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM0OTkyMGUzZjI1ZWExZjRjNjZjZTNjYjc0MGVlMzBjODk1MTBhZjQ1M2FhNDlkZmRmNmIzYjgyNjM4ODA3M2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhkNTdiMThlOTFiYTliYWYxZGU2YTIzOTJmYzgyM2ZkMzgxMzVhMmJiNmU4YzY3ZWRiN2E0MjI2ZjIxNGZlODgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM1MTNkZjYxNTQxMzQyZDI3MTBlMmI0NTliM2FkMjc1ZWM5MzIxNDAwZjM1NjU3ODNiZjU2MjhiYThhYmZkNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/output.c#L512-L541",
+          "version": "repo-lines-v1:sha256:88e683d597a883a83e5f56dcf52f6c85e0d86d24d0fe049a491dc45680a73839:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ1ZDc3OTI0N2FkYjA4YmMyNjlkYTJhZmNjOGM3YTJhZWVjMWQ3YTg0M2Q1NjdkMTViYTU4MjViN2ZiMTljOTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIxZTRjZDBiNTc1MDA4NjgwNDA0ODM4ZjQxMTAzY2E4Y2ExNmE2ZDczNmJmN2JhMjhmNTY0NTEwZjM0N2Y1MzkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIzNzQxY2U0ZjQxZjBiZGI5ZDQ0NzBiZmVmYTIwMTg4NzNmNzFiZTc2ZmViNjNhNGRkZDg1YTRkNTEyMDMwNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5ZTc2MzU1Y2YxMTk5NDgwYzNmOTk4MzZiMTQ4NmM4NDFkODkxZmFhZDkwNGM2MDhlMDkzMDIyZDM3NTdhZWUifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/output.c#L640-L669",
+          "version": "repo-lines-v1:sha256:f142665cf26aead345b874a109ecff55170b32f733c11704aea945979985c516:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmYmJlODAwY2ViNGZjODU1ODM2NjdiOTQ2YmQ5OTg0YTA4OGQyOWI4NDdiOTQ4OGEzNjM2Mjg2ZTQzODVmZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZGM3NWQyOWQxZmY2NTJiYmI2MTEwNDFiMDM2ZmUzZmQ2NmJkODZlZGEwNDZlYjNkNTJiNzYzMjQ3YWNmMmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_756598a1f7074e498457efef3953a7b6",
+      "statement": "Before snapshot save the wrapper flushes binary output; after restore it exports node depths, positions exchange history without replay and positions output from restored Nperiods, refusing insufficient complete periods and truncating the stale tail.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/output.c#L674-L762",
+          "version": "repo-lines-v1:sha256:ca3b97de90941ac79882d78a5e59d815b3c529b189d1994ecdc67fb6c7c51caf:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI1MTk2YTc4YTJlNzM5OTc2MTFlYjdiMTc5NjQ4ODViMGE1MjM0YmU2N2UzZmQ5MTFjNTFkY2Y4NGYwNmU1NTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZGM3NWQyOWQxZmY2NTJiYmI2MTEwNDFiMDM2ZmUzZmQ2NmJkODZlZGEwNDZlYjNkNTJiNzYzMjQ3YWNmMmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1774-L1786",
+          "version": "repo-lines-v1:sha256:7d35988d79349fc2e81b32d11175ecf8d125227f670e2ae621a211156f68cdba:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3MDAxMjU4YThhOWU2MGQ2YmIwYTkzODMyMzRjNTAwMGIwMDcwN2Y1NWQ1YmU1ZGJiODg2ZTM2YmQ1OGVhZjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE2ODNjY2ExYzc3N2E3YjY0NzE0ODgzM2FhYTYwOTllNjIwZjMwMDNhM2NiNWUyYWNiYzFjYjJmYWE4NTAwZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzMzA1NmI5MzYyY2VhMWQyNDk3MDgyMDJmOGQzZjZiNjUyYWVkNmQzZDlhZGVjMjJkNWY4MjM5YjU5MDY1YjQifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L2032-L2059",
+          "version": "repo-lines-v1:sha256:d525879516f33f5490f670f48e79aff5844835d1927635b0941e3385cb713d3f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5NzM3MTgzN2ZhZjRjNzJjNmJkYzI0NGRkNDhiOTZlM2IyODA2ZGVmOTQ5YmZiN2NlZGYxNDQwNGUyZTUzYWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjllYTQ5MzE4NDU1NWYzNmY3ZGFiZGRmZWMzZDlmZTI2YzExZDliOTNjODI2NTg3NTJhZWI2ZTQyNzI5NTczODEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmYjJhMTBlNjY3NzBjMWQ3NTUyYTU2ZjI2YjViYjZhMzE0YTQ2MmQwMGNhMDA4NTAwYjFmYTNhYmI3N2U1NDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e2391c51d75a40c589057dfb36ed0fc2",
+      "statement": "Output positioning failure after restore cannot safely replay on restored accumulators; normal output_end writes a six-integer trailer and trims the file so that trailer is last.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/output.c#L767-L800",
+          "version": "repo-lines-v1:sha256:65412770b36acb39bc3e6d3b11297853252066a6d014d80b74386d83fbc284f5:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg3M2ZlMmFkOTkwM2FjMDg2OWJlNjRhYWZlMjA3OGMxNWQxZGY5NDBkOGFmNGNiZmYzYjMwOTkyNDFkYzExMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L2045-L2059",
+          "version": "repo-lines-v1:sha256:77b240bf540c62fb11c5ceee984b94291b98b1f0525ec2f88193eea407e5342b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4NTBlM2I1NWNjOWE0NTE0ZTdkM2I3NTFjNmYwM2FiOWIwOTIyZTFiODA5OWI0YjhmNmY4OThmOTBlOGNhOGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY1ZmJjMWEyZTVlYzA2YTBjM2ViMTFhOTNlNjI5MDk4YWFjYWZlM2Y3NzdjNjJjNWZmMDA1MGQ0MGVhYjY0MGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmYjJhMTBlNjY3NzBjMWQ3NTUyYTU2ZjI2YjViYjZhMzE0YTQ2MmQwMGNhMDA4NTAwYjFmYTNhYmI3N2U1NDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_57fe302fd7b8434cae969bfb29a0fb23",
+      "statement": "Focused snapshot tests use clobber-before-restore bit checks, short-output and trailer-length fixtures, plus an independent quality fixture testing IgnoreQuality invariance, but their documented tier boundary excludes full real-model output validation.",
+      "evidence": [
+        {
+          "resource": "repo://test/snapshot/test_quality_snapshot_review.cpp#L202-L244",
+          "version": "repo-lines-v1:sha256:2f29068dbc16e997d7772a236ba4bcce2dd365c9ddc259a817b12298489792da:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0YWQyN2Y2MzA1OGNmYTliNDc2MjJjNGRmNzIxOTM4ODZkYjNlNDVlOGQ5ZTM0NmZiMWIxYWY4NzEyYTc0NmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhMTkwMDI0ODQ0MGRkZDc4YWIwMTA3N2RiYzk1ZDQ5M2RlNWExZGQ4Y2YxZjVjMjRiOWNmZmYzZTkyYjUzYmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZkMDUyMzdlZTJlMWM1NmFiYTNkNTA0ZTBmYTNhYjQ3Yjc3NDZlNWY0ZGZmM2VjM2EzZjEwZTc3NmZkMjdhYmEifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L183-L287",
+          "version": "repo-lines-v1:sha256:1ea0719d360211d6e432eb68c3e019bd343fb3554d34a680c986ed2c0dda220d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2NmJhMmI1OTk2NzMyZTcxMzkwZDNlMGNjNWI5YmZkZmU1OGFlM2Q2ZDM4M2NlYWEzMjc0YjM3NTk2NTVkZWJlIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1ZDEyZGRiMGZlNGQ4YTIyNzk4YWRmOTllN2RjNjY2MmYyZTM3YWI4ZTk4MzQxMDI1Mjk2MWVjMGQxODA4NDJjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhODBhNjJiMmQyNTQ2Y2IxMjdmYjIyY2FkODllOTZkOGE4ZjNmMTU0ODE5MjBhNGE3Mzc2ZDliYjJlNTM4OGRjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiYTJiZjQ4MDI1NTNmZmJlNmUzY2Q5YTk4MWE3ZGNmNDIzNjgxNTc2ZTUzZTc2NTAwYzE4MTdlODJmZWQzMzBlIn0"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L837-L857",
+          "version": "repo-lines-v1:sha256:4e308dbd0f1a2dbd479935b5b79e66cdef29544428c19d1fef3a46cfac45d6cc:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU1ZGQ3MDYxYzcwNjU5ZmFlMjYwZjFlMDZmNmM2ZTlkYTJmZTZhODIzZDQ0NjE3N2Q1MzU0ODkwZTIzYjNhMGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQyYmRmNTE5NjRlNWU2MGRiZWI0YTYxYmFjYWYwOThlZjkxOWExNGMwYmVhYzAwNGE3YjMyNjg0YjQ2ZTYzNDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhMmJmNDgwMjU1M2ZmYmU2ZTNjZDlhOTgxYTdkY2Y0MjM2ODE1NzZlNTNlNzY1MDBjMTgxN2U4MmZlZDMzMGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZmYWNhMTlmMzAyN2QzNWY4MzUxZmVkYzIzMDQ1MmE2YTAwMDc2N2RjZDcxNTk4MDg2NGU3ZGU4N2ExMGIxM2EifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L955-L1022",
+          "version": "repo-lines-v1:sha256:72190122ca35b50033d3c38d29b6fe5134c6d44a6d1c8738a8c1dd515a4fcc40:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkMzJlNTE0NDI5Y2MxNDY4NzdlMTZmZmYwYzllMWZkZDQyM2FjY2EyOTNkNThlYTc4MDcwZTM2M2MwYzVmZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFlZjcwZTQyYTMxZTk1NThlOTBhZmRmYmQwNzg4ZTI0MDA2Y2E3MzdhNTdhMjM5YmEyMzYwYTk5MjQ5ZDQxMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImEyZmMxN2MxZGU4NmQ2NDllNzkwYzNhYmM2NDA1OGMwNDBiMDk2NmUxYmFiMTUzMjUxMmZhODk1ZjViMzBmMzEifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

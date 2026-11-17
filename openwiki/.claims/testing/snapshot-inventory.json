@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:f65f436291e2d87d55d91385206278bbdf5a6808a2679acf7e34baec5ad326ce",
+  "claims": [
+    {
+      "id": "claim_d59cf966ef97428db2b6c4763f1549da",
+      "statement": "Inventory regeneration checks the source-to-record relationship independently of T6's runtime-manifest-to-committed-record comparison; both relationships are needed because serializer and inventory can agree while stale.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2162-L2386",
+          "version": "repo-lines-v1:sha256:e3da4293a6aa25e799e87ee4b32e996efe2fa815f993b5d9f67c02f621293a86:eyJzZWxlY3RlZExpbmVDb3VudCI6MjI1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjM5NzkzM2EyNGE4MDFlZTkyMzMyN2JkNjlhMDEwNDljMDc3OTE1MDIxY2YyZWMzOWRkYTRmODFhYTgzN2U0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIxNjIzM2IzZmZlYTMyYTIzZGY1MzA2NTM0MzQ4ZjJkZWU3NzZhNWE2Zjc0ZmI1MzMxNzVkZGM1MzlhOGZlNDY0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjOGJlMWZkMDFjZDNkOWQ3OTkwM2FhNTA0NDBlYTEzNGQwNGY0ODFmZDA2MGUwNWIxYTdkYmE4Nzk2NjkwMzk4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDQxMzQwY2MyMzlhMTU5Y2U5YjYwMjJlOWY2MzIyODMyZTJlYWQ3NmNhZTllNDc1NGQyMTBlYjhmYjZkNWU4In0"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L582-L761",
+          "version": "repo-lines-v1:sha256:fc8d8ac0e6f190787e97481488999dd18a60cb3c23ed389f96dc190c82afa24a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5NjU5M2QzZjdjYmQyNmNhOGExOTYwZGYwMmI2ZDg3YmE0Y2U5MmRhM2UzNmM5ODdkNmI3Mzg2NDJkMjExMDNhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYTJiZjQ4MDI1NTNmZmJlNmUzY2Q5YTk4MWE3ZGNmNDIzNjgxNTc2ZTUzZTc2NTAwYzE4MTdlODJmZWQzMzBlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjMDhkYTMyZmRhY2JmODlmZTlmZDNlMTBhYjE0NTg5YmRhMTllMGQ5OGZmZTY0MGI2NzVjMmMwYjhjN2YwYTZlIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_2f3edb768a9146898a8027355d177140",
+      "statement": "Criterion R closes named report roots within declared units, propagates object aliases, discovers untriaged global scalars, and deterministically emits selected objects' full declared field extents with read annotations rather than only yes-marked fields.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1180-L1219",
+          "version": "repo-lines-v1:sha256:6bdfb617b4d988a3a57e1ad9d7f8bab6cb6e1d8a2f229ea6cd0f16cba39e8531:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmNDA0ZTNiMDI3MGQ2OGI4MGVmYmRjOWIzOWZiNGVhOWY4OWYwODM2YmE1YjVjYTNlNmVmNjRmYTQ5OTU5ZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwZjkxMWMwMmNjMzQwZGY4YTM3MWFkNWUyZTdhZTU3YWY5NmMwZDI1YTdmNzY5YzMxOTAzYjBiYjQ1MGVmMWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ4ZDA3ZGNmMGY3NzJkMzI5MzYzNmQ3MDhjM2ZlMDk2ZDcyM2ZiYzI5OTk4YzFiZTJhOWQzMjcwMzA1MjQ1ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5M2NlOTZlOTA2MjhhMzVmNjgxOWQ5YWZlNzU0ODFmZTE4MDY4ZjZmZjQ0NzRiMGJmM2NmMjUzYTI1YzA3Y2UifQ"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2172-L2314",
+          "version": "repo-lines-v1:sha256:be61f21bbc32405e5d008059e509081bc279d8f85172a3c3c8870845ce73fbea:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNDM5N2VmOGY2NGRjMTU4ZTMyODA5MzU4MTgzZWJkN2Q4NDJiOWQ2NjkxYmU1ODc4ZGJlYmQ3ZWJmMzE4ODFlIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiNjY2NmMyNzUzMjdhNzAzMjE1OWY2MTVlMzJkYWJhZjA4MzJhMjkwMmIwNGYxN2YxZjQzNTg1YTM5ODhmMDc0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjNjgzNDRhNzU5N2ExNzBjMGE3YTg0Y2RmYjQ4ZTc4NTU1NmVhMDJiZDdiYWFjZDIxOGM0OTQ4MzZiYzA1NjJjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2YjVkNjc4N2NiZjg0Y2RhZDlmNDIyMzZhYmFmZTUyNDcyODBkNTI1NjliNzM3ODA5NDU2ODBiYzRjMDA0ZmI5In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_199774d5c585409ca8201de918fac8c8",
+      "statement": "Criterion P uses unrestricted routing call discovery for struct fields and the swmm_step stream for scalar candidates, with mutable-state contribution checks, per-unit static visibility, member validation and scalar-scope collision reporting.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1504-L1545",
+          "version": "repo-lines-v1:sha256:21fd6bb08de2f2de54674e34e124ca7fe0025842f91b4d2d59c154cfaf0eb337:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI3ZGI1MTExM2ZjMDU4ZDkxMjFhNzUwYzI5NzY2NWZjZmUxNjVlYjE3MzY1MzBkOTIwNmQ5ZWViOTcyMGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmMzZlNjJiOGVlZmRmNDM5NmY4YTI0OWYwZTUxMDgyOTYxMGJlZTgwMTE1OWU3OGIzOWIwNDUyNzQwMDg1OTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiNDY4YWQwYWJkNWRmODYyMGJiOTRiZGZmZTg1ZjQyMTEwZWNkYThhZjc2NGE0ZDVjM2JhMDZiYWE1Zjc3M2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc4NTlhMWQxOTFiNTE5NWY0NTAyZWEyYjQwNmFkZTg3Yjg1MmZlM2U5NzM1MjAxMGNmNDFiNmE3ODcyYjFhOTYifQ"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1774-L2004",
+          "version": "repo-lines-v1:sha256:f4c2d3ceef3ad5d87aed7ed38fc8e2f4c27242ffc19428a94db442c76068511d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4MzRlMzU2NzA2ZjU2NmI0MmVkMjNiYzU5MDc5N2ZlNDU0ZTE3ZGY5ZjE5NzgxZDlhMzNlMWI3ZjE5YTVmOTU1IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyMDA5MTA5ZWI0ODZmZWY5YTE4OWZkNDU3ZTYwOWQ1OTVlZGQyZGE2N2U3ZWU1YmFmNmExMDllMmJiZWJhNjA0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwYjQ2OGFkMGFiZDVkZjg2MjBiYjk0YmRmZmU4NWY0MjExMGVjZGE4YWY3NjRhNGQ1YzNiYTA2YmFhNWY3NzNmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiNmIzMGRkZWUxYzU0Y2IyMDZkM2Y3NGI0MWE0NzI5YmY5ODJiZTQyYjRjYmNkOTcwMDk5ODA4ZmYzYTYzYmVjIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_6d2d811443244409a07afdc921846f49",
+      "statement": "The order-sensitive kill pass treats reads and read-modify-writes as live and only a preceding pure prologue write as a kill; Criterion-P tests discriminate it from an unsound flat pass and generated text reports prologue-order changes.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1548-L1717",
+          "version": "repo-lines-v1:sha256:33de34c74f5dd67f74465dd912d4a0f6febdf22cdffe6b8e52dafa43534ae98a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3Mjk2NGU3OTBhODNmOGE3NTRiMjAwZjBiMGI1Yjc4OTRkYmRjNjJhYTA1MTVmZDI4MTRlZGM3MzZkMjFmZTAyIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkYWE5ZWVlNTNjOGNhYTI4ZjU0YTQwMDVlYzk1YTBkNDQ0NmIxYzdhM2IyN2JlOTM4ODYzNWNlODc5YjgxZmQxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlZTY5ZWVhMzMzODE4Yjc0MTQyMWViNGEyMmMwYTE0MjY3OTQ1MGU2OWU1OGJiMmJjZWJiZWU2ZTNlNTJiMmVkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNDkyZWIwY2NhZDVkMWNmNmEwOTBmNmIwODViMDE1OTk2NzRhMDM4MzYyZjMzZGQ2YmIyYTNkYmUwMGIzY2I5In0"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1939-L1958",
+          "version": "repo-lines-v1:sha256:51575be03bcef469567d21b77fd52605d834c9d8a24d541eb3fb8342cc295498:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlN2NmNjYwM2IwODc0NTA3ZDJhYTBjMWE3MjcyY2I1ZmUyYzNkYzQ2MGIwZTdmMGQ4NjQ5ZjEzMDU2Y2FiNjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyODcyNWIxMzExZDY4NGUzMGQwMmQyNDI2YjYzOWRmZjM2ZTAxYzNkMWRjODE5OTQyOTlkN2JhYzY5NDliY2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRhZDYzMDUzYmI0N2EyZGE2M2E0M2MyNGI1NGNmNGM5M2I3ZmE3Mjk1MmMxZDA2YmQwYmNjNDRjMzA1Y2E5YmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkwY2UyNzMyYjliOWEwZDAxOGQ4OGQ1MmEyYWNmODZmYmY3N2Y0YTNlOGQ1ZGIyNDJhNmQzMjU1ZDMwZGMxMjMifQ"
+        },
+        {
+          "resource": "repo://test/test_snapshot_inventory_criterion_p.py#L139-L178",
+          "version": "repo-lines-v1:sha256:af6fea569c67952d715d346accbc3779b489efa4175142a49bf9fb11946946d4:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzYmZiZDc4YjMyZWEyODIxZGM0NGI2YzkwNjdhNzk1NDM2NWIxYzgzNWZlMGY2YTAyZTIyY2M2MGU2ZTU1YjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA4ZWRmZTQ3YzAzZTVmYTI4MDY5MWQxYzQ3NjY2NjkyOWQ2ZTc2MWQ3YTY2MmUyNmI5NWE4ZmUyYTI2MjIxZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE0ZjQxZjAyYzk3NDQ3ODBhZjE2ODg4MDY3YjhiODY0ODdiMjA4MWRjZWVkNjU2ZDVhOTVlNWI4Y2Y0YWFhMGUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_90822a6674a54a6e888d726fbb9b81bb",
+      "statement": "Routing triage distinguishes admitted, excluded, untriaged and killed quantities; stream continuity is separately enumerated by TFile type, and the committed Fout admission documents derived positioning rather than a stored raw stream offset.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2011-L2055",
+          "version": "repo-lines-v1:sha256:7262380d9fe69ba1c54b5fbad910e61760cabc075218b88dea2dde872ebef36f:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYyZDc3NDI4MzFiNDEyMTVhNTJiMzllZThjMDM3OGZkMjMxZmYyYTVjZDgyNjVmYjg4NDMyZTdiZjEzNmQ4NWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyN2UyMjdhMjg2NTIyOTU0Mjk1MDFkNmEwMDhiNDAxYTM1NjUyZDRjMzFjNmRkYWFmOTk1N2M3ZGUwMzU1ZGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxM2FhYjY0YWU3ODZiM2FmM2IxZmRjYjY5NjhhNmFjNzM4ZDQzZDViZTcyNTRlYTYyOTllMDZhOTcyYzg4YWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVlN2E0M2U3ZjkxOWI0ZmRiZWIzODBhODE3YzZiYWRhNTI4ZTc1OTU5NmQ0YWY4YTg4NDJiMWU2YzljZWY0OTEifQ"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2073-L2099",
+          "version": "repo-lines-v1:sha256:8efd0254f4ebee57844af816d8ad59b540f647b03c5644615db2bb837f898b2d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhYjIyZmZjYjk5YWRkYTcxYWI0M2VkYzZkNzliNjliZGYyZDk4OTBiMzQzN2MzNjQwZWM5MzVkZmZkODRkYzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU0NTI2YWZkNzhlMmJiZGM0N2QwODZmNjliOTdhZjYwZTQ5MjAzZDNjNDlhMTAwMDNmNTQxNzEyODlmOTYxZTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxNjM5NDQ0NWQwNTE2MjJhNzQ2NWFjMGE3OWMzMDBlNDEyZjRhYTEwYjBkNDk5MmFjMzc0MjgzMGU1ZTRhYTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM1YmY2MWMwMWFmZjM1NzNiMmRkNzZmNDBiOGEzNzBiMGNjMzMwYTA4YWRhZWMxMDAwZDI5NTY1OTU1NTNhZGMifQ"
+        },
+        {
+          "resource": "repo://test/inventory/snapshot_inventory.txt#L657-L676",
+          "version": "repo-lines-v1:sha256:abb848d703d0b9ba6acb40499824ba9ce5a5584e6ec500979f7cb10ca3321a3c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiYTIxMzMyMjJjOWVjYmFhOWExNGFhMzQyYmUzOTEzNWYzNmZjOTBjYmE4YzYyZWYxZmNmYjc4Y2FlNDgwYTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OWI1NDdhMjFiNjQ5ZmM4MzYzMTBmNTFhNmEwNGI1N2VlOGNiYWE2ZGNmYzkwNjI0ZDAwMGU2YjY3ZjhhYjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdjMDU0ZWYyMGVmOTQ5N2MwYTczZjYwMWIwMDkxZmU0NzMyOGQ2YmEzOTgzOTBkMzk3MWZkNzNjNzc5OTg2YjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM3OWM1N2IxNDJjMGM1OWU3ZDIyNDUwYzQzZmU3Y2YxYTYxY2QxZDI2ZmU0ZWQ4NzM1NTZjOTE2ODVhYmE3ZjYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_481f40375e8849dbab913095f039488a",
+      "statement": "Serializer manifest/write/read/count modes share a traversal; T6 normalizes scalar keys by section, requires R and admitted-P rows, prohibits known refused-P keys unless required elsewhere, skips stream handles and guards against empty parsed populations.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L147-L299",
+          "version": "repo-lines-v1:sha256:66e128aa63aecbc0567defd62290f6e8393ad58ec3e87fdaceb7630497b69463:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjNmI3NzU5NTVmZjMzMWQ0NmZjMmY5NTc4YWMzMzE4MGQ2ZjY3NzhjMmUxZjc3MTliZjBlNTViOGZmNGEyZjA0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5N2VkOGU4NTY1YjI5NmY1NTA3ZDlmNWJmZDdhMDBhMzM4MTZhNDE1ZTE0OTljZGQ3YzBkZmZhNmJiNzZkNTM2IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI3OGIxODkzYWM3ODQ5NjQ4ZTIzMTRhMmI0ZmJiZjY2YjI5ZDUyYmFiMGI4NDgwN2JkMTA4ZmIzYTdlNTA4MGI4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2ZGY2MGNmNDNiOGRlOWNmYjA3M2E3MTY2NTFkNTZmNWY2YThjMjBhNGNlYTgyMmQyMGEwODhkNTc2MjJiMjYyIn0"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/snapshot.c#L823-L838",
+          "version": "repo-lines-v1:sha256:80be5dbf03aef84a8b2a782e1f83fd8be0ea525d4344e98d947d7ff271bcf6a6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4YWMyYWFiY2NlODhlOWRjNjc1NzU5NzM2YzFiZmUyZmQwYjVkZTc0ZTIxYTRlOTJkMTQ5MDNjOWYxNThlNzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4ZmZlNDc2ZDk1ZjAxODYzNWI2ZTAwMTcxNWY0YTBjY2FlZTVlODU3OTk3NzgwYmRiODA2NzQ4NjUyZDI3NjAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/test_state_snapshot.cpp#L592-L761",
+          "version": "repo-lines-v1:sha256:38e80cfd8099b29d2e189df8bf9943d4f1fe43bfcaabed75993c5015e1f83873:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzZTQ4NzgwZDkxNTdmNzQxMWNhMTkwNDhhMWY5MDdjOWU5ZTliNDgzNTdhNjc4YmY4ZjI5OTQyNmM4MDdiZmNkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI3OTczMjZjYWRjNTY5NTI0NzQ0Y2I3ZjgwNjk0MjYyNjE5NGFiYWJmMGQwNGFhMmI3ZGFiYjdhNmJkOGExMDE5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjMDhkYTMyZmRhY2JmODlmZTlmZDNlMTBhYjE0NTg5YmRhMTllMGQ5OGZmZTY0MGI2NzVjMmMwYjhjN2YwYTZlIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_1a19a4b218834b4ebb2b0783382ac348",
+      "statement": "Generator check mode writes nothing, reports drift as exit 1 before evaluating current-but-open decisions as exit 3, and succeeds only for matching text with closed emitted decision axes; regeneration alone writes without imposing triage closure.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2102-L2159",
+          "version": "repo-lines-v1:sha256:f93c1ea1aeabd54704cad3bad94969a6d5364e28e3804eb3c5a74ef292a50652:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjViM2JkMjkyYjg2YjUxYWNkNTYzOGU3ODc5YjYwNWMyMDk0OTUwMTFmYzc5MWUxNmY4NGQ0Y2RiMjA3OGY4OTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3NTFhODUyOTc4YmMxMWM0ZmE2MjU0ODA3ZTdiMTcyYjkyM2VkNWM3Y2Q3MDJiZmYwNDcwOTRmMTg3MjY1MTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiNDY4YWQwYWJkNWRmODYyMGJiOTRiZGZmZTg1ZjQyMTEwZWNkYThhZjc2NGE0ZDVjM2JhMDZiYWE1Zjc3M2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0OGQ3NDgzZDA2MGYxNzIyZTI0NTM2ODg4MzM0MjU2YjU0OTBlOGJiZTg2OTgyMDY3NmNhOWVhZjM1MDljYzkifQ"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2162-L2170",
+          "version": "repo-lines-v1:sha256:121237f3066a4df2c6d3f4cf2a62551544e97d0d8b6b18c77774b0c047a3fa8b:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWIzOTc5MzNhMjRhODAxZWU5MjMzMjdiZDY5YTAxMDQ5YzA3NzkxNTAyMWNmMmVjMzlkZGE0ZjgxYWE4MzdlNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOGI5MTEzYmIzMzdmZGM4ZDMyZjc0MDEzYTk3ODA1ZGExYTc3ZjQ3YTQ4Y2QwYTc2N2I4NzAzYWI4MzAxZmJiOSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzhiZTFmZDAxY2QzZDlkNzk5MDNhYTUwNDQwZWExMzRkMDRmNDgxZmQwNjBlMDViMWE3ZGJhODc5NjY5MDM5OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGFhYmJlNDE4ZWZhMzMxOTk2NzQ1NjJiMTVjYTQ0NDlhMTAzMGJiYjE2YjE5NTg4ZTA0OWVjNWViMmJmYmU5ZCJ9"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L2322-L2386",
+          "version": "repo-lines-v1:sha256:441bcf0b12d81a18882ec417207e6ab034c9b12c968c78eeed4af4de789fdc72:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2Nzg5MTUyMzFkODM0OGUwYWY3YmM0ODQzOThhZjUyYzEwMGVhNjE0ODIxMjQxNGE4N2FkYzI0ZTViNzQ4NjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE2MjMzYjNmZmVhMzJhMjNkZjUzMDY1MzQzNDhmMmRlZTc3NmE1YTZmNzRmYjUzMzE3NWRkYzUzOWE4ZmU0NjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZmOWE3ZmU5YjE1YmNkYjcxODEyZWNhM2NlZDgyNDkwMGFlODU5MWFlNmMxYjEzMmNjMjhkZWYwNGRkMTk0N2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkNDEzNDBjYzIzOWExNTljZTliNjAyMmU5ZjYzMjI4MzJlMmVhZDc2Y2FlOWU0NzU0ZDIxMGViOGZiNmQ1ZTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a5f4d11e67b9475f87c24d42b219f923",
+      "statement": "Inventory CTest wiring separates fast source checks from slow regeneration/mutation checks; closure-mode tests require discriminating mutation diagnostics or sentinel effects and separately verify current-open, current-closed and drifted gate states.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/CMakeLists.txt#L33-L80",
+          "version": "repo-lines-v1:sha256:1612a8dd01836dbe124c2ff7193d729bd914532c88ada48767f0f45ba9e60633:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkOGE2Yjc0Y2IxZWZlYjNmNmYxYzI3YTgyOTRkMTIzZTkzOWNkN2Q4NWVmODM5OGJkY2EwY2VkOTI0MjkxYWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImViZGYwNTc0ZDYzODMzMDhkNzNlMTMwZDViMDI1MWQ2NDllYzE1NDYzOGY1NjhlYmJhOWYzYmZiZmZkNzI1YzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://test/snapshot/CMakeLists.txt#L76-L85",
+          "version": "repo-lines-v1:sha256:10fae7c0848f5ef037742d8f820a0106cf9a4fa7d50b126b36ae518a2bb3bf69:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUwYzMzYTllZDU3MmEyMWVmZmYwOGIxNGQ3ODk3NzU1ZTFjMGRiOTAxYTQzZjZkZGUwOGRiNDI2ZGJjZjA3ODciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjZGU5Nzc0NjhhOGY4NDcwZjhhNTk1MDA4NTZlMGJlZDA0OTg4YWNkMGQwZjJhZDliYmE0MDEzYzBiZThhYmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVjMmIxMjkyNWE4YWJmYmY2ZWExYjljNTg4MGViN2ViMjAwMmRiNDNmODYwMjA2ZGFiOTgxYzAxYjUzZTk0ZDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkxZmU1MjQ0MDk2NDZlNDdmM2U3YjBkNDBmOTlhOWY4MWE4NjFkOTJjYTRjNjRhOWM4OGU5MTM5YjhkNTQ1ZmQifQ"
+        },
+        {
+          "resource": "repo://test/test_snapshot_inventory_closure_modes.py#L265-L316",
+          "version": "repo-lines-v1:sha256:61a51e4ffae2afd1ba3ff384f70190040b3503c2ce6ed07474a7cf8c4d439212:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE0MTY0MTVkNmUzMDZjYTc5NzA2MGRmYzVlNDQwOTU5ZWE4YmQ4ZGU1MGQ1YmQxYzNhMTI2YjkyMjNhOGYyOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxYTkxNjAyMDI3MWZjYmNmNjQ1YzY4YTg0MzFhMzI3NjIzMGIxZDUzMDgxNjM4MzI3MzZlNmM1OTE5ZmIyMjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzN2VkNTI0YzMxMzA4ODg1ZTEzODI1MmI5M2Y1ZTVlNTU5ZTU0OGU5MDgzZDdkMWMwYmQ5Mjk4NTdmMjdiNTIifQ"
+        },
+        {
+          "resource": "repo://test/test_snapshot_inventory_closure_modes.py#L398-L533",
+          "version": "repo-lines-v1:sha256:8360d44d43443c60434f0fc1cb3cd8f49ca1b477415e6eede5da65e56d886e2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0Y2IxMTgzOTUzOWZjNGE1NzdhYTAyMGYxNDAwMTk3YWYyZWVjMWMwOThmMGZlOTIyMTdjMmIyZDIzZjEwZTc1IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIxNjIzM2IzZmZlYTMyYTIzZGY1MzA2NTM0MzQ4ZjJkZWU3NzZhNWE2Zjc0ZmI1MzMxNzVkZGM1MzlhOGZlNDY0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjYTk0ZWI4OWIxMmMwNzQ5MzBiNWRlOTc3ODA3OTJhNDRiZDU4ZjhkNGMxM2E5Yjk1ZTlkZjAwMzNjMDliM2MyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDQxMzQwY2MyMzlhMTU5Y2U5YjYwMjJlOWY2MzIyODMyZTJlYWQ3NmNhZTllNDc1NGQyMTBlYjhmYjZkNWU4In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_5129f993b10b444a8c2578342cea6174",
+      "statement": "The inventory instrument uses regexes, brace matching and textual call/event streaming rather than compiler-level path-sensitive C analysis, so parser and scope controls are part of its correctness boundary.",
+      "evidence": [
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1180-L1219",
+          "version": "repo-lines-v1:sha256:6bdfb617b4d988a3a57e1ad9d7f8bab6cb6e1d8a2f229ea6cd0f16cba39e8531:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmNDA0ZTNiMDI3MGQ2OGI4MGVmYmRjOWIzOWZiNGVhOWY4OWYwODM2YmE1YjVjYTNlNmVmNjRmYTQ5OTU5ZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwZjkxMWMwMmNjMzQwZGY4YTM3MWFkNWUyZTdhZTU3YWY5NmMwZDI1YTdmNzY5YzMxOTAzYjBiYjQ1MGVmMWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ4ZDA3ZGNmMGY3NzJkMzI5MzYzNmQ3MDhjM2ZlMDk2ZDcyM2ZiYzI5OTk4YzFiZTJhOWQzMjcwMzA1MjQ1ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5M2NlOTZlOTA2MjhhMzVmNjgxOWQ5YWZlNzU0ODFmZTE4MDY4ZjZmZjQ0NzRiMGJmM2NmMjUzYTI1YzA3Y2UifQ"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1377-L1407",
+          "version": "repo-lines-v1:sha256:3f61ba178fbb232ccdc00921638c5277a98ad72b4e72c3bc4ef98d38931ade1f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJjNDRiOWE2MjY1MTU1Yzc5ODMxODlmODk5ZGE3MWZiOGVhYmUyZGRhZmJmZjYxMjZhZWVmMTE0ZTZmMjEzMmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU0NTI2YWZkNzhlMmJiZGM0N2QwODZmNjliOTdhZjYwZTQ5MjAzZDNjNDlhMTAwMDNmNTQxNzEyODlmOTYxZTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE4OGE2NjcyYzc3Y2NmYTM0ZmUzZWMzMTJiMjI0NWMxNjczMzYyZDU2M2ZiNmEwZjk0YjJlNGVlMDQzODAxNDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxOWEzNzdmNGU0Mjg1MmNiNzU0ZTI3N2I2NjgzYTExNzIxYjgyZmRlZjczNjM4YWUwZGVmYzA4ZTk4ODU1ZTkifQ"
+        },
+        {
+          "resource": "repo://test/inventory/regenerate_snapshot_inventory.py#L1504-L1717",
+          "version": "repo-lines-v1:sha256:e90ff2a434f9c2b4813db7a7def690d13e53bc2376f9056d1c8b08d78389dc3b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJiZGJiN2RiNTExMTNmYzA1OGQ5MTIxYTc1MGMyOTc2NjVmY2ZlMTY1ZWIxNzM2NTMwZDkyMDZkOWVlYjk3MjBkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkYWE5ZWVlNTNjOGNhYTI4ZjU0YTQwMDVlYzk1YTBkNDQ0NmIxYzdhM2IyN2JlOTM4ODYzNWNlODc5YjgxZmQxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwYjQ2OGFkMGFiZDVkZjg2MjBiYjk0YmRmZmU4NWY0MjExMGVjZGE4YWY3NjRhNGQ1YzNiYTA2YmFhNWY3NzNmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNDkyZWIwY2NhZDVkMWNmNmEwOTBmNmIwODViMDE1OTk2NzRhMDM4MzYyZjMzZGQ2YmIyYTNkYmUwMGIzY2I5In0"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

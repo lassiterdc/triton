@@ -1,0 +1,310 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:8b22fee4b92248d0e1247cd9b0305bf014aa06cd9230e6d39fe62f61692e6bb3",
+  "claims": [
+    {
+      "id": "claim_64aeb50266c54c43835e354fb1462b52",
+      "statement": "TRITON_ENABLE_SWMM defines the coupling build and links bundled swmm5; an empty inp_filename supports surface-only operation, while a named model resolving to zero coupling nodes is rejected after engine startup validation.",
+      "evidence": [
+        {
+          "resource": "repo://CMakeLists.txt#L61-L98",
+          "version": "repo-lines-v1:sha256:03c52c1130122bffbbb5d885e123e2b30837f7be98acd0da40c3d7d399c47876:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwYTEyNWFhNWU0Zjg4YjNhYTYwYTViMmEzMTRiN2UyYTk0MzFhYzY1MGY1ZWMxY2I3OTBmOTk0ODIwYTBjYjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ODBjNjIzMTY4ZWE2YzBhNzg5ZDNiZTAwMDg1MmE1NjlkZjUxOThlZWIzNjUwY2Y1YjJhNzVlODYzZjIxNzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRkZTBiMjQxYWI3NDk0NGE0ZTAzNGEwYzI5ZTAwOGI4NmIxMmYxNzBlNDI4MWMyYjMyZTA1YzJkYjcxYTE1ZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYyOWI1NGVkM2NiZmQ3YTA2N2ZkYmUzMWZiNjc3OTJmMmIyNDEzZjRlMWUzYWJlMzVkMWJkYWNlNTFmZmFlMmIifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1264-L1278",
+          "version": "repo-lines-v1:sha256:c5ab3f6a9d6823be72bd7c190708145ceae85136178654fc3555ddee017a3060:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY2MWI3ZGU1YjE4YTBhYzVhODlhNGFmOWU2OGVkYzVhZWNhZjgzZmZiZmQ3N2U0NGZjNDk1YTQyM2MxNzE1Y2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlYjhhMjM5MmU2NWNmYzA3Yjk4ZWRjY2FiYzk0Yzc5MTRhMzBhNjA5NGQ0MTk1YmEwZDlkZGYzNDU0YTI4MjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3MzAxMjc2OTQ5ZTEwMjFmZDY3MDk3ZTBiYWNiY2JiM2VkYzUxYjM0OTQzZjQyNTEzNWY4NTYwZTY4Yjk1MzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI3NmQxZTcwMDUwZTdjMTE1NjYxN2VmOGQxY2I2NDE5MzU3NDQ4YTQxZDk5OTU0MzM0MDg3MmUwMDNmMmFlMmIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L428-L451",
+          "version": "repo-lines-v1:sha256:095206e51c07710197a628cec1f0025ca494d2734834aecfa410698fb11cc69b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0ZTljNDNlNjY3ZjA0YWQ3ZTc2YTU3MGIxYzViMjVjMjRlOWNmNTM4MjM5Njg3NDc1ODQwMDVhOGJlYjIzMWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFhYTI0MzY2YTMxOWMzNGU4Mjg1OTBiZTk4NDhlZTA4Yjc5NjgwNDVhZjJiYTdiNzljZTRmOGRiNDQ5YjBmOTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwNzMwODJmOTRhNDZmZGYxYTE5Mzc2NjVmMTBiYzEwYTY4OGEwOWM4MDViZTZkYTc2ZmI0MzczMDA0OTBmNmQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f49839200c1b41c5a55b842d569431ae",
+      "statement": "Coupling declarations are exclusive: a list selects exactly its names in junction order, exact ALL_JUNCTIONS selects junctions, and an empty declaration derives a deduplicated legacy FLOW set.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L271-L330",
+          "version": "repo-lines-v1:sha256:7b09e9da31f2b3f17eff1cff783c57cc0f7d035b9923f7b41e43bedfba1b00a9:eyJzZWxlY3RlZExpbmVDb3VudCI6NjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiOGEzYTcyNDA1MjVjOTk2YTM5Y2JiYzBkYTNiN2EzNDE4MjIwZjk0MDY2MzE5NmFjNmY1MzkxZDYxY2JiOTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNlN2Q5MTliMmIxN2IyYWVmMDBmMDFhMWQ4Yzk5OWZjODIwZjIwOTQ5MTY2ZjQ3ZmNjMDQ4MjhlMmYxODhmYzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg0ZjdhYmI4NjRjOGJjNzI2NDg3Y2I3MDE0OWUwNjc2NzBhYTllOTVlNWZjNTliNjYzMDY2MWU2NjA3NmM0MjcifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L823-L861",
+          "version": "repo-lines-v1:sha256:0994faa177f5585031bd0617dca2b38c8ce34c6175e45105bfb738046a58508d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZhN2U1YTczMmUwMjhkZmVlMTkxYjFiODA3OTNhYTEyNjIyZWZjNjBjZTVlODIzMjUyMTQyYmJlNjdiMjBjMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMzMmFmMTcyNDAwOWM3YjYwZDEwYzQxZjczMjc1NGUxZWJlZjdlODYwNzM1YmZkN2ZiMGFhMDFmYmZmZWI2NTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5NTc1OTVjNDcyZjc2MTgzNjA3ZTQ0NDIzMjhhMTk5OWMxMTY1ZjFkZDNmOGQxYjIyYzA2Y2ViZjdhNTY0OWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUzMzllNTE1OTkyMDgwN2QzYWIwZTZmNzA5NGJiOTkxOGZiYmVkODE0Mzc3MTI4ZWU5ZGMxZWQzNDc4ZDk4NjUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7debf960b4b14d608deb956a70a2b0d0",
+      "statement": "List parsing trims whole lines, skips blank and semicolon-leading lines, retains line numbers and rejects case-folded duplicate names; it does not strip inline list comments.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L333-L362",
+          "version": "repo-lines-v1:sha256:3f31e4bbafc085afd3f0d823107cfdd7aa9ec338f5858c79e3f4562cdf2a2224:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3ZDNjNWI4YzNmOTRmZmRmZWZmNDIxNDExOGM4MzlmNzFhNTNkMDlkMmM2MGQyYjZjNzRlNTI2MjgyMGU2MDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmYzJjYjFjYTE1M2IyZmVmZDY4NjIzNWE4MDNlNWZjMjZjYWU5NjYyM2NiMTIwZGE1MjRhYzg4MTA0OGU3NmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ3YjM5OGNmZWUxOWRhYjgxY2NiYWUwNjNmMDYxYWQ3NWQwOGUxZDNhYzU3NGQwZjA0ZTBmYWFlZmEwZjNlMTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRmNzhiY2Q3Njc0MjY2YTljMDZlYjUzOTRlY2VhMWJjYTAyOWE4MDgyNjUxMzgxYmUzOGZkY2RkNWFhNjI0ZTgifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L834-L851",
+          "version": "repo-lines-v1:sha256:89887d42b7bf942a640304f70e6b9716cfd85727d6fcbcaf54bc43a1801d056f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhNjUzYTM2ZWNlM2EwMTU1Yzc5ZTZiZWI0NDBkNTQxY2RmNjQ5Mjk3ODMzOWI1ODViYTdjMWI1YmMxNGZkYjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFlMmI0ZGM2NjVkMTM2NDE1OGEwY2MxNGQ3ZGRjM2Q4ZDdlMDZkMjU3OTFhNmM2YWU1NjU5ZTI4YTM5YzMxY2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3NjZlNzVmZDFlZTZiYjY1Zjk1N2JkMmYzY2Q3MzYwMzUyMmY2YTFjMGZlYjY0M2UzOTY0MWZkNGY3YWE5MWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhlMjhkNDdjMDU1OTdjYTIzNGNmMGI2NzRkZjU5MmU0YTBkNmJiMzJiOGY5Zjg5YmFhYzhhZjFiNjFhNWMxZDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_16468461d6d74d908c5b4cb50e3a4d9d",
+      "statement": "The inp parser uses semicolon truncation, whitespace/quoted tokens, case-insensitive section prefixes and repeated sections; legacy FLOW prefix classification excludes named pollutants before selecting and deduplicating nodes.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L151-L292",
+          "version": "repo-lines-v1:sha256:2922a3c85a606822917a710cf4e1a866bdd3c6ade43530f7fe7966ccb704ae6b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmMGI5ZWM3MGVlMDBhZjkwZDVmODI2MTRjM2MxMjM2MTgxNTA4OTAxNzQ5OTMxOGQxNTc4YmI3NjNhN2M5ZTQxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiNDQxZTk4YWMxMmVmZGQ3YTMxYzAxYjYwNTNiMjU5MTZmMjM5ZGYzMjllNWQ5MWU1YjJhOTNkMDlkNTAxMTJkIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4YzgyYWEzNmJmN2ExMzY3YjljODYyM2YyNmZiZmJjNzJhNWM1NGY4MzA4MjEwMzE0Y2YzZmFhYzQ4NjdkYmJhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwMDg1Y2JlYTQ2YWUyNmJmOTQ4ODY1N2RkZGE3NTVjZWMxZDkxNzMyN2Q2YjdiOWIxZTQ0YTc0OGYyNGFmZTc2In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_662101f9aafa42acbd0d5f4def0c8611",
+      "statement": "Startup engine validation requires known JUNCTION nodes in increasing engine-index order; only legacy mode requires membership and count equality with the engine FLOW-inflow set.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1201-L1262",
+          "version": "repo-lines-v1:sha256:39bf48698cbb8a94c6c396a66637937f8ce966e5ddb40b10cb469a43a0e3e324:eyJzZWxlY3RlZExpbmVDb3VudCI6NjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjllNjI0ZTU0ODI4MGNjYjdiOWE4NDliNWFiYjc3MDAwZWI1NDRkZDcwY2JkMjNlOTc1ZWY1Y2FlYzMyOTY0YWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjczZjg4ODFmMjM2MDkwMGU0YzhhYzY2OTJmNTBkM2QzMjJlYjQ0YzFhNWRkMGQ3NDY5YjljNTQ3N2U2YTJhMzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViNGE5ZjczNWVjZDgwOWI0MDcyNmM2NjU3ZDgyMWU3MDViMWNhODUwODg2NWI2OGE4Y2ZjZDdhOWZjZDlmNDAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b58f99cd02414dfc92d7caada6ccdce7",
+      "statement": "The engine slot map couples exchange injection and depth export, while ordinary external FLOW inputs remain additive and do not alter a declared coupled set.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/routing.c#L1064-L1089",
+          "version": "repo-lines-v1:sha256:bdc7f8edc41eda0ac4de5900c53a5edb6a1f3dbdd45ca42e48e9e4c8e04065c1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4MzZjYTVmOWJkNzllMmE1Y2JiODZmYzEyZjU0Y2I3ZmEzMzc2MzBiZDE1NzU2OWIxZTg5N2U2MmMxNGYyYTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhZGM3NWQyOWQxZmY2NTJiYmI2MTEwNDFiMDM2ZmUzZmQ2NmJkODZlZGEwNDZlYjNkNTJiNzYzMjQ3YWNmMmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/routing.c#L275-L315",
+          "version": "repo-lines-v1:sha256:c903bf71c916ca3d1e2754800b85ce02a9ce7a1c997420c1de9969f01f1e993e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwNDhlMzBjNTk4NzFmYzAwMzQyMTQwYWYxM2ZkNzM3MGU5ODdiNmEzNmU2ZGZmZGU2NTFiYzFkMTQ1NjAxNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljNWUzYmZhMjNkNDdkODExOTVjMTIxMGIyZDFhNDBmNGEyMmU0MDY2NTc5YTczZmYwYzNmMmZhYTZjMjExZjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU2MThjMWY5ODI2YzlhYTAxZjMzYjViNWIxNTU1MmQ4N2I1YTAxZDdlZTNkYjk2Mzc1ZTRhZjM0MjI5MGU2ZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlMjFjMGMwOTg2YzYxZjcyNmM1YmQ5ZWNmNDYxZTg2ZWI0ODc3YzUxMDU5ODRlZjYzNDE1NjBjMzllODJkYjkifQ"
+        },
+        {
+          "resource": "repo://external/swmm/src/solver/routing.c#L486-L526",
+          "version": "repo-lines-v1:sha256:b56b38f15ea9204282824a1bcf89eff5567a1352560f807f54780f79a9cd98d3:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkZmRhMzg0ZGE4OTIzMDE1YTA0ZTI5MTEzOWQ0N2VhNGM5MjI5MTUwNTU3ZDE5MGZhZmExZWY5YjE0M2FhYzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJiMTFjMzEwNzc5OWJhOTQzYTRlNTI3NDYxZTU4NTJiZWY3ZmQ2NWFjZTczN2FiN2JiNTEwMDk1MWViMTE4NjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmN2ExYzYxNjc2MDgzYzdjNTkyODJjYTRlMzAzM2JhNWExOTVmZDY1YThiNGU1MTBkMTA1ZTg1ZDZmNTkyN2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFkMGJhNWFlZWMyYjk5N2UxZDc5N2M2NjAxNTMyMWQ2YzIzMGU2YzYxYTY3MWU4ODllMDkxZGI5YTdjMzllMTAifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1281-L1310",
+          "version": "repo-lines-v1:sha256:0f61a7b7743ef399ee77273c50df2afa71e9af2112727a56ed9de7812f3da03c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM5ODVjMTBkYTkxZjE5YWUxNDg5YTliMjMxMjk3NjAwYTgyNDE4YTRiZDkxYWYxNDlmNTdkMjY0YmU3OWVmMmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMxZGU0ZWNkNjlkYjU0NmYwOTljM2I4N2NjMTE0YzY3OTQ3NjVmNDdkNWI2Y2Q0ODM0ZTgyOTA5ZTZlNDVmNGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3MzAxMjc2OTQ5ZTEwMjFmZDY3MDk3ZTBiYWNiY2JiM2VkYzUxYjM0OTQzZjQyNTEzNWY4NTYwZTY4Yjk1MzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI1ZmYyYWRhMDAxMTMxZDVjMGQ1MDUxYWQyYTZkYWU1NDhmOGQzYTg2MjZkNDAwMGUzYmMyZjEwMmJkM2U1MjAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_23362af050e6483b860dcad60f8a0d74",
+      "statement": "Coordinates are used unchanged in the DEM coordinate system; declared missing coordinates and out-of-bounds cells are rejected, and row partitions plus ghost offsets determine each node's local cell ownership.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L2117-L2125",
+          "version": "repo-lines-v1:sha256:cc890eca253ce9542b40a80679fc56727f91a307fa941be255d190d8b0ccc0ee:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGVlODUzYWM1YmE3YjRlMGIxNmZlNTNhYTViMzlhOTc2ODU1NzUwYzM1YWRkODllNjE1ODA4ZGQ1ZWU3ZGQzZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZWE0ZTg3NTQwNWI3NmIzYzcyMGNjODBhNGUxMDZhN2ExNDM4ZGJkMWI0MmZmOTA1NzNlNDFhNGZhNWU4MWNmYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDg4YjI5OTQyMmJhYWFhMmQwMjUyYTU5ZDMyNzJlMWYzZGEyYWY1NzUwNGE1MmFkMjhhM2MxMzdlYzE3Y2Y4ZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWIxZWU0NTAwMjllYmNiOWFjNjgwMGYzM2ViN2I5ZTU3MTE5ZmMxZTIwNDUyZGQwYzEwZWE4ZDY0ZTc1NzNlMyJ9"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L863-L906",
+          "version": "repo-lines-v1:sha256:ff5ab63382f17c0d6ff8ea85093ee7fc111c4d00ad96b2b09e6052ba36b259d1:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5YjUyZDI2NzEwYTQ2MGJlMzMxNjc4MGNjZTQxODE3NzNjMmI2YWM1ODVmOWEwMjMxNGU5NGM5ZDIxYzNkMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwMTI3NDFhNWViYTViYzMxMDJhNzliMjk4ZWEzYzk4ZWYxNDViYjU0OTBkZDBlMzBlYTAxNzRlMDgwZjZmNGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyMTU0MWVjN2RkNGIzMGZiNThhZjM0YTZmOTJlODA1MDhkNjcxMzIxNDQyYWE2ZWE5YTNiNTQwMjRiZTU3MGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllNzkzMDg1MjNjMWQ4YWQ3YjFiMGUwNGY2MTZmY2Q3NDI0ZjgwMjBmOGI3YWIxOTExMTVhZjUwMTY5YWFmMjEifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L939-L1029",
+          "version": "repo-lines-v1:sha256:d9d68b860626caac1c6716d97845158281ad6b1e3eeaf36776fb5b24d208700f:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY4MzQ4M2Y1N2FiOGZmOGQxMjk1NDA5ZDcxY2ExMDZlOWQ1YTZhMGQzY2FmYjQ4MzIwMGY5OWYyMGVmNWRkZGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlOTdjZTVkYThlM2MxNmI3NjcyMjRkMDYzNDAwZDBhNTFiM2U4NmQ1YTk5NjNmMDI3ZGIxYjBmOTVkNmQ3MmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0NzVjYmVhYTI4NjE2YjhmZGVhMDBmNWUwNmRkNGE4N2Q2NzBkYzA2NDQxYmM1MzY3MzE4NDliNTZhYWMyYmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2715aed88ba94482b4a64b622c80734e",
+      "statement": "Exchange arithmetic uses SI surface quantities, books sign-reversed flow in cubic feet per second, and exports sewer depths in metres; US flow-unit engine lengths are converted from feet without converting map coordinates.",
+      "evidence": [
+        {
+          "resource": "repo://external/swmm/src/solver/routing.c#L306-L313",
+          "version": "repo-lines-v1:sha256:00f964b90a383e96511ec8254e9d5b73a3bfb38e69a1a464e233ddf7a41dea6f:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDY3MzY2ZDNlMjFlYmM0MzAzZDI1M2I1YzAyMjJkN2E1ZTVkZDBlNzEzZDY1YzYyYmRjZWIwZTE4NmFiZWM4NCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTZiMDQ0OTE0Njk3MjJlODM2M2E5NGU0MDQ0NTM4ZTAxM2EyYTIxN2UzNmIxZTU2OGJhNjBhY2I3YjRjOGYyZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTQ3MzVmMWY2NGVjMTllYzMzZmYyNWVlM2JkMjc0YjEzMzQyNzQxNjE1YmM4NTNiY2IyZjhlNTkyZDhjYTA5YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWM1ZTQzZGYyY2I3ZDU1ZWUyOWM3YzA3YTViNDNkYWZhOWYyMWVhYTQyMWYyZWY4NmVjMmViYmFlMTllZmZkYiJ9"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L2245-L2246",
+          "version": "repo-lines-v1:sha256:d83cc3d25a7a91980c0ff65570d383043518d8e51e47121c890c333257809af7:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTU4Nzg0ZmIzOGM4NGViYWY0MmViOTRkOGZiMWY5YWNhOGUzMGE0YjNiN2U5NzM1NmU2NTY2MDQ0M2U0YTcyNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMTFjNmI2NzdmZTEyZTY4MTNiZGQ3NGViZWM5NDhmMjU3ZmU1NTM4MjRjZTdjMDJlODAzNmQzOGI5ZTUyZmM3OSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTBjNjM2ODIzYzlkMTU2NTU0NjJkMjYxNWY5YWNhMTg0YTk3MTY0MGVlZWM5Y2I4NDhhYTY4MzZhNjBhOTMwMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODJiMGRkOTk2N2ExMDdhMmU1MmI4YjQzNGRlOTE2NmM0ODllMTcxNjMxYWVlODliOTg1N2ZiOGNhYTIyM2QxMSJ9"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L438-L459",
+          "version": "repo-lines-v1:sha256:3c6e1659e6000aa7c5f4ae4c7ddb625d8824e12a401b88e34c4dedb27c3beb09:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjMjkxOTgxMjVhM2M0OWVjNTA1NzQ4MmZlN2NlODQ1ZDMwMTVhZjVlMjRjZTQzNmUyZGQxNTM1OTc3MTBkZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwZmY2MzdmNmNiOWU3ODc0Yjk2YzQxZjc2YTkxZWExZGE3N2Y5N2I2ZTBhOTY1ODg0ZDE5NWYyMWFjOGQ5YzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIyODdmZGEzMDYzNjY1OTI5MDJhZjUwZDM2OTYyMGJhNjgyOTdiMTUxMDI1NWQ1MmIwNmU1NGQ1OWU3YmY3MjgifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L863-L865",
+          "version": "repo-lines-v1:sha256:25fa1d3573fe0b1bbf8e781d0a53eb69e0af98886c9ce6a6e5e2e18d32863082:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTliNTJkMjY3MTBhNDYwYmUzMzE2NzgwY2NlNDE4MTc3M2MyYjZhYzU4NWY5YTAyMzE0ZTk0YzlkMjFjM2QwNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDI5NjE2ZDVmODc4YjNmOGIzMTllOWY3YzkxNmY0OWNlZjJhZjJmNWZhNWVjYjczZTJjYmQ3MGU1MTFiNTNhNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjIxNTQxZWM3ZGQ0YjMwZmI1OGFmMzRhNmY5MmU4MDUwOGQ2NzEzMjE0NDJhYTZlYTlhM2I1NDAyNGJlNTcwZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjhiODMxZGMzMWFjYjhlZTMyNGMyMjBiZGI1MjI2Njc1MTJhOWMzYjRlY2VjN2VjZWUyZjdlYzhjNDY0OGMwNCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_5672725b49a94edeb19506443528f04b",
+      "statement": "Default exchange rims follow engine full depth with a tolerance-preserving SI-token rule; optional DEM rims use cell elevation minus invert and reject invalid DEM/invert combinations collectively.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1205-L1235",
+          "version": "repo-lines-v1:sha256:32fd9c0666fd6af90eab4881539110d5dfc417624cd464680d2215452d1ed44e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY4NTM1NzBjNzQwZjJkNzg4Y2Q3OTA2OWI1YzUzYWRlZGFmZWI2NDEzZTI3MThlMDYyMWYxMzc0M2EwMDc2MWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwM2JhYTAzMWI5ZjVmNTZlYTE4ZjdkYTY2M2IyNTg5ZTA1NzgyZGY5ZjA1NzY4ODFjYTZhMWViM2QxYzA1ZjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ3NzNjN2NlMWU3M2U4OGVlZTRiYmJlOWRhOGNmMjM1NzlmOWRiZTQxNzc1NTFmOTE4NDg3ZmYzYmNkOWFmYWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU0NTRiNTUxZDg3NDc0Njg4OGRkZGJjYWNiOTU0MGFhZGJmNGViODY5Yjg4Y2EwNzM0MGU2MzdkZWE5Nzk4OWMifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L424-L459",
+          "version": "repo-lines-v1:sha256:a05310854ae01cece444cda062bd6454480a41145383c9bed62f8900acdbc86f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4YjQzNDVhMmYwNWJkZmQzZWY1OTZmOTAxNTQwOTZhZjY2ZGY5ZmYwMDU0OTNmZDM1YzJmMjg5ZTNhNzBlZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjMzJlYWQ5MjgzZmQ2NzUzYTRkNGRjMDFhOTg3ZTA1ZDUyYmQ0Zjg0MGZmZGVjMWQ2ZmJhNGU5MGEzNzJlY2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIyODdmZGEzMDYzNjY1OTI5MDJhZjUwZDM2OTYyMGJhNjgyOTdiMTUxMDI1NWQ1MmIwNmU1NGQ1OWU3YmY3MjgifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L530-L573",
+          "version": "repo-lines-v1:sha256:c59e1a63fb43c9540fe87f62bca2e9a41e3fd3a5228383f1c95c87e3175f6ef3:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0ZTljNDNlNjY3ZjA0YWQ3ZTc2YTU3MGIxYzViMjVjMjRlOWNmNTM4MjM5Njg3NDc1ODQwMDVhOGJlYjIzMWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQzNDZlZTU1ZjYxMTczZWVlMzEwZjZkZGE2MzAxYTVhMzgxZTczMzQ3MjA5Mzg4ZTNhNDE3Y2IyZTNlNGUxNjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUxNDZmNjFmZjI1NTQyNjIxNDg1OTY1NjYxZGM2NzUyOTE1M2YwODg3MmMzYTcwMDhkY2NiNDliZmZmMDBlODQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_354dfb3b09c04f089b46d151e88b6ec9",
+      "statement": "Configured manhole loss and diameter apply to selected nodes, and diameter exceeding cell size is a warning rather than a refusal.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L920-L929",
+          "version": "repo-lines-v1:sha256:a449ea5f81b68d870762fdffe985de8860c1051c3674901417bb400798a52964:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjOTVhY2NmMmQwMzU4MzQ2ZDYzMWZmODdkNzk0M2E0NDg5ZjA2YjYzODAxZmIzNmIxNzdmZDliOGQyZTY4YWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjViMWU1YjViZmM1YjIxZDg1ZmJjNTVhYWU4NjllYmIyNWU3MDA3N2UzZmYzYmU1NGVkNzIwMDBhYWQ5YzFiMjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyODg2Y2QxYWQ0ODA5Zjk2ZDRlZGY2YTZlYmJhODYwYTlmMTQzM2UzODllZDczNTc1MDMyMDFjNzc2NzdjYmQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ca4ccf526fa748de91c0fa0816549774",
+      "statement": "The exchange law switches between weir drainage, orifice drainage and surcharged return according to surface depth, sewer depth and rim depth, then updates cell depth from exchanged volume per area.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L2164-L2246",
+          "version": "repo-lines-v1:sha256:fd50806b00cfb5b784625356a9fc09f5aecdf8c5df5fdcd1fd50e7347521dce1:eyJzZWxlY3RlZExpbmVDb3VudCI6ODMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4ZTc0NmExNjM0MTUwNTk1MTY5OWU4YmM0MjQxZGI0MmY5ZGJhYzc4NTQ5NmJkNjEwYTdkODJlNWI5NDQ2NDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExYzZiNjc3ZmUxMmU2ODEzYmRkNzRlYmVjOTQ4ZjI1N2ZlNTUzODI0Y2U3YzAyZTgwMzZkMzhiOWU1MmZjNzkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBkY2JmMTMyZGNkYWNlZWRhNjgzNzM0ODI3NDg3ZmYxMGQzMTZlODlkZThjYWRhOThkOWYwYWMzNTg1OWUyNWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgyYjBkZDk5NjdhMTA3YTJlNTJiOGI0MzRkZTkxNjZjNDg5ZTE3MTYzMWFlZTg5Yjk4NTdmYjhjYWEyMjNkMTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_da3440ba988641388642dde811874f8b",
+      "statement": "Shared-cell coupling launches one thread per cell, evaluates every node from the prior common depth and scales only draining flows if net exchange would make depth negative; the single-node branch preserves distinct EPS12 clamp arithmetic.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L2195-L2292",
+          "version": "repo-lines-v1:sha256:a94cf49fcc07e2528a7de6275f576935ed86d03a46da986913aa6e52acafdeae:eyJzZWxlY3RlZExpbmVDb3VudCI6OTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjYTQwZDBlMjU1ZWEwODY2MWFmOWViMWVjOTU2YWE1NzI1MTdmZjQ5NTA4MTZhYzMxOTVlZDcwMDBjOTc3NzkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcyNDIzY2JjYjJhNTgyODBhZmQ3YTgyOTk0Y2IwOThjZjJiZTE5MjBkYTBkY2YxOGZhMjgxYTg5MmMyNjI5YjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwY2FiNzE2MTA3ODFjMzdkMmY3NzE5MDA1NWY3YmU5NDI5YWQ2NTM2NWRiMDc3M2JlZGI3NTA5MTdkNjg1YTYifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L461-L484",
+          "version": "repo-lines-v1:sha256:e6345ed87beeeb5ea0af060857564bed739ad4bf9da9b429fc50fa99b584f008:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhYTFkMGI5YzUzZWYyOTY0YWFkYWJjNWUwYjlkMzUyNzg2Y2QyMzU5NDJiNTVkOWIyN2VkMDhiYjNlNTA2MmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwODc3ZDA2MGI4OGEwOGE2NTg3NzIyOWIxNThlZTllODc2NjIyYzFlOTk4YzdlYTJmMzNiNDEyN2RiNzA3NDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk0NDkyZjE3ZDljNDU3NWEwZTUxZDA3M2YwNmZlYjM4MjQyZmUzMjdhNWY5ZWIzOWVmNDRjMTRmMzU3NmU4ZjYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0bd8abfadc6c44d893cc4fa3aef7f85c",
+      "statement": "Live coupling locally computes exchange, collectively gathers it, rank-zero reorders/logs/steps SWMM, collectively scatters returned depths and then enforces wet/dry and halo constraints, using global guards for collectives and local guards for optional buffers.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L2128-L2140",
+          "version": "repo-lines-v1:sha256:06af36299560acb5c1573b4504515b9ea145150acdd7e2ad5f0d0524a0cac9a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwYTRlODgxN2RjNjA2YWMwNzA0MWYyYjVkOTM0M2NhMDQ0ODg4NDQwNzQxNTM2ZGYwZjc4OGJmNTdmZTEwY2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY1MjgzMzNkZDM5YTE1YWEwOTBhZTBhOWU2NmFlNWM2NGRhOWU1MzE1MGZhYWU3ZWJkYzMyMzI4OWM4NWI4ODAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMzOTg0ZWJjMmYxNTkxYjc5OTljMWJkZDhiZjI4MjlmMjJiNDAzYjlhNTMxYzM5Yjk1NjZlOTg3YjkzYTUwOGYifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2557-L2687",
+          "version": "repo-lines-v1:sha256:a95f65b718dd42a19e8591795f852a2c43b7258d05052c588b8f2102648b0e28:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2NGU5YzQzZTY2N2YwNGFkN2U3NmE1NzBiMWM1YjI1YzI0ZTljZjUzODIzOTY4NzQ3NTg0MDA1YThiZWIyMzFiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3OWYyMmExOWEwYzFmYjZiNzliNTFlOTllMmNlOWI4ODZlMjY5ZjRjOWMwMzY1MzZiZWEwZGJlMGIwNTNlNjRmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjNDliM2Q0YWYwNDNkMmQxNjQ3YzIyZmYzZmQ5MTFmMmU2NjE5NmQwZWE5ZTljOTdkMjQ4NWI5YmQ3MzA0NzFkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlYTkxYzNhMjI5MjliYTE0MTUzMjgxNjJlMjRlYjkyMzM0OTZjMjdlZjExNmU1NzlhMWU3ZTdlZmQ0MjU3MmY0In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_613444f5ce8e437cb22a930dda9902ab",
+      "statement": "Coupled startup count/index gathers use MPI_COMM_WORLD even though live coupling uses ENSIFY_COMM_WORLD, and dynamic generic-buffer reconstruction does not rebuild coupling ownership/buffers, limiting assumptions about combined ensemble/dynamic modes.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1050-L1074",
+          "version": "repo-lines-v1:sha256:4ccf28bb8ce2a704006d2f9941cdc728dac07e33b56612e779482c329d9c880c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhYjAxYTg3NDgxOGUyMjRmODlkODRkZDBiZWE5ZjI2Mjg5MWUxOGJlZmMwOWQ1NzM3NzMzMGJiYTBmNTUxYmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1MmU3ZGRkZTA2ZGZjMzMyZDg4Y2UxM2RlZGY4YzE1YTMyNjJlMWE3NzI1MmY0ZTY3M2U4ZmVjZWU3N2EzMGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwZGYzOTBjNGQ0MmU1MDRiMTc1ZjQ1MmM5MjhhMzAxZGJhMjg4NmNmMGMyMGQ1NjQzYzBkMmY1MzFmNjhiMDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIxZWVkYzQxNTNiZTQyM2M1MGQ1NDFmNTQ0NzQ2MmY0NDNjYTI0NzU2YmQ2ZTY2YzkwYTA4NTFhMDYwN2U4MDIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2565-L2569",
+          "version": "repo-lines-v1:sha256:900d1b8cc65b8c90005421bc17cd1e47422df19779af5c70955f1c0668e40d42:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzM0NGI5NDEzM2E2NjlhMTJmOTcyYTYxYzZiNTg2OGU1ODczOWRmMTI3NTljMzc5ODFiN2E0NmIyZDE4YTRiMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMGM4YmE1NzY2ZDBhZGJkNzUxYzgyMDhlZWQ1ZjM1MDY5OTRjZTYwYWFhZGZkMTFhNTI5N2M4OWE5YTY1MjY3MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTY3ZjQ5MGUzM2YzODJkYmFlM2E3NmRmMzI3MjBlY2U2Yzc0OTgwY2ZkMmFkODc4NWU5MzY3ZDlkMDY4ZWZkMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGE0MGY4OTczNTI1YmQ0ODdlZGMyMDQ2ZTUzOTM5MTExMDA0YzY0ZTNmOTcwZjY0YzE0YTdiM2UwZjgxOTk5OSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2613-L2642",
+          "version": "repo-lines-v1:sha256:8180960fd0a4dfcc7b7c15309bd7e00c0e499d6f741405164364a31846a69cbc:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwMGExMWQxMTlkOTk1MjU4MzZiOTJiODVjOWY3NTY4OWU2YThhMWRlMjY2NGVlOGI3MDJiMjEzNTlmODFjOWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3MGI3YmQ4NjAxNDdlN2EwZDE5Zjk2YjQ3YzU5MmZhYmNmM2Q3MTE5OTU0Zjg1NjRlYjhmM2EwYzlkZmYxZjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFjYzg0NzEzMTY0YWY5M2FlNzdlZjQ3MWM1ZmRlYTc3NDBjZDg3NTg1ZjBjMzZkOGViNmQyMGQxNmFhYWZjMmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0YTc3NmVlMWJiYmJkYWQ4N2E5NDZiOWI0OTUwMzMwNDIxNDIwNTcxYTgxMmE3ZWQ3NjBiMjU2OGZjOWE5MWEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2719-L2750",
+          "version": "repo-lines-v1:sha256:f1f27e3df6aa92d1c579b9283b2404e9829bc51e382017763171dd4bdcba61a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5ZWFiMzBkODVhY2ExZjU0Mzg2NjgwMjcyNDliOGIyZDY2NTgxZmM2NjYwYjJhZGI2NTFhOTJiZWRmNmY0MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMjZlNzI3NDkyOWE3OTQzMWYxNjkwMmIzNmU1NWY4MTE0NDJiNTA4YWJkN2UyMWQyYjVjM2I2MmVmMWYwODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFiNmMwMGEzMmI5YWI3YzJjMWVjODk1OWU1ODZiNDAyNTU5NzgzMjA4NjhhM2ExYjhkY2RjNjJlZDFkMmNiOGUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_486cace4cfc14d4a8b21919c467d1c3d",
+      "statement": "Startup refuses oversized SWMM paths; nonzero open/start/step returns print engine diagnostics and abort the communicator, with startup-only report close/echo and normal rank-zero end/report/close on success.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L1152-L1192",
+          "version": "repo-lines-v1:sha256:dc90b223f1c042fded11e8db9030b2aab7898de0e6b9bc33305ac88c2fc1db66:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxMDY5NjA3ODMyMGFiNGIwNzhkM2Y2ZTM3NjE3NmQ5ZWQ2Y2Y4MmI4MTQ2ZjM1N2VjYTE0Yzc0NDE4OTg3YjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhMDdjZTE1NjBjN2RhNmE0ZGQ5OGRiZjRlNjgzYjNmMzdkY2JiNjE3NmQzYjRmZjU3MDAyZjg1NGRlMTM2ZjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk1ZThhMWVhMDlhNjIxNjlhNjEyNTc4MWY4OTRiYzMzZDNhMTQ5ZTYwOTZhODhjYTg2ZDZiZTE2MjE2OWM2NWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFlMTY3N2ZmNzc0OGQzZjMxZjFiZjU2YzlkYjM0ZDYyZTIzNjU4YTFmZDU5MjRiYjFlZDNkN2Y2YmNkMTdjNjcifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L1339-L1377",
+          "version": "repo-lines-v1:sha256:87fad46913efd73febaa9c1de78520485e900fe50bc16d62fd439c97e7b0081c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5NjFmMTk0YjZmNThjY2I0YzE2Mzk1MTRmN2EzNDA1MjJjMDliMjAyMDNkMDI0ZmJjYjA2MjZmYWQ1MTI1MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMzOTg0ZWJjMmYxNTkxYjc5OTljMWJkZDhiZjI4MjlmMjJiNDAzYjlhNTMxYzM5Yjk1NjZlOTg3YjkzYTUwOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L486-L540",
+          "version": "repo-lines-v1:sha256:bb9a57af0fcd8a7e190e89165f375765ec92cb2113f7fdfe93400cccb33ec8f6:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJmZDMxMWI5Y2FlMDIxZmU0MDNmMDc3MmIxYWYyZmNiNmRlMTJiNmYwYTY3N2FmM2RlMTA1MmQ4YjY5MDZiZTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyNTM5NTNkZjVjOWEwY2ZmNDc5MGIxZDBjZWI5NWMzNDkzZDBlMGM4Mzc5YzdlNjIxMzNlNTcyYzRmNjEzNTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImExNjZlNTA4ZjYyZmI0Nzk4ZTBlNGRlMTgwYTZmZjQwYjFlNmE3YjUxZmUxZWQzOGJjNWMxMzgxMjJhMjRlNjcifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2623-L2634",
+          "version": "repo-lines-v1:sha256:57f0063e725951725a826682a2547cb244e3835ea465645347cfbe4bf94717df:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0NjJhY2RkZTcyMzRiNTgwMWFkYTFkOTQ2OWQ0ZDIzMTI0NzQyNDkxN2ZiNDVkMjViNTAxYzVhOWRkMTBhOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1ZWMxZTRmYmFkNTA4NGYxOTU4OGQxZmQzMjQ1Mzc1ODhjYzMyZmViNjY4OTE4NzE0NGQ4MjgxNzkxOTc0ZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkYzNlMTNhYzUyYjI2ZTRmNzFhZTBiN2U0ZWMwOTc0ODhhMWJkOWMxN2M2NjYyOTBhZjdhNjEzMDkzMzJmNGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjEwYTA1YjcwOTdmNWU5NmZhNDg3MjY4OGRmMzgyYWQ2NDI0MzQwMTgwMWViZTA2ZGE4MTM5MDNiYTlhNGZlYjUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f2971c7b18664b8391030176e22ed9bf",
+      "statement": "README restrictions on coincident nodes and coupling rank counts are superseded by accepted shared-cell code/tests and suite scenarios for eight-rank SEQ/PAR resumes and sixteen-rank completion/report generation; these do not prove arbitrary backend/combination correctness.",
+      "evidence": [
+        {
+          "resource": "repo://README.md#L137-L142",
+          "version": "repo-lines-v1:sha256:c5cd04c79d231a77d14fb03ab46af9a029f95a469ab092be7e7b5500b6d34b22:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNzQ4M2FjN2U0MmRiNTJhZGIzYjg0NDQ2ZTc4NjVhNTRlNjA2ZGE4YjIwN2Q2ODZhZGNiNWZiMmUwMjYwZjAzNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMWM4NDc5MzM3MjdkMmFkODg0OWI5ZWM4OWI2ZWIyN2Y2NjdiMzBhNWIxMTM1YTg3MzhkNjMwODYyMzM1YmU0ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWJlY2Y5MGZkOGNiNTE5YzRkYjBiODM3ZGNlNDJkOGM1YmY5NmY4OGY2YzcwNDBkYzk4OGY1MTVjNTgzZDE3ZiJ9"
+        },
+        {
+          "resource": "repo://src/swmm_triton.h#L979-L982",
+          "version": "repo-lines-v1:sha256:15876c22ab751fa56e52fc14f8957a83c5cc99cb570327eb5146ba0d2971a4f8:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMWYzMDI1MjVmZTE3NGEyYmJmYTNjZTAxNTM1MDk0OGI4Yzg3M2RjZjJmYmYyZWVlNjg1YTJjY2ZmYjY3NTU4NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjg5MGNlMWI3YzUxMmE3MWRiZGU4ODBiMGU0OGEwMjUwMmY0YWE4OWJmMGJkNDQxZTAyNzMwZjkzZjAxNzRjYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTRjMWViM2RhNGZmNDBiM2U5MGJjNzg0OTJiN2FhOTE3N2UzMmM5YjA2OTk3NmEwMjM3MmVkZjQ0NTk2ODhhYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWJiNWJmMTYzMjA3MWVmZTRlYzViOGY2MzFhZDQyMDcxNTExZWM5MjNiNTJhYWI0ODYyYTEwNzZkZGY3NWQxYyJ9"
+        },
+        {
+          "resource": "repo://test/coupled_resume_suite.sh#L158-L203",
+          "version": "repo-lines-v1:sha256:bf9473b9a3a0353c394070941b7c6084722a2f4306d9d1060ad4fcb3b50ebc1e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlZWQ3N2QzMDAyYTk2NTk4ZjEyOWRjMzRiNTc5NmVhYmMyNWMxZjliMDdiNzYwYWZhM2YyNzU4NjMzZGYzYTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3NjlkMjM3Y2Q0MjBiOWQzOGI5ODFhMGE0ZjY3NzAxOTBhNGE4M2RjYTFmZTU2YzRmNWJhMWUyY2JjMGVmNzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhiNDJkODNlOGY1NGEwZjQ1OWM3MGFiMWNhZWE5YTAzYmY1NDU3OGU1OGZiYjI4N2M2MzY1OWUyYjE1N2Y3YzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUxMDM4NzczYWM0NzA0NmI3MDk2NWNkMDU1ZjdhZjUxYzE3N2U2ZDk2MGNjNzgzNDEzZDhjNTA5YzFlZmU4OWIifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_coupled_cells.cpp#L127-L235",
+          "version": "repo-lines-v1:sha256:766f8e7bf83067a2baf6024806eaaefb2ba70cf8c4fe18c650eca4d3b79e11fc:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2NThlNDQyNTA2NTMxM2U4NjY4ZDY4OWMwYTU0YThlYTgxYmJhODE4ZGI4OTcyMjRkMWJjYTZhNDM0OWJhZTMxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYjQwNzVkZWQ2OGM5ZWZlMzFjZTNjYThmZTY0NTY2YTQ5YTg1OWU1MTY3ZGQwODU4NTZiMzBhZWYyZDAwNGRlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4Mzc4MmVjZGJjNzQ5OGJjZGQxMTg3YzBjMWE5MWIzNGUwNjE4ODg2NmI5YTcyYzgzYWM5OGQ4NzZjYjRjNTljIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_833f7db98325477183f3447eaaaa4a1b",
+      "statement": "The shared-cell review checks scale-aware surface-plus-booked-sewer volume residual at tiny nonnegative remaining depths, whereas the current limiter condition is negative depth only, superseding the test comment's old zeroing explanation.",
+      "evidence": [
+        {
+          "resource": "repo://src/swmm_triton.h#L2258-L2279",
+          "version": "repo-lines-v1:sha256:e94ad9c3082276e15b222112ef3b08299441673db41be65331919379a803ce86:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0NGIxMjU2NTBjMDQwOWY1ZjBlOWFhMTFkZGNmZDIzZTdiNmM0MTRkNDc1M2Q0NjM4ZTJmZTBkZmJlYzZkZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmOGI0MjI0MTM5NWU0ZDQ0N2ViZDQ1NWY0OTZmZTFjZDM4ZWIyMWM4ZWU2NTgxZjA5YjExYWRmOWZjMzgwOGEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg3NWExYjcwYjc4NjA5MWFlYmY3ZTQ5MDU0MDU4ZTI4MTFlNTdkNWM1ZGU3YjcwODZiNjllY2JjYWRhMTY4NjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3YjM5OGNmZWUxOWRhYjgxY2NiYWUwNjNmMDYxYWQ3NWQwOGUxZDNhYzU3NGQwZjA0ZTBmYWFlZmEwZjNlMTIifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_coupled_cells_review.cpp#L52-L115",
+          "version": "repo-lines-v1:sha256:e0fcf952c8d34842178ee0bdfcec864befefda7ba0608c2f0c93cbeabd180522:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyZmFkMDM5NWE4MzY3NTRhMTdkMzJlNGQ0ZjE4OTJjZDk1NmNkYjFmNGJlMDA4ODE3ZmUwOWQzYzcyMzI0MDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM3ODMzOWI3YWY0NzNlM2ZhZWZhMDVmMmRkNmNlYTc4MDM1OGY3YWUyMGZhNzJmNTYzZjk2OTg1Yjg3ZmYzMTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM2YWQ2YjJkMDhkNWJhZTA0NWFmNzQwM2UxOWJiNjI3ZGNmNTMyMTdhNTM0MjI5OTcxOTg0MWU4MmE0YmQyMzYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_aaef091e54f14bbfa729898a96f0447c",
+      "statement": "Focused declaration, parser, rim/unit, shared-cell and zero-node tests exercise distinct helper and startup contracts rather than a complete network mass-conservation proof.",
+      "evidence": [
+        {
+          "resource": "repo://test/unit/test_coupled_cells.cpp#L127-L235",
+          "version": "repo-lines-v1:sha256:766f8e7bf83067a2baf6024806eaaefb2ba70cf8c4fe18c650eca4d3b79e11fc:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2NThlNDQyNTA2NTMxM2U4NjY4ZDY4OWMwYTU0YThlYTgxYmJhODE4ZGI4OTcyMjRkMWJjYTZhNDM0OWJhZTMxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYjQwNzVkZWQ2OGM5ZWZlMzFjZTNjYThmZTY0NTY2YTQ5YTg1OWU1MTY3ZGQwODU4NTZiMzBhZWYyZDAwNGRlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4Mzc4MmVjZGJjNzQ5OGJjZGQxMTg3YzBjMWE5MWIzNGUwNjE4ODg2NmI5YTcyYzgzYWM5OGQ4NzZjYjRjNTljIn0"
+        },
+        {
+          "resource": "repo://test/unit/test_coupled_list.cpp#L125-L158",
+          "version": "repo-lines-v1:sha256:de28c03ad7161d12ce5ffa357c89659f68c90ea75bd715db44d2640117351966:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY4NTRhOTJmMTUzMmIyMDg5NjllZjc1ZjAzOGVkODQyYzY3ZTcwYjk3ZTFkMjE1NGE3YmJjNDVjNmZmY2M1N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwNjdjNjUyZGVhOWNlYTYwNzBkODU5YTExYTNhZDg2ZWIxZWM1ZWZhMWE0ZTViZTc0NDRjMTY0Njc5NzBmYTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ1Mzc0MmY2OTgwZTNlMTUwYjgzNzk5NDE5NjE1OTU5YjMwYzA3ZGMwOWY4NTQ1MDQwYTYxNmVjODg4MGQ4MDIifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_coupled_list.cpp#L275-L326",
+          "version": "repo-lines-v1:sha256:21e2d2c48a015f22faecb65b9f02b1b5a18a90beb031bb6116d5be7b0ddeb97e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyYTUwOGU5M2M4YTVjNDZiMmRmNDdhMTZjNmZlMDE3OTgyY2UzNDk5MmFhMjkxODE0NWU1YTE3YmQ1MjdmOGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxMmQ0OGQ0NzA5ZmYxYjQzOWUyMjU0YTQ5YzQ1ZTg0MzY4ODBiMDJiMWIxNjFiY2NiYTUzODQ5NDg4ZDMyMzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNzgyZWNkYmM3NDk4YmNkZDExODdjMGMxYTkxYjM0ZTA2MTg4ODY2YjlhNzJjODNhYzk4ZDg3NmNiNGM1OWMifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_coupling_declaration.cpp#L88-L148",
+          "version": "repo-lines-v1:sha256:016348a2d452fbb02b9fc473456e1568c4c0520201ab36d5db1b7f54970bfa84:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA5OTdmNjY5OTllNWJhMTBhOWJhMzU2OWE5MzNiMWRmMmU2MmM3ZjQxYjVlYjdmNWFkYjBiYzNmODZlOTYyMTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1YjRhMjNiNDljNGJmMGQyYzVkNzVhMmQ0NWJlMWY1MTY1Njk3MjJmN2Q3NGE4NWZmYjRmN2JmYmFjNmJhMWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNzgyZWNkYmM3NDk4YmNkZDExODdjMGMxYTkxYjM0ZTA2MTg4ODY2YjlhNzJjODNhYzk4ZDg3NmNiNGM1OWMifQ"
+        },
+        {
+          "resource": "repo://test/unit/test_zero_node_refusal.py#L2-L35",
+          "version": "repo-lines-v1:sha256:4871f99847760184ffc0a573553923391413e77d621ce5c5d66cf603cb7dbb78:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMxZmQ0ZTJmOGJmMzdjZTE0OTE4ODRkMDZjZGUzNWQwYTcxZTI3MDkxOTZmNDc5M2VhNTY4OWU0M2U0MWQyZmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1YzM5OGFhOWMwZWNhYmJkMWFjMWFmYTFjOTFkOWI3YTkwODEwYmYyMTBmNzQ5NDBkNGExYzI2YmRmNWY3ZTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoxLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ2ODJjYmRiNGM4YjA3NTE4YmY0ODZjNTg5OTBmYzM5MTc4M2FhMjBhOTE2YmZiMjdhZDIxMWViMWQ1YzM2NDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMzNTI4ZGJjYmVkOTc5YWFhN2MwYzBhM2I4MjBkYjMwN2Y0N2UwYTQxZGU5OTk0ZDdiMTY5ZmVlMjg0OGJmOWUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

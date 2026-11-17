@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:4d24a40d689f151c725eb1162333ba09f77771cb6d0f872021a0cda89d0e0ab9",
+  "claims": [
+    {
+      "id": "claim_ba3bfaeec25d4460a4abf0b521713435",
+      "statement": "The sample cfgs demonstrate distinct input combinations: Allatoona combines point/runoff/boundary forcing and roughness, paraboloid initializes depth/discharges with observations, and circular dambreak initializes depth with empty discharge paths.",
+      "evidence": [
+        {
+          "resource": "repo://test/allatoona.cfg",
+          "version": "repo-file-v1:sha256:07e46b2da0b1e87278d2cfc521c44e2f81c155c50e01573287f4780e880914db"
+        },
+        {
+          "resource": "repo://test/circular_dambreak.cfg",
+          "version": "repo-file-v1:sha256:cac0b9f8c59cd2dc5c39eca880716ac40dcb62dcab9bb82573a168be8887a6af"
+        },
+        {
+          "resource": "repo://test/paraboloid.cfg",
+          "version": "repo-file-v1:sha256:608f4ae0f7031a7a18cdaa7ecbf0e456a57f9299c3d08a7800939ab926e3749a"
+        }
+      ]
+    },
+    {
+      "id": "claim_d1cb86c5a9a04acc8ace93878275711a",
+      "statement": "Cfg parsing trims whole lines but not split tokens, uses first-wins map insertion for duplicates, has limited quote/comment handling and lossy extra-equals concatenation, and does not safely validate every malformed line.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L246-L292",
+          "version": "repo-lines-v1:sha256:4008622696bdc33c0e36e39255415c5800192f84d1152c4fcdad2efde42e61b4:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiNDJjNWI5MWEzNjA3MWQ5YzA2ZjBmZTg4ZjRjZWZjMjhhMmM4M2QxMDU4ZmU0NDNmNmQzZWVmOGIwNTY4YTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFlMDQwZjA5ZjdkNGFjNTFhZDEzOGFhY2JiOTA2ZmEwZWUzMzUzNGIyZTBmOWRiYTJkN2E0NGZkZWQyNDI3NzIifQ"
+        },
+        {
+          "resource": "repo://src/string_utils.h#L197-L213",
+          "version": "repo-lines-v1:sha256:3f16a9dd6d810274796100b24d808e84a117bd27760e1be25ce99c4f9c4739ec:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4MjQ5ZjZmN2QyYWE0MjQxZjg2MzBlOGIxYjc3OGJmMjA0NDFkODkwMWExNzc3N2JmNzk4ZmYzMjc4ZDQ1ZDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFiZDk0OTBkOThlYzdhY2Y5YzYzYWYwMTY4MTQ0ZGMyOTUwNzMwMzY5ZmU1NjhhNzcwMTU4ZThmNWM2MjExZWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8a24451240ec4f7db45242648cee3b20",
+      "statement": "Typed cfg parsing uses empty strings or explicit defaults rather than a required-key schema, converts many numerics with atoi/atof, normalizes only selected string fields, defaults empty input_option to SEQ and parses coupling policy only in SWMM builds.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L227-L243",
+          "version": "repo-lines-v1:sha256:fe4d8f006e19435bd43b5e7f427cafdb21889ed4e5cee1abcd066989ab325111:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5MTk0YzRkMzQxYmI0M2M5YTNhNTEwMWFiMDFiNmU3MTI5MzFlNjZlM2E2MTI2NTU3NzYwNTliODViZTc1NzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU4ZmQ2NDZlYTA1YTFiOTNiYjc3NjM2NTNjZGNhMGY2YjAxYzc4MzZiZjU2ZjAyZDg0Mjg0N2U0OGVlNjhhMWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0ZjQ5MWIzNTE1MDA2NGEzNTA0YzI3OGNiZGNiY2E0MWEzMjE5NDAzNDRiMzA4NmRkZTg5ZWYyOWI4ZmY2MTUifQ"
+        },
+        {
+          "resource": "repo://src/config_utils.h#L476-L582",
+          "version": "repo-lines-v1:sha256:1afb7f2412e7a382f1ce7d5eb703570a1ce270adc96059d43b91fd87d405aa9d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmYWI1OWQyZGM4YTlhZDY5NjdlZWJhYjc0OTM3ZWFlNjg2ODVhYjdiNzNjOWZjYjA3ZDM3MGE5YWFkNjRiMzQxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyZTI3ZTk4NDljYTYyOGZmZGEwMDQ1NDIwNzdlNzAyNTk1MzVkZTk3N2ZjYzQ2M2I2NTZjNzljNDM4YTRiN2JjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_410bedc317ed4d2aa206af6e9e6dca63",
+      "statement": "Ordinary input filenames are passed directly to readers and depend on the working directory rather than the cfg directory; type-1 boundary paths join extbc_dir, while output/checkpoint paths separately use the executable-derived project root.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L295-L355",
+          "version": "repo-lines-v1:sha256:cf0c57c17b93c1c3d4ddec3034abfc12f3b0ab629e4f58fa1795f20502fa3d46:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhNTVlNzY2NmUwZWIyZDU5Njg1YjRiNTkwNzZhY2RkZWY5NjgwNmY5ODMyNjVkZmUxNWNkMmEyYzRhNGEyNjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlMjdlOTg0OWNhNjI4ZmZkYTAwNDU0MjA3N2U3MDI1OTUzNWRlOTc3ZmNjNDYzYjY1NmM3OWM0MzhhNGI3YmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/config_utils.h#L387-L451",
+          "version": "repo-lines-v1:sha256:d777893285fcfd1489c0ab4372b77048e0f28f2ecb61b6a5c14a63a86a8b3d3e:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjOWNmOWI2ZTFkZDM2YjUyNjc2YmExM2NlYTZhMGIwMjYzYTQ2ZWNiMGMyZTRiMzVjZGFkOTg4Mzk0ZTNkNjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwZjg4ZDkwNGUwMmExMzg3YWIxYzk3ZjMzNDJhMTVkYzYwN2RkZjQ3ZDJlOGZjZTZlYjQ0ODI5YmUwOWQwMjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ1ODRiNWY4NzFhZDE4YzRkMDNjMzQ5MGMwM2M0NjU1OGZhZWI4MGRkMTg0OTkyYmIxZmEyYzhkY2Y1Njk2OGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhMmM4YjgwZmEwZWEzNGEwNzQwNWI2ZmIzYjAzNjFhYTFlODNlNjY2ODYzODMyNWE5MTM4YTZkMGVmMWJmNDEifQ"
+        },
+        {
+          "resource": "repo://src/config_utils.h#L608-L645",
+          "version": "repo-lines-v1:sha256:d08350a6ccb6971b27cf20df14f26ce285504f4481c15fa1e02d5c3376bb89a8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmZWQzZmY2MzcxMWMyNmEwMGU0OGYwNTYwNWRmZmU5NmI5Y2RjNjEwNTc4ODhmYTE3YzkxMjA3MTBhNmM5YjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlN2FjY2QyOWRiYWYwZDE5NTRhZWJkZGRhMDk5MGM2ZjFkYTg1MTdjMzBhNmU0ZTkwY2RmYzdlZTY2YzI2YTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzdmYjA3OGMyODFhN2I5NDNhZTNhNzE2YmNjNjNjYjRlZWQ2ZGNiY2E3NTZkNTc2ODNiMWNlMjA4ODUzNjQifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1503-L1564",
+          "version": "repo-lines-v1:sha256:66f5ee27a6cd98eaf770c4fd7d1085228d9c61e22ee87a97cfc0ecdd75bfe142:eyJzZWxlY3RlZExpbmVDb3VudCI6NjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzNzA3ODJmMzUyMDMyMWMyMjcyMTg0ZDRmMGJkYjM0MGRkYjFjYmVjODA5ZDUxNjU4MDAxOTg4ODQzNmZkYTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkZmEzMzczMDg3ZGViZDliZjJjMzgwZTJkNTVjYjczNjA5MzE5ZWVlZGJkNjNmNjFlMjFmMjc0NWMzNDNlNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkODQ4YTIwMmQ2MTAzZjVhNGFlMjMxOWRhNGVlNDgyYzUyMDNlZjdiYjRkYzBhMTQ0OWIzYTBiYmM3MzllM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L631-L650",
+          "version": "repo-lines-v1:sha256:c7748777cb67239255ff2fcc1fc76a7f4db97e934f6d2d55d0d6b2c021ea7ed0:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYyODNmNGMwNmFkYjFkMmVjNmZiZTJlMDE5YTYyNjViNjEzMDQ4ZjllODNiYjk5ZDAwOTAyOGEyMDMyNjUyODkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2OGE1ZTlkZWZlYmUxM2I1YTg3YTY2NDg2NjJhZjhkZDllMGE1ZTkzNDg5ODU0ZDQzYTc2NzRmMzBkZmJmY2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhNzQ1OTkyMTUxMGNhMGMzZGUyZjI1OTdjYmZkZGRhNjdjOTcxNzI5NWEwN2NmOGM4NDcxYzgyODg3MjU5ZWEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L686-L773",
+          "version": "repo-lines-v1:sha256:c616c4e94ad89ec82868b9884362af7801ab2063dd655331c2309cf85e2f61e4:eyJzZWxlY3RlZExpbmVDb3VudCI6ODgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5MzRhMDRlYjUxMDI0NDE3ZDU3MGIwMjBkZjQ2NmIxM2E1NmViYzdjNjIxODk5NTRkYjcwMWU4YjQzNjRiYzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFmZjczMzE5ODc2Mzg0ZjM2NDQ3YmFhYzBjZGVhZmY2NDUxN2M1MDFhNmVjYTk2MDYxNjExMDk1ODRjZmQ4MjUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a5d32ef4ec94453bbc9f754d1ecde1eb",
+      "statement": "Input encoding and distribution are separate: ASC selects text readers, SEQ uses a global DEM header, PAR always reads an ASCII global header and rank-suffixed DEM/roughness/runoff/initial pieces, and input paths do not implement GeoTIFF loading.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L1018-L1121",
+          "version": "repo-lines-v1:sha256:05d531985b41540118d1a7dab44868f7d8874556b948764352a2b6aebc517d7c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4M2FkNDZhOTdlNDgwMGQxODUyNWQwOGE2NTI3ZDBiY2RmNWJiOGZiMDI1NmRhZmY1OTQ4ZGI0NTlhN2E2N2YxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4MmUzYzA0Y2ZmMDFlNmU0MzFmZWI3ZmRiM2Y2NTQ1OTBkYzAxNGIyMjFiMmU5MzVhYzZmZjczMWE2NWJjNDczIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4NTM2YTRlMTEwOTdmNDBmMmUyMmU0ODI5ZDk2NjRmMDVkNDNiZDVjNWRkMWVlMzhkNmIxOWExNTc2NmZjNTRjIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L717-L847",
+          "version": "repo-lines-v1:sha256:f932ff6902d20eb6e8eb20ab7a3864faf914276be27dbca688c820ceec895697:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5Mjk1YmEwMzZlOTA0ZDc0NTFhZjdkOWIxYTc4M2RiYmUwMjQxMjNkZWExNmU0ZDdhM2NkYjExMzY1MGIyYjFhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5YjYyZjYwZDg1OTBhNTc5Y2Y0NmY4ZDY3Mzc4YzRjNTcyYjk2MmNlY2NkYjkwYzdhNWY3YjQyYjk2MDc4MmE0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwNTY4YmJmZTZlZmNmNzFhYTU5YzI3MWMxNGFjY2IzMGM2Njk2YmNjNzdlMzAxODg0YTkxZmQ5OGI5MjRlNTk4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzMTBlMmM3MzA1NmNiNGE1YWU5NjZmZWJmN2JlMDQ0MzgwZDQwNmU1N2Y3ZTQ1YjA4NGNlYzk4ODQyMjE3OTE3In0"
+        },
+        {
+          "resource": "repo://src/triton.h#L905-L994",
+          "version": "repo-lines-v1:sha256:143c156f9950b0cec30e893742b91d0bb2a9cd2ebea5e4ae69f3be18eb1c4835:eyJzZWxlY3RlZExpbmVDb3VudCI6OTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ4OGM0YWQ2ZWU4ZDJiYjVjMDc5YWZmNDVkYTFmOTdlNTA3YTExMTg3ZTlhYmVjMThjNjJhNGUxZjhjYjc4YTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVjNDZkODRiZGNjZDRhOWI5MjY0YWU0ZjM0OTY4ZGZiMzVmYzRkOGE3ZjNjNmM0MzAxZjMwM2RhMGQ5ZmIwZDUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_96e7d86003204ea6b145777333adf5b5",
+      "statement": "DEM headers are parsed by ordered line/value slots; ancillary ASCII grids are headerless and ordinary binary matrices have dimension headers, but readers do not establish CRS/alignment or universally verify full payloads; NODATA elevation values are loaded literally.",
+      "evidence": [
+        {
+          "resource": "repo://src/dem_utils.h#L149-L294",
+          "version": "repo-lines-v1:sha256:0c56b997f32768b8444bf9c11f557cef9786819da4f122cc61ab60700260e074:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQ2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5ZWNkY2U5MGMyYjNlNDcyNTFiY2FhZWRkOTZiZmNjZTFlNTljODdlYjdhMjg1NzI3NWY2ZmY1ZGFkNTMwMDI3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5M2QxNGFiMGFhNTFmMTMwZjFlNzZlMjBiYTIwZTRkNzM3ZGIwNjI2ZTU2NmY4YjUwYThiMGM5NDBhMTY5NzkzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxMzkxOGIzNGZlNmEyMjA2ZWRmNjM4MDcxZjEwZGU3NmVjZGQ1OTA4MTA4OWFmYzcxNjI4MDQwZGI0MjJhNzZjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDg0OGEyMDJkNjEwM2Y1YTRhZTIzMTlkYTRlZTQ4MmM1MjAzZWY3YmI0ZGMwYTE0NDliM2EwYmJjNzM5ZTNlIn0"
+        },
+        {
+          "resource": "repo://src/matrix.h#L1049-L1255",
+          "version": "repo-lines-v1:sha256:47fa41ed1666287cf6b6f6fa3bc27ec109bd2405f7a9776a42c5ecf050f0fd0f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0NWQ3Y2E3ZGIwMTI0MTI4MzU5MjcxNGQ4ZGQyMjQ1MDQ3ZjM2YTFlYzVkMDhjMTlmN2M3NjlkNDY5MGMzNGIxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzNWQwZWIyODRjNmE3YzExZWZiM2Y2NjJjYmY3ODcyN2QzM2FiNTZiMzkyNzcwM2QxYzQ0Y2I0NWJmYzM3Yzk0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIzZDg0OGEyMDJkNjEwM2Y1YTRhZTIzMTlkYTRlZTQ4MmM1MjAzZWY3YmI0ZGMwYTE0NDliM2EwYmJjNzM5ZTNlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzMzk4NGViYzJmMTU5MWI3OTk5YzFiZGQ4YmYyODI5ZjIyYjQwM2I5YTUzMWMzOWI5NTY2ZTk4N2I5M2E1MDhmIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L717-L847",
+          "version": "repo-lines-v1:sha256:f932ff6902d20eb6e8eb20ab7a3864faf914276be27dbca688c820ceec895697:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5Mjk1YmEwMzZlOTA0ZDc0NTFhZjdkOWIxYTc4M2RiYmUwMjQxMjNkZWExNmU0ZDdhM2NkYjExMzY1MGIyYjFhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5YjYyZjYwZDg1OTBhNTc5Y2Y0NmY4ZDY3Mzc4YzRjNTcyYjk2MmNlY2NkYjkwYzdhNWY3YjQyYjk2MDc4MmE0IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwNTY4YmJmZTZlZmNmNzFhYTU5YzI3MWMxNGFjY2IzMGM2Njk2YmNjNzdlMzAxODg0YTkxZmQ5OGI5MjRlNTk4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzMTBlMmM3MzA1NmNiNGE1YWU5NjZmZWJmN2JlMDQ0MzgwZDQwNmU1N2Y3ZTQ1YjA4NGNlYzk4ODQyMjE3OTE3In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_09843483510a4f579ed41d8e5a6ef64a",
+      "statement": "ASCII matrix readers split literal spaces and choose atof only for tokens containing a decimal point, so preparation must not assume arbitrary whitespace or exponent-only numeric formats are accepted equivalently.",
+      "evidence": [
+        {
+          "resource": "repo://src/matrix.h#L1075-L1103",
+          "version": "repo-lines-v1:sha256:72641d812eff7c8ef1e85a17816673e02ac2a4f251ad4592c3511505f0421fa8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhYWM1MTUxZWRmZTQyNzViOGM4Y2EzN2NkYzRmNDMzNzNmM2UyN2Y4MjQ2ZGJmNWJjNDUzYWIwMWFiOWYwOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2NWFmY2IzNjAyODZjYTc3Y2FmOTUwYjZlMzZhYzAzZDBjNTFiYjgwNDI2NDEyYjZiZTFiZGFhZTYwN2E3ZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJjMjA5ZTJmODdkNjdlMmU1M2JhNDQwMTQyMzUyYzg0NGMyM2Y0YjQ3YTlhNDIyZTQ0ZjEyNjUwNDM5YTI5ODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiMmY5MGU3ZjI5YTdmYmY1ZTViNzhkOWQ4MmI2YzhkZWZhNzY4YTk2ZWEzOGIzYjU1OGE2MjYyNTA5ODU2YjQifQ"
+        },
+        {
+          "resource": "repo://src/matrix.h#L1142-L1177",
+          "version": "repo-lines-v1:sha256:1e77adbdc912512b6bafdadfcea6d960392fb41a9f534b6054dc9ff816b9e31a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhYWM1MTUxZWRmZTQyNzViOGM4Y2EzN2NkYzRmNDMzNzNmM2UyN2Y4MjQ2ZGJmNWJjNDUzYWIwMWFiOWYwOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2NWFmY2IzNjAyODZjYTc3Y2FmOTUwYjZlMzZhYzAzZDBjNTFiYjgwNDI2NDEyYjZiZTFiZGFhZTYwN2E3ZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJjMjA5ZTJmODdkNjdlMmU1M2JhNDQwMTQyMzUyYzg0NGMyM2Y0YjQ3YTlhNDIyZTQ0ZjEyNjUwNDM5YTI5ODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiMmY5MGU3ZjI5YTdmYmY1ZTViNzhkOWQ4MmI2YzhkZWZhNzY4YTk2ZWEzOGIzYjU1OGE2MjYyNTA5ODU2YjQifQ"
+        },
+        {
+          "resource": "repo://src/string_utils.h#L197-L213",
+          "version": "repo-lines-v1:sha256:3f16a9dd6d810274796100b24d808e84a117bd27760e1be25ce99c4f9c4739ec:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4MjQ5ZjZmN2QyYWE0MjQxZjg2MzBlOGIxYjc3OGJmMjA0NDFkODkwMWExNzc3N2JmNzk4ZmYzMjc4ZDQ1ZDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFiZDk0OTBkOThlYzdhY2Y5YzYzYWYwMTY4MTQ0ZGMyOTUwNzMwMzY5ZmU1NjhhNzcwMTU4ZThmNWM2MjExZWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2bf02ec7e939445a92bcffc9752561a0",
+      "statement": "A roughness raster overrides constant Manning input and coefficients are squared internally; optional initial H/QX/QY fields are zero-filled when absent on clean start, while checkpoint state replaces initial fields on restart.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L1182-L1192",
+          "version": "repo-lines-v1:sha256:0373d5783cde3331f9c1cd73ea52180eb9c4db391e515f3ef862c2dbf1384a4b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgxNGQxMGFmMDE4M2YxNzlhMzljMDA0NWYwZTI2NTRhYjYwMThhOWUwYWE5NGI1NzkwODVmNDgxNDZmOWQzMzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVhOTFjM2EyMjkyOWJhMTQxNTMyODE2MmUyNGViOTIzMzQ5NmMyN2VmMTE2ZTU3OWExZTdlN2VmZDQyNTcyZjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBhNDRlMTMxYmE0ZDA0OGU4ODYyNTFjZGRkZTRlMzdiYmEzYzc0MDczY2MwNTUxNjQ1Nzk5ZTEyZmM3NjljNjMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1764-L1792",
+          "version": "repo-lines-v1:sha256:44257d77eb0a63e411d8d29ce2d68f42e290089db61f6d7935b3d2a96e87248e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgxNGQxMGFmMDE4M2YxNzlhMzljMDA0NWYwZTI2NTRhYjYwMThhOWUwYWE5NGI1NzkwODVmNDgxNDZmOWQzMzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA0YjlhMGIxNmI5OTEwYmFhNWQwYTRkY2FmZjhhNjBjNDI5NjMzYmYyYWUzY2JhY2M4MjAyOTA3NTgwZDEwY2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhlM2IyZDM3MmNiMTIwMGY2M2ZhN2JiNDk2MjM1MWE0YzhkZDcwODc0YWVjNjRiYTJkMjQ5ODE2YWFhZjg4YTIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L764-L834",
+          "version": "repo-lines-v1:sha256:f718b9a006a9552b1fa4391c473c8217b6624b4b73d0a9263cd80adbaaedf29d:eyJzZWxlY3RlZExpbmVDb3VudCI6NzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkOGIwOTJjMTFhMjQ0YzY1OGNmNzk1YmJkOTNjOTI4ZTJiZjg3OTM5NjEyNGNlNmU1MjY2NDIyMjllOTkzNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk5OTc4OGIzOGMzNmI2YzE5NzlkYTM1YjRjNGM1OTZlOWIzOTJhYTNjMjAxNzdlYWE0YTFlNGQyMTgwNTU4ZjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY4MjU2MzBjNzg2Y2Y1YmI3M2U3ZGE1OTYyODQxOTAwMDJlZTJlZjBhN2Q2NjExMTYwMGJlNzI1NzBjYjdhNTkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_db296f7919a745ce8569fc7a73d5c49d",
+      "statement": "Point hydrographs use comma-separated time/discharge columns and percent comments, convert hours to seconds, map source coordinates to rank-local cells using DEM ceil formulas with fatal source bounds checks, and linearly interpolate discharge before adding Q*dt/dx squared to depth.",
+      "evidence": [
+        {
+          "resource": "repo://src/inflow.h#L175-L295",
+          "version": "repo-lines-v1:sha256:ae1f8bb459f75131f45f582cae579a810bb9b629b849d33028a291dfffa14dd5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjNDE0OWE5Y2ZhYzM3ZmJiYmNkOTJmYzhjMGJkYjVhODU0ZTI4ZDA3N2IwNDI1MDdiMzM2ODEwMzQxZDk3YmQ5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2NGVmYzQ5NDE4ZDI2ZGNmMTI5YjIyYTZhYTIxMTA4Y2VlYzM3Njc3YTMyZDA4ZTlkNWZlZTM1ZGRhNjZiYjlkIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYTEyZTBjNmE5YjYyYzJlNGRlMDE2ZjUxNTIxZjM0NDNlNTE4ZmNkODE2YjQwMmQ0N2NhOTNiZDIzYzE5Zjc3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJmMjk2NDA3OWMzYzVjODE1MjBlZjMzYTJiOWQyZTE1YTFiODRkNzI4MGRiODU5MGRjZDY1NzQ3ZTNlMDEyYTQwIn0"
+        },
+        {
+          "resource": "repo://src/kernels.h#L891-L921",
+          "version": "repo-lines-v1:sha256:7b69c5ed8a3e4669eef349a857d4d11e536866c95f379483b7f5a58cf241b143:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhNDhiZDAwYjQ3ZmE2MjBkZDNkZjk3MjUxZGU1ODYyMDE1OTliMzE0YWZjYzg4YTA4OWQyNDQ2MmY0YjMzOGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ4ZTcxMzM5ZWJhMjM4MmZmMDZiODQ5ZWI3ZjI2N2U4NTMxMWE1YzhhYTA3OGIxZmZlOTA0MmYzZWY2NjNmODMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM3NTRkMDYxOWY3Yjg1ZGFhNjUzYjVjMjcwNjEyMWMzNGRjNDBmZTZhNGRjYzFiZTFiY2E3NWQ5YzBiZjdjNjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZlZWYyYTk1NzI5MzkwNjJjZDdmN2FiNDlkMTE5OGM1M2YzZTFjMGE4M2I2MjM2MDA0MzUyMjM5ZGI4YTU0M2UifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1270-L1375",
+          "version": "repo-lines-v1:sha256:f51965325dea802cac391d219a56e215f9d51611ec5b66f1da9e901be55c32c4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmOTdmNDk4NTg2ODE0ZmZiZGRjNDZmZDg5ZTUyMmQzNGE1OWIzYWM5NTg5ZmQ5ZmQ5OWM5MzUyZGViODdlNTU0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMmY0Mzk2MTZlNjNkMDViODhkZWU3MTFjMWJlNTYwMWMxNjc2ZGJmMmM0OTU2NDE3OTI1YWNkMjRjNTE2MTFlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwNTY4YmJmZTZlZmNmNzFhYTU5YzI3MWMxNGFjY2IzMGM2Njk2YmNjNzdlMzAxODg0YTkxZmQ5OGI5MjRlNTk4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyNmJhYjVjZjE1YzM2MzNjNzAwYmUxN2ViMzgzNDhkNWM5ZGEyYmZhODI3NTY3NmM1NzVkMDVlMTVkMWM4Njg5In0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2142-L2151",
+          "version": "repo-lines-v1:sha256:9b6915888085493ff967361174adc9c0504658edf06ab89f5a86919dca427df3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNjMTIzMWE0OGRmMjJhMjY4ZGUzY2NhMTM3NWQ2YzJjOTI0OWUyYTg3ZjYyYjdjOTVmZjEyYmU0YWFhMzdiNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY4Zjg1YjcxMzg0YTJkMDRjMWNiZDY3ZTgwOGJlOGFlZGJlMzU0NmJiNjFjMTYyYmJiMTA3OGRlMDM4MDNkMTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODcifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2513-L2533",
+          "version": "repo-lines-v1:sha256:5f017aa555c5c3ccf028bb039a99f49ee5851f91965389ba647da76d84bd77c4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0NjVlZjdkMzIwYWI3ZWI4MWI2ZDA0NzhkODZhMTBhMzNhZDRjM2NiYTgyNTI2NzNhZjQzZTZkZjU4MTAzNDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyNGJjMTdiZWY0ZDM1NjZmMDhjYjExZGFmNjgwNzgwZDQ5MzYzNDJjMDMwZDRlY2RlNGU3OTBhNWNmNjJmYzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU2ZDZmMTNiMDM4NGMwZDk0ZjE1NjNmM2IzZDZhYWQ0MWZlMDZmYzA1NmMwMGQyZWIzNmFjMWJmOWQwOTlkN2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L686-L698",
+          "version": "repo-lines-v1:sha256:c194515e6832e434642d8e623ffffd18550780d0023962c445b72919dfad27e7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5MzRhMDRlYjUxMDI0NDE3ZDU3MGIwMjBkZjQ2NmIxM2E1NmViYzdjNjIxODk5NTRkYjcwMWU4YjQzNjRiYzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM2ZjE0Y2IxZDFkZTQzMmYxNDNkYTg3MGJkMWFkZGE3ZWY0YzVlYmFhYTc2MWQwYmU5YzI0MTM5YjE5YTg5MmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_462c1d3ff1b44e31b7fcbd3a552b81bc",
+      "statement": "Runoff input converts hours and mm/hour into seconds and meters/second, uses zero-based zone IDs to index zone-major intensity storage without a kernel range guard, and applies the selected time row rather than point-style linear interpolation.",
+      "evidence": [
+        {
+          "resource": "repo://doc/configuration_reference.rst#L294-L365",
+          "version": "repo-lines-v1:sha256:c413597f2096192f0035990011bdb1146607685997a7b92387195d7f07474854:eyJzZWxlY3RlZExpbmVDb3VudCI6NzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyNDhkZWExZWYxNmVlODBhYjUxMjM0YWI3ZGUxYWViN2I0MGJhOGU3YmQ2Y2JiODEzZDg4ZjBjNzE4MzgyOWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkMGM4M2QwYzM5N2ZlNzA5ZWQ1YzM1YWI2YjExZTQyZmMyNmYzY2RlYzVmNjliNmIwODIyMTdjNzgxZTYwNzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlmMTZmNWViZWY4Yzk5MTAwODAxOTAzZjFiMDAwMGY0MWM5NzY2Njc3YTIzODJkZDhjNDVjZjA3OWMyZjA0NTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImViNzUzNjFmZjYwYWRiYzUwMzkyOTQ5NjhjNDBhMDZhMzA4NzI0ZmQzMDQzMTU3NTMwMTIzZjJmZWE2M2JlMjEifQ"
+        },
+        {
+          "resource": "repo://src/kernels.h#L943-L975",
+          "version": "repo-lines-v1:sha256:9f8ab42483234d009c94f62af45f0cd92e73675d0ce8405ac39bb3de99d032e3:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmNTAyNGZhYjc0OThjNjAyZDA4ZWFjYzgzNGY5MzIwZTc3ZjY5MTg2ZmE1ZWQ3OGQ4YTg1Mjc3ZDBlNjg0YzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE1ODE0YThmYzEwZjVlNzUwYmUyYTcxMzZiMGNhZDM4MWU0ODE5YjMyOGMzM2E5ZjNlZThjYzM1YzFlMjM4ZWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJkNWE1M2Q2ZjU2NGY0OWI1ZjM3YTUwNDY1MzEzOWQ0MGE4NDlhM2RjZTdiOWExM2Y0NjIxYzQyMjk1NjhhMmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk3Yjc3MWQ0ZmZhMjI3ZmViOTgyOTA1NTUzNDE3OGI1NGZkMTI1OWQ0YzNiMTNmYThiOGE1ZDYwMmQ2M2I1OWIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1846-L1902",
+          "version": "repo-lines-v1:sha256:93e9d43d7ca92601446428c79996941895290fdb50170ee4d4ab2296d0b8372c:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkN2E5ODYwZWI5N2I5OGI3OTFjMGRmOWQyNzMwYmI0OTQzNzc4MDMzN2JkYmQ3OWEyMWE3NDBiM2Y0YmU5NjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM5MDc5YzJjNmMyZGIwNGRjYTM3ZjY1Njc2YWRjZTQ3YzQ3NmE0M2M1MzAzMjNkYjVlM2MyYTBiNGY1NDlkMDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2ZDNkNjI0M2Q0NzJiNzhlNDFiZTEyMjI0N2NkMGI3MmJlYzYxMWEwYjhhNWQ3YzExZWM2ZjQ2Yjg1OTEwNjUifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2495-L2510",
+          "version": "repo-lines-v1:sha256:b6cb688b0ac53352f17fd66aa1022fcf02f492899a02635bb8d55514df622d52:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ODgxZjEyZGFjMzdiZDRmZmY5ZjhiYTczOGE1NzQxYzM4OGFhM2RmNDVlNzMxODRkNzE3ZjVkNmVkMWU4ODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk1YjYzZWVhZTcyNGJkZDkwMDIxMzNkNGUyMGE2MDZkODU4M2YyN2VmMTExMjBkZTU3ZjVlOGMxNGQ2MGNiZDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxNmUwYTFmMzIyNGU5ZGZhNTFmMzNiMGM4NDdkMjMzNTU0YmQxYzdmOTFiZGRiOGRiNzdhNWI4NWEzZjM2ZjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJlOTRhZmQ3NTZkZDZiZDc3MjcxODQ3NDZjYzI1MTMwOWRjZjEzY2Y3ODA2YTk5YmYxYmMyZDZjN2I3ODRkNDMifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L700-L708",
+          "version": "repo-lines-v1:sha256:2d103e1369f9329276b6a27e09e679374d1b85890104b3cf943e909c31ef36f5:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjQ4ODFmMTJkYWMzN2JkNGZmZjlmOGJhNzM4YTU3NDFjMzg4YWEzZGY0NWU3MzE4NGQ3MTdmNWQ2ZWQxZTg4MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYWI1MjhjZGIzNTNiYTI3NGQ1MzYyMjhlNjA2OTE2NjM0ODU1ODY1YmM3ZGNiZGM4ZTQzYTQ3MDY2YTFmYWUwYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTA1NGU2MDNhNDQ4ZTkwNDg0YzdhMjI4MzQ2ZmFlOWZlMjg0ODdmMTJlZjU0ZDE1NTdkY2U2MzljYTNlMTY0MSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGViNjYyNjhhZGE5YTI1MDQyZWU2ZjBhNTdjZGU3OTliNzcwMWQwMjQxODM1NmY2NjNhNTNlYzliNDY0NmJhMCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_29bfa20aea6c4d018b38c9ae5e02066c",
+      "statement": "Observations share the x/y parser and coordinate/rank mapping, but their out-of-bounds branch prints an error without terminating there, unlike point-source bounds checking.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L555-L560",
+          "version": "repo-lines-v1:sha256:b1a3ad0b86db3e42fd3234d8effcd684cca57e4e8a7db061c8c0518817f9535a:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjJmMWEwYjJhZGI4NDEwNWEyMDFjMzVjZTQxODI5ZTY1MGQzNjYzNjFkMDc0ZGQzMDc4ZDU4ODhiOTE2ZDdmZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODI3MDBhYTVkMGI2ZjBjZGMzNDFkYTYwNTVhMjRmZTJjNDFlZDRiODljZDcxMjY4MjA2OTg2NTQ3YzIwOTNlMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjZiODQyZTBiOTQzYTYxZjcwZjVjOWQ1M2VhMjY1ZjE3YjVhMmY3YTZkMDk3NmJlODQ1NGIyNGVmZmNhYTViNyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDZlNzkyNTcwYTEyMmRhMmVjMTc4MmI4OGMzMTI3ODBlZGNiNDYxOTBmYmFkODhhNGM3YWMzN2ViOTUzNzk2MSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L1277-L1294",
+          "version": "repo-lines-v1:sha256:b02b90f1859df669eb8d1bae6499b625ded200b949e0cc27c595bf1721a0439f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMxNTZlZThlMWU3MGM1MTEzYzQ0ZjViMzZhMzYwNDAzNjk0YzVkYTI5MTg0ZGNiNjhlNmIzNWQyNTE2ZjFmMGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNiZjM0NTIzMjg3MGIzMGU3ZDIzMmNkOGMyMTc5MDliYjQxNDBkNzFkNWVhMTVkYTAzMjI1NDA5YjU2ZWI4NWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUxMzI3YjIwOTEwYzI2ZmQ0ZDZmODkyMTdiMzhlY2I0YzE0OGQyZjM0YjRmMTk0MzMxNmJlZDgyOTVjNjU1ZmIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1381-L1454",
+          "version": "repo-lines-v1:sha256:83e78bcf56942436299316b5dbea9fc7097a6afa0e938628bab5e4d94abad539:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI2OGZjNGRhNzA3MTljNmQ5MmRkYmNjMzBkZDI5MTg0MDdhZDBhNzhhYmZmNGZhYzY0YjUxZmYxZGRlODUxNzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA1NjhiYmZlNmVmY2Y3MWFhNTljMjcxYzE0YWNjYjMwYzY2OTZiY2M3N2UzMDE4ODRhOTFmZDk4YjkyNGU1OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjExODBmOTY0Yzk3MjQ5MTEyZjE3MTgzN2IzZGRkZmRiNmEwODAxMTJmMzcwMDVlZGYwOGUwNTEzM2QyNTU1ZWUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_062f9c8089f44e1ca14145970ecbd020",
+      "statement": "External boundaries expand mapped aligned edge endpoints into rank-local segments; type 0 copies interior state to ghosts, type 1 interpolates a midpoint water level and derives depth, and types 2/3 impose normal-slope/Froude velocity behavior after general open-boundary copying.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L359-L472",
+          "version": "repo-lines-v1:sha256:6a6d8bdf132018d04b6475429c6d9aef77a0f74601d29eeb6d5ab40c0fd24339:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlMjA0M2U0MDhiY2JlMzBjOThhNzY0Y2I2MDVjZmI0ZDI4ZDg3OGZjYjQzMTM1N2EzMjM1MTE3OWU1NTcxNDg1IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyZTI3ZTk4NDljYTYyOGZmZGEwMDQ1NDIwNzdlNzAyNTk1MzVkZTk3N2ZjYzQ2M2I2NTZjNzljNDM4YTRiN2JjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIn0"
+        },
+        {
+          "resource": "repo://src/extbc.h#L138-L292",
+          "version": "repo-lines-v1:sha256:b30579ce713aa21d7855e2d58139aac8d31f753b197ce3a25cb782e728750725:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyMTgyZGE1YmViYzYzNjQ0ZDc4YWZlOTFmZDYwYjM0NmZkZWQxYzc3ZDE5YWM0YmZiOWZmY2U3ODAxMjI1NTgzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5M2QxNGFiMGFhNTFmMTMwZjFlNzZlMjBiYTIwZTRkNzM3ZGIwNjI2ZTU2NmY4YjUwYThiMGM5NDBhMTY5NzkzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlYzdiMjQ1NTQ2ZWIyZjIyNmRiMGVjYjg2NDlkYjg4NmQ3MDI1ZTZiZGEyZTYxYzcwY2FmODZhNmVmM2FkOTc4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDg0OGEyMDJkNjEwM2Y1YTRhZTIzMTlkYTRlZTQ4MmM1MjAzZWY3YmI0ZGMwYTE0NDliM2EwYmJjNzM5ZTNlIn0"
+        },
+        {
+          "resource": "repo://src/extbc.h#L329-L337",
+          "version": "repo-lines-v1:sha256:d970cfa9b4288479174c7333c8f1189fa8ab9d6e305cfc80ee7548664419d507:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFiNTlkMmRjOGE5YWQ2OTY3ZWViYWI3NDkzN2VhZTY4Njg1YWI3YjczYzlmY2IwN2QzNzBhOWFhZDY0YjM0MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODI3MDBhYTVkMGI2ZjBjZGMzNDFkYTYwNTVhMjRmZTJjNDFlZDRiODljZDcxMjY4MjA2OTg2NTQ3YzIwOTNlMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDg4YjI5OTQyMmJhYWFhMmQwMjUyYTU5ZDMyNzJlMWYzZGEyYWY1NzUwNGE1MmFkMjhhM2MxMzdlYzE3Y2Y4ZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmE0MDEzOWM4NDAyMjRhMGE0OWNjNDBhNGMzNjNmNjliNmQwMDQyMjhjOWQ5YTBiNDg5MzIwOWI3ZjRjNDI2NyJ9"
+        },
+        {
+          "resource": "repo://src/kernels.h#L1169-L1262",
+          "version": "repo-lines-v1:sha256:c04991bba247ffdb2e9337cca6730bebb2c182c93e56add17fbac69bd42c766c:eyJzZWxlY3RlZExpbmVDb3VudCI6OTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhZGFlNmRhODQ4YTUxMGY5NTk5ZDIxNjZlZjIzZjAwYmNkNDI1Zjc2ZDI0OTI4MTE3ZTgzMDU1MDA5NTc2MmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxMDU5YzhjZmI1YTA3MmM2ZjY0ZGQzZDFiZmRiYzM1NmZiZWM5M2FlZWM4ODc5MWRhN2VkYmE4OWMwODg1ZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkZDM5MTA0NjgxYjY5YTJjNWU5OWRmNzlkYjNiZWNmOTA3ODk1MTkzYzRkNzc3OWY0NDNlZGJjNjE5ODc4NDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzMTkyYjdkODM5MzM4NDY1ZDUwY2UxYzJmZGY4MmEzOTRjNmNhMjY2MWI1MmE2MjBiMjRhMTQ3NmEzOTE5M2MifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L1467-L1530",
+          "version": "repo-lines-v1:sha256:f7440d8c4db17d9e82a149ff72694413c4cf658616e8b85d14fb80313f91ea46:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5NTJhMTQyZWJjZmZhZDk4OTY2MTQyY2RiZDBkMDcxNGI1Njc4ZmFlODIzYTE4OTE2OWI5OWRkZWYzNzdhOGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZjYzhiNWI3NmQzNjM2NWUwZjYwOTZkYTBjNzY2YzM5MmFlNjI0OTIyNGFkZjBhZGM2MmE4NWE4ZGRlOGUwMzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkwNTRlNjAzYTQ0OGU5MDQ4NGM3YTIyODM0NmZhZTlmZTI4NDg3ZjEyZWY1NGQxNTU3ZGNlNjM5Y2EzZTE2NDEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2537-L2546",
+          "version": "repo-lines-v1:sha256:a5e501426fca028e59c846e77dab76e55bc6963082f0ceecbcc9b73fa079162a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlZDI4NDZhZTBhZmJjZDhlMDY0NTQ3NTM2NWNkNTY1MWJmMmE4Zjg1M2U2ZGFhZTdlMTBiNmNhZDZiZDA3ZjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJmNDNhN2UyNDZmYjQ0YzkyMThlNmQ5YmYxYjE1YTQ2ZWY0ODc4OWYxYmI2OGZjYzM3MWY2ODhlMTBhZDVlOGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhOTFjM2EyMjkyOWJhMTQxNTMyODE2MmUyNGViOTIzMzQ5NmMyN2VmMTE2ZTU3OWExZTdlN2VmZDQyNTcyZjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_dc673ced8049437bb1af59d9a16f0587",
+      "statement": "Simulation timing is expressed in seconds after forcing conversion and sim_duration is an end time rather than an additional interval after sim_start_time.",
+      "evidence": [
+        {
+          "resource": "repo://src/config_utils.h#L45-L48",
+          "version": "repo-lines-v1:sha256:b341c3fa84a434af746c367ae55c56950a3de3fa8796fb96b75335b5287a63e5:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTBhNTU4NGFlN2UwZWFkNjAyNjU0NTQyNDdiMjYxNGQxMzJjYzc1ZWEyNGEwNWJjZWNjM2FlOWJkZTkzMzIxYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOGQ1YzVlMDIzMzRkMzQzMzMxODViZmVmMmJkYjY3NjExZWNlZDVlNzFjYTVkYzk1MTllZWQ1YWM2ODRjOWMzNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjZlZTQ1NzczMzRhZDMxZDYyZGY0ODAzOWRkYzBjYzU3NzJlYzZhZmZmYWZiZDM0YmU5M2FhYzE4Nzg0NDAyNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTUwNzdkMWZiYWRkYmJlYTc0YzlmMTIwYjFhODljMDljMTA0ZDcxOGFlMmRhMzAzZDA1NDk5OTYzOTNiN2JlMSJ9"
+        },
+        {
+          "resource": "repo://src/config_utils.h#L539-L543",
+          "version": "repo-lines-v1:sha256:e23dbfb881e5211c96fef0f4440e501dd0ae70301fbba9c2f0ef68575e224f3b:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOGMyNDQ3MjFkM2QxYzgxNTM1NTYxZTI0YjkxMjQ2YjdkM2NhNTcxMzRhNzM5Yjc3YmFhY2JjNTE4ZGY1ODgyYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTZkY2M1ZThhODlmNjk3NTEyZTZkZWJiNDNjNDdiZGE1YmU0MzY1ZTU3MTVkMzI3NDI0MjVmMzk5N2FhNjAzOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTgzNWEwYWZjYzIzNDc4NmMyMDAxM2ZhYjAwMGM5MDc0N2ZkN2JlZjk4YWM0MjZmNWM0ODk5MjE4NjM1ZjFmNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjM5YjgwMDMzMzFkNjJiZTViMzk5ZTUxMzEyMGI2YzM2MzEwYjQ2NmYzNWY5MTY4YmIyNDFmZTBkZjVjZDk5MiJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2300-L2335",
+          "version": "repo-lines-v1:sha256:6fd53ca4b33ca0bdbe6dd879b16921da8e425341b513eaa99b36210aefdfeb89:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3MDljYmUzNzQ5NmQ2MDJjZmEzMGQxOWFkNDk2YTI1ZTIwMDFmYzE4ODc3MzRkZTA1OThlZTRiYmFlMTljYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlhMzQ5YmJkMWEyMTEwNGYwNTFlMzRiMmM4YTllNzBjYzdmYmI1MGJjMTlhNjc3ODFmMmExNDBjMzg2ZDk0MzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ0OGU2NzliNzIyZjcxNDE3N2Y4M2UzNzA3MmEyYTcxZGExYmFmNmMxOWJjMDQwMTE3MGRkOTllMjIyYjhiMDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM0NjEyNWEzNWZkMjhhMWUwN2M3MTA5YzZjOWVjMGE1YTNlNjcxMTkzMWYwOGIxNDEwOGVmYjkxZmJhYjYyZTgifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2356-L2357",
+          "version": "repo-lines-v1:sha256:f2949b458b25fd8b33889bde42eba516b86cda29126ca59f24f68724ab48867c:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjNlNGNkMTdkZmE5ZTZlODNlZTIzYzE1NzcyOTlhY2Y3NmE1Njg2ZGU3NmYzOGYxMDlmN2RlMTFmYTAwYzAzZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDQ2YzI4YzMwYmZjMjA3OWFlMzE2NDZhZGU2YzQ4OGRmNjFlZjUzZmQ4YzVmZjcwZTE3NmM4MWYwNzRiMjNlMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTY1MTFkMTk4YmY3MGJiNTk0NmRlNmE1MDEwYTQ4MzEwMDViZTE2MzdlNTU2ZWY3YmYwMTE2YzEyYWVhZjAwOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZmIyZjkwMDczYzAxM2ZjMmQxOTI1NzNmNzY1MzFkYWQzNmE3OTVjOGMyNjgyNmY2MTcwODVlODZmYjk3YTlhMCJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}

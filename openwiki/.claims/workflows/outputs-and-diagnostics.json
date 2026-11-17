@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:df721b190dccde22f8e7a57d9524dc10b1a319ae35a35172db3fa68d19643ab9",
+  "claims": [
+    {
+      "id": "claim_2ae00baf327144ac83684d40e01f41ef",
+      "statement": "print_option characters h/u/v select H/QX/QY; max_value_print_option h selects MH; ASC and GTIFF produce companion binary restart rasters while BIN produces binary only, with GTIFF compiled under TRITON_GDAL.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L524-L704",
+          "version": "repo-lines-v1:sha256:e6bd1ae298aaed4a561612576a1f221295529de8e18d52fbaf06a00cdfef1c59:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1NGNlNTdjYWRmODRjMmEwZTQwNWFkNjYwMTcwYzdjMWVjOTM2MDA5YjEzYWE1ZDI4OTA3YzMxMTZkZDBhNWU0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzN2I5Y2QyMzkzMTdiM2VjMDBmYWFlOWNhNmNkMWQ4YmIxZDc0MDFlMDEyMDJiMzQxMmEzZjBmNDcxOGQ1ODkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIzZDg0OGEyMDJkNjEwM2Y1YTRhZTIzMTlkYTRlZTQ4MmM1MjAzZWY3YmI0ZGMwYTE0NDliM2EwYmJjNzM5ZTNlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyNDk3MDAwMzU1MGYyOTQ5MGI0OGY5ZmRlMGU4NTgzOWFkYTg5YzAzNTNkNDIxMjA1NWE0MjUxZGU3YzQyOTljIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_84bf61d4e72f4c0eb1ce9a9af23d81ec",
+      "statement": "SEQ binary output gathers strips to rank zero and writes interior row-major T values after row/column counts encoded as T; sequential ASCII consumes that assembled buffer at six fixed decimal places without a GIS header; PAR binary/ASCII writers write local interiors.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L346-L379",
+          "version": "repo-lines-v1:sha256:8a17915898aa0c3015aa4166f72f0e731cbbef6671c7abcc718f13d03e3b4f15:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyZmE3ZDM5NWVlMDI5ZTVmNTEyZTAxNmMzNDQzOWJlYzQ4ZGU2ODlmYjI5M2Q1NDI4MWI1YmNjYzAzZTdkZWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkYzI5YWVhZWYyYzdkNDc2NWE3MGQ5MmNiMWU2N2Y0ZGM5NjdlN2RlMDhhMzNhYWRlYmRjMjgyMmMxYzNkODgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlhYzM3YzA5NjA5ZmFiMTQzMDRiNGE4ZGE0NzQ5ZDUyNGEzMThmNjMzMGU2ZDNiYzZlYzdiNzNiYmY0NzAzOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L723-L791",
+          "version": "repo-lines-v1:sha256:9e7cf6ea1591ab7876c450490af42cc7ec5d6cc7ed4420c94cea78520971c0d4:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlZGY0NzI2NDZjMzg2MGMzMzgyYWM1NmViZTVlN2YxZmEyNDcwYmNiMGEzYzgzZGE5NmI0ODE2NzFiNzM1MWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIxNzE3OTgzMWY3M2VkZWQ3ODFhZTQ5NGVjNGYzOThmYzJhZDgzMTZlZTRiMjZkYzQ3OWE3MWQzZjM3NzM1ZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L886-L1098",
+          "version": "repo-lines-v1:sha256:dc3bc7cbebea242e02457b572d181876f3146f2fd7b318beadf67de2e761160d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmYWI1OWQyZGM4YTlhZDY5NjdlZWJhYjc0OTM3ZWFlNjg2ODVhYjdiNzNjOWZjYjA3ZDM3MGE5YWFkNjRiMzQxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5M2QxNGFiMGFhNTFmMTMwZjFlNzZlMjBiYTIwZTRkNzM3ZGIwNjI2ZTU2NmY4YjUwYThiMGM5NDBhMTY5NzkzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjMDBmODI1YTQ0YWQyZWZmOWZhNjNlYzI3ODU3Nzg5NTQzNjE2ZGExMjBmNGMwMGQ0NzUyMTJiZjMwNWM4NzI1In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_13e98c7d3c9e4dbd92a202f5ead67464",
+      "statement": "Most output writers concatenate project_dir and output_folder, while the separate run-log path helper supports absolute output folders and recursive directory creation.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1440-L1444",
+          "version": "repo-lines-v1:sha256:8f5a848fdcf067433f8c99c090b86c777590942d521fc46af12bdfa0b88a2137:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFiNTlkMmRjOGE5YWQ2OTY3ZWViYWI3NDkzN2VhZTY4Njg1YWI3YjczYzlmY2IwN2QzNzBhOWFhZDY0YjM0MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTUxMDdkZWM3OGEzOTNlZTBiNWNmOTAyOWZlNDI3MWJiN2RlZGQwZTBmZjNkYzYyOTA5YjcyM2QwZDZiZGEyOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjU3ZDljODE0MjYwMmE1ZjFhNDk1Mjk4OGYwMjgxOWY1ZjEyNzMwOThkMzlkNTIxOTg4MzQzYmNiNzc3ZWNhYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGZjODNjZGE2OGEzMDJmMDhjZDEwMTk4YWM1ODhjZWQ0ZmFmNWYyMTZmZWNhMjkyNjlhMThlNzY1NDEwOTQ3MiJ9"
+        },
+        {
+          "resource": "repo://src/output.h#L1543-L1564",
+          "version": "repo-lines-v1:sha256:11fd8f894b0c56eb438ce7b8a661110af75e2b1bc97eeabe6a53575e0ec090f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2YjBmM2M0N2EzZDA5N2QyYTRjODgxYjUxNGYwM2IxMjAzOWQ5NzQ3YThlYzA3N2RiZjExZTFjNTY0YTMwMDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkZmEzMzczMDg3ZGViZDliZjJjMzgwZTJkNTVjYjczNjA5MzE5ZWVlZGJkNjNmNjFlMjFmMjc0NWMzNDNlNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhiODUxZTQzNThmY2Q5Mzg0Y2U0MDdiZDBlZjdiZDEwM2UzOTJmNWMzYTIyMzQ2ZGQzYjU5YjhhN2M4NTQ0ZjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1759-L1840",
+          "version": "repo-lines-v1:sha256:aeac1accb7493f0a3d19d6f33caebf0fd3d9c7cf6e8256fdedbcb01fe2f0e3b2:eyJzZWxlY3RlZExpbmVDb3VudCI6ODIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyYTYyNDRiM2Q3MDllNGJmODhhMWRmYjlkNzkyNGM2ZDM2YjM2NzI2NjQ1NTk0ZjY5YWNjODRjYmM0YjI4YTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcwOTE0MmQxM2I1YjdkOGY4OWE4Y2FiYmZhOTYzYjEzODc1OWFlMDRiNmRhNjRlNTkzMWJjNzU2N2I2Mjc3OWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI0OWFjZjAxMDZiY2JlYWZhYzk3ZmZlNjFkZWFhNTMwMDEyMjZkM2QwZTA3MDBmNWJlMWI4N2RjMGM0YzA0ZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0ZGFiZWY1YzRiZjkzNDZiZmQxZGNjMzk4NjgxNmUwMGM1ODhkMzBmZWZiZDUyYjIwODM1NzIyNmNiZTdhMWIifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L727-L746",
+          "version": "repo-lines-v1:sha256:f4776770f372ef87d69f25e64c0b17351eb7391ebf68f0a58d3f0bf9c5320ff7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliYzY2MTI1NzMzMTQ4NDQ2NmQyZDQ0Njc0NDY4NTQ1NTM1ZTMyZGY3NTkxMzQ4NzRlODI5ZGY2ZThiNWUzZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3MjZiZGFiNmU1NjFjOTBmNzJiZDFiYTMxMjkxMWQ0YmY3ZjdjZmY2NmIyMTEyNTcwMWZkM2E1ZTg3MjUzYTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcyZTZjZWVhZDQ3MDRmOWU3YmViNWRkMjFiNTM3MDg0OTM4ODU3YjIwYmM4NWJkY2VlZDkwYWZkODE3NDZlZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFmMzBjNGJmZTI5MTAzODdmNzBiN2ZlZDZjOGE0MGI4ZWJmMTY4MDhkZjgzODZkMzU5YmYwZTQ3MGExMjg2ZmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ca2677b243c048f7b70a78770998a3ad",
+      "statement": "get_mat_path formats root, subdirectory, variable, checkpoint ID and rank through outfile_pattern plus extension in a fixed 256-byte buffer, so even sequential raster names include the writing rank when the default pattern does.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1422-L1438",
+          "version": "repo-lines-v1:sha256:2d20b0f16006e8fd2e5382d873a308e4d2453658b07e5b5b63255dc9b9b1a61c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3NTU2Yzk4NmRjOWI3NWFmY2Y0MWM2NTU5NWM1NDU4ZjkxYTU2MzMyMjVkODI3YzUwYjRmZmM1MzE2MGRhZjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxNWQyZWM4NWJkZDBjYmE4NGE2MmY4MjAwMGE0M2ZjNDQ2ZDAyYzc3M2ViYjhjZTVkOWU3YWM1ZWYyNDEyNjkifQ"
+        },
+        {
+          "resource": "repo://test/paraboloid_ens1.cfg#L14-L18",
+          "version": "repo-lines-v1:sha256:4180eb5ee674ced4f986208960292c631cea313dc6066c479a9493053408b3f3:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTcwODA3OTQyYzhkYjlmNzdmMTQ1NmQ1NWE1MWNlZGFhNDBjMTA3MjMxYTAyYzNjN2UwOGIyNzljNzIwZDI4MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjMzMTUxYmQ2OWNjNjUzNWQ5MjIxOTM2ZDg0Yjg3MTk3ZmIxOTRhYWFjMWJlNGQzMzZjZGI4YmNhOThlMWFmNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDg0ZWZkYTJiYzhhNWMzODM4ODhkMWEyMDMzYjM2NGQ0ODNmOTZiY2Q4OGE1NzMwMzRlYWI4NGZhZDlkNTU5YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjM5NmFlMWM2ZWJmMDkwZWMyNjBmMjc1NzA2NjhmOTU2NTY5Y2UxODg2NTM0ZDA0MTI4N2VjMjc2MmMxZTNmNyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_0df653088c614d07b735972d6448da88",
+      "statement": "GeoTIFF uses Float32 bands and GDAL projection parsing; PAR obtains row counts via Allgather, positions tiles, then rank zero creates a relative-reference VRT after a barrier, with hard-coded tile names independent of outfile_pattern.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1156-L1228",
+          "version": "repo-lines-v1:sha256:40fc5858b2fbb20a9dc9b85b728244c4abd9268ca8e2ab97da3aa946be166c39:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5MGQxMGJjMzJmMzU4ZmRiZjEyYzg2YzBkZjUyODNhNjc1MDI3YzQ1ODU0MWFmOWRhMjM4YWY4ZDUwYWFhMzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwMzU3ZGI2MjZmODIyMmYxNjQ1OWJhYzY4ZDQwODJiN2QwNzBkNzUwNzQ3NGJmNzk1YjFlYmViZDIyYmUxN2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1274-L1417",
+          "version": "repo-lines-v1:sha256:f44633ef56b35ff3d90695d1b03a85bd9f2e8a2a642c6b9c6418b307d93ebc59:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQ0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2YjEzMDZiM2VlZDkwNDkwODQ2NGU2YzYyYjM2ZDZhNmZlYzUzMGI2YWFjNDcwODAyNWM0NmZiMGMzNmI2OGFhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5M2QxNGFiMGFhNTFmMTMwZjFlNzZlMjBiYTIwZTRkNzM3ZGIwNjI2ZTU2NmY4YjUwYThiMGM5NDBhMTY5NzkzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlNjUwYjQxNzQ3ZDg5MDRiN2Y3MzZlYjk2ZGFlMGIxNTFkMWY0YjAzM2Y0M2M2MDk1Njc4OTNhMGVlMjU5MDJhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzMWQ5Zjk0YzljNzRjMGQ0MDA4ZDNjODEyNGUzYWEwMWQ0NzIxYWQzYzQzNmNhYjVkOGFiMmY3YTVhN2M1ODMxIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_8a1b10ef4f8547dd9bd0b1dd04008c1a",
+      "statement": "Sequential GeoTIFF reads at ghost-offset interior indices, but parallel GeoTIFF iterates interior-sized dimensions while reading arr.get_address_at(i,j) without the ghost offset.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1207-L1214",
+          "version": "repo-lines-v1:sha256:1677d8839e2b747b1c0e9317c8612f71709fc1586e3e383cdd61e59c80af4e23:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDU5MTNlNTVmYmY0NTZhNDY4ZWI2NmE1NTI3NzNiMDQxM2I1MzZkZGQ0ZGNkYjU0MTNmMThmNGJlNmI5OGEzNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGMyZDgzNzNkM2Q2NTc0OTc5Mzg4YWQ3NDk0N2Y1ZmVmNzQxN2Y5ZmNmM2YzZGNlM2RhNTQ1ODc5MjBhMmY4MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWYyZmM0NDFmMjRlYmZmODdlNTE2ODc2Y2Y5YzcwNGU0Y2Y2ZDM4ZWI2ODIyYTUxMWNiYzg1OGNmM2MwNmEzMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmUzMTEwNTNmNTI2ZTYxZTRhMTJhMTc3MDM1ZWI4YjRkYWUxMjM2Mjg5MDAwNjU1OWM0ZjNjZTUxNDEyMjY4YyJ9"
+        },
+        {
+          "resource": "repo://src/output.h#L1277-L1279",
+          "version": "repo-lines-v1:sha256:61ed940b181263dd9ae5ddceee9a36a16a7f48cb5ba2bf7b37783cb540d4778d:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmJlOTBiMjM3N2E1NTI2OGNlZTk0MTU0Y2E2YmNhZTQyMTU3MTZmM2Q2NjAwY2Q0M2I5NDZlZTMxMmRmZjM5YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjk3MzlmZDMxNDA3YzZkN2ExYmQxNzg0NWU0NDJlYzdmZTZlMzA4MmIyZjZmYjVlZTBlODFhNjY3ODI1M2U0NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODJkMzBkNGFjOGFkYjE3NmRkYWQ3MzdiODBkZjViZDJlYTMyMjVmYWQ4MThjNjRjNzI5Y2VmYTdkYjg4MzBkZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTY3OTEwNmE4MWVmMWY3ZjZjODgxM2YzMTE4NjA5YTY0NTg3MTQyNTIxODAzOTlkM2FiN2I1ZmU1NzU1YTY4YiJ9"
+        },
+        {
+          "resource": "repo://src/output.h#L1334-L1342",
+          "version": "repo-lines-v1:sha256:41cc8e6ac57fb779c02444af8fe25889e98684ed6e3ba1b562cfca34cba05606:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODIyZWYzMzNiNjkwYTAyNjEzOGJiNWYwMjM5YjE3ZTQzYmExOTU2NTY4MGViMzc2YWVlNDFmMTU5YWI1NDg0NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDMxMTMxMjkxY2VhNGM0NzQwNzU3YjcxZDdiZThhMjY0Mjg0NTIwYmNhYTQwZTVkZWJhZjRmMjVlN2Q0YmQ3OSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWJkNjRjZTBiMzM1OGYwYzI0YWI0NmFkNzk2YzgyNzY0ZDU5ZmU5YmM2OTczNDk0MTQ5NzQ4OTQzNjhkZTY5NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjI3ZjM2OGMxMWY3YmVmMTk5ZGMxOGI3OTRkY2EyNDdkODZiODczNDc2ZDk4MjNkNzI0MDdmNWI1ZTNjZjc1YyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_9c8feb8c8db846b6aa46eb7789b031ed",
+      "statement": "GeoTIFF missing-driver, creation and row-write errors are printed or returned locally rather than handled through a transactional all-rank publication protocol.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1166-L1228",
+          "version": "repo-lines-v1:sha256:0897967ee98e7ab59eef0e7f2225248f9a355bee2a1a97ac6ed1cf9bac47844e:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjMTBhNGU4NmQ1MTdiZTc1NzE5ZDI2MWUwYjZiZmMzYTMyMmQyODk0Y2EyODYwMDhiYjM3YmJlYTU0OGFjNTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1Njk1ZTlkNGQwMGVmNTdkNGNkYjc2MjU5YTY5MWVkMzMwN2VkOTRiY2YyM2ZmNWFlYzk5ZGE5MGJiMTc4YmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1289-L1356",
+          "version": "repo-lines-v1:sha256:7042a97c4e87a497c1e21062d42f986ba8902a81fcadecfb4933d087f9c894c9:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU0YWFiYjcwMjkxYzc3MDhiZmQ5MTYzMTUzOWIzMTliMmMyOGVkNTkyN2U1YmQ0MjEzNjk5YTNiMDE1MmE4YmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyNDdkMDkzZGFkNmQwOGVhYTZmZDA1NmFiNTNmYTliMWU1MjliZjM3YmZiYTQ5MGE2OGEwNWIxZTc2YTUzM2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI2NjQwYTA1NzA2ZmUzMjE2ZGE5MDhkNjIyODZjNTI1MTA5MmNhYTJmZmE0ZTA1MzlkNDY0MDkwZDQ0NDI1NGEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8cd81b87fb4a4d21b316220866942503",
+      "statement": "simulate emits rasters at print_interval thresholds, variable stepping clips at the next raster boundary, and there is no unconditional final raster output after the loop.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2262-L2388",
+          "version": "repo-lines-v1:sha256:1c64d44f3b1379c652fc4ebe22d6cfe7b1d3bce930e61d0c7c45d492ae419ab5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0MTA3MjJhNWRkZDYxZTAxNWM4ZDg0ODM1YzNjYTJiNjg5ZTg1Mjc4MzRiYTU2MjJlMDk4NWQ4OWNiMmM4NTEwIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiMTYzZGE3YmFlM2E3NTQ4ODAwZjhjZmYwMDZiMzc1MGI5ZTE0MDUxYmJjMTMwMzMwMGIxYmQ2MGZiY2E1NDVlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1YWQ2YTM1MWZkODg4Y2NkMjEzMDJmNzRiNGI3MTlhM2Q3NTc1NGIyZTAzNDVlMjJkNGYwYjQ5YmFmZTBlOGIxIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxYjI5MGVkNmIyNGM1MGY5NWViNmI1ZjE4ZWFkYzFhODZiNTAyYzk4OGJiYjYzNWQzNzllMzQ5MGVmMTI1OTBiIn0"
+        },
+        {
+          "resource": "repo://src/triton.h#L2451-L2474",
+          "version": "repo-lines-v1:sha256:cfe58171ebb350c60c7984f38cea9f273080a95dab9556ba3f2f37446a03badd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmMzg1ZTc0NjkyYTliOWI2N2UxMjg1ZDgxNDQwMWM2YzMwN2NjOWZmZWY0MmI4ODgzY2I3NjQzNGI2YWUwNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxZGQwN2NiY2QzMzYyODA1ZTQwYjM4ZmM2ZWYyODZjMzJmM2JmYmNhOGM0MDIxYjMwYmE2NzNjYTEwMmI5NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhOWI2MzE0ZDYyYWIzOGM2NzZlODVhODU5ZTI4MzQwYzQxZmJjOTQ3NTAwNmFjNThlYWFkMjA1M2VjYmRjODcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4133bdd216084df7bdebdf4e1c1aa647",
+      "statement": "Enabled observations write an initial sample, use a single per-step interval check without interpolation/catch-up, and append an unconditional final sample that can duplicate the final scheduled timestamp.",
+      "evidence": [
+        {
+          "resource": "repo://src/triton.h#L2220-L2226",
+          "version": "repo-lines-v1:sha256:0512533abd1030cfe82b9d503ff2455be8088afe90c92f9f3286364b680f6515:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWIzMTlkM2I5NjM4YjYwMzgyZDZiOTg1MmQ4Mjk0NzQ5NWE2ZmZkMjJhMzY1ZmNiYTdjMmMzNzVhZmI1MmNlNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg5M2Y0MGUzNzgxZWI4OTZjODJkMDQ2YTA4MDY3YTExZTM1Y2RmMmYxZGZhZjI2ZmVhOTBiOGRiNjY3NjQxMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDU4NjQ4ZTQ4Njk0ZjYzOTRlYWUyNmNkZjFjNTRlNmU1OThkYWQwYmRlYmUwYTBjMzJkODM3ZTBjNjNkMWVhNiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGU3N2IzYWQ0NWFkNTNlMDY4ODE4Mjg1OTVlZGIxMWY1MDEyM2ZmZTFmMjI4MDVmZWNiMjAyYzk3NTU0OTZmOSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2254-L2259",
+          "version": "repo-lines-v1:sha256:961848ade399d65ab84af0eb2a1e425ca80119731d7752c885ebd959d778b8af:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGIwMTk1NjdkMGRhYmJiNTQ3NjM4MDE2ZWIwMDg2YTVjMzIyYjUyN2FkMThmZWUwZjE3Yjc3MmU2N2JiMmVlMiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzg1NGZkNzA3ZjFlODI5YzFhZjM0ZTIzNTU5YzExY2RhM2Q1ODRkYzQ2NGJmM2Y5NjYzZjU3MzBjYjZmODYxYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTA3NWMxYWRjNzIwMmY5ZWVlNjE5ZDNjMTczMWM1MWNkMmU3YTM5YTlkNjM4MDhjNzFhZmQxOTNjYTk5Y2E4NCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGJlMTJlNWMwYTAzZTJkODg0MWQzYmU1OTE2MTliNzhlMmJiMTY3MjFkMjQ4OWRlNTJkMjkwYzRkNjkyN2RjMyJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2286-L2298",
+          "version": "repo-lines-v1:sha256:1dc8b0f264e29e9f18975d688fd544a9c81452edf9d9981c783530e329ec6c16:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmNGI0NTY3OWZjOTA2MzRiZDU2OTkxMGFlMDgwYTkwMzNiY2UwNTY5YjhjMWI3YWZjMGNjYmU2OTliMjljYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkNDgxN2ViZGE3NzNiOWQzY2ViZjlkYjRkM2M3OGI0YTRmZGEyNzgxZTNlOGRlYTcwMWExNGE1Yzg3NjE4NWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMjZlNzI3NDkyOWE3OTQzMWYxNjkwMmIzNmU1NWY4MTE0NDJiNTA4YWJkN2UyMWQyYjVjM2I2MmVmMWYwODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJkN2MxNzA3YTc2ODQ1Yjk2ZTgxZmM1MmNmNGY0OGYwNzY1MTY3N2M4MmQ3NjlkZGUwY2M0M2Y5M2VhMjZmZWEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2366-L2377",
+          "version": "repo-lines-v1:sha256:d2c657e0c330a4d48629f2f15901019cc7df93febacce5bb268655f255096564:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNjQ2YWI3ODlkY2FjNDU4MDhlNWUyMzVlNDNhODJjNjA4OGIzZjdjN2UyNjNlOWE4MzlmNzUyNGM0MDE3NWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyYjZkYmQ0OWFiNWQyZWRhOWQwODgyMTViMjdlMjBlZTNhZDg0OGMzODI4YWU2NDYyNWFkODNmNjZjYzRlMTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4466d6b7234748d3add192393a4c6782",
+      "statement": "Observation output gathers/reorders points to global observation order and appends selected H/QX/QY comma-separated series on rank zero; headers are created only for checkpoint_id zero and resumed appends do not trim existing series.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1440-L1498",
+          "version": "repo-lines-v1:sha256:e64d716be0ae657a83447bdf2d2b4d85e224e9d5e23348717bc1ae96f65a8b73:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI1N2Q5YzgxNDI2MDJhNWYxYTQ5NTI5ODhmMDI4MTlmNWYxMjczMDk4ZDM5ZDUyMTk4ODM0M2JjYjc3N2VjYWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFlYTUyZDI3MjMwYjg5Y2ExYjczMjg2NmFmYmUxMzdhOThlNjUxMDAwNDlhNTZiMzI5M2RlZjhkNWZlN2RkYTAifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L384-L520",
+          "version": "repo-lines-v1:sha256:139836a01536ddceb75ed3fd07c41bdb42f7eb5602b5e58f3a5dffb8d5ef720d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2MDVjY2Y3N2I1MmQxZjc1ZWI5YzQ5NmQ4NDE5NjIzZDgwYTYxZjdjY2E2OGEzZjQ0OWI1ZDFiYTRhMGViNWFiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI5M2QxNGFiMGFhNTFmMTMwZjFlNzZlMjBiYTIwZTRkNzM3ZGIwNjI2ZTU2NmY4YjUwYThiMGM5NDBhMTY5NzkzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIzZDg0OGEyMDJkNjEwM2Y1YTRhZTIzMTlkYTRlZTQ4MmM1MjAzZWY3YmI0ZGMwYTE0NDliM2EwYmJjNzM5ZTNlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzZDg0OGEyMDJkNjEwM2Y1YTRhZTIzMTlkYTRlZTQ4MmM1MjAzZWY3YmI0ZGMwYTE0NDliM2EwYmJjNzM5ZTNlIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_6dc1989cf5b04921b09d464a5e673e16",
+      "statement": "Every raster output writes per-rank GR side files containing dimensions and ghost-ring H/QX/QY triples; write-open failure warns, while restore refuses missing, dimension-mismatched or detected truncated ring files before flux evaluation.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L704-L717",
+          "version": "repo-lines-v1:sha256:d8c866fa0afca46b9348e70dd172133ada0af9ffb0f4059176a2045522ead1cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3YjljZDIzOTMxN2IzZWMwMGZhYWU5Y2E2Y2QxZDhiYjFkNzQwMWUwMTIwMmIzNDEyYTNmMGY0NzE4ZDU4OTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxOTZjMjk4MDc4YTNmYWI2OGZlYWI2ZWVhZGU2MWUxYzVmNTEwYWJmNjY1MmIwZTJhNDI2ZmNjOGRjODNjNGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVlYWNmZWE2MzYwNzkyZGE3MzlkMjNmYzZmZWJiMjg4NWE4ZTQyZDcyZmZlMWVhYWYxY2VhZmRhNDIxYmM2YTcifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L795-L883",
+          "version": "repo-lines-v1:sha256:c54ebb02356e82142ccc8a27f2b66015d1ca32095d5308213bcd0e4ff627037e:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkODQ4YTIwMmQ2MTAzZjVhNGFlMjMxOWRhNGVlNDgyYzUyMDNlZjdiYjRkYzBhMTQ0OWIzYTBiYmM3MzllM2UifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2228-L2246",
+          "version": "repo-lines-v1:sha256:a83ef3edb6093e0683e44aec62713b45469ce877d7de23ad5af52aaa9907a763:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkY2RiY2I1OGI0NGQxYWM4YjA3NDY2OTJkYTZhZjQ5MzY4NTIzZDUwOWMzNjkxM2E3ODNmMzkxZjllZTQyMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI5YTg1Y2VmOWY0YTBlMDk0ZTNmNGQ1ZWViOGZjNmIwODA1YzhhOWI4ZWJiY2Y0ZGRiOGZiMmVjYmViZGI0MjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiZDNlYzg1MjA5NzNmZTVhNTFjMzBlZWFlNmNhYjc1Zjg1YTg5MzYxODY1MzI2OTY2MDgwMDY5ODc5OWJmN2UifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ed2f77c61ac34def9a801ef666f32b16",
+      "statement": "Rank zero writes cfg/config_ID.cfg by replacing existing time, checkpoint, timestep and iteration lines in original cfg text using max_digits10 for time/step, then writes cid in the working directory; the passed timestep value is the loop average_dt accumulator.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1502-L1565",
+          "version": "repo-lines-v1:sha256:3d2ecb872887a2fb5de41407a1c643803fbf192dfd362936aeb379b8b217b809:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFlYTUyZDI3MjMwYjg5Y2ExYjczMjg2NmFmYmUxMzdhOThlNjUxMDAwNDlhNTZiMzI5M2RlZjhkNWZlN2RkYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkODQ4YTIwMmQ2MTAzZjVhNGFlMjMxOWRhNGVlNDgyYzUyMDNlZjdiYjRkYzBhMTQ0OWIzYTBiYmM3MzllM2UifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L706-L717",
+          "version": "repo-lines-v1:sha256:6c856998624b63e20eae3341836d6549bb94c745b551468d5c3c6710363b364a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMxMmJlZWQ4NTFjZjFjYzFlZjQ0MTI0OWI4MjhkZDNiZjViNjgxOWQwMjFlMDljNWNjZjNlODk5MmJhOWRiNTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjliYzkwYjQzMGZjNDIxYWEzNzc5NTNhMzU3MzMzNzAwMmU4NGY3N2VmMzEzNTg1ZTc2MzM1M2Y4MThhYWM4NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVlYWNmZWE2MzYwNzkyZGE3MzlkMjNmYzZmZWJiMjg4NWE4ZTQyZDcyZmZlMWVhYWYxY2VhZmRhNDIxYmM2YTcifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2274-L2282",
+          "version": "repo-lines-v1:sha256:5c87fb02f8f7d95838f12f2193c9d75ccf506443e2bac04bd6cbc5d55d19378f:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWVmY2MyYmU4ZmViODM4MzQ5MmY1N2QxMGI3YjA0ODA2MzQ0YjUzNWNhNDgxOTQ3OTAwYjQwYTg0MTAxN2UwZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjRlZmM0OTQxOGQyNmRjZjEyOWIyMmE2YWEyMTEwOGNlZWMzNzY3N2EzMmQwOGU5ZDVmZWUzNWRkYTY2YmI5ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzg0MmE1ZWJiZDJkYjUzNzA2NGRlZGQzYzBjYmZhOTU4ODJmZjE1NTY1YTM5ZmE5MzRiNzUyZWYyMTUwYzM4ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmIyNmU3Mjc0OTI5YTc5NDMxZjE2OTAyYjM2ZTU1ZjgxMTQ0MmI1MDhhYmQ3ZTIxZDJiNWMzYjYyZWYxZjA4NSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L2326-L2326",
+          "version": "repo-lines-v1:sha256:f4e955966c2f859c7b474514c06cfd8a5bb7b4ace0b6e63c57b2ba57473a043e:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjRlOTU1OTY2YzJmODU5YzdiNDc0NTE0YzA2Y2ZkOGE1YmI3YjRhY2UwYjZlNjNjNTdiMmJhNTc0NzNhMDQzZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjRlOTU1OTY2YzJmODU5YzdiNDc0NTE0YzA2Y2ZkOGE1YmI3YjRhY2UwYjZlNjNjNTdiMmJhNTc0NzNhMDQzZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZGE3ZGExYTU4ZDVkZGFhZWViM2M3MzIxNmUzNTVjMjUwNTQ3M2JkOTQxODlhODY1ZGQwN2UyYzQ2YWJkN2IwZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2Y5MjViZjRmNjc4MmQ3NjUxZTFhZDIyOGM4MWU5MzRmNGI4ZGJiOGZjOTc5MjZhYTY5NjAxZDg0YWZkNDliNiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_d457f2ab4a9d4beba68aaf2929f03dab",
+      "statement": "Dynamic multi-rank checkpoints record interior partition dimensions before the next rebalance; coupled checkpoints flush exchange history before raster/cfg writing and write the SWMM snapshot afterward inside IO_TIME.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1686-L1727",
+          "version": "repo-lines-v1:sha256:a028c8c27175ce777dbdc5963037cf5853423f07792780477f71303abfcdcb8a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhYjU5ZDJkYzhhOWFkNjk2N2VlYmFiNzQ5MzdlYWU2ODY4NWFiN2I3M2M5ZmNiMDdkMzcwYTlhYWQ2NGIzNDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZDE0YWIwYWE1MWYxMzBmMWU3NmUyMGJhMjBlNGQ3MzdkYjA2MjZlNTY2ZjhiNTBhOGIwYzk0MGExNjk3OTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI1YjNjZDU3YTI0ZTA1MWVmNjE3MzlhOWVjZWI3MDc3YWI3OTBkZmQ4MDFhYjA4OGM3NWI2YmE1MjU0MjNmYmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgwOTJiY2Y4ZTE4NTQ3NTVjODYzY2RlYzM1MDY1MDk0M2MzZGQ1MGRkOGI3NmI2OGQ2OWJmZTMyY2RlZDE1MTkifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2315-L2362",
+          "version": "repo-lines-v1:sha256:65819bdd133c5d68ad44e06084bb760749587e23975751fe8cb173a0a5dd4b52:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5YzQ1MDUzYWU4ZWY4MjU1MDIzZTA4NzIzMjZlMDQ3MTFkZjVjMDY5YjU4ZDMwNTA4ZGFhZWUyMDg4N2VmOTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI3OGI1ZjFiYmQ3NDUyMDcwNDVhNzQ2NDIzOGYwYmQ0NmRlNWFiM2NmYTZmNmE0ZmNkN2ZjMTViYzg0ZmFjMzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVjNjQ2YWI3ODlkY2FjNDU4MDhlNWUyMzVlNDNhODJjNjA4OGIzZjdjN2UyNjNlOWE4MzlmNzUyNGM0MDE3NWYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_40d48b806b2e4fc6a85e1d8f4f1d20da",
+      "statement": "Console diagnostics are separate from rank-zero log.out: main creates its run header after model initialization and appends model.get_simulation_time after simulate, although the line is labeled total wall time.",
+      "evidence": [
+        {
+          "resource": "repo://src/main.cpp#L87-L98",
+          "version": "repo-lines-v1:sha256:5d9afec7455f680e055be84d88276b8820667629d49f5822450d37fdfc717ea8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM5MjYyOTIxMDQ4YjY5N2Y0YjUyN2YzNjVkYTFjZTRjNzRmZGE2ZDk4ZGM2ZmYyZGUyZDNjZWQyNDdlNmI4OGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcxMzQ1MTgwMTA1YjBjNjZhNzdkYWQ1MWJiMzc5MDFhMzczMmM5NjU0YmE0ZGUzOTgxZjgxZTE4MTc1MjQ4YmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNmODNmYzU0ZDdmNzM3ZjUxNWNmMzY2MjEwNmE4MjFmZjQ2ODNlZjhmZmFkMDc5MTExMzdlZTMxZmFjNDgwYjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA2NzMyYzcwYTNjZGI5YzA5ZDY1MDlhMjUzMjUzYWQ0Y2YzNTZmZTY0Y2Q1YjkzMjlkODM4YmI3MjhkZTYxNTYifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1827-L1840",
+          "version": "repo-lines-v1:sha256:c40791cda21b467f7164d4c787df4ccc71bcf860606d72f772c3f82117238950:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczMjViNDg5Yzc1OGNiNzRjY2FiYjBlNDM2MzA4YjI1NDMzM2NlMDUyYzE5MGUzMjk3NDY5Yzc3ZjdjM2IyYmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcwOTE0MmQxM2I1YjdkOGY4OWE4Y2FiYmZhOTYzYjEzODc1OWFlMDRiNmRhNjRlNTkzMWJjNzU2N2I2Mjc3OWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE0ZmY4NDI5NGUyYzNmMDNmYTE3MWMyZTQ2MGU0OGIyOTE2MTg3M2JjNDA0NjViYWE5NjZiMGRkNjgzNzBmNmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0ZGFiZWY1YzRiZjkzNDZiZmQxZGNjMzk4NjgxNmUwMGM1ODhkMzBmZWZiZDUyYjIwODM1NzIyNmNiZTdhMWIifQ"
+        },
+        {
+          "resource": "repo://src/output.h#L1976-L1994",
+          "version": "repo-lines-v1:sha256:7f3f4b94da19bf31924d0ca3991297a0f0503e78ea4ae30c4f741ba31c898744:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZkZjNlYTJhN2E0ODYwMTMyODdhMjFiMmY5MTc5NTUwZjMxYzlhNDI5ZmVlZTRlOTQ4NGUwYThlMzhhMmEyZjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyMmZhYTUzNWJkMmVhM2Q1MmU3NDFlZDQ1NDQzNWI3ZmU0OWU4MzU4NmU5NDNkOThkODJiYmZiMjRkMWY1YzUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYzZmMxNzg1OWJkOTY5YjQ1NGRlYzA0YzU3MDZkZjliNDI2MTVhMzMwZDkwN2Y1MGE0ZWE5N2FmN2VhZGQ2ODMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmNDk3ZjkxZDQ5NjEyNzQyZDcyNWQ4YzU2NTIyY2ZlZTVjODdjYTYzZGU4OGIzNGQzZjZiOWMxNzI2MjNmZjEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2277-L2283",
+          "version": "repo-lines-v1:sha256:d78e083b2d7a95ba47b24aa997af4825bed0470c69fb3554b4c5153c0e2b1a22:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjVlMjIwOGVlNWMyZmNmNGQ0OTZmM2FkOWIwNTg1ZjNmY2U0ZDBkOGRkNGE5ZjQxMDI1MDU3YTViZmUzZTY2YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjdjZGE4MmRhNjA2MjM4ZTA1ZTYyMzk5NTY5YzVlZTAzOTkzNDE5NjQ4YWU1ZDQzYTJiZjhjZDYzNDdmODI2MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjlmYzg2N2E4OWM3NDAzMjI5MDFlYjdiYmM3ZDU1ZmUxZTFiNTFlZjIwOGU1Yjg1MGYyZGM5NzUzNWY2MTEwYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjNjODQ0ZjFmZGE4MDgwNThmZmQ0YmVjOTdlODcxM2RjODMyOTIyYjRmNjdlMGI3YjdmOGFmNjM5ZDNiOTBlZSJ9"
+        },
+        {
+          "resource": "repo://src/triton.h#L81-L81",
+          "version": "repo-lines-v1:sha256:0175a554fcef4c3a5da25f7f1d5d2b6864cef2ab5bbfed6591aa135fea19a275:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDE3NWE1NTRmY2VmNGMzYTVkYTI1ZjdmMWQ1ZDJiNjg2NGNlZjJhYjViYmZlZDY1OTFhYTEzNWZlYTE5YTI3NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDE3NWE1NTRmY2VmNGMzYTVkYTI1ZjdmMWQ1ZDJiNjg2NGNlZjJhYjViYmZlZDY1OTFhYTEzNWZlYTE5YTI3NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzA5NjVmZmJkZDBiMWE5YzY1ZDcxZWM5NjlhMTRkZTBkZWU2MjUyMDFlMzdjZDQ3YWIwODQxM2Y5YjhmMGE1ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTgyYzczNmI2MDBjMmRmYjQ3YzE1ZTRlYTIwNjQ3NTA5MGUwZTg0YTVkZGEzYjk3ZTM0ZDE2NGNkNDRkMWJhNyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_dd671c15cca24085b931a57a84dd1dd5",
+      "statement": "Run header fields include hostname, CPU, selected CUDA/HIP GPU name, tasks/threads, build/version labels and GPU totals calculated assuming one GPU per task rather than counting unique physical devices.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1842-L1963",
+          "version": "repo-lines-v1:sha256:fd8e71091888652c80f6f278e09c6e38c5fe6be272ce59802af1f3fecb7a5e25:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0MGMzZDFjZWUxNDIzZTQxZDFjMDdiZjViYTM3M2U2ZTg3ZThkNzYyYjA3Y2YzNDg3ZmVjY2M4OTRjYzY2MWM4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlMjJmYWE1MzViZDJlYTNkNTJlNzQxZWQ0NTQ0MzViN2ZlNDllODM1ODZlOTQzZDk4ZDgyYmJmYjI0ZDFmNWM1IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhYmM4ZGY0NWQyMmNiNGY3ZjUzZGE2NjcyMDM3Nzg1YTA4ZTY3M2RmOWEyNzBhY2NlMTdjZTYwYTkwZTc0NjdmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5MDMzYTc3M2VjNGRkYTQ5YzE0NDk0ZjY1NDg2MDA0NTdmNzVmOTcwNjNhYzI3Y2MyNmQwMTgwNzE2NWFhMDI5In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_65483bc878204a5aa9b025a7e01e41d1",
+      "statement": "SuperTimer accumulates gettimeofday intervals in microseconds converted to default seconds; start does not clear totals and restart clears a category.",
+      "evidence": [
+        {
+          "resource": "repo://src/supertimer.h#L176-L192",
+          "version": "repo-lines-v1:sha256:a04cea799054c27aa49b60cce6202194860d0809feb7df6598d88818b5c63e52:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyZDAyOGJlZGEyOGNhMDQ1YmM1YjcwNDI1ZjAzZGI1MDZhY2U3MGNjM2RmMTUxZjFhOTIwOTllNTZkZjNjMzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyNzAwYWE1ZDBiNmYwY2RjMzQxZGE2MDU1YTI0ZmUyYzQxZWQ0Yjg5Y2Q3MTI2ODIwNjk4NjU0N2MyMDkzZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4YzI3ZjY1NTQ4ZmQyNzRlNzZkMjdhZWVmNTJhZWY3MGU0NGRkYTExZjdjNTBiZWZiOTYxNjEzYzYyYzc4OGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/supertimer.h#L233-L250",
+          "version": "repo-lines-v1:sha256:f1fd2304957da921cab9502edc14c8baa949c4986b973aebd63f6288bdac9d38:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3ODRmNDMwNzYxZDI4YjIwNDJhOWNiZTcyMDI0ZDllNGY4NjdlZGVhNGYwNWE3ODZiNDNlOGEzOTc0MTNkNGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4YmZhY2ZiMGIyNGJlMDgwM2MwMjQ1ZTk1OTFlOWUyZWI5NmI0Nzk2NjMwZDcwYzNiYWU4MmM0Y2I4ZjBkNmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        },
+        {
+          "resource": "repo://src/supertimer.h#L263-L292",
+          "version": "repo-lines-v1:sha256:3624fad44cb64b673ee7ed07856ab68c5dd6ad8493d0bebf302a201adfa7907d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ZDNjOTFiNWNhMDc4Zjk3NGE5MDYwN2ZiNmQ5MjBkYTMxYmQyNGNlMGEzODFhMjU2ZGU5ODAwOTkzZjFhZjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ0ZTgwYmJhNDU1NzhjZjRjYTU4ZTdhMzhhODQ3NGZjZjM3NmNlMjQxOWRkODUxZGZjNmJhNjc2MWM0OTdjNWYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4OGIyOTk0MjJiYWFhYTJkMDI1MmE1OWQzMjcyZTFmM2RhMmFmNTc1MDRhNTJhZDI4YTNjMTM3ZWMxN2NmOGYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e018afa642ab44e0a462f3baba380437",
+      "statement": "Cumulative performance checkpoint reports stop simulation/total timers around their own writes after device/MPI synchronization; final performance.txt is written before SWMM end/report cleanup.",
+      "evidence": [
+        {
+          "resource": "repo://src/constants.h#L181-L181",
+          "version": "repo-lines-v1:sha256:af0767c19e6c1f1bc330a16f94339f9df86125d07c3830a07f425a6833d477e7:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWYwNzY3YzE5ZTZjMWYxYmMzMzBhMTZmOTQzMzlmOWRmODYxMjVkMDdjMzgzMGEwN2Y0MjVhNjgzM2Q0NzdlNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYWYwNzY3YzE5ZTZjMWYxYmMzMzBhMTZmOTQzMzlmOWRmODYxMjVkMDdjMzgzMGEwN2Y0MjVhNjgzM2Q0NzdlNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTRkMGJhN2NhZjEyNjFlYTllYjA3NDI5NTQ4ZDg0OTViMWUyN2RkNThmNTUzYTY4NzMxZGE4NTEwZDIwYTdmMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjIsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTNjM2M2NzMyMmEwMzlkMTY0MDA2MjY1ZmM5MTdmMWRmMjQ0NGZjZjBlMzFlZDcxZDcyYjhlNzUxZjNlM2I2NiJ9"
+        },
+        {
+          "resource": "repo://src/output.h#L1629-L1654",
+          "version": "repo-lines-v1:sha256:88bcda7f46146adb759091bcdfdc2e59969f5d546635b7f96f6693494130708a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI1NjViNWNhZGY2ZDg1MDM5NzFhZjdkNTNhYWMwNjNiOGNjZTM4ZjQ4NmQyZmJlODFlNjNjZDk3NGU4YTVmZGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiYzQ3ZmNkZmUzNmJlMmQ0NTNjNWZlYTk1ZDY4MGZhMGMzY2Q5NThjZjA3NDM2Njk0YjEyOTgyMGRmMTgwOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEzMmY1OTkwZWI3N2YxMjQzMWI2ODQwMTI1Y2Q5OWY5NmRkYjQ2ZDZiODE5ZmRhZGRjMGUxOWQzMWFkYzhkMTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc0ODk2YmNmZDMyNTFjNDdmODFhNDNiNjI5MjEzM2MwMmQ5NDczN2VmN2M3Mjk4NzgzNWIyOGViMWZkZjM2ZmIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2338-L2349",
+          "version": "repo-lines-v1:sha256:b0564f9bcb99c02a625842332a94c45c8cca3cc0fa6eee41d404af1be5f71c2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YWU5YmE1YWQwNmRhNzI1NzliMmI3MjY2NjU0NmE5NGRjYzQxMTdkODFiYmYwZWEzMDhlYTFhNDBiNjJjMmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjZDE3ODg3ZDhiOWFjYjJlZjc4ZGRkZmJiNTJkMWEzM2UwZWI2MDRlMmU1NDczMjI5OGZhNmUyMjgyMjc3N2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY0MTgxMmMwNTYxZGZlNTM1NDUwMzBlNTgxOTA3MmQyZWI0ZjlmNTUyY2JiMGEzNjlkMzE0ZTI0MDYzNDlhNzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU4ZWQxYTA5NmQxMzU2MGIzOTMwYzNjNWZkNDQyYTdhMDE1NDRmZDA1ZGRlM2YyZjM1YWUxYmQ4YzM0OTJhMDEifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2380-L2403",
+          "version": "repo-lines-v1:sha256:51cb2dd42247e8f4860d9f1d814f39df859d0415516a37b7706d423594373548:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ2YTRmMjk0NmQwYmQ3NTM2Y2VlN2VkNjFmMmM3ZjdiMzMwYWIyYjc3YjFlODFmNjdhZTQ5M2NlZDI4YWEzYzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlZWI1NzUyMWM3YWU1NGUwNjU1ZWJhZWJiMmFiNGYyZjAyMjhkZDI5MzAzM2Y2YmQ4MDVjZWViYzczOTkwYmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmYmQwMDkzMTRiYzI3MDg0MTY3MzRhMDJhZTVmZjM5YTFlNDhhMDUwYmU5MWY0M2IyZmFhOTIwMDJjNjJiZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA1YjlmM2M4NDhmZDMwNDlmZTllM2U2ZjUwZTRhYjA1OWVjZmNiYzU4MzVkZjEwM2U2NWZhN2ZlZmViZTM2NmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ae9d8bc4b05b47c3b2ab8e54d44458cd",
+      "statement": "Performance reports gather per-rank timer values and arithmetic means; Other subtracts top-level categories including SWMM once, SWMM_OTHER subtracts its three children, and Init is Total minus Simulation without residual clamping.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1568-L1685",
+          "version": "repo-lines-v1:sha256:de4fc13cf3daf76a5c4211e3e0ed8cfb67e380ede3e9984dcc65fd1e78192cce:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmYWI1OWQyZGM4YTlhZDY5NjdlZWJhYjc0OTM3ZWFlNjg2ODVhYjdiNzNjOWZjYjA3ZDM3MGE5YWFkNjRiMzQxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzYjAyY2YzZTJiMzc3NjFlYzgyYmYxNjU4ZjE5MjgxNDliNzUzNzBiYzg0ZDgyYzM0ZTQ1NWQwZjhkYzkxZDIwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0ODhiMjk5NDIyYmFhYWEyZDAyNTJhNTlkMzI3MmUxZjNkYTJhZjU3NTA0YTUyYWQyOGEzYzEzN2VjMTdjZjhmIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhNGU0MWFmZjEzNWQ2Y2JiZmJkZDIxZjkwYzU3Yzk5ZDJlMThhZGM4Nzk3ZjgyNGQwM2IxODc1ZWNhMjE4MTQ2In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_00d1b658a6d2428d9965cf88a37a0890",
+      "statement": "The coupling bracket stops synchronized surface Compute, measures local transfers/kernel as SWMM_XFER, gather/scatter separately as SWMM_MPI, and rank-zero remaps/log append/solve as SWMM_STEP; checkpoint flush/snapshot work is charged to IO and the rank mean dilutes the serial solve bracket.",
+      "evidence": [
+        {
+          "resource": "repo://src/output.h#L1655-L1669",
+          "version": "repo-lines-v1:sha256:e4b9eabda49ee3bcc8caa98a8492eeee9858774913b5e7c7a460ad9a98d8baf4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyNDg1ODlmY2M3Yjk5MTJmMDE5Y2QxYzIzZTUzMDBiNDgwNDJlYjgxOWYzZTQ0ODA1NDEwZWExYjhlMzQ3YjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmMTljODg0YjZkOTBjNTFiNmQxOTI0NDUzNWM5ZGIzZDQ1ZmYwNjU3Y2E0ZjM0ZDc5ZDVkNjBjYzlmNzdmYzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQyZjc0OTQ0OGZkYmMwY2E4MWMxOTNlMTc3MTBiMmYwMGExYWM2ODBmYjhhMTg0OTcxM2NhOGI2YmFiMmQ1NGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2YWU4MTUwM2JhYjc0MDUyZTkzMzczM2ZkMWJlZGE5YTUwZmJkNzJmMjBlNTA4ZGJiZjc0MmE2NWI3YWUxOWIifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2315-L2336",
+          "version": "repo-lines-v1:sha256:44615cd4070eaf784a32e07e6a8d7b0aec0fd7dcc20f9401d3f7a82716e7c8eb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5YzQ1MDUzYWU4ZWY4MjU1MDIzZTA4NzIzMjZlMDQ3MTFkZjVjMDY5YjU4ZDMwNTA4ZGFhZWUyMDg4N2VmOTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkMTM0OTg3OWQwZTU5ZWQ0Y2E4NmQzN2RkYzk2NWUwZDQ4YjQxMzE5OTBlMWYxODFiYzE3NTczNDY3ZGJjNDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI3OGI1ZjFiYmQ3NDUyMDcwNDVhNzQ2NDIzOGYwYmQ0NmRlNWFiM2NmYTZmNmE0ZmNkN2ZjMTViYzg0ZmFjMzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlZTcyZWY5NWM3NWNlNTRiOTM0OTI2NWQxNWRjY2ExMmIwN2Y5N2NkMmY0YWI1Zjc2NjA3ZTBmZTBmZGNiYTcifQ"
+        },
+        {
+          "resource": "repo://src/triton.h#L2570-L2645",
+          "version": "repo-lines-v1:sha256:f1b49c7c025b6e67830677a41e98d1fbd9ce1a1e90ea0ba29da851cb427b0b64:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0YjE1NGFjYmFkNjc3MzE4OGQ5NzYyY2E1MDg5Y2NmOGY2YzkyYjAxOTgyOTFkZmEzZmJmOGZhZDc3NGVmM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyZjlmMjAzZDFhZDNhMmQ0YTIyNzUwODhhNjJlYjE2MThkNmU2NzcxZTA1MjcyOTA5M2M3N2E4NWNmMTM1ZDYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjNWI1NTA3MGM3Y2ZkNjAyNTk1NjIzMWY3NTljYWE0YWE5ZmE5ZWEyNzIwMmI2MDdiYmM3NTllYWY4NmVlNWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA1YjlmM2M4NDhmZDMwNDlmZTllM2U2ZjUwZTRhYjA1OWVjZmNiYzU4MzVkZjEwM2U2NWZhN2ZlZmViZTM2NmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_68f08116f673478aa9d450f00a3ed976",
+      "statement": "The coupled resume suite checks the SWMM child header, nonnegative residuals and printed accounting closure, not a benchmark comparison.",
+      "evidence": [
+        {
+          "resource": "repo://test/coupled_resume_suite.sh#L259-L279",
+          "version": "repo-lines-v1:sha256:6185bc0d92598ff6cdce2502f1f6be72e5af4a83bf299fe9eeb52787194abf35:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE1Njc4ZDAyMjVjOTZkYjI2NDIyYThlY2I3N2JkMzg3MTI5YWRhN2E3YWJlZTVhN2VjYjY3NmJiN2IwNTc4Y2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVjMzRlY2RlZTE4Zjg2ZjMzMTg5YmExYzIwZTAyMDhmOTUyOTEzZDUxNGVjYmE3NTI3NDgyZTdhZjFjNGU0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAyZWZkMGVhZWU1Y2FlMzMyZTAxNjU0N2M0YmFlODZmM2U4OTNhOTE1NTY5ZTg5Nzc1ODQ0MjMyYjI5ZDczODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFkYWQ3YWYyZDU5MjEyNWRhYWY4MmQ0YzUzNzdiNDM0N2VmNjc5ODkzYWY4NTczNTFhZWY5ZjAzNzFkMGU4MjIifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-16T03:17:13.865Z"
+  }
+}
