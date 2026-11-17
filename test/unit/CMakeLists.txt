@@ -400,3 +400,13 @@ foreach(_t
            COMMAND test_dem_rim_exemption ${CMAKE_SOURCE_DIR}/src/triton.h
                    ${CMAKE_SOURCE_DIR}/src/config_utils.h ${_t})
 endforeach()
+add_executable(test_dem_rim_exemption_review test_dem_rim_exemption_review.cpp)
+
+foreach(_t
+    F1_case_fold_on_both_sides
+    O1_refusal_order_and_the_coupling_refusal_exits
+    S1_set_include_inside_the_swmm_guard
+    Z1_the_skip_assigns_no_running_total)
+  add_test(NAME UNIT-DEM-RIM-EXEMPTION-REVIEW-${_t}
+           COMMAND test_dem_rim_exemption_review ${CMAKE_SOURCE_DIR}/src/triton.h ${_t})
+endforeach()
