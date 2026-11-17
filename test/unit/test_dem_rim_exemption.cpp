@@ -39,6 +39,7 @@ static int g_failures = 0;
 static std::string g_triton;
 static std::string g_config;
 
+/** The whole file as bytes, or an empty string if it cannot be read. */
 static std::string slurp(const std::string& path)
 {
     std::ifstream f(path.c_str(), std::ios::binary);
@@ -92,6 +93,7 @@ static std::string replace_first(std::string s, const std::string& from, const s
     return s;
 }
 
+/** Position of the first occurrence of needle in hay, or npos. */
 static size_t pos(const std::string& hay, const std::string& needle)
 {
     return hay.find(needle);
@@ -106,13 +108,24 @@ static bool prop_key_declared_default_empty(const std::string& cfg)
     return std::regex_search(c, field) && std::regex_search(c, reader);
 }
 
+/** Position of the first membership test on rim_exempt (count, find or contains), or npos.
+ *  A second correct implementation may spell the test any of these ways. */
+static size_t membership_pos(const std::string& hay, size_t from = 0)
+{
+    static const std::regex member(R"(rim_exempt\.(count|find|contains)\()");
+    std::smatch m;
+    const std::string tail = hay.substr(from);
+    if (!std::regex_search(tail, m, member)) return std::string::npos;
+    return from + static_cast<size_t>(m.position(0));
+}
+
 /** Property: a listed node is skipped by `continue` inside the rim loop, before the loop's
  *  own refusal of a cell at or below the invert, and the skip tests membership in rim_exempt. */
 static bool prop_skip_precedes_the_refusal(const std::string& triton)
 {
     const std::string loop = rim_loop(exemption_region(strip_comments(triton)));
     if (loop.empty()) return false;
-    const size_t skip = pos(loop, "rim_exempt.count(");
+    const size_t skip = membership_pos(loop);
     const size_t cont = pos(loop, "continue;");
     const size_t refuse = pos(loop, "z_cell <= invert");
     return skip != std::string::npos && cont != std::string::npos && refuse != std::string::npos
@@ -180,19 +193,21 @@ static bool prop_summary_counts_one_fewer(const std::string& triton)
 }
 
 /** Breaks a copy of the source for the control of one property. */
+/** Control for E1: the exempt node is no longer skipped (the continue becomes a no-op). */
 static std::string break_skip(std::string s)
 {
     // The exempt node is no longer skipped: the continue becomes a no-op statement.
-    const size_t a = s.find("rim_exempt.count(");
+    const size_t a = membership_pos(s);
     if (a == std::string::npos) return s;
     const size_t c = s.find("continue;", a);
     if (c != std::string::npos) s.replace(c, 9, "(void)0;");
     return s;
 }
+/** Control for E1: the skip no longer comes before the loop's own refusal of a cell at or below the invert. */
 static std::string break_refusal_order(std::string s)
 {
     // The skip no longer comes before the refusal of a cell at or below the invert.
-    const size_t a = s.find("rim_exempt.count(");
+    const size_t a = membership_pos(s);
     const size_t r = s.find("z_cell <= invert", a == std::string::npos ? 0 : a);
     if (a == std::string::npos || r == std::string::npos) return s;
     const size_t c = s.find("continue;", a);
@@ -200,10 +215,12 @@ static std::string break_refusal_order(std::string s)
     s.replace(c, 9, "(void)0;");
     return s;
 }
+/** Control for E2: the key block is entered whether or not the key is set. */
 static std::string break_guard(std::string s)
 {
     return replace_first(s, "if (!arglist.swmm_dem_rim_exempt_nodes.empty())", "if (true)");
 }
+/** Control for R1: the refusal of the key with the DEM-rim route off no longer exits. */
 static std::string break_exit(std::string s)
 {
     const size_t a = s.find("swmm_dem_rim_exempt_nodes lists");
@@ -211,18 +228,21 @@ static std::string break_exit(std::string s)
     if (e != std::string::npos) s.replace(e, 18, "(void)0");
     return s;
 }
+/** Control for M1: a collective is added to the key block. */
 static std::string break_mpi(std::string s)
 {
     const size_t a = s.find("std::set<std::string> coupled_names;");
     if (a != std::string::npos) s.insert(a, "MPI_Barrier(ENSIFY_COMM_WORLD);\n");
     return s;
 }
+/** Control for L1: the rim line counts every coupled node, exempt ones included. */
 static std::string break_summary(std::string s)
 {
     return replace_first(s, "global_num_of_swmm_links - static_cast<int>(rim_exempt.size())",
                          "global_num_of_swmm_links");
 }
 
+/** Runs one property on the real triton.h (must hold) and on a copy the breaker damages (must fail). */
 static void run_triton_prop(const char* name, bool (*prop)(const std::string&), std::string (*breaker)(std::string))
 {
     const std::string src = slurp(g_triton);
@@ -234,6 +254,7 @@ static void run_triton_prop(const char* name, bool (*prop)(const std::string&), 
     CHECK(!prop(broken), "the property FAILS on the deliberately broken copy (it reads something)");
 }
 
+/** K1: the key is a std::string read with the default "" (class: the cfg reader). Wrong implementation caught: a nonempty default. */
 static void K1_key_is_read_with_an_empty_default()
 {
     const std::string cfg = slurp(g_config);
@@ -245,29 +266,35 @@ static void K1_key_is_read_with_an_empty_default()
     CHECK(broken != cfg, "the control changed the source");
     CHECK(!prop_key_declared_default_empty(broken), "a nonempty default is caught");
 }
+/** E1: a listed node is skipped before the refusal of a cell at or below the invert. Wrong implementations caught: no skip; skip after the refusal. */
 static void E1_a_listed_node_is_skipped_before_the_refusal()
 {
     run_triton_prop("E1_a_listed_node_is_skipped_before_the_refusal", prop_skip_precedes_the_refusal, break_skip);
     const std::string src = slurp(g_triton);
     CHECK(!prop_skip_precedes_the_refusal(break_refusal_order(src)), "a skip placed after the refusal is caught");
 }
+/** E2: an absent key reaches no new statement. Wrong implementation caught: the key block entered unconditionally. */
 static void E2_an_absent_key_reaches_no_new_statement()
 {
     run_triton_prop("E2_an_absent_key_reaches_no_new_statement", prop_absent_key_reaches_nothing, break_guard);
 }
+/** R1: the four refusals exit and the inert-key refusal names the key. Wrong implementation caught: that refusal logs and continues. */
 static void R1_every_refusal_exits_and_the_inert_key_is_named()
 {
     run_triton_prop("R1_every_refusal_exits_and_the_inert_key_is_named", prop_refusals_exit_and_name_the_key, break_exit);
 }
+/** M1: no MPI call in the key block, so every rank decides alone. Wrong implementation caught: a barrier in the block. */
 static void M1_no_collective_in_the_key_block()
 {
     run_triton_prop("M1_no_collective_in_the_key_block", prop_no_collective_in_the_key_block, break_mpi);
 }
+/** L1: the rank-0 rim line counts the coupled nodes less the exempt ones. Wrong implementation caught: the unchanged count. */
 static void L1_the_rim_line_counts_one_node_fewer()
 {
     run_triton_prop("L1_the_rim_line_counts_one_node_fewer", prop_summary_counts_one_fewer, break_summary);
 }
 
+/** Runs every test, or the one named by argv[3]; exits nonzero on any failed check. */
 int main(int argc, char** argv)
 {
     if (argc < 3)
