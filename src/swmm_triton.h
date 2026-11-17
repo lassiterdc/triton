@@ -54,6 +54,8 @@ extern "C" int routing_setCouplingNodes(const int* nodeIndex, int n);
 #include <cstdlib>
 #include <vector>
 #include <cstdint>
+#include <cfloat>
+#include <memory>
 #include <filesystem>
 
 #include "constants.h"
@@ -1070,6 +1072,360 @@ namespace SWMM_triton
 	}
 
 
+	// ---------------------------------------------------------------------------
+	// Driven-stage open-water outfalls (cfg swmm_driven_outfalls).
+	//
+	// A SWMM OUTFALL (type FIXED) named in the list stays an outfall: it is not a
+	// coupling node, has no exchange slot, and neither exchange kernel sees it.
+	// Before every SWMM step TRITON writes its fixed stage through the engine's own
+	// setter (swmm_setValue(swmm_NODE_HEAD), which sets Outfall.fixedStage and
+	// nothing else), the water-surface elevation of the cell that holds it, or the
+	// outfall's invert when that cell is drier than hextra. After the step TRITON
+	// reads the one connected link's flow: discharge to the open water leaves the
+	// domain and touches no cell, backflow is taken from the cell by the one-node
+	// manhole kernel's own rule (driven_outfall_backflow_cell below).
+	//
+	// Everything in this block is pure: no MPI, no engine call, no file. The class
+	// below owns the collectives, the engine calls and the capture file, and the
+	// unit tests (test_driven_outfall.cpp) drive these functions in a plain process.
+	// With the key absent none of it runs.
+	// ---------------------------------------------------------------------------
+
+	/// outfall_stage.bin magic: ASCII "DOS1", most-significant byte first as the other
+	/// capture magics of diag_log.h.
+	static constexpr int32_t MAGIC_OUTFALL_STAGE = 0x444F5331;
+	static const char* const OUTFALL_STAGE_NAME = "outfall_stage.bin";
+	static const char* const OUTFALL_STAGE_NODES_NAME = "outfall_stage.nodes";
+
+	/// One refusal of the driven-outfall list. `what` is empty when there is none; `line`
+	/// is the 1-based list-file line the refusal is about, or 0 when it names no line.
+	struct driven_outfall_error_t
+	{
+		int line = 0;
+		std::string what;
+	};
+
+	/// The [OUTFALLS] data lines of an .inp as (name, TYPE upper case), file order, with
+	/// SWMM's section rule and tokenizer (the third token of a line is the outfall type).
+	static inline void read_inp_outfall_types(std::istream& in, std::vector<std::string>& names, std::vector<std::string>& types)
+	{
+		bool in_section = false;
+		std::string line;
+		while (std::getline(in, line)) {
+			const std::vector<std::string> tok = swmm_inp_tokens(line);
+			if (tok.empty()) continue;
+			if (!tok[0].empty() && tok[0][0] == '[') {
+				in_section = swmm_upper(tok[0]).rfind("[OUTFALL", 0) == 0;
+				continue;
+			}
+			if (in_section && tok.size() >= 3) {
+				names.push_back(tok[0]);
+				types.push_back(swmm_upper(tok[2]));
+			}
+		}
+	}
+
+	/// A conduit's end nodes as the .inp states them: SWMM reverses a conduit whose slope
+	/// is negative under dynamic wave routing and swaps its two end nodes, but the flow
+	/// the engine API returns keeps the .inp orientation, so the sign of a driven
+	/// outfall's link flow is decided from these names and not from the engine's ends.
+	struct inp_conduit_ends_t
+	{
+		std::vector<std::string> names, from, to;
+	};
+
+	/// The [CONDUITS] data lines of an .inp: name, from node, to node (file order).
+	static inline inp_conduit_ends_t read_inp_conduit_ends(std::istream& in)
+	{
+		inp_conduit_ends_t r;
+		bool in_section = false;
+		std::string line;
+		while (std::getline(in, line)) {
+			const std::vector<std::string> tok = swmm_inp_tokens(line);
+			if (tok.empty()) continue;
+			if (!tok[0].empty() && tok[0][0] == '[') {
+				in_section = swmm_upper(tok[0]).rfind("[CONDUIT", 0) == 0;
+				continue;
+			}
+			if (in_section && tok.size() >= 3) {
+				r.names.push_back(tok[0]);
+				r.from.push_back(tok[1]);
+				r.to.push_back(tok[2]);
+			}
+		}
+		return r;
+	}
+
+	/// +1 when a positive flow the engine API returns for the link runs INTO the node
+	/// `outfall`, -1 when it runs out of it, 0 when the link is a conduit that the .inp
+	/// does not join to the outfall. `link_name` is the engine's name of the link.
+	static inline int driven_outfall_link_sign(const inp_conduit_ends_t& ends, const std::string& link_name,
+	                                           const std::string& outfall)
+	{
+		for (std::size_t i = 0; i < ends.names.size(); ++i) {
+			if (swmm_upper(ends.names[i]) != swmm_upper(link_name)) continue;
+			if (swmm_upper(ends.to[i]) == swmm_upper(outfall))   return 1;
+			if (swmm_upper(ends.from[i]) == swmm_upper(outfall)) return -1;
+			return 0;
+		}
+		return 2;   // not a conduit of the .inp: the caller takes the engine's own ends
+	}
+
+	/// The driven-outfall list against what every rank can read from the .inp: a name
+	/// repeated after SWMM's case fold; then, in list order, a name that is no OUTFALL
+	/// node of the model; an outfall whose type is not FIXED; a node that is also a
+	/// coupling node; a node with no [COORDINATES] entry. Returns the first refusal.
+	/// The refusals that need the engine (the node's existence, its link count) are
+	/// made in init_swmm on rank 0.
+	static inline driven_outfall_error_t
+	check_driven_outfalls(const std::vector<std::string>& names, const std::vector<int>& lines,
+	                      const std::vector<std::string>& outfall_names, const std::vector<std::string>& outfall_types,
+	                      const std::vector<std::string>& coupling_names, const std::vector<std::string>& coord_names)
+	{
+		driven_outfall_error_t err;
+		const std::pair<int, int> rep = find_repeated_name(names);
+		if (rep.first >= 0) {
+			err.line = lines[rep.second];
+			err.what = "node " + names[rep.second] + " repeats " + names[rep.first] + " on line "
+			           + std::to_string(lines[rep.first]) + " (SWMM compares node names case-insensitively)";
+			return err;
+		}
+		for (std::size_t i = 0; i < names.size(); ++i) {
+			const std::string up = swmm_upper(names[i]);
+			int found = -1;
+			for (std::size_t j = 0; j < outfall_names.size(); ++j)
+				if (swmm_upper(outfall_names[j]) == up) { found = static_cast<int>(j); break; }
+			if (found < 0) {
+				err.line = lines[i];
+				err.what = "node " + names[i] + " is not an OUTFALL node of the SWMM model";
+				return err;
+			}
+			if (outfall_types[found] != "FIXED") {
+				err.line = lines[i];
+				err.what = "node " + names[i] + " is a SWMM OUTFALL of type " + outfall_types[found]
+				           + "; swmm_driven_outfalls lists outfalls of type FIXED only";
+				return err;
+			}
+			for (const std::string& c : coupling_names)
+				if (swmm_upper(c) == up) {
+					err.line = lines[i];
+					err.what = "node " + names[i] + " is also a coupling node; a driven outfall is never one";
+					return err;
+				}
+			bool has_coord = false;
+			for (const std::string& c : coord_names)
+				if (swmm_upper(c) == up) { has_coord = true; break; }
+			if (!has_coord) {
+				err.line = lines[i];
+				err.what = "node " + names[i] + " has no [COORDINATES] entry";
+				return err;
+			}
+		}
+		return err;
+	}
+
+	/// The rank whose strip holds global interior row `row` of the row-striped
+	/// decomposition (`interior_rows[r]` is rank r's interior row count, the partition's
+	/// part_dims[r].first less the two ghost rows). Sets `first_row` to the first global
+	/// row of that strip. Returns -1 and a `first_row` past the grid when the row is
+	/// outside it. The rule of process_swmm_node_locations, kept in one place.
+	static inline int strip_owner(int row, const std::vector<int>& interior_rows, int& first_row)
+	{
+		int start = 0;
+		for (std::size_t r = 0; r < interior_rows.size(); ++r) {
+			if (row >= start && row < start + interior_rows[r]) { first_row = start; return static_cast<int>(r); }
+			start += interior_rows[r];
+		}
+		first_row = start;
+		return -1;
+	}
+
+	/// The stage TRITON gives a driven outfall: the water-surface elevation of its cell,
+	/// z_cell + h, where the cell is wet by the surface solver's own test (h >= hextra),
+	/// and the outfall's invert where it is not. Metres.
+	static inline double driven_outfall_stage(double h, double hextra, double z_cell, double invert)
+	{
+		return h >= hextra ? z_cell + h : invert;
+	}
+
+	/// A stage in metres as the engine's setter expects it: in the model's length unit.
+	/// A US-flow model keeps its lengths in feet (swmm_engine_length_m is the inverse).
+	static inline double driven_stage_to_model_units(double stage_m, bool us)
+	{
+		return us ? stage_m / 0.3048 : stage_m;
+	}
+
+	/// Cubic metres per second per unit of the model's flow unit (CFS, GPM, MGD, CMS,
+	/// LPS, MLD); 0 for a value outside the enum. The engine returns a link flow in the
+	/// model's flow unit, and CMS is the identity, so a metric model's flows arrive
+	/// unrounded.
+	static inline double swmm_flow_units_m3s_per_unit(int flow_units)
+	{
+		switch (flow_units)
+		{
+			case swmm_CFS: return 0.028316846592;
+			case swmm_GPM: return 3.785411784e-3 / 60.0;
+			case swmm_MGD: return 3785.411784 / 86400.0;
+			case swmm_CMS: return 1.0;
+			case swmm_LPS: return 1.0e-3;
+			case swmm_MLD: return 1000.0 / 86400.0;
+			default:       return 0.0;
+		}
+	}
+
+	/** @brief One driven outfall's cell: the backflow the sewer pushes back through the
+	 *  outfall conduit taken from the surface, with the one-node manhole kernel's rule
+	 *  (exchange_one_coupled_cell, count == 1, statement for statement).
+	 *
+	 *  @param q_back backflow rate, m3/s, positive, removed from the cell
+	 *  @param hij    the cell's depth; on return its depth after the removal
+	 *  @param qx,qy  the cell's momenta; zeroed where the cell ends below hextra
+	 *  @param applied on return the rate actually removed, m3/s, positive: q_back, or
+	 *                 hold*dx*dx/dt where the cell ended below EPS12 and was set to
+	 *                 zero (the removal then takes what the cell had, never more)
+	 *  A cell with q_back <= 0 is not touched by the caller.
+	 */
+	template<typename T>
+	KOKKOS_INLINE_FUNCTION void driven_outfall_backflow_cell(T q_back, T dx, T dt, T hextra, T& hij, T& qx, T& qy, T& applied)
+	{
+		T flow = -q_back;
+		T hold = hij;
+		T h_src = (flow * dt) / (dx * dx);
+		hij += h_src;
+
+		//if water is below hextra, velocities are removed
+		if (hij < hextra)
+		{
+			//negative water removed
+			if (hij < EPS12)
+			{
+				hij = 0.0;
+				flow = -hold * dx * dx / dt;
+			}
+			qx = 0.0;
+			qy = 0.0;
+		}
+		applied = -flow;
+	}
+
+	/// outfall_stage.bin: header {int32 magic, version, value_width, n_items} (diag_log),
+	/// then per SWMM step {f64 simtime, f64 dt, f64 stage_m[n], f64 q_out_m3s[n],
+	/// f64 q_back_applied_m3s[n]}. simtime is the END time of the TRITON step the SWMM
+	/// step was taken on, the side-file's stamp, so diag_log's positioner can read it.
+	static inline std::size_t outfall_stage_record_bytes(int n) { return 16 + 24 * (std::size_t)n; }
+
+	/// One outfall_stage.bin record. q_out is positive for discharge to the open water
+	/// and negative for backflow; q_back_applied is the (positive) backflow rate the
+	/// surface actually gave up.
+	static inline std::vector<char> encode_outfall_stage_record(double simtime, double dt, const double* stage_m,
+	                                                           const double* q_out_m3s, const double* q_back_applied_m3s,
+	                                                           int n)
+	{
+		std::vector<char> b;
+		b.reserve(outfall_stage_record_bytes(n));
+		step_diag_put(b, &simtime, 8);
+		step_diag_put(b, &dt, 8);
+		if (n > 0) {
+			step_diag_put(b, stage_m, 8 * (std::size_t)n);
+			step_diag_put(b, q_out_m3s, 8 * (std::size_t)n);
+			step_diag_put(b, q_back_applied_m3s, 8 * (std::size_t)n);
+		}
+		return b;
+	}
+
+	/// The inverse: reads one record of n outfalls from `b` (outfall_stage_record_bytes(n)
+	/// bytes) into the three output arrays and returns its stamp.
+	static inline double decode_outfall_stage_record(const char* b, int n, double* stage_m, double* q_out_m3s,
+	                                                 double* q_back_applied_m3s, double* dt)
+	{
+		double simtime = 0.0;
+		std::memcpy(&simtime, b, 8);
+		if (dt) std::memcpy(dt, b + 8, 8);
+		const char* p = b + 16;
+		if (n > 0) {
+			std::memcpy(stage_m, p, 8 * (std::size_t)n);
+			std::memcpy(q_out_m3s, p + 8 * (std::size_t)n, 8 * (std::size_t)n);
+			std::memcpy(q_back_applied_m3s, p + 16 * (std::size_t)n, 8 * (std::size_t)n);
+		}
+		return simtime;
+	}
+
+	/// A record walker that reads the first `limit` records and then reports the end of
+	/// the file, so diag_log::position_binary truncates to exactly `limit` records (and
+	/// validates the header on the way). The resume uses it because each SWMM step's
+	/// outfall record pairs one to one with that step's exchange side-file record, so the
+	/// side-file's own count is the authority for how many records belong to the
+	/// resumed segment's past.
+	static inline diag_log::record_reader outfall_stage_count_reader(int n, long limit)
+	{
+		const std::size_t bytes = outfall_stage_record_bytes(n);
+		auto seen = std::make_shared<long>(0);
+		return [bytes, limit, seen](std::istream& in, double& stamp) -> bool {
+			if (*seen >= limit) return false;
+			std::vector<char> buf(bytes);
+			in.read(buf.data(), (std::streamsize)bytes);
+			if (in.gcount() != (std::streamsize)bytes) return false;
+			std::memcpy(&stamp, buf.data(), sizeof(double));
+			++(*seen);
+			return true;
+		};
+	}
+
+	/// What one process holds of the driven-outfall list and its per-step state.
+	/// Everything here is empty with the key absent or listing no node.
+	struct driven_outfalls_t
+	{
+		std::string                 key;          ///< the cfg value
+		std::vector<std::string>    names;        ///< list order, as written
+		std::vector<int>            lines;        ///< each name's 1-based list line
+		std::vector<int>            cell_row;     ///< global interior row of each node's cell
+		std::vector<int>            cell_col;     ///< global interior column
+		std::vector<int>            owner;        ///< the rank whose strip holds the cell
+		std::vector<int>            pos;          ///< flat local index into h (swmm_pos_arr form) at the owner, -1 elsewhere
+		std::vector<double>         invert_m;     ///< every rank (broadcast from rank 0), metres
+		std::vector<double>         z_cell;       ///< the owner's DEM value at the cell, metres (triton.h fills)
+
+		// Per-step values. stage_local/hold_local are the owner's reads of this step
+		// (zero on every other rank); work_send/work_recv carry the one reduction.
+		std::vector<double>         stage_local, hold_local;
+		std::vector<double>         work_send, work_recv;
+		std::vector<double>         q_back_req;   ///< rank 0 after the step, every rank after the scatter: backflow requested, m3/s
+		std::vector<double>         held_q_back;  ///< every rank: the requested rate held for the TRITON steps until the next SWMM step
+		std::vector<double>         resume_q_back;///< rank 0: the last kept record's requested rate at a resume
+		double                      step_applied_m3 = 0.0;   ///< this rank's applied backflow volume of the TRITON step just run
+		double                      step_deficit_m3 = 0.0;   ///< this rank's refused volume of that step
+
+		// Rank 0 only: the engine's side.
+		std::vector<std::string>    engine_names;
+		std::vector<int>            node_idx;     ///< swmm_getIndex of each outfall
+		std::vector<int>            link_idx;     ///< its one connected link
+		std::vector<int>            link_sign;    ///< +1: a positive API flow runs into the outfall; -1: out of it
+		std::vector<double>         stage_m, hold_m, q_out_m3s, q_back_applied_m3s;
+		bool                        us_units = false;
+		double                      flow_m3s_per_unit = 1.0;
+
+		int  n() const { return static_cast<int>(names.size()); }
+		/// Sizes every per-outfall vector once the list is known.
+		void size_state()
+		{
+			const std::size_t k = names.size();
+			invert_m.assign(k, 0.0);
+			z_cell.assign(k, 0.0);
+			stage_local.assign(k, 0.0);
+			hold_local.assign(k, 0.0);
+			work_send.assign(2 * k, 0.0);
+			work_recv.assign(2 * k, 0.0);
+			q_back_req.assign(k, 0.0);
+			held_q_back.assign(k, 0.0);
+			resume_q_back.assign(k, 0.0);
+			stage_m.assign(k, 0.0);
+			hold_m.assign(k, 0.0);
+			q_out_m3s.assign(k, 0.0);
+			q_back_applied_m3s.assign(k, 0.0);
+		}
+	};
+
+
 	class swmm_triton	/**< Main class for SWMM coupling. */
 	{
 
@@ -1087,7 +1443,8 @@ namespace SWMM_triton
 		/// false, which keeps the stop there. swmm_node_rim_from_dem only labels
 		/// the rims init_swmm prints; triton.h applies the DEM rim.
 		/// swmm_coupling_nodes is the coupling declaration (empty: legacy).
-		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string(), const bool swmm_snapshot_failed_replay = false, const std::string& swmm_manhole_table = std::string());
+		/// swmm_driven_outfalls is the driven-stage outfall list (empty: none).
+		void initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous = false, const bool swmm_node_rim_from_dem = false, const std::string& swmm_coupling_nodes = std::string(), const bool swmm_snapshot_failed_replay = false, const std::string& swmm_manhole_table = std::string(), const std::string& swmm_driven_outfalls = std::string());
 
 
 		void end_swmm(std::string output_dir);
@@ -1147,6 +1504,32 @@ namespace SWMM_triton
 		/// final partial interval with no SWMM step in it writes nothing (the
 		/// end-of-run close row).
 		void write_node_path3_interval(double t_end, bool only_if_pending = false);
+
+		// --- driven-stage open-water outfalls (cfg swmm_driven_outfalls) ------------
+		// The list and the per-step state are in `driven`; every method below does
+		// nothing when it lists no node. The collectives that move the stages and the
+		// backflow between ranks are issued by triton.h (see driven_outfall_* there).
+
+		/// What this process holds of the list and its per-step state.
+		driven_outfalls_t driven;
+
+		/// True when the key listed at least one outfall (a key naming an empty list file
+		/// lists none, and then no code of this block runs). The same on every rank.
+		bool driven_active() const { return !driven.names.empty(); }
+
+		/// Rank 0: writes each outfall's stage (metres, `stage_m[n]`) through the engine's
+		/// setter, before the swmm_step the stages belong to, and keeps the stages and the
+		/// surface depths they were read from (`hold_m[n]`) for the step's record.
+		void set_driven_stages(const double* stage_m, const double* hold_m);
+
+		/// Rank 0, directly after swmm_step: reads each outfall's connected link flow,
+		/// forms the backflow the surface is asked for and the part of it the cell can give
+		/// (driven_outfall_backflow_cell on the depth the stage was read from), and appends
+		/// the step's outfall_stage.bin record. step_end_time is simtime + dt of the TRITON
+		/// step, swmm_dt the dt SWMM was stepped with, triton_dt the dt of the TRITON step
+		/// the backflow is first applied on (the same number unless the coupling interval
+		/// is above 1). Leaves the requested rates in driven.q_back_req.
+		void log_driven_flows(double step_end_time, double swmm_dt, double triton_dt, double dx, double hextra);
 
 		// --- full-precision state snapshot (bounds the resume cost) ---------
 		// The replay above is exact but its cost grows with t_k, and the GPU sits
@@ -1329,6 +1712,34 @@ namespace SWMM_triton
 		/// from the DEM instead. False keeps SWMM's rims.
 		bool node_rim_from_dem = false;
 
+		/// Driven-stage outfalls (rank 0): the append stream of outfall_stage.bin and its
+		/// path. Opened beside the exchange side-file (a clean start or either resume
+		/// route), flushed with it at each checkpoint write, closed with it.
+		std::string outfall_stage_path_;
+		std::ofstream outfall_stage_log_;
+
+		/// Reads the list file named by `key`, checks it against the .inp every rank
+		/// reads, and fills `driven` (names, lines). Every refusal stops every rank with
+		/// exit(EXIT_FAILURE) naming the file, the line and the node.
+		void read_driven_outfalls(const std::string& inp_filename, const inp_coupled_list_t& parsed);
+
+		/// Places each listed outfall in the grid: its global cell, the owning rank and
+		/// the owner's flat index. Refuses (every rank, exit(EXIT_FAILURE), naming the
+		/// node) a cell outside the grid, a cell that also holds a coupling node or
+		/// another listed outfall.
+		void process_driven_outfall_locations(const value_t xll, const value_t yll, const value_t dx,
+		                                      const int global_rows, const int global_cols,
+		                                      const MpiUtils::partition_data_t pd);
+
+		/// Rank 0, after swmm_open: the engine's side of the list (node, one connected
+		/// link and its orientation, invert, flow unit). Refuses with MPI_Abort a name that
+		/// is no SWMM node, a node that is no OUTFALL, and an outfall with not exactly one
+		/// connected link.
+		void init_driven_outfalls_engine(const std::string& inp_filename, const bool us_units);
+
+		/// Rank 0: writes the outfall_stage.nodes sidecar (names in list order).
+		void write_driven_sidecar();
+
 		std::string snapshot_path_for(int checkpoint_id) const;
 
 		/// snapshot_save's temporary, and the name a resume renames a surviving
@@ -1384,7 +1795,7 @@ namespace SWMM_triton
 
 
 
-	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes, const bool swmm_snapshot_failed_replay, const std::string& swmm_manhole_table)
+	void swmm_triton::initialize(int rank, int size, std::string inp_filename, std::string project_dir, std::string output_folder, const value_t  xll, const value_t  yll, const value_t  dx, const int global_rows, const int global_cols, const MpiUtils::partition_data_t pd, const value_t manhole_diameter, const value_t manhole_loss, const bool swmm_snapshot_disable, const bool swmm_snapshot_keep_all, const bool swmm_snapshot_keep_previous, const bool swmm_node_rim_from_dem, const std::string& swmm_coupling_nodes, const bool swmm_snapshot_failed_replay, const std::string& swmm_manhole_table, const std::string& swmm_driven_outfalls)
 	{
 		rank_=rank;
 		size_=size;
@@ -1394,9 +1805,13 @@ namespace SWMM_triton
 		this->snapshot_failed_replay = swmm_snapshot_failed_replay;
 		this->node_rim_from_dem = swmm_node_rim_from_dem;
 		this->coupling_nodes_key = swmm_coupling_nodes;
+		this->driven.key = swmm_driven_outfalls;
 
 		read_inp_file(inp_filename,dx, manhole_diameter, manhole_loss, swmm_manhole_table);
 		process_swmm_node_locations(xll, yll, dx, global_rows, global_cols, pd);
+		// Branches entered only with a key: the driven-outfall list, and its cells.
+		if (!swmm_driven_outfalls.empty() && driven_active())
+			process_driven_outfall_locations(xll, yll, dx, global_rows, global_cols, pd);
 		init_swmm(project_dir, inp_filename, swmm_snapshot_disable);
 	}
 
@@ -1468,6 +1883,9 @@ namespace SWMM_triton
 			max_depth_all.push_back(parsed.junction_max_depth[j]);
 		}
 		nodeID = parsed.names;
+
+		// The driven-outfall list: read only with the key set.
+		if (!driven.key.empty()) read_driven_outfalls(inp_filename, parsed);
 
 		num_of_swmm_nodes=nodeID_all.size();
 		global_num_of_swmm_links=nodeID.size();
@@ -1880,9 +2298,19 @@ namespace SWMM_triton
 				else
 					std::cerr << "no [INFLOWS] line gives a node a FLOW inflow and no swmm_coupling_nodes is given";
 				std::cerr << ". Declare coupling nodes with swmm_coupling_nodes, or omit inp_filename"
-				             " for a surface-only run." << std::endl;
+				             " for a surface-only run.";
+				if (driven_active())
+					std::cerr << " swmm_driven_outfalls lists " << driven.n()
+					          << " outfall(s) but a driven outfall needs at least one coupling node:"
+					             " the run is refused rather than coupled through outfalls alone.";
+				std::cerr << std::endl;
 				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 			}
+
+			// The driven outfalls' engine side: the node, its one connected link and the
+			// link's orientation, the invert and the flow unit. After the zero-node refusal
+			// above, so a model with no coupling node stops there first.
+			if (driven_active()) init_driven_outfalls_engine(inp_filename, us_units);
 
 			// Activate the coupling: each node's exchange slot, in SWMM node-index order,
 			// before any step, replay or snapshot restore reads it.
@@ -1933,6 +2361,8 @@ namespace SWMM_triton
 		if (global_num_of_swmm_links > 0) {
 			MPI_Bcast(rim_global.data(), global_num_of_swmm_links, MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
 			MPI_Bcast(invert_global.data(), global_num_of_swmm_links, MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
+			// The driven outfalls' inverts, from the engine on rank 0 to the owner of each cell.
+			if (driven_active()) MPI_Bcast(driven.invert_m.data(), driven.n(), MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
 		}
 		node_invert.resize(num_of_swmm_links);
 		for (int k = 0; k < num_of_swmm_links; k++) {
@@ -2013,6 +2443,19 @@ namespace SWMM_triton
 		exchange_log.flush();
 		// Clean start of the declared capture files, beside the side-file's own.
 		diag_log::open_clean_all(diag_files);
+
+		// The driven outfalls' stage file starts clean with the side-file it pairs with.
+		if (driven_active())
+		{
+			write_driven_sidecar();
+			outfall_stage_path_ = capture_dir_ + OUTFALL_STAGE_NAME;
+			outfall_stage_log_.close();
+			outfall_stage_log_.open(outfall_stage_path_, std::ios::binary | std::ios::trunc);
+			if (!outfall_stage_log_.is_open()) diag_log::fatal("could not open " + outfall_stage_path_ + " for writing");
+			diag_log::write_header(outfall_stage_log_, MAGIC_OUTFALL_STAGE, static_cast<int32_t>(driven.n()));
+			outfall_stage_log_.flush();
+			if (!outfall_stage_log_.good()) diag_log::fatal("could not write the header of " + outfall_stage_path_);
+		}
 	}
 
 
@@ -2059,6 +2502,21 @@ namespace SWMM_triton
 			          << std::endl;
 			MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
 		}
+		// The driven outfalls' stage file is flushed with the side-file it pairs with, ahead
+		// of the same checkpoint cfg.
+		if (outfall_stage_log_.is_open())
+		{
+			outfall_stage_log_.flush();
+			if (!outfall_stage_log_.good())
+			{
+				std::cerr << ERROR "Could not flush " << outfall_stage_path_ << " at a checkpoint write.\n"
+				          << "         Aborting before this checkpoint's cfg is written, so "
+				             "the resume picker returns the previous checkpoint, whose "
+				             "records are all on disk."
+				          << std::endl;
+				MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+			}
+		}
 	}
 
 
@@ -2066,6 +2524,7 @@ namespace SWMM_triton
 	{
 		if (rank_ != 0) return;
 		if (exchange_log.is_open()) { exchange_log.flush(); exchange_log.close(); }
+		if (outfall_stage_log_.is_open()) { outfall_stage_log_.flush(); outfall_stage_log_.close(); }
 	}
 
 
@@ -2239,6 +2698,250 @@ namespace SWMM_triton
 		if (only_if_pending && sd_interval_.steps == 0) return;
 		const std::vector<char> rec = sd_interval_.take(t_end);
 		cf_node_path3_.append(rec.data(), rec.size());
+	}
+
+
+	// ---------------------------------------------------------------------------
+	// Driven-stage open-water outfalls (cfg swmm_driven_outfalls). See the block
+	// of pure functions above the class for what the feature does. Only the
+	// pieces that read the list, place its cells, ask the engine, and write the
+	// capture file live here; each does nothing with the key absent.
+	// ---------------------------------------------------------------------------
+
+	void swmm_triton::read_driven_outfalls(const std::string& inp_filename, const inp_coupled_list_t& parsed)
+	{
+		std::ifstream list_file(driven.key.c_str());
+		if (!list_file.is_open()) {
+			std::cerr << ERROR "Cannot read the driven-outfall list " << driven.key
+			          << " (swmm_driven_outfalls)." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		driven.names.clear();
+		driven.lines.clear();
+		read_coupling_list(list_file, driven.names, driven.lines);
+		// A list that names nothing lists no outfall: no later statement of this block runs.
+		if (driven.names.empty()) return;
+
+		std::ifstream inp(inp_filename.c_str());
+		std::vector<std::string> outfall_names, outfall_types;
+		read_inp_outfall_types(inp, outfall_names, outfall_types);
+		const driven_outfall_error_t err = check_driven_outfalls(driven.names, driven.lines, outfall_names,
+		                                                         outfall_types, parsed.names, parsed.coord_names);
+		if (!err.what.empty()) {
+			std::cerr << ERROR "Driven-outfall list " << driven.key << " line " << err.line << ": "
+			          << err.what << " (swmm_driven_outfalls)." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		driven.size_state();
+		if (rank_ == 0) {
+			std::cerr << IN "SWMM driven outfalls: " << driven.n() << ", listed in " << driven.key << std::endl;
+		}
+	}
+
+
+	void swmm_triton::process_driven_outfall_locations(const value_t xll, const value_t yll, const value_t dx,
+	                                                   const int global_rows, const int global_cols,
+	                                                   const MpiUtils::partition_data_t pd)
+	{
+		const int n = driven.n();
+		driven.cell_row.assign(n, -1);
+		driven.cell_col.assign(n, -1);
+		driven.owner.assign(n, -1);
+		driven.pos.assign(n, -1);
+
+		std::vector<int> interior_rows;
+		for (std::size_t r = 0; r < pd.part_dims.size(); ++r)
+			interior_rows.push_back(pd.part_dims[r].first - 2 * GHOST_CELL_PADDING);
+
+		// A node's [COORDINATES] entry: the first one wins, names compare as SWMM's do.
+		auto locate = [&](const std::string& name, int& row, int& col) -> bool {
+			for (std::size_t j = 0; j < nodeID_all.size(); ++j) {
+				if (swmm_upper(nodeID_all[j]) == swmm_upper(name)) {
+					col = calc_swmm_node_col(x_all[j], xll, dx);
+					row = calc_swmm_node_row(y_all[j], yll, dx, global_rows);
+					return true;
+				}
+			}
+			return false;
+		};
+
+		bool refused = false;
+		for (int i = 0; i < n; ++i) {
+			int row = -1, col = -1;
+			if (!locate(driven.names[i], row, col)) {
+				std::cerr << ERROR "Driven outfall " << driven.names[i] << " has no [COORDINATES] entry." << std::endl;
+				refused = true;
+				continue;
+			}
+			int first_row = 0;
+			const int owner = (col >= 0 && col < global_cols) ? strip_owner(row, interior_rows, first_row) : -1;
+			if (owner < 0) {
+				std::cerr << ERROR "Driven outfall " << driven.names[i] << " is out of bounds" << std::endl;
+				refused = true;
+				continue;
+			}
+			driven.cell_row[i] = row;
+			driven.cell_col[i] = col;
+			driven.owner[i] = owner;
+			if (rank_ == owner)
+				driven.pos[i] = (row - first_row + GHOST_CELL_PADDING) * (global_cols + 2 * GHOST_CELL_PADDING)
+				                + (col + GHOST_CELL_PADDING);
+		}
+
+		// Two kernels would write one cell's depth: a coupling node's exchange kernel, or
+		// another outfall's backflow kernel. Every rank evaluates the same names, so
+		// every rank refuses together.
+		for (int i = 0; i < n && !refused; ++i) {
+			for (std::size_t k = 0; k < global_nodeID.size(); ++k) {
+				int row = -1, col = -1;
+				if (!locate(global_nodeID[k], row, col)) continue;
+				if (row == driven.cell_row[i] && col == driven.cell_col[i]) {
+					std::cerr << ERROR "Driven outfall " << driven.names[i] << " shares its cell with coupling node "
+					          << global_nodeID[k] << "." << std::endl;
+					refused = true;
+					break;
+				}
+			}
+			for (int j = 0; j < i && !refused; ++j) {
+				if (driven.cell_row[j] == driven.cell_row[i] && driven.cell_col[j] == driven.cell_col[i]) {
+					std::cerr << ERROR "Driven outfall " << driven.names[i] << " shares its cell with driven outfall "
+					          << driven.names[j] << "." << std::endl;
+					refused = true;
+				}
+			}
+		}
+		if (refused) exit(EXIT_FAILURE);
+	}
+
+
+	void swmm_triton::init_driven_outfalls_engine(const std::string& inp_filename, const bool us_units)
+	{
+		const int n = driven.n();
+		driven.node_idx.assign(n, -1);
+		driven.link_idx.assign(n, -1);
+		driven.link_sign.assign(n, 0);
+		driven.engine_names.assign(n, std::string());
+		driven.us_units = us_units;
+		driven.flow_m3s_per_unit = swmm_flow_units_m3s_per_unit(static_cast<int>(swmm_getValue(swmm_FLOWUNITS, 0)));
+
+		std::ifstream inp(inp_filename.c_str());
+		const inp_conduit_ends_t ends = read_inp_conduit_ends(inp);
+
+		bool refused = false;
+		if (!(driven.flow_m3s_per_unit > 0.0)) {
+			std::cerr << ERROR "The SWMM model's flow units are not ones a driven outfall can convert to m3/s." << std::endl;
+			refused = true;
+		}
+		const int n_links = swmm_getCount(swmm_LINK);
+		char buf[1024];
+		for (int i = 0; i < n && !refused; ++i) {
+			const int idx = swmm_getIndex(swmm_NODE, driven.names[i].c_str());
+			if (idx < 0) {
+				std::cerr << ERROR "Driven outfall " << driven.names[i] << " is not a node of the SWMM model." << std::endl;
+				refused = true;
+				continue;
+			}
+			if (static_cast<int>(swmm_getValue(swmm_NODE_TYPE, idx)) != swmm_OUTFALL) {
+				std::cerr << ERROR "Driven outfall " << driven.names[i] << " is not an OUTFALL node of the SWMM model." << std::endl;
+				refused = true;
+				continue;
+			}
+			driven.node_idx[i] = idx;
+			buf[0] = '\0';
+			swmm_getName(swmm_NODE, idx, buf, static_cast<int>(sizeof(buf)));
+			driven.engine_names[i] = buf;
+			driven.invert_m[i] = swmm_engine_length_m(swmm_getValue(swmm_NODE_ELEV, idx), us_units);
+
+			// SWMM's outfall flow reads 0 when the node both receives and sends
+			// (node_getSystemOutflow), so an outfall with more than one connected link has
+			// no single link flow to read; with none there is nothing to read at all.
+			int connected = 0, link = -1;
+			for (int j = 0; j < n_links; ++j) {
+				if (static_cast<int>(swmm_getValue(swmm_LINK_NODE1, j)) == idx
+				    || static_cast<int>(swmm_getValue(swmm_LINK_NODE2, j)) == idx) {
+					++connected;
+					link = j;
+				}
+			}
+			if (connected != 1) {
+				std::cerr << ERROR "Driven outfall " << driven.names[i] << " has " << connected
+				          << " connected links; a driven outfall needs exactly one." << std::endl;
+				refused = true;
+				continue;
+			}
+			driven.link_idx[i] = link;
+			buf[0] = '\0';
+			swmm_getName(swmm_LINK, link, buf, static_cast<int>(sizeof(buf)));
+			int sign = driven_outfall_link_sign(ends, std::string(buf), driven.names[i]);
+			if (sign == 2)   // not a conduit of the .inp (a pump, orifice, weir or outlet keeps its ends)
+				sign = (static_cast<int>(swmm_getValue(swmm_LINK_NODE2, link)) == idx) ? 1 : -1;
+			if (sign == 0) {
+				std::cerr << ERROR "Driven outfall " << driven.names[i] << ": the .inp joins no end of its link "
+				          << buf << " to it." << std::endl;
+				refused = true;
+				continue;
+			}
+			driven.link_sign[i] = sign;
+		}
+		if (refused) MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+		std::cerr << IN "SWMM driven outfalls checked against the engine: " << n << " outfall(s), one connected link each" << std::endl;
+	}
+
+
+	void swmm_triton::write_driven_sidecar()
+	{
+		if (rank_ != 0 || !driven_active()) return;
+		write_diag_sidecar(capture_dir_ + OUTFALL_STAGE_NODES_NAME, format_name_list(driven.engine_names));
+	}
+
+
+	void swmm_triton::set_driven_stages(const double* stage_m, const double* hold_m)
+	{
+		if (rank_ != 0 || !driven_active()) return;
+		for (int i = 0; i < driven.n(); ++i) {
+			driven.stage_m[i] = stage_m[i];
+			driven.hold_m[i] = hold_m[i];
+			swmm_setValue(swmm_NODE_HEAD, driven.node_idx[i], driven_stage_to_model_units(stage_m[i], driven.us_units));
+		}
+	}
+
+
+	void swmm_triton::log_driven_flows(double step_end_time, double swmm_dt, double triton_dt, double dx, double hextra)
+	{
+		if (rank_ != 0 || !driven_active()) return;
+		const int n = driven.n();
+		for (int i = 0; i < n; ++i) {
+			// The API flow is in the model's flow unit and follows the .inp orientation of
+			// the link; link_sign makes it positive INTO the outfall (discharge to the open water).
+			const double q_out = driven.link_sign[i] * swmm_getValue(swmm_LINK_FLOW, driven.link_idx[i]) * driven.flow_m3s_per_unit;
+			driven.q_out_m3s[i] = q_out;
+			const double q_back = q_out < 0.0 ? -q_out : 0.0;
+			driven.q_back_req[i] = q_back;
+			double applied = 0.0;
+			if (q_back > 0.0) {
+				// What the cell can give, by the kernel's own function on the depth the stage
+				// was read from (the exchange kernels never write this cell, so it is the
+				// depth the backflow kernel will see).
+				value_t hij = static_cast<value_t>(driven.hold_m[i]), qx = 0, qy = 0, ap = 0;
+				driven_outfall_backflow_cell<value_t>(static_cast<value_t>(q_back), static_cast<value_t>(dx),
+				                                      static_cast<value_t>(triton_dt), static_cast<value_t>(hextra),
+				                                      hij, qx, qy, ap);
+				applied = static_cast<double>(ap);
+			}
+			driven.q_back_applied_m3s[i] = applied;
+		}
+		const std::vector<char> rec = encode_outfall_stage_record(step_end_time, swmm_dt, driven.stage_m.data(),
+		                                                          driven.q_out_m3s.data(),
+		                                                          driven.q_back_applied_m3s.data(), n);
+		if (!outfall_stage_log_.is_open()) return;
+		outfall_stage_log_.write(rec.data(), static_cast<std::streamsize>(rec.size()));
+		if (!outfall_stage_log_.good()) {
+			std::cerr << ERROR "Could not append to " << outfall_stage_path_ << ".\n"
+			          << "         Aborting at this step rather than continuing: the stream's failure state latches, "
+			             "so every later checkpoint would sit over a file that stopped growing. The latest "
+			             "complete checkpoint remains resumable." << std::endl;
+			MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+		}
 	}
 
 
@@ -2453,6 +3156,48 @@ namespace SWMM_triton
 			exit(EXIT_FAILURE);
 		}
 
+		// --- the driven outfalls' stage file (only with outfalls listed) ---
+		// Each SWMM step wrote one outfall_stage.bin record beside its side-file record,
+		// so the two files are walked in step: the replay sets the logged stage before
+		// each replayed swmm_step (the stage changes the routing, so a replay without it
+		// would rebuild another SWMM state), and the last kept record gives the backflow
+		// rate the resumed segment holds until its first SWMM step.
+		std::ifstream stage_in;
+		std::vector<char> stage_rec, stage_last;
+		std::vector<double> stage_v, qout_v, qback_v;
+		const int n_driven = driven.n();
+		const std::size_t stage_bytes = outfall_stage_record_bytes(n_driven);
+		if (driven_active())
+		{
+			outfall_stage_path_ = capture_dir_ + OUTFALL_STAGE_NAME;
+			stage_in.open(outfall_stage_path_, std::ios::binary);
+			if (!stage_in.is_open())
+			{
+				std::cerr << ERROR "Coupled TRITON-SWMM resume with swmm_driven_outfalls requires the outfall stage file,\n"
+				          << "         but it was not found: " << outfall_stage_path_ << "\n"
+				          << "         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
+				          << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			const diag_log::position_status sst =
+				diag_log::validate_header(diag_log::read_header(stage_in), MAGIC_OUTFALL_STAGE, static_cast<int32_t>(n_driven));
+			if (sst != diag_log::position_status::ok)
+			{
+				std::cerr << ERROR "Cannot resume " << outfall_stage_path_ << ": "
+				          << diag_log::capture_file::describe(sst)
+				          << ".\n         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
+				          << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			stage_rec.assign(stage_bytes, 0);
+			stage_last.assign(stage_bytes, 0);
+			stage_v.assign((std::size_t)n_driven, 0.0);
+			qout_v.assign((std::size_t)n_driven, 0.0);
+			qback_v.assign((std::size_t)n_driven, 0.0);
+			std::fill(driven.resume_q_back.begin(), driven.resume_q_back.end(), 0.0);
+			write_driven_sidecar();
+		}
+
 		// --- walk records 0..up_to_time (SWMM-only, rank 0) ---
 		// With replay_steps each record is pushed through swmm_step, rebuilding
 		// SWMM's state and its .out/stats for the full window. Without it the
@@ -2471,7 +3216,21 @@ namespace SWMM_triton
 			if (in.gcount() != (std::streamsize)sizeof(value_t)) break;                       // EOF/partial
 			in.read(reinterpret_cast<char*>(q.data()), sizeof(value_t) * exchange_num_nodes);
 			if (in.gcount() != (std::streamsize)(sizeof(value_t) * exchange_num_nodes)) break; // partial -> stop
+			if (driven_active())
+			{
+				stage_in.read(stage_rec.data(), (std::streamsize)stage_bytes);
+				if (stage_in.gcount() != (std::streamsize)stage_bytes) break;                 // partial -> stop
+			}
 			if (cum >= up_to_time - EPS) break;                                               // reached t_k
+			if (driven_active())
+			{
+				decode_outfall_stage_record(stage_rec.data(), n_driven, stage_v.data(), qout_v.data(), qback_v.data(), nullptr);
+				stage_last = stage_rec;
+				if (replay_steps)
+					for (int i = 0; i < n_driven; ++i)
+						swmm_setValue(swmm_NODE_HEAD, driven.node_idx[i],
+						              driven_stage_to_model_units(stage_v[(std::size_t)i], driven.us_units));
+			}
 			if (replay_steps)
 				stop_on_swmm_error(swmm_step(&elapsed, q.data(), global_new_depth, dt), "swmm_step",
 				                   "while replaying the exchange history for this resume");
@@ -2479,6 +3238,7 @@ namespace SWMM_triton
 			rec_count++;
 		}
 		in.close();
+		stage_in.close();
 
 		if (cum < up_to_time - EPS)
 		{
@@ -2520,6 +3280,37 @@ namespace SWMM_triton
 		// capture files truncated to t_k, which is where a repeated resume truncates them
 		// again, so the files stay consistent with the checkpoint either way.
 		diag_log::open_resume_all(diag_files, (double)up_to_time);
+
+		// The driven outfalls' stage file, positioned by the same rule: truncated to its
+		// last complete record at t_k and reopened for append. Its records pair one to one
+		// with the side-file's, so the side-file's own count is the authority for how many
+		// belong to the resumed segment's past (diag_log's stamp walk would read the same
+		// number where the stamps agree, and a count cannot drift with the build's width).
+		if (driven_active())
+		{
+			const diag_log::position_result pr =
+				diag_log::position_binary(outfall_stage_path_, MAGIC_OUTFALL_STAGE, static_cast<int32_t>(n_driven),
+				                          outfall_stage_count_reader(n_driven, rec_count), DBL_MAX);
+			if (pr.status != diag_log::position_status::ok || pr.records != rec_count)
+			{
+				std::cerr << ERROR "Cannot resume " << outfall_stage_path_ << ": it holds " << pr.records
+				          << " complete records up to the checkpoint but the exchange side-file holds " << rec_count
+				          << ".\n         Re-run this coupled simulation from a clean start (checkpoint_id=0)."
+				          << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			outfall_stage_log_.close();
+			outfall_stage_log_.open(outfall_stage_path_, std::ios::binary | std::ios::app);
+			if (!outfall_stage_log_.is_open()) diag_log::fatal("could not reopen " + outfall_stage_path_ + " for append");
+			// The rate the last SWMM step before t_k asked the surface for, held by the resumed
+			// segment until its next SWMM step (only a coupling interval above 1 reaches it).
+			if (rec_count > 0)
+			{
+				decode_outfall_stage_record(stage_last.data(), n_driven, stage_v.data(), qout_v.data(), qback_v.data(), nullptr);
+				for (int i = 0; i < n_driven; ++i)
+					driven.resume_q_back[(std::size_t)i] = qout_v[(std::size_t)i] < 0.0 ? -qout_v[(std::size_t)i] : 0.0;
+			}
+		}
 
 		return rec_count;
 	}
@@ -3078,6 +3869,41 @@ namespace SWMM_triton
 		triton::parallel_for( AUTO_LABEL() , ncells , KOKKOS_LAMBDA (int c) {
 			exchange_one_coupled_cell(c, cell_start, cell_nodes, dx, dt, h_arr, qx_arr, qy_arr, hextra, pos_arr,
 			                          swmm_loss, swmm_d, swmm_max_depth, swmm_new_depth, exchange_q);
+		});
+	}
+
+	/** @brief The backflow kernel of the driven-stage outfalls: removes each listed
+	 *  outfall's requested backflow from its cell, by driven_outfall_backflow_cell.
+	 *
+	 *  Launched only when swmm_driven_outfalls lists a node, and only on a rank that owns
+	 *  one; the default path never reaches it. One thread per outfall, and no two outfalls
+	 *  share a cell (refused at startup), so no two threads write one cell. An outfall whose
+	 *  requested rate is not above zero is left untouched (applied reads 0).
+	 *
+	 *  @param n         outfalls this rank owns
+	 *  @param pos_arr   each one's flat index into the depth array
+	 *  @param q_back    each one's requested backflow rate, m3/s
+	 *  @param applied   on return, the rate each cell gave up, m3/s
+	 */
+	template<typename T>
+	void compute_driven_outfall_backflow(int n, const int *pos_arr, T dx, T dt, T *h_arr, T *qx_arr, T *qy_arr,
+	                                     T hextra, const T *q_back, T *applied)
+	{
+		#include "kokkos_utils.h"
+		triton::parallel_for( AUTO_LABEL() , n , KOKKOS_LAMBDA (int k) {
+			applied[k] = 0.0;
+			if (q_back[k] > 0.0) {
+				const int sid = pos_arr[k];
+				T hij = h_arr[sid];
+				T qx = qx_arr[sid];
+				T qy = qy_arr[sid];
+				T ap = 0.0;
+				driven_outfall_backflow_cell(q_back[k], dx, dt, hextra, hij, qx, qy, ap);
+				h_arr[sid] = hij;
+				qx_arr[sid] = qx;
+				qy_arr[sid] = qy;
+				applied[k] = ap;
+			}
 		});
 	}
 

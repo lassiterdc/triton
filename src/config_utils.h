@@ -116,6 +116,18 @@ namespace ConfigUtils
 		std::string
 		swmm_manhole_table;
 
+		/**< Driven-stage open-water outfalls: a path names a one-column file of SWMM
+		*   OUTFALL node names (type FIXED), one name per line, `;` comments, no
+		*   header, read like swmm_coupling_nodes. A listed outfall stays an outfall
+		*   (it is not a coupling node); before every SWMM step TRITON sets its fixed
+		*   stage to the water-surface elevation of the cell holding it, z_cell + h,
+		*   or to the outfall's invert where the cell is drier than hextra. Water the
+		*   stage pushes into the sewer is taken from that cell; water the sewer
+		*   discharges there leaves the domain. Empty (absent key) lists no outfall
+		*   and every earlier build's code path is the one that runs. Additive. */
+		std::string
+		swmm_driven_outfalls;
+
 		/**< TRITON steps per SWMM step. 1 (absent key) steps SWMM every TRITON
 		*   step as every earlier build did; N > 1 sums each node's exchange over N
 		*   steps and steps SWMM once with the summed dt and the mean exchange. A
@@ -605,6 +617,7 @@ namespace ConfigUtils
 		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
 		arglist.swmm_dem_rim_exempt_nodes = argsd("swmm_dem_rim_exempt_nodes", argmap, "");
 		arglist.swmm_manhole_table = argsd("swmm_manhole_table", argmap, "");
+		arglist.swmm_driven_outfalls = argsd("swmm_driven_outfalls", argmap, "");
 		arglist.swmm_coupling_interval = atoi((argsd("swmm_coupling_interval", argmap, "1")).c_str());
 		arglist.swmm_coupling_lag = atoi((argsd("swmm_coupling_lag", argmap, "0")).c_str());
 		arglist.swmm_diag_steps = atoi((argsd("swmm_diag_steps", argmap, "0")).c_str());

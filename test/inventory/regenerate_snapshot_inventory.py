@@ -518,7 +518,10 @@ EXCLUDED_ROUTING_STATE = {
     ("Node", "type"):
         "config: re-read from the .inp at swmm_open",
     ("Outfall", "fixedStage"):
-        "config: re-read from the .inp at swmm_open",
+        "config: re-read from the .inp at swmm_open; with swmm_driven_outfalls set, "
+        "written by TRITON before every routing step and read at node.c:1443 in that "
+        "step, so no value crosses a step boundary, and restored on resume by the "
+        "stage replay",
     ("Outfall", "routeTo"):
         "config: re-read from the .inp at swmm_open",
     ("Outfall", "stageSeries"):

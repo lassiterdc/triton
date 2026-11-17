@@ -285,6 +285,12 @@ namespace diagnostics
 		// the step's end time and dt, and the interval sums of the balance's other terms.
 		std::vector<double> step_t_end, step_dt, step_flux;
 		double runoff_m3 = 0.0, inflow_m3 = 0.0, extbc_m3 = 0.0, clamp_m3 = 0.0, exchange_m3 = 0.0;
+		// Driven-stage open-water outfalls (cfg swmm_driven_outfalls, chunk 1j.1): with at least
+		// one outfall listed the balance carries two more terms, the backflow the cells gave up
+		// (signed into the domain, so negative) and the volume the limiter refused. Both stay at
+		// zero, and the balance keeps today's header and rows, when no outfall is listed.
+		bool driven_outfalls = false;
+		double outfall_backflow_m3 = 0.0, outfall_deficit_m3 = 0.0;
 		double we_west = 0.0, we_east = 0.0;        ///< the W/E read of the step in progress
 		double ns_north_before = 0.0, ns_south_before = 0.0; ///< rhsh sums before flux_y
 		double extbc_before = 0.0;                   ///< external-boundary depth sum before its kernel
@@ -340,8 +346,9 @@ namespace diagnostics
 		/** @brief Switches T6 on or off (cfg diag_dt_limiter). */
 		void enable_dt_limiter(bool on) { dt_limiter = on; }
 
-		/** @brief Switches T2 on or off (cfg diag_domain_balance). */
-		void enable_domain_balance(bool on) { domain_balance = on; }
+		/** @brief Switches T2 on or off (cfg diag_domain_balance). `driven` adds the two
+		 *  driven-outfall columns to the balance (swmm_driven_outfalls lists a node). */
+		void enable_domain_balance(bool on, bool driven = false) { domain_balance = on; driven_outfalls = driven; }
 
 		/** @brief Switches T5 on or off (cfg diag_wet_cells). */
 		void enable_wet_cells(bool on) { wet_cells = on; }
@@ -358,7 +365,9 @@ namespace diagnostics
 			{
 				edge_flux_file.declare_binary(dir + DiagWriters::EDGE_FLUX_NAME, diag_log::MAGIC_EDGE_FLUX, 4,
 				                              diag_log::fixed_record_reader(DiagWriters::EDGE_FLUX_RECORD_BYTES));
-				domain_balance_file.declare_text(dir + DiagWriters::DOMAIN_BALANCE_NAME, DiagWriters::DOMAIN_BALANCE_HEADER, 0);
+				domain_balance_file.declare_text(dir + DiagWriters::DOMAIN_BALANCE_NAME,
+				                                 driven_outfalls ? DiagWriters::DOMAIN_BALANCE_HEADER_DRIVEN
+				                                                 : DiagWriters::DOMAIN_BALANCE_HEADER, 0);
 				files.push_back(&edge_flux_file);
 				files.push_back(&domain_balance_file);
 			}
@@ -475,6 +484,15 @@ namespace diagnostics
 			exchange_m3 += -q * dt * FT3_TO_M3_FACTOR;
 		}
 
+		/** @brief The driven outfalls' backflow of this TRITON step on this rank, m3: what
+		 *  the owning cells gave up (stored signed into the domain, so minus it) and what
+		 *  the limiter refused (positive). Rank-local, reduced at the print instant. */
+		void add_outfall_backflow(double applied_m3, double deficit_m3)
+		{
+			outfall_backflow_m3 += -applied_m3;
+			outfall_deficit_m3 += deficit_m3;
+		}
+
 		// ---- T5 and T6 (the compute_local_dt row) ----
 
 		/** @brief T5 sample: the interior wet-cell count of the state this step starts from,
@@ -580,9 +598,13 @@ namespace diagnostics
 			if (domain_balance && !step_t_end.empty())
 			{
 				const double s_local = stored_volume(rows, cols, dx, h_dev);
-				const double terms_local[6] = { runoff_m3, inflow_m3, extbc_m3, clamp_m3, exchange_m3, s_local };
-				double terms[6] = { 0, 0, 0, 0, 0, 0 };
-				MPI_Reduce(terms_local, terms, 6, MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
+				// With driven outfalls listed the two outfall terms ride the same reduction (slots
+				// 6 and 7); `driven_outfalls` is the cfg's, identical on every rank. Without them
+				// the reduction is the six slots every earlier build ran.
+				const double terms_local[8] = { runoff_m3, inflow_m3, extbc_m3, clamp_m3, exchange_m3, s_local,
+				                                outfall_backflow_m3, outfall_deficit_m3 };
+				double terms[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+				MPI_Reduce(terms_local, terms, driven_outfalls ? 8 : 6, MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
 				std::vector<double> flux(step_flux.size(), 0.0);
 				MPI_Reduce(step_flux.data(), flux.data(), (int)step_flux.size(), MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
 				if (rank == 0)
@@ -595,10 +617,23 @@ namespace diagnostics
 					}
 					const double s_end = terms[5];
 					const double d_storage = s_end - held_storage;
-					const double residual = d_storage - (terms[0] + terms[1] + terms[2] + terms[3] + terms[4]
-					                                     + edge_m3[0] + edge_m3[1] + edge_m3[2] + edge_m3[3]);
-					DiagWriters::write_domain_balance_row(domain_balance_file, t_end, d_storage, terms[0], terms[1], terms[2],
-					                         terms[3], terms[4], edge_m3, residual);
+					if (driven_outfalls)
+					{
+						// outfall_backflow_m3 (terms[6]) is signed into the domain and closes the
+						// balance with the others; the deficit (terms[7]) is SWMM-side volume the
+						// surface did not supply and is reported beside the sum, not in it.
+						const double residual = d_storage - (terms[0] + terms[1] + terms[2] + terms[3] + terms[4] + terms[6]
+						                                     + edge_m3[0] + edge_m3[1] + edge_m3[2] + edge_m3[3]);
+						DiagWriters::write_domain_balance_row_driven(domain_balance_file, t_end, d_storage, terms[0], terms[1],
+						                         terms[2], terms[3], terms[4], terms[6], terms[7], edge_m3, residual);
+					}
+					else
+					{
+						const double residual = d_storage - (terms[0] + terms[1] + terms[2] + terms[3] + terms[4]
+						                                     + edge_m3[0] + edge_m3[1] + edge_m3[2] + edge_m3[3]);
+						DiagWriters::write_domain_balance_row(domain_balance_file, t_end, d_storage, terms[0], terms[1], terms[2],
+						                         terms[3], terms[4], edge_m3, residual);
+					}
 					held_storage = s_end;
 				}
 			}
@@ -623,6 +658,7 @@ namespace diagnostics
 		{
 			step_t_end.clear(); step_dt.clear(); step_flux.clear();
 			runoff_m3 = inflow_m3 = extbc_m3 = clamp_m3 = exchange_m3 = 0.0;
+			outfall_backflow_m3 = outfall_deficit_m3 = 0.0;
 			wet_sum = 0.0; wet_steps = 0;
 		}
 
