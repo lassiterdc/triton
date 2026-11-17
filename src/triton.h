@@ -29,6 +29,7 @@
 #include "diagnostics.h"
 
 #ifdef TRITON_SWMM
+#include <set>
 #include "swmm_triton.h"
 #endif
 
@@ -629,11 +630,65 @@ namespace Triton
     // or with no DEM value, is a datum, placement or coverage error, so it stops the
     // run naming the node. Every rank reaches the collectives; a rank with no
     // coupled node contributes zeros.
+    //
+    // Per-node exemption (cfg swmm_dem_rim_exempt_nodes, a path read like
+    // swmm_coupling_nodes): a listed coupled node is skipped by the loop below and keeps
+    // SWMM's own full depth, the highest connected crown, as its rim. It is not refused
+    // for a cell at or below its invert, since its cell never gives it a rim. Every rank
+    // reads the same file and decides the same refusals, so every rank exits together.
+    // With the key absent, or a file that lists no name, rim_exempt stays empty and the
+    // loop below is the loop of every earlier build.
+    std::set<std::string> rim_exempt;  // SWMM-case-folded names
+    if (!arglist.swmm_dem_rim_exempt_nodes.empty()) {
+      std::vector<std::string> ex_names;
+      std::vector<int> ex_lines;
+      std::ifstream ex_file(arglist.swmm_dem_rim_exempt_nodes.c_str());
+      if (!ex_file.is_open()) {
+        std::cerr << ERROR "Cannot read the DEM-rim exemption list " << arglist.swmm_dem_rim_exempt_nodes
+                  << " (swmm_dem_rim_exempt_nodes)." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      SWMM_triton::read_coupling_list(ex_file, ex_names, ex_lines);
+      const std::pair<int, int> ex_rep = SWMM_triton::find_repeated_name(ex_names);
+      if (ex_rep.first >= 0) {
+        std::cerr << ERROR "DEM-rim exemption node " << ex_names[ex_rep.second] << " on line "
+                  << ex_lines[ex_rep.second] << " of " << arglist.swmm_dem_rim_exempt_nodes
+                  << " repeats " << ex_names[ex_rep.first] << " on line " << ex_lines[ex_rep.first]
+                  << " (SWMM compares node names case-insensitively)." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      if (!ex_names.empty() && (arglist.inp_filename.empty() || !arglist.swmm_node_rim_from_dem)) {
+        std::cerr << ERROR "swmm_dem_rim_exempt_nodes lists " << ex_names.size()
+                  << " node(s) but swmm_node_rim_from_dem is off: the exemption has an effect only"
+                  << " under the DEM-rim route, so the key is refused rather than left inert." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      std::set<std::string> coupled_names;
+      for (std::size_t g = 0; g < swmm_model.global_nodeID.size(); ++g)
+        coupled_names.insert(SWMM_triton::swmm_upper(swmm_model.global_nodeID[g]));
+      for (std::size_t e = 0; e < ex_names.size(); ++e) {
+        if (coupled_names.find(SWMM_triton::swmm_upper(ex_names[e])) == coupled_names.end()) {
+          std::cerr << ERROR "DEM-rim exemption node " << ex_names[e] << " on line " << ex_lines[e]
+                    << " of " << arglist.swmm_dem_rim_exempt_nodes
+                    << " is no coupling node (swmm_dem_rim_exempt_nodes)." << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        rim_exempt.insert(SWMM_triton::swmm_upper(ex_names[e]));
+      }
+    }
     if (!arglist.inp_filename.empty() && arglist.swmm_node_rim_from_dem) {
       const T nodata = sub_dem.get_no_data_value();
       int bad = 0;
       double largest_diff = 0.0;
       for (int k = 0; k < swmm_model.num_of_swmm_links; k++) {
+        if (!rim_exempt.empty() && rim_exempt.count(SWMM_triton::swmm_upper(swmm_model.nodeID[k])) > 0) {
+          char exempt_line[512];
+          std::snprintf(exempt_line, sizeof(exempt_line),
+                        "SWMM coupled node %s: DEM rim exempt, keeps SWMM full depth %.17g",
+                        swmm_model.nodeID[k].c_str(), static_cast<double>(swmm_model.max_depth[k]));
+          std::cerr << IN << exempt_line << std::endl;
+          continue;
+        }
         const double z_cell = host_vec[DEM][swmm_model.swmm_pos_arr[k]];
         const double invert = swmm_model.node_invert[k];
         if (!std::isfinite(z_cell) || z_cell == static_cast<double>(nodata) || z_cell <= invert) {
@@ -661,7 +716,7 @@ namespace Triton
         char summary[256];
         std::snprintf(summary, sizeof(summary),
                       "SWMM coupled-node rims set from the DEM: %d nodes, largest |DEM rim - SWMM rim| = %.17g",
-                      swmm_model.global_num_of_swmm_links, global_largest);
+                      swmm_model.global_num_of_swmm_links - static_cast<int>(rim_exempt.size()), global_largest);
         std::cerr << IN << summary << std::endl;
       }
     }
