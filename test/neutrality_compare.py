@@ -656,12 +656,21 @@ def cmd_coverage(a):
 
 # ---------------------------------------------------------------- source scan (N11)
 
-CAPTURE_CALL = re.compile(r"\bdiag_surface\.\w+\s*\(|\bdiag_log::\w+\s*\(|\bdiag_print_row\s*\(|\bdiagnostics::\w+\s*\(|\bst\.(start|stop)\(DIAG_TIME\)")
+CAPTURE_CALL = re.compile(r"\bdiag_surface\.\w+\s*\(|\bdiag_log::\w+\s*\(|\bdiag_print_row\s*\(|\bdiagnostics::\w+\s*\(|\bst\.(start|stop)\(DIAG_TIME\)|(?<!void )(?<!::)\bdiag_driven_outfall_ledger\s*\(")
 # erratum E-9: the one swmm_exchange_m3 read of exchange_q after the coupling block closes SWMM_TIME
 EXEMPT_CALLS = re.compile(r"\badd_exchange\s*\(")
 # the T1 rows: statements guarded by the T1 capture predicates
 T1_GUARD = re.compile(r"step_diag_due\s*\(|node_path3_enabled\s*\(")
 SWMM_GUARD = re.compile(r"global_num_of_swmm_links")
+# erratum E-75, rows R-1 and R-2 of rule 6 (chunk 1j.1's T2 driven-outfall positions, rank-local, no collective):
+# R-1 the one-time setup call that switches the two driven-outfall balance columns on, the line itself;
+# R-2 the body of triton<T>::diag_driven_outfall_ledger(): its DIAG_TIME bracket and add_outfall_backflow call only
+R1_CALL = re.compile(r"diag_surface\.enable_domain_balance\s*\([^;]*swmm_model\.driven_active\(\)\s*\)\s*;")
+R2_DEF = re.compile(r"^\s*void\s+triton<T>::diag_driven_outfall_ledger\s*\(\s*\)")
+# rows R-3 and R-4 (E-76): the two call sites of the ledger wrapper, rank-local, in the SWMM region, bound to the driven_active()
+# guard, after the SWMM step returns on the live path; exactly two lines, in the form of the guard
+R34_CALL = re.compile(r"^\s*if\s*\(\s*diag_surface\.domain_balance\s*&&\s*swmm_model\.driven_active\(\)\s*\)\s*diag_driven_outfall_ledger\s*\(\s*\)\s*;")
+R2_CALL = re.compile(r"\bst\.(start|stop)\(DIAG_TIME\)|\bdiag_surface\.add_outfall_backflow\s*\(")
 
 
 def strip_comment(line):
@@ -735,13 +744,35 @@ def scan_sites(path):
                     ex_block[k] = True
             else:
                 ex_block[i] = True
+    # E-75 R-2: the lines of the ledger function's body
+    r2_body = [False] * len(lines)
+    for i, raw in enumerate(lines):
+        if R2_DEF.match(strip_comment(raw)):
+            for k in block_lines(lines, i):
+                r2_body[k] = True
     viol, exempt, total = [], 0, 0
+    r1_used = False
+    r34_used = 0
     for i, raw in enumerate(lines):
         s = strip_comment(raw)
         if not CAPTURE_CALL.search(s) and not EXEMPT_CALLS.search(s):
             continue
         total += 1
         if ex_block[i]:
+            exempt += 1
+            continue
+        # E-75 R-1: the setup call, only where it reads swmm_model.driven_active() (inside the SWMM region by construction)
+        if R1_CALL.search(s) and in_swmm_ifdef[i] and not r1_used:
+            r1_used = True   # exactly one such call is a row; a second copy is a call at an unlisted position
+            exempt += 1
+            continue
+        # E-76 R-3 and R-4: the wrapper's two call sites in the guard form, in the SWMM region
+        if R34_CALL.search(s) and in_swmm_ifdef[i] and r34_used < 2:
+            r34_used += 1
+            exempt += 1
+            continue
+        # E-75 R-2: only the bracket and the add_outfall_backflow call, only in the ledger function's body
+        if r2_body[i] and R2_CALL.search(s):
             exempt += 1
             continue
         if t1[i]:
@@ -753,7 +784,7 @@ def scan_sites(path):
 
 def cmd_source_sites(a):
     viol, exempt, total = scan_sites(a.file)
-    say("%s: %d capture-call line(s) found, %d exempt (the E-9 add_exchange read and its DIAG_TIME bracket), %d outside every T1 row lie inside an #ifdef TRITON_SWMM region or the guard"
+    say("%s: %d capture-call line(s) found, %d exempt (the E-9 add_exchange read and its DIAG_TIME bracket, and the E-75 rows R-1 and R-2, the E-76 rows R-3 and R-4), %d outside every T1 row lie inside an #ifdef TRITON_SWMM region or the guard"
         % (a.file, total, exempt, len(viol)))
     for ln, why in viol:
         say("  VIOLATION line %d %s" % (ln, why))

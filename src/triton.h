@@ -29,6 +29,7 @@
 #include "diagnostics.h"
 
 #ifdef TRITON_SWMM
+#include <set>
 #include "swmm_triton.h"
 #endif
 
@@ -214,6 +215,16 @@ namespace Triton
     SWMM_triton::swmm_triton swmm_model; /**< SWMM coupling model object */
     T swmm_local_elapsedTime; /**< Local elapsed time for SWMM */
     int swmm_print_id = 0; /**< The step loop's print_id for the step in progress, read by the interval/lag coupling block to tell whether the step ends a print interval */
+
+    // Driven-stage open-water outfalls (cfg swmm_driven_outfalls). The list and its per-step
+    // values are swmm_model.driven; these are the owner's device-side pieces of the backflow
+    // kernel (one slot per outfall this rank owns), kept apart from device_vec because the
+    // coupled nodes' arrays are too and a dynamic repartition rebuilds device_vec.
+    std::vector<int> driven_owned_i_;   /**< The list indices of the outfalls whose cell this rank holds */
+    int* driven_dev_pos_ = nullptr;     /**< Their flat indices into the depth array, on the device */
+    T* driven_dev_q_ = nullptr;         /**< Requested backflow rates (m3/s), on the device */
+    T* driven_dev_applied_ = nullptr;   /**< Applied backflow rates (m3/s) the kernel writes, on the device */
+    std::vector<T> driven_h_host_, driven_q_host_, driven_applied_host_;
 #endif
 
     gpuStream_t streams;  /**< Cuda stream */
@@ -256,6 +267,32 @@ namespace Triton
 *  @param t_end End time of the interval
 */
     void diag_print_row(int print_id, T t_end);
+
+#ifdef TRITON_SWMM
+/** @brief Driven-stage outfalls, once at start: DEM elevation of each owned cell, the backflow kernel's device arrays, the held rate of a resume. Collective.
+*/
+    void driven_outfall_init();
+
+/** @brief Driven-stage outfalls: the owner reads each outfall cell's depth and forms its stage. Rank-local.
+*/
+    void driven_outfall_read_stage();
+
+/** @brief Driven-stage outfalls: the stages and depths reach rank 0 (one reduction, every rank) and rank 0 sets the stages through the engine.
+*/
+    void driven_outfall_set_stage();
+
+/** @brief Driven-stage outfalls: the requested backflow rates reach every rank (one broadcast from rank 0) and are held until the next SWMM step.
+*/
+    void driven_outfall_scatter_backflow();
+
+/** @brief Driven-stage outfalls: the backflow kernel, on the owners, every TRITON step.
+*/
+    void driven_outfall_apply_backflow();
+
+/** @brief Driven-stage outfalls: this step's backflow terms for the T2 balance.
+*/
+    void diag_driven_outfall_ledger();
+#endif
 
 /** @brief This function is used to get observation data to host. 
 *
@@ -493,7 +530,8 @@ namespace Triton
                             arglist.swmm_node_rim_from_dem,
                             arglist.swmm_coupling_nodes,
                             arglist.swmm_snapshot_failed_replay,
-                            arglist.swmm_manhole_table);
+                            arglist.swmm_manhole_table,
+                            arglist.swmm_driven_outfalls);
     }
     else if (rank == 0)
     {
@@ -592,11 +630,65 @@ namespace Triton
     // or with no DEM value, is a datum, placement or coverage error, so it stops the
     // run naming the node. Every rank reaches the collectives; a rank with no
     // coupled node contributes zeros.
+    //
+    // Per-node exemption (cfg swmm_dem_rim_exempt_nodes, a path read like
+    // swmm_coupling_nodes): a listed coupled node is skipped by the loop below and keeps
+    // SWMM's own full depth, the highest connected crown, as its rim. It is not refused
+    // for a cell at or below its invert, since its cell never gives it a rim. Every rank
+    // reads the same file and decides the same refusals, so every rank exits together.
+    // With the key absent, or a file that lists no name, rim_exempt stays empty and the
+    // loop below is the loop of every earlier build.
+    std::set<std::string> rim_exempt;  // SWMM-case-folded names
+    if (!arglist.swmm_dem_rim_exempt_nodes.empty()) {
+      std::vector<std::string> ex_names;
+      std::vector<int> ex_lines;
+      std::ifstream ex_file(arglist.swmm_dem_rim_exempt_nodes.c_str());
+      if (!ex_file.is_open()) {
+        std::cerr << ERROR "Cannot read the DEM-rim exemption list " << arglist.swmm_dem_rim_exempt_nodes
+                  << " (swmm_dem_rim_exempt_nodes)." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      SWMM_triton::read_coupling_list(ex_file, ex_names, ex_lines);
+      const std::pair<int, int> ex_rep = SWMM_triton::find_repeated_name(ex_names);
+      if (ex_rep.first >= 0) {
+        std::cerr << ERROR "DEM-rim exemption node " << ex_names[ex_rep.second] << " on line "
+                  << ex_lines[ex_rep.second] << " of " << arglist.swmm_dem_rim_exempt_nodes
+                  << " repeats " << ex_names[ex_rep.first] << " on line " << ex_lines[ex_rep.first]
+                  << " (SWMM compares node names case-insensitively)." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      if (!ex_names.empty() && (arglist.inp_filename.empty() || !arglist.swmm_node_rim_from_dem)) {
+        std::cerr << ERROR "swmm_dem_rim_exempt_nodes lists " << ex_names.size()
+                  << " node(s) but swmm_node_rim_from_dem is off: the exemption has an effect only"
+                  << " under the DEM-rim route, so the key is refused rather than left inert." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      std::set<std::string> coupled_names;
+      for (std::size_t g = 0; g < swmm_model.global_nodeID.size(); ++g)
+        coupled_names.insert(SWMM_triton::swmm_upper(swmm_model.global_nodeID[g]));
+      for (std::size_t e = 0; e < ex_names.size(); ++e) {
+        if (coupled_names.find(SWMM_triton::swmm_upper(ex_names[e])) == coupled_names.end()) {
+          std::cerr << ERROR "DEM-rim exemption node " << ex_names[e] << " on line " << ex_lines[e]
+                    << " of " << arglist.swmm_dem_rim_exempt_nodes
+                    << " is no coupling node (swmm_dem_rim_exempt_nodes)." << std::endl;
+          exit(EXIT_FAILURE);
+        }
+        rim_exempt.insert(SWMM_triton::swmm_upper(ex_names[e]));
+      }
+    }
     if (!arglist.inp_filename.empty() && arglist.swmm_node_rim_from_dem) {
       const T nodata = sub_dem.get_no_data_value();
       int bad = 0;
       double largest_diff = 0.0;
       for (int k = 0; k < swmm_model.num_of_swmm_links; k++) {
+        if (!rim_exempt.empty() && rim_exempt.count(SWMM_triton::swmm_upper(swmm_model.nodeID[k])) > 0) {
+          char exempt_line[512];
+          std::snprintf(exempt_line, sizeof(exempt_line),
+                        "SWMM coupled node %s: DEM rim exempt, keeps SWMM full depth %.17g",
+                        swmm_model.nodeID[k].c_str(), static_cast<double>(swmm_model.max_depth[k]));
+          std::cerr << IN << exempt_line << std::endl;
+          continue;
+        }
         const double z_cell = host_vec[DEM][swmm_model.swmm_pos_arr[k]];
         const double invert = swmm_model.node_invert[k];
         if (!std::isfinite(z_cell) || z_cell == static_cast<double>(nodata) || z_cell <= invert) {
@@ -624,10 +716,15 @@ namespace Triton
         char summary[256];
         std::snprintf(summary, sizeof(summary),
                       "SWMM coupled-node rims set from the DEM: %d nodes, largest |DEM rim - SWMM rim| = %.17g",
-                      swmm_model.global_num_of_swmm_links, global_largest);
+                      swmm_model.global_num_of_swmm_links - static_cast<int>(rim_exempt.size()), global_largest);
         std::cerr << IN << summary << std::endl;
       }
     }
+
+    // Driven-stage open-water outfalls (cfg swmm_driven_outfalls): the owners' DEM elevations,
+    // the small device arrays of the backflow kernel, and the held backflow rate of a
+    // resume. Entered by every rank, only when the key listed a node.
+    if (swmm_model.driven_active()) driven_outfall_init();
 
     // Add SWMM data to host vectors after SWMM initialization
     if (swmm_model.num_of_swmm_links > 0) {
@@ -2249,6 +2346,13 @@ namespace Triton
       gpuFree(device_vec_int.back());
       device_vec_int.pop_back();
     }
+
+#ifdef TRITON_SWMM
+    // The driven outfalls' backflow arrays (allocated only on a rank that owns one).
+    if (driven_dev_pos_ != nullptr) { gpuFree(driven_dev_pos_); driven_dev_pos_ = nullptr; }
+    if (driven_dev_q_ != nullptr) { gpuFree(driven_dev_q_); driven_dev_q_ = nullptr; }
+    if (driven_dev_applied_ != nullptr) { gpuFree(driven_dev_applied_); driven_dev_applied_ = nullptr; }
+#endif
   }
 
 
@@ -2325,7 +2429,14 @@ namespace Triton
     // (TEST-ONLY, undefined by default) omits the seed read, leaving held S at zero.
     diag_surface.place(rank, size, (double)cell_size);
     diag_surface.enable_dt_limiter(arglist.diag_dt_limiter != 0);
+#ifdef TRITON_SWMM
+    // The balance carries the two driven-outfall columns only when swmm_driven_outfalls
+    // listed a node (a key naming an empty list file lists none, and the balance then
+    // keeps today's header and rows).
+    diag_surface.enable_domain_balance(arglist.diag_domain_balance != 0, swmm_model.driven_active());
+#else
     diag_surface.enable_domain_balance(arglist.diag_domain_balance != 0);
+#endif
     diag_surface.enable_wet_cells(arglist.diag_wet_cells != 0);
     if (diag_surface.any())
     {
@@ -2859,6 +2970,12 @@ namespace Triton
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       const int n_local = swmm_model.num_of_swmm_links;
 
+      // Driven outfalls (cfg swmm_driven_outfalls), entered only when the key lists a node:
+      // the owning rank reads the water level of each outfall's cell, before any exchange
+      // kernel of this step (a driven outfall's cell holds no coupling node, so the exchange
+      // kernels never write it). Rank-local, no collective.
+      if (swmm_model.driven_active()) driven_outfall_read_stage();
+
       // Device work guarded on the LOCAL count, spelled as the default block spells it:
       // a rank that owns no coupled manhole has no SWMM_* device vectors to index.
       if (swmm_model.num_of_swmm_links > 0) {
@@ -2915,6 +3032,11 @@ namespace Triton
                     MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
         st.stop(SWMM_MPI);
 
+        // Driven outfalls: the stages go to rank 0 in one collective, entered by every rank
+        // under the one global condition "the key lists a node", after the step's coupling
+        // gather; rank 0 sets them through the engine's setter before swmm_step.
+        if (swmm_model.driven_active()) driven_outfall_set_stage();
+
         if (rank == 0) {
           st.start(SWMM_STEP);
           swmm_model.local_to_global(swmm_model.aux_global_exchange_q, swmm_model.global_exchange_q,
@@ -2931,6 +3053,11 @@ namespace Triton
               swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, dt_swmm);
           st.stop(SWMM_SOLVE);
           swmm_model.stop_on_swmm_error(swmm_step_rc, "swmm_step", "during a coupled timestep");
+          // Driven outfalls (rank 0): each outfall's flow and its outfall_stage.bin record,
+          // one per SWMM step beside this step's side-file record.
+          if (swmm_model.driven_active())
+            swmm_model.log_driven_flows((double)(simtime + global_dt), (double)dt_swmm, (double)global_dt,
+                                        (double)cell_size, (double)arglist.hextra);
           swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                       swmm_model.node_to_rank_dict);
           st.stop(SWMM_STEP);
@@ -2942,11 +3069,19 @@ namespace Triton
                      MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
         st.stop(SWMM_MPI);
 
+        // Driven outfalls: the requested backflow rates reach every rank (the owners keep
+        // theirs) after the step's depth scatter; held until the next SWMM step.
+        if (swmm_model.driven_active()) driven_outfall_scatter_backflow();
+
         swmm_model.coupling_interval.clear_interval();
       }
 
       // Hold, apply or delay the depths the next TRITON step's exchange reads.
       swmm_model.coupling_interval.settle(swmm_model.new_depth.data(), n_local, step_swmm, drain);
+
+      // Driven outfalls: the backflow kernel, every TRITON step, on the rate the last SWMM
+      // step asked for, before wet_dry (the exchange-before-wet_dry rule above).
+      if (swmm_model.driven_active()) driven_outfall_apply_backflow();
 
       st.stop(SWMM_TIME);
       // T1 per-step records (rank 0): written only on a step in which SWMM stepped.
@@ -2966,6 +3101,8 @@ namespace Triton
         diag_surface.add_exchange(swmm_model.exchange_q.data(), swmm_model.num_of_swmm_links, (double)global_dt);
         st.stop(DIAG_TIME);
       }
+      // T2 driven-outfall backflow terms, at the same position (only with outfalls listed).
+      if (diag_surface.domain_balance && swmm_model.driven_active()) diag_driven_outfall_ledger();
       st.start(COMPUTE_TIME);
     }
     else
@@ -2990,6 +3127,11 @@ namespace Triton
       st.start(SWMM_TIME);
       int nbytes_swmm = (sizeof(T) * swmm_model.num_of_swmm_links);
       int nbytes_swmm_int = (sizeof(int) * swmm_model.num_of_swmm_links);
+
+      // Driven outfalls (cfg swmm_driven_outfalls), entered only when the key lists a node:
+      // the owning rank reads the water level of each outfall's cell, before any exchange
+      // kernel of this step. Rank-local, no collective.
+      if (swmm_model.driven_active()) driven_outfall_read_stage();
 
       // SWMM_TIME split: three measured children inside the untouched parent
       // bracket (SWMM_OTHER is the residual, derived in output.h), so the
@@ -3032,6 +3174,11 @@ namespace Triton
                   MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
 
+      // Driven outfalls: the stages go to rank 0 in one collective, entered by every rank
+      // under the one global condition "the key lists a node", after the step's coupling
+      // gather; rank 0 sets them through the engine's setter before swmm_step.
+      if (swmm_model.driven_active()) driven_outfall_set_stage();
+
       // Step SWMM forward on rank 0. SWMM_STEP sits inside the guard so a
       // non-zero rank reports exactly 0.0 for a solve it never performs.
       if (rank == 0) {
@@ -3052,6 +3199,11 @@ namespace Triton
             swmm_step(&swmm_local_elapsedTime, swmm_model.global_exchange_q, swmm_model.global_new_depth, global_dt);
         st.stop(SWMM_SOLVE);
         swmm_model.stop_on_swmm_error(swmm_step_rc, "swmm_step", "during a coupled timestep");
+        // Driven outfalls (rank 0): each outfall's flow and its outfall_stage.bin record,
+        // one per SWMM step beside this step's side-file record.
+        if (swmm_model.driven_active())
+          swmm_model.log_driven_flows((double)(simtime + global_dt), (double)global_dt, (double)global_dt,
+                                      (double)cell_size, (double)arglist.hextra);
         swmm_model.global_to_local(swmm_model.global_new_depth, swmm_model.aux_global_new_depth,
                                     swmm_model.node_to_rank_dict);
         st.stop(SWMM_STEP);
@@ -3064,6 +3216,14 @@ namespace Triton
                    MPI_DATA_TYPE, swmm_model.new_depth.data(), swmm_model.num_of_swmm_links,
                    MPI_DATA_TYPE, 0, ENSIFY_COMM_WORLD);
       st.stop(SWMM_MPI);
+
+      // Driven outfalls: the requested backflow rates reach every rank after the step's depth
+      // scatter, and the backflow kernel takes them from the owning cells, before wet_dry
+      // (the exchange-before-wet_dry rule above).
+      if (swmm_model.driven_active()) {
+        driven_outfall_scatter_backflow();
+        driven_outfall_apply_backflow();
+      }
       st.stop(SWMM_TIME);
       // T1 per-step records (rank 0): written only on a step in which SWMM stepped.
       // Between the SWMM_TIME and COMPUTE_TIME brackets, so DIAG_TIME is opened while
@@ -3081,6 +3241,8 @@ namespace Triton
         diag_surface.add_exchange(swmm_model.exchange_q.data(), swmm_model.num_of_swmm_links, (double)global_dt);
         st.stop(DIAG_TIME);
       }
+      // T2 driven-outfall backflow terms, at the same position (only with outfalls listed).
+      if (diag_surface.domain_balance && swmm_model.driven_active()) diag_driven_outfall_ledger();
       st.start(COMPUTE_TIME);
     }
 #endif
@@ -3151,6 +3313,180 @@ namespace Triton
     diag_surface.print_instant(rows, cols, device_vec[H], (double)arglist.hextra, print_id, (double)t_end);
     st.stop(DIAG_TIME);
   }
+
+
+#ifdef TRITON_SWMM
+  // ---------------------------------------------------------------------------------------
+  // Driven-stage open-water outfalls (cfg swmm_driven_outfalls, chunk 1j.1). Everything below
+  // runs only when the key listed at least one outfall; the call sites in compute_new_state
+  // are guarded by swmm_model.driven_active(), which is the same on every rank. The list, its
+  // cells and the engine side are swmm_triton's (swmm_triton.h); this is the device and MPI
+  // half. Coupling work, so every bracket here is the SWMM_TIME one the call sites sit in.
+  // ---------------------------------------------------------------------------------------
+
+  template<typename T>
+  void triton<T>::driven_outfall_init()
+  {
+    SWMM_triton::driven_outfalls_t& d = swmm_model.driven;
+    const int n = d.n();
+
+    // The coupled nodes' device arrays and positions go stale under a dynamic repartition
+    // (create_device_vectors rebuilds device_vec and nothing re-adds them), and a driven
+    // outfall's flat cell index would too. Refused rather than left to corrupt a run.
+    if (strcmp(arglist.domain_decomposition.c_str(), TYPE_DYNAMIC) == 0 && size > 1)
+    {
+      if (rank == 0)
+        std::cerr << ERROR "swmm_driven_outfalls is not supported with domain_decomposition=dynamic: "
+                     "an outfall's cell index would go stale at the first repartition." << std::endl;
+      MPI_Abort(ENSIFY_COMM_WORLD, EXIT_FAILURE);
+    }
+
+    // Each owner reads the DEM elevation of its outfalls' cells. A cell with no DEM value
+    // gives the stage rule no level, so it stops the run naming the node, on every rank.
+    const T nodata = sub_dem.get_no_data_value();
+    int bad = 0;
+    driven_owned_i_.clear();
+    for (int i = 0; i < n; i++)
+    {
+      if (d.pos[i] < 0) continue;
+      const double z_cell = host_vec[DEM][d.pos[i]];
+      if (!std::isfinite(z_cell) || z_cell == static_cast<double>(nodata))
+      {
+        std::cerr << ERROR "Driven outfall " << d.names[i] << ": its DEM cell has no elevation" << std::endl;
+        bad = 1;
+        continue;
+      }
+      d.z_cell[i] = z_cell;
+      driven_owned_i_.push_back(i);
+      char line[512];
+      std::snprintf(line, sizeof(line), "SWMM driven outfall %s: cell elevation %.17g, invert %.17g",
+                    d.names[i].c_str(), z_cell, d.invert_m[i]);
+      std::cerr << IN << line << std::endl;
+    }
+    int any_bad = 0;
+    MPI_Allreduce(&bad, &any_bad, 1, MPI_INT, MPI_MAX, ENSIFY_COMM_WORLD);
+    if (any_bad) exit(EXIT_FAILURE);
+
+    // The backflow kernel's arrays: one slot per outfall this rank owns.
+    const int m = static_cast<int>(driven_owned_i_.size());
+    if (m > 0)
+    {
+      driven_h_host_.assign(m, (T)0.0);
+      driven_q_host_.assign(m, (T)0.0);
+      driven_applied_host_.assign(m, (T)0.0);
+      std::vector<int> pos_host(m, 0);
+      for (int k = 0; k < m; k++) pos_host[k] = d.pos[driven_owned_i_[k]];
+      gpuMalloc((void**)&driven_dev_pos_, sizeof(int) * m);
+      gpuMalloc((void**)&driven_dev_q_, sizeof(T) * m);
+      gpuMalloc((void**)&driven_dev_applied_, sizeof(T) * m);
+      gpuMemcpyAsync(driven_dev_pos_, pos_host.data(), sizeof(int) * m, gpuMemcpyHostToDevice, streams);
+      gpuStreamSynchronize(streams);
+    }
+
+    // A resume: the rate the last SWMM step before the checkpoint asked for, read from the
+    // stage file by rank 0 when it positioned it, is held by every rank until the first
+    // SWMM step of the resumed segment (only a coupling interval above 1 reaches it). A
+    // clean start holds zero.
+    if (arglist.checkpoint_id > 0)
+    {
+      MPI_Bcast(d.resume_q_back.data(), n, MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
+      d.held_q_back = d.resume_q_back;
+    }
+  }
+
+
+  template<typename T>
+  void triton<T>::driven_outfall_read_stage()
+  {
+    SWMM_triton::driven_outfalls_t& d = swmm_model.driven;
+    const int m = static_cast<int>(driven_owned_i_.size());
+    std::fill(d.stage_local.begin(), d.stage_local.end(), 0.0);
+    std::fill(d.hold_local.begin(), d.hold_local.end(), 0.0);
+    if (m == 0) return;
+    // One device-to-host copy per outfall: the depth of its cell.
+    for (int k = 0; k < m; k++)
+      gpuMemcpyAsync(&driven_h_host_[k], device_vec[H] + d.pos[driven_owned_i_[k]], sizeof(T), gpuMemcpyDeviceToHost, streams);
+    gpuStreamSynchronize(streams);
+    for (int k = 0; k < m; k++)
+    {
+      const int i = driven_owned_i_[k];
+      const double h = static_cast<double>(driven_h_host_[k]);
+      d.hold_local[i] = h;
+      d.stage_local[i] = SWMM_triton::driven_outfall_stage(h, static_cast<double>(arglist.hextra), d.z_cell[i], d.invert_m[i]);
+    }
+  }
+
+
+  template<typename T>
+  void triton<T>::driven_outfall_set_stage()
+  {
+    SWMM_triton::driven_outfalls_t& d = swmm_model.driven;
+    const int n = d.n();
+    // One reduction carries every outfall's stage and the depth it was read from: the owner
+    // contributes its values and every other rank zeros, so the sum is exact.
+    for (int i = 0; i < n; i++)
+    {
+      d.work_send[i] = d.stage_local[i];
+      d.work_send[n + i] = d.hold_local[i];
+    }
+    st.start(SWMM_MPI);
+    MPI_Reduce(d.work_send.data(), d.work_recv.data(), 2 * n, MPI_DOUBLE, MPI_SUM, 0, ENSIFY_COMM_WORLD);
+    st.stop(SWMM_MPI);
+    if (rank == 0) swmm_model.set_driven_stages(d.work_recv.data(), d.work_recv.data() + n);
+  }
+
+
+  template<typename T>
+  void triton<T>::driven_outfall_scatter_backflow()
+  {
+    SWMM_triton::driven_outfalls_t& d = swmm_model.driven;
+    // Rank 0 has just read each outfall's flow (log_driven_flows); every rank learns the
+    // requested backflow rates, and each owner keeps its own until the next SWMM step.
+    st.start(SWMM_MPI);
+    MPI_Bcast(d.q_back_req.data(), d.n(), MPI_DOUBLE, 0, ENSIFY_COMM_WORLD);
+    st.stop(SWMM_MPI);
+    d.held_q_back = d.q_back_req;
+  }
+
+
+  template<typename T>
+  void triton<T>::driven_outfall_apply_backflow()
+  {
+    SWMM_triton::driven_outfalls_t& d = swmm_model.driven;
+    d.step_applied_m3 = 0.0;
+    d.step_deficit_m3 = 0.0;
+    const int m = static_cast<int>(driven_owned_i_.size());
+    if (m == 0) return;
+    for (int k = 0; k < m; k++) driven_q_host_[k] = static_cast<T>(d.held_q_back[driven_owned_i_[k]]);
+    gpuMemcpyAsync(driven_dev_q_, driven_q_host_.data(), sizeof(T) * m, gpuMemcpyHostToDevice, streams);
+    gpuStreamSynchronize(streams);
+
+    SWMM_triton::compute_driven_outfall_backflow(m, driven_dev_pos_, cell_size, global_dt,
+                                                 device_vec[H], device_vec[QX], device_vec[QY], arglist.hextra,
+                                                 driven_dev_q_, driven_dev_applied_);
+
+    gpuMemcpyAsync(driven_applied_host_.data(), driven_dev_applied_, sizeof(T) * m, gpuMemcpyDeviceToHost, streams);
+    gpuStreamSynchronize(streams);
+    // The volumes of this step: what each cell gave up, and what the limiter refused of what
+    // was asked (the difference is SWMM-side volume the surface did not supply, never created).
+    for (int k = 0; k < m; k++)
+    {
+      const double applied = static_cast<double>(driven_applied_host_[k]);
+      const double requested = static_cast<double>(driven_q_host_[k]);
+      d.step_applied_m3 += applied * static_cast<double>(global_dt);
+      if (requested > applied) d.step_deficit_m3 += (requested - applied) * static_cast<double>(global_dt);
+    }
+  }
+
+
+  template<typename T>
+  void triton<T>::diag_driven_outfall_ledger()
+  {
+    st.start(DIAG_TIME);
+    diag_surface.add_outfall_backflow(swmm_model.driven.step_applied_m3, swmm_model.driven.step_deficit_m3);
+    st.stop(DIAG_TIME);
+  }
+#endif
 
 
 	template<typename T>

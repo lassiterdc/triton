@@ -7,7 +7,12 @@
 # flow-routing continuity block. Each case that switches a capture on also asserts that every
 # enabled capture file exists with 16 + records x record size bytes. The cases N1..N13, the arms
 # each one runs, the quantity it reads and the test-only build it must fail on are the table of the
-# approved shape, section 10; test/neutrality_compare.py holds every comparison.
+# approved shape, section 10; test/neutrality_compare.py holds every comparison. Cases N14 (the
+# driven-stage open-water outfall, cfg key swmm_driven_outfalls, on its own case directory
+# test/coupled_case_outfall/) and N15 (the per-node DEM-rim exemption, cfg key
+# swmm_dem_rim_exempt_nodes, on test/coupled_case/ with swmm_node_rim_from_dem=1) are sections
+# 17.5 and 17.6; N14's readers live in test/coupled_case_outfall/outfall_checks.py and the
+# test-only breaks of N14 and N15 are source mutants the suite builds from a copy of the test tree.
 #
 # A byte difference in a hydraulic output at any case reclassifies the failing capture as possibly
 # hydraulics-affecting: the merge stops until the developer rules. The suite reports it and never
@@ -31,7 +36,7 @@ set -u
 THIS=$(readlink -f "$0")
 REPO=$(cd "$(dirname "$THIS")/.." && pwd)
 BASE_SHA=""; TEST_SHA=""; GPU_FLAGS_FILE=""; CPU_FLAGS_FILE=""; WORK=""; KOKKOS_DIR=""
-CASES="N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13"; NP_BIG=8; NO_GPU=0; KEEP_GOING=1; SEC_FLOOR=0.05; BUILD_ONLY=0; N6_PART=all
+CASES="N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15"; NP_BIG=8; NO_GPU=0; KEEP_GOING=1; SEC_FLOOR=0.05; BUILD_ONLY=0; N6_PART=all
 while [ $# -gt 0 ]; do
   case "$1" in
     --baseline-sha) BASE_SHA=$2; shift 2;;
@@ -48,7 +53,7 @@ while [ $# -gt 0 ]; do
     --build-only) BUILD_ONLY=1; shift;;   # build every variant the selected cases need, run nothing (a node without the GPU can check the A100 builds)
     --keep-going) KEEP_GOING=1; shift;;
     --sec-floor) SEC_FLOOR=$2; shift 2;;
-    -h|--help) sed -n '2,34p' "$THIS"; exit 0;;
+    -h|--help) sed -n '2,40p' "$THIS"; exit 0;;
     *) echo "unknown argument: $1" >&2; exit 2;;
   esac
 done
@@ -1035,9 +1040,372 @@ for n,r in (("two_a.bin",a),("two_b.bin",b)): open(d+"/"+n,"wb").write(h+b"".joi
   n13_refusal "N13/refuse/unreadable" "$TB/does_not_exist.txt" 0 "an unreadable path"
 }
 
+# ------------------------------------------------------------------ N14 and N15: the driven-stage outfall and the DEM-rim exemption
+# N14 runs on its own case directory (test/coupled_case_outfall/, built by its make_case.py, read by
+# its outfall_checks.py); N15 runs on test/coupled_case/ with swmm_node_rim_from_dem=1. The test-only
+# breaks are SOURCE MUTANTS: a copy of the test tree with one statement changed, built like the branch
+# (the solver carries no TRITON_DIAG_TEST define for these features, and src/ is not this suite's to
+# edit); each mutant's diff is recorded in the build record, and each must make the arm it targets fail.
+OFL_SRC="$TEST_SRC/test/coupled_case_outfall"; OFL_CK="$OFL_SRC/outfall_checks.py"
+FSTOL=${NEUTRALITY_STAGE_TOL:-1e-12}   # arm (f)'s relative tolerance: 1e-12 for a double build, 1e-6 for a single build
+
+# ofl_differ A B : exit 0 when a hydraulic output (a raster, the side-file, the .out, the .rpt block) differs between the two
+# outputs, 1 when they are byte-identical, 2 when the comparison itself did not work (a missing file is not a difference)
+ofl_differ() {
+  local lg="$LOGS/ofl_differ_$$.tmp"
+  $CMP "$NEUT" compare --a "$1" --b "$2" > "$lg" 2>&1; local rc=$?
+  cat "$lg"
+  if [ $rc -eq 0 ]; then rm -f "$lg"; return 1; fi
+  if [ $rc -eq 1 ] && grep -aq "DIFFERENCE: .*differs (first differing byte" "$lg"; then rm -f "$lg"; return 0; fi
+  rm -f "$lg"; return 2
+}
+
+# mutate NAME FILE REGEX REPLACEMENT : a copy of the test tree with exactly one match of REGEX in FILE replaced (backreferences
+# allowed); the unified diff goes to the build record
+mutate() {
+  local name=$1 file=$2 old=$3 new=$4 d="$WORK/src/mut_$1"
+  [ -d "$d" ] || cp -r "$TEST_SRC" "$d"
+  $PYTHON -I - "$d/$file" "$old" "$new" > "$LOGS/mutate_$name.log" 2>&1 <<'PYEOF'
+import re, sys
+p, old, new = sys.argv[1:4]
+t = open(p).read()
+n = len(re.findall(old, t))
+if n != 1:
+    sys.exit("the mutation matches %d times in %s (it must match exactly once): %s" % (n, p, old))
+open(p, "w").write(re.sub(old, new, t))
+PYEOF
+  local rc=$?
+  { echo "== source mutant $name: $file =="; diff -u "$TEST_SRC/$file" "$d/$file"; } >> "$BUILD_RECORD"
+  return $rc
+}
+# build_mut NAME FILE REGEX REPLACEMENT : mutate, then build the mutant like the branch (CPU, SWMM on)
+build_mut() {
+  mutate "$1" "$2" "$3" "$4" || { rec "BUILD/$1" ERROR "the source mutation did not apply (see $LOGS/mutate_$1.log)"; return 1; }
+  build "$1" "$WORK/src/mut_$1" cpu "" "" on
+}
+
+# run_arm_edit EDIT NAME BUILD NP KEYS... : run_arm on a run directory that the function EDIT (called with the directory) has edited;
+# returns 1 when the run did not complete, so a refusal arm can classify it, and records nothing itself
+run_arm_edit() {
+  local edit=$1 name=$2 b=$3 np=$4; shift 4
+  [ "$BUILD_ONLY" = 1 ] && { rec "RUN/$name" SKIP "--build-only"; return 2; }
+  local d; d=$(rundir "$name" "$b")
+  "$edit" "$d" > "$LOGS/edit_$name.log" 2>&1 || { rec "RUN/$name" ERROR "the run directory edit $edit failed (see $LOGS/edit_$name.log)"; return 2; }
+  mkcfg "$d" arm.cfg out "$@"
+  ARM_DIR=$d; ARM_OUT="$d/out"
+  ( cd "$d" && $(launcher "$np") ./build/triton.exe arm.cfg > run.log 2>&1 ); local rc=$?
+  [ $rc -eq 0 ] && grep -aq "Simulation ends" "$d/run.log" && return 0
+  return 1
+}
+no_edit() { return 0; }
+
+# refusal_arm ID DESC NEEDLE EDIT KEYS... : an np8 run that must stop before the first step, with NEEDLE in its log, no raster
+# written and no rank left running; EDIT is a function called with the run directory
+# refrec ID STATUS DETAIL : rec, except that a named kill (REFUSAL_INVERT=1) reads the refusal arm the other way round: the arm must FAIL on the
+# broken build, and a PASS there means the arm cannot tell the break from the refusal it is meant to test
+refrec() {
+  if [ "${REFUSAL_INVERT:-0}" = 1 ]; then
+    case "$2" in
+      FAIL) rec "$1" PASS "$3 (must-fail arm failed as it must)";;
+      PASS) rec "$1" BLIND "$3 (must-fail arm did NOT fail: the arm cannot detect this break)";;
+      *) rec "$1" "$2" "$3";;
+    esac
+  else rec "$1" "$2" "$3"; fi
+}
+refusal_arm() {
+  local id=$1 desc=$2 needle=$3 edit=$4; shift 4
+  [ "$BUILD_ONLY" = 1 ] && { rec "$id" SKIP "--build-only"; return 0; }
+  local name="ref_$(echo "$id" | tr '/ ()' '____')" d rc
+  d=$(rundir "$name" "${REFUSAL_BUILD:-cpu_branch}")
+  "$edit" "$d" > "$LOGS/edit_$name.log" 2>&1 || { refrec "$id" ERROR "the run directory edit $edit failed (see $LOGS/edit_$name.log)"; return 1; }
+  mkcfg "$d" arm.cfg out "$@"
+  ( cd "$d" && timeout 300 $(launcher "$NP_BIG") ./build/triton.exe arm.cfg > run.log 2>&1 ); rc=$?
+  local left=0 pid
+  for pid in $(pgrep -u "$(id -u)" -f "[b]uild/triton.exe arm.cfg" 2>/dev/null); do
+    [ "$(readlink "/proc/$pid/cwd" 2>/dev/null)" = "$d" ] && { left=$((left+1)); kill -9 "$pid" 2>/dev/null; }
+  done
+  local rasters; rasters=$(find "$d/out/bin" -name 'H_*' 2>/dev/null | wc -l)
+  if [ $rc -eq 0 ] && grep -aq "Simulation ends" "$d/run.log"; then
+    refrec "$id" BLIND "$desc: the run was NOT refused (exit 0, simulation completed; see $d/run.log): the instrument cannot detect this break"
+  elif [ $rc -eq 0 ]; then
+    refrec "$id" FAIL "$desc: exit 0 without a completed simulation: a refusal must exit non-zero (see $d/run.log)"
+  elif [ $rc -eq 124 ] || [ $left -gt 0 ]; then
+    refrec "$id" FAIL "$desc: exit $rc, $left rank process(es) left running (see $d/run.log)"
+  elif grep -aq "Simulation starts" "$d/run.log" || [ "$rasters" -gt 0 ]; then
+    refrec "$id" FAIL "$desc: exit $rc but the run got past initialisation (Simulation starts printed or $rasters raster file(s) written; see $d/run.log)"
+  elif ! grep -aqF -- "$needle" "$d/run.log"; then
+    refrec "$id" FAIL "$desc: exit $rc before the first step but the log does not carry '$needle' (see $d/run.log)"
+  else
+    refrec "$id" PASS "$desc: exit $rc before the first step, the log carries '$needle', no rank left running"
+  fi
+}
+
+# the edits of the N14 refusal arms (each a variant of a COPY of the model in the run directory)
+ofl_edit_timeseries() { $PYTHON -I "$OFL_CK" edit-inp "$1" outfall-type O1 TIMESERIES TS1; }
+ofl_edit_o1_on_j1()   { $PYTHON -I "$OFL_CK" edit-inp "$1" coords O1 J1; }
+ofl_edit_o2_on_o1()   { $PYTHON -I "$OFL_CK" edit-inp "$1" coords O2 O1; }
+ofl_edit_two_links()  { $PYTHON -I "$OFL_CK" edit-inp "$1" add-conduit C5 J3 O1; }
+
+# n14_resume TAG NP : a clean run with every capture on and the driven key, then arms (b) snapshot route, (c) replay route and (e)
+# a mid-interval kill, each resumed from checkpoint CK and compared with the clean run, outfall_stage.bin and its sidecar included
+n14_resume() {
+  local tag=$1 np=$2 files="$ALLFILES,outfall_stage.bin,outfall_stage.nodes" clean clean_dir
+  branch_run "${tag}_clean" cpu "$np" $CAP_ALL swmm_snapshot_keep_all=1 swmm_driven_outfalls=driven_below.txt || return 1
+  clean=$ARM_OUT; clean_dir=$ARM_DIR
+  resume_arm "$clean_dir" "${tag}_b" cpu_branch "$np" "$CK" && {
+    cmp_arm "N14/d/np$np/b" 0 "(d) (c) resumed from checkpoint $CK, snapshot route, equals its clean run (hydraulics, every capture file and outfall_stage.bin)" "$clean" "$ARM_OUT" "$files"
+    grep -aq "path=snapshot" "$ARM_DIR/res.log" && rec "N14/d/np$np/b/route" PASS "(d)(b) took the snapshot route" || rec "N14/d/np$np/b/route" FAIL "(d)(b) did not take the snapshot route (see $ARM_DIR/res.log)"
+  }
+  resume_arm "$clean_dir" "${tag}_c" cpu_branch "$np" "$CK" swmm_snapshot_disable=1 && {
+    cmp_arm "N14/d/np$np/c" 0 "(d) (c) resumed from checkpoint $CK, replay route, equals its clean run (the replay sets the logged stage before each replayed SWMM step)" "$clean" "$ARM_OUT" "$files"
+    grep -aq "path=replay" "$ARM_DIR/res.log" && rec "N14/d/np$np/c/route" PASS "(d)(c) took the replay route" || rec "N14/d/np$np/c/route" FAIL "(d)(c) did not take the replay route (see $ARM_DIR/res.log)"
+  }
+  if kill_run "${tag}_e_kill" cpu_branch "$np" cfg "$CK" $CAP_ALL swmm_snapshot_keep_all=1 swmm_driven_outfalls=driven_below.txt; then
+    resume_arm "$ARM_DIR" "${tag}_e_resume" cpu_branch "$np" "$CK" && cmp_arm "N14/d/np$np/e" 0 "(d) (c) killed mid-interval after checkpoint $CK, resumed from it, equals its clean run" "$clean" "$ARM_OUT" "$files"
+  fi
+}
+
+case_N14() {
+  need_cpu || return 1
+  local saved=$CASE_SRC; CASE_SRC=$OFL_SRC
+  n14_body; local rc=$?
+  CASE_SRC=$saved
+  return $rc
+}
+n14_body() {
+  local np osim oprint ocell
+  osim=$(sed -n 's/^sim_duration=//p' "$OFL_SRC/TRITONSWMM.cfg"); oprint=$(sed -n 's/^print_interval=//p' "$OFL_SRC/TRITONSWMM.cfg")
+  ocell=$(python3 -c "import sys; print([l.split()[1] for l in open('$OFL_SRC/elevation.dem') if l.lower().startswith('cellsize')][0])")
+  if [ "$osim" != "$SIM" ] || [ "$oprint" != "$PRINT" ] || [ "$ocell" != "$CELL" ]; then
+    rec "N14/case" ERROR "the outfall case's sim_duration/print_interval/cellsize ($osim/$oprint/$ocell) differ from the fixed case's ($SIM/$PRINT/$CELL), which the suite's checkpoint and print arithmetic is derived from"
+    return 1
+  fi
+  local hextra; hextra=$(sed -n 's/^hextra=//p' "$OFL_SRC/TRITONSWMM.cfg")
+  HYD=0 chk "N14/layout" 0 "the outfall case: O1's cell lies below its invert, O2's cell lies above its invert, neither outfall is owned by rank 0 at np$NP_BIG" $PYTHON -I "$OFL_CK" layout "$OFL_SRC" "$NP_BIG" O1 O2
+
+  # (a) key absent, against the outfall case's own baseline built with the same flags
+  local -A BASEO AO
+  for np in 1 "$NP_BIG"; do
+    base_run cpu "$np" "_ofl" || return 1; BASEO[$np]=$BASE_OUT
+    branch_run "n14_a_np$np" cpu "$np" || return 1; AO[$np]=$ARM_OUT
+    cmp_arm "N14/a/np$np" 0 "(a) swmm_driven_outfalls absent, CPU np$np: branch against the baseline on the outfall case, byte for byte" "${BASEO[$np]}" "${AO[$np]}"
+  done
+  $CMP "$NEUT" compare --a "${AO[1]}" --b "${AO[$NP_BIG]}" > "$LOGS/N14_a_np1_vs_np8.log" 2>&1; local arc=$?
+  if [ $arc -eq 0 ]; then rec "N14/a/np1-vs-np$NP_BIG" PASS "(a) at np1 and np$NP_BIG are byte-identical: the np1-against-np$NP_BIG reading of (c) is read"
+  else rec "N14/a/np1-vs-np$NP_BIG" REPORT "(a) at np1 and np$NP_BIG are NOT byte-identical (see $LOGS/N14_a_np1_vs_np8.log): the np1-against-np$NP_BIG reading of (c) is an instrument unable to detect that break on this case"; fi
+
+  # (b) the key set to a list that names nothing
+  for np in 1 "$NP_BIG"; do
+    branch_run "n14_b_np$np" cpu "$np" swmm_driven_outfalls=driven_empty.txt && \
+      cmp_arm "N14/b/np$np" 0 "(b) swmm_driven_outfalls set to an empty list file, CPU np$np: byte-identical to (a)" "${AO[$np]}" "$ARM_OUT"
+  done
+
+  # (c) the below-invert outfall listed: serial once, np8 twice
+  local c1="" c1d="" c8a="" c8b=""
+  branch_run n14_c_np1 cpu 1 swmm_driven_outfalls=driven_below.txt && { c1=$ARM_OUT; c1d=$ARM_DIR; }
+  branch_run "n14_c_np${NP_BIG}_1" cpu "$NP_BIG" swmm_driven_outfalls=driven_below.txt && c8a=$ARM_OUT
+  branch_run "n14_c_np${NP_BIG}_2" cpu "$NP_BIG" swmm_driven_outfalls=driven_below.txt && c8b=$ARM_OUT
+  [ -n "$c1" ] && chk "N14/c/np1/differs" 0 "(c) O1 (cell below its invert) listed, CPU np1, differs from (a) at np1" ofl_differ "${AO[1]}" "$c1"
+  [ -n "$c8a" ] && chk "N14/c/np$NP_BIG/differs" 0 "(c) O1 listed, CPU np$NP_BIG, differs from (a) at np$NP_BIG" ofl_differ "${AO[$NP_BIG]}" "$c8a"
+  [ -n "$c8a" ] && [ -n "$c8b" ] && HYD=0 chk "N14/c/np$NP_BIG/determinism" 0 "(c) two np$NP_BIG runs of the same list are byte-identical (outfall_stage.bin included)" $CMP "$NEUT" compare --a "$c8a" --b "$c8b" --captures outfall_stage.bin,outfall_stage.nodes
+  if [ -n "$c1" ] && [ -n "$c8a" ]; then
+    if [ $arc -eq 0 ]; then
+      HYD=0 chk "N14/c/np1-vs-np$NP_BIG" 0 "(c) np1 against np$NP_BIG: rasters, side-file, .out, .rpt block and outfall_stage.bin byte-identical ((a) is byte-identical across the two rank counts)" $CMP "$NEUT" compare --a "$c1" --b "$c8a" --captures outfall_stage.bin,outfall_stage.nodes
+    else
+      rec "N14/c/np1-vs-np$NP_BIG" REPORT "(c) np1 against np$NP_BIG not read: (a) is not byte-identical across the two rank counts, so the reading cannot detect a mis-split value on this case"
+    fi
+  fi
+  [ -n "$c1" ] && $PYTHON -I "$OFL_CK" stats "$c1" > "$LOGS/N14_c_stats.log" 2>&1 && rec "N14/c/stats" REPORT "$(tr '\n' ' ' < "$LOGS/N14_c_stats.log" | cut -c1-400)"
+
+  # (c') the above-invert outfall listed
+  local cp1=""
+  branch_run n14_cp_np1 cpu 1 swmm_driven_outfalls=driven_above.txt && cp1=$ARM_OUT
+  [ -n "$cp1" ] && chk "N14/cprime/np1/differs-a" 0 "(c') O2 (cell above its invert) listed, CPU np1, differs from (a)" ofl_differ "${AO[1]}" "$cp1"
+  [ -n "$cp1" ] && [ -n "$c1" ] && chk "N14/cprime/np1/differs-c" 0 "(c') differs from (c): the two outfall forms are different arms" ofl_differ "$c1" "$cp1"
+  local cp8a="" cp8b=""
+  branch_run "n14_cp_np${NP_BIG}_1" cpu "$NP_BIG" swmm_driven_outfalls=driven_above.txt && cp8a=$ARM_OUT
+  branch_run "n14_cp_np${NP_BIG}_2" cpu "$NP_BIG" swmm_driven_outfalls=driven_above.txt && cp8b=$ARM_OUT
+  [ -n "$cp8a" ] && chk "N14/cprime/np$NP_BIG/differs" 0 "(c') O2 listed, CPU np$NP_BIG, differs from (a) at np$NP_BIG" ofl_differ "${AO[$NP_BIG]}" "$cp8a"
+  [ -n "$cp8a" ] && [ -n "$cp8b" ] && HYD=0 chk "N14/cprime/np$NP_BIG/determinism" 0 "(c') two np$NP_BIG runs of the same list are byte-identical (outfall_stage.bin included)" $CMP "$NEUT" compare --a "$cp8a" --b "$cp8b" --captures outfall_stage.bin,outfall_stage.nodes
+  if [ -n "$cp1" ] && [ -n "$cp8a" ]; then
+    if [ $arc -eq 0 ]; then
+      HYD=0 chk "N14/cprime/np1-vs-np$NP_BIG" 0 "(c') np1 against np$NP_BIG byte-identical ((a) is byte-identical across the two rank counts)" $CMP "$NEUT" compare --a "$cp1" --b "$cp8a" --captures outfall_stage.bin,outfall_stage.nodes
+    else rec "N14/cprime/np1-vs-np$NP_BIG" REPORT "(c') np1 against np$NP_BIG not read: (a) is not byte-identical across the two rank counts"; fi
+  fi
+  HYD=0 chk "N14/cprime/owner" 0 "(c') the above-invert outfall O2 is owned by a rank other than 0 at np$NP_BIG (the layout check, which reads both outfalls' owners by the solver's strip rule)" $PYTHON -I "$OFL_CK" layout "$OFL_SRC" "$NP_BIG" O1 O2
+  [ -n "$cp1" ] && $PYTHON -I "$OFL_CK" stats "$cp1" > "$LOGS/N14_cprime_stats.log" 2>&1 && rec "N14/cprime/stats" REPORT "$(tr '\n' ' ' < "$LOGS/N14_cprime_stats.log" | cut -c1-400)"
+
+  # (f) the stage check, on (c) and (c'), with the coupling interval 1 and lag 0 (the case's defaults)
+  [ -n "$c1" ] && HYD=0 chk "N14/f/c" 0 "(f) (c): at each print instant stage_m = DEM[cell] + H_raster[cell] + q_back_applied*dt/dx^2 where the depth read was at least hextra, the invert otherwise" $PYTHON -I "$OFL_CK" stage-check "$c1" "$OFL_SRC" O1 "$PRINT" "$hextra" "$FSTOL"
+  [ -n "$cp1" ] && HYD=0 chk "N14/f/cprime" 0 "(f) (c'): the same stage check on the above-invert outfall O2" $PYTHON -I "$OFL_CK" stage-check "$cp1" "$OFL_SRC" O2 "$PRINT" "$hextra" "$FSTOL"
+
+  # the F-4 control of the stage check: a copy of (c)'s output whose backflow is zero (stages made consistent with it) must FAIL the check on its
+  # must-be-nonzero control alone
+  if [ -n "$c1" ]; then
+    chk "N14/f/control-make" 0 "the control: (c)'s output with q_back_applied zero and the stages rewritten to match" $PYTHON -I "$OFL_CK" fixture-no-backflow "$c1" "$OFL_SRC" O1 "$PRINT" "$hextra" "$WORK/run/n14_f_nobackflow"
+    HYD=0 chk "N14/f/control" 1 "(f) on the zero-backflow copy: fails (no wet print instant has q_back_applied > 0)" $PYTHON -I "$OFL_CK" stage-check "$WORK/run/n14_f_nobackflow" "$OFL_SRC" O1 "$PRINT" "$hextra" "$FSTOL"
+  fi
+
+  # (e) the ledger: the domain balance closes with the new column, and the .rpt continuity totals equal the full sums
+  if branch_run n14_e_np1 cpu 1 swmm_driven_outfalls=driven_below.txt diag_domain_balance=1 swmm_diag_steps=1 swmm_diag_links=links_c4.txt; then
+    local nodes; nodes=$(sed -n 's/.*SWMM coupled node \([^:]*\): rim .*/\1/p' "$ARM_DIR/run.log" | paste -sd, -)
+    HYD=0 chk "N14/e/balance" 0 "(e) domain_balance.csv carries the two driven-outfall columns, outfall_backflow_m3 is in the signed sum and the residual is at round-off" $PYTHON -I "$OFL_CK" residual "$ARM_OUT"
+    HYD=0 chk "N14/e/rpt" 0 "(e) the .rpt continuity External Inflow and External Outflow equal the full sums of the step records (coupling nodes $nodes; the other outfall's flow from the T1d record of C4)" $PYTHON -I "$OFL_CK" ledger "$ARM_OUT" "$OFL_SRC" O1 "$PRINT" "$nodes" C4
+  fi
+
+  # (d) resume, serial and np8
+  for np in 1 "$NP_BIG"; do n14_resume "n14_d_np$np" "$np"; done
+
+  # the refusal arms, np8: each stops before the first step, names the node (or the key) and leaves no rank running
+  local TB="$WORK/n14_lists"; mkdir -p "$TB"
+  printf 'J1\n' > "$TB/r_junction.txt"
+  printf 'J1\nJ3\nO1\n' > "$TB/r_coupling_o1.txt"
+  printf 'O1\nO2\n' > "$TB/r_both.txt"
+  printf 'O1\no1\n' > "$TB/r_repeat.txt"
+  refusal_arm "N14/refuse/junction" "a junction listed (J1)" "node J1 is not an OUTFALL node" no_edit swmm_driven_outfalls="$TB/r_junction.txt"
+  refusal_arm "N14/refuse/timeseries" "a TIMESERIES outfall listed (O1 retyped in a copy of the model)" "type TIMESERIES" ofl_edit_timeseries swmm_driven_outfalls=driven_below.txt
+  refusal_arm "N14/refuse/coupling-node" "an outfall that is also a coupling node (O1 added to swmm_coupling_nodes; the refusal of check_driven_outfalls, not the older junctions-only one of init_swmm)" "is also a coupling node" no_edit swmm_driven_outfalls=driven_below.txt swmm_coupling_nodes="$TB/r_coupling_o1.txt"
+  refusal_arm "N14/refuse/cell-holds-coupling-node" "an outfall whose cell holds a coupling node (O1 moved onto J1's coordinates in a copy of the model)" "shares its cell with coupling node J1" ofl_edit_o1_on_j1 swmm_driven_outfalls=driven_below.txt
+  refusal_arm "N14/refuse/two-outfalls-one-cell" "two outfalls in one cell (O2 moved onto O1's coordinates in a copy of the model)" "shares its cell with driven outfall" ofl_edit_o2_on_o1 swmm_driven_outfalls="$TB/r_both.txt"
+  refusal_arm "N14/refuse/two-links" "an outfall with two connected links (a conduit C5 joined to O1 in a copy of the model; the engine's own ERROR 141 stops the run at swmm_start, before the solver's connected-link count)" "Outfall O1 has more than 1 inlet link" ofl_edit_two_links swmm_driven_outfalls=driven_below.txt
+  refusal_arm "N14/refuse/repeated-name" "a repeated name (O1, then o1)" "repeats" no_edit swmm_driven_outfalls="$TB/r_repeat.txt"
+  refusal_arm "N14/refuse/unreadable" "an unreadable path" "$TB/does_not_exist.txt" no_edit swmm_driven_outfalls="$TB/does_not_exist.txt"
+  refusal_arm "N14/refuse/no-coupling-node" "a nonempty list with an empty coupling list (the refusal names the key)" "swmm_driven_outfalls" no_edit swmm_driven_outfalls=driven_below.txt swmm_coupling_nodes=coupling_empty.txt
+
+  # the test-only breaks: a source mutant per arm, each must make its arm fail
+  if build_mut n14_m1 src/config_utils.h 'arglist\.swmm_driven_outfalls = argsd\("swmm_driven_outfalls", argmap, ""\);' 'arglist.swmm_driven_outfalls = "";'; then
+    run_arm n14_m1_c n14_m1 1 swmm_driven_outfalls=driven_below.txt && \
+      chk "N14/M1/c" 1 "break M1 (a build that ignores the key): (c) is byte-identical to (a), so (c)'s must-differ arm fails" ofl_differ "${AO[1]}" "$ARM_OUT"
+  fi
+  if build_mut n14_m2 src/triton.h 'device_vec\[H\] \+ d\.pos\[driven_owned_i_\[k\]\], sizeof\(T\)' 'device_vec[H] + d.pos[driven_owned_i_[k]] + 1, sizeof(T)'; then
+    run_arm n14_m2_c n14_m2 1 swmm_driven_outfalls=driven_below.txt && \
+      HYD=0 chk "N14/M2/f" 1 "break M2 (the stage is read at the neighbouring cell): (f) fails" $PYTHON -I "$OFL_CK" stage-check "$ARM_OUT" "$OFL_SRC" O1 "$PRINT" "$hextra" "$FSTOL"
+  fi
+  if build_mut n14_m3 src/swmm_triton.h 'h_arr\[sid\] = hij;(\s+qx_arr\[sid\] = qx;\s+qy_arr\[sid\] = qy;\s+applied\[k\] = ap;)' '/* test-only break: the cell is not lowered */\1'; then
+    run_arm n14_m3_c n14_m3 1 swmm_driven_outfalls=driven_below.txt diag_domain_balance=1 && {
+      HYD=0 chk "N14/M3/f" 1 "break M3 (the stage is applied and the backflow is booked but the cell is not lowered): (f) fails" $PYTHON -I "$OFL_CK" stage-check "$ARM_OUT" "$OFL_SRC" O1 "$PRINT" "$hextra" "$FSTOL"
+      HYD=0 chk "N14/M3/e" 1 "break M3: (e)'s balance fails (the residual no longer closes with outfall_backflow_m3 in the sum)" $PYTHON -I "$OFL_CK" residual "$ARM_OUT"
+    }
+  fi
+  # named kill of the F-1 arm: the check "is also a coupling node" (check_driven_outfalls) deleted in a copy; the arm must fail on it
+  if build_mut n14_m7 src/swmm_triton.h 'for \(const std::string& c : coupling_names\)\s*if \(swmm_upper\(c\) == up\) \{[^}]*is also a coupling node[^}]*\}' '/* test-only break: the coupling-node check is deleted */'; then
+    REFUSAL_BUILD=n14_m7 REFUSAL_INVERT=1 refusal_arm "N14/M7/coupling-node" "break M7 (the new coupling-node refusal deleted, the older junctions-only refusal of init_swmm still stops the run naming O1): the arm N14/refuse/coupling-node" "is also a coupling node" no_edit swmm_driven_outfalls=driven_below.txt swmm_coupling_nodes="$TB/r_coupling_o1.txt"
+  fi
+  if build_mut n14_m4 src/swmm_triton.h 'encode_outfall_stage_record\(step_end_time, swmm_dt, driven\.stage_m\.data\(\)' 'encode_outfall_stage_record(step_end_time, swmm_dt, driven.q_back_applied_m3s.data()'; then
+    run_arm n14_m4_clean n14_m4 1 $CAP_ALL swmm_snapshot_keep_all=1 swmm_driven_outfalls=driven_below.txt && {
+      local m4=$ARM_OUT m4d=$ARM_DIR
+      resume_arm "$m4d" n14_m4_replay n14_m4 1 "$CK" swmm_snapshot_disable=1 && \
+        cmp_arm "N14/M4/d" 1 "break M4 (a build that does not log the stage the replay sets): (d) on the replay route fails" "$m4" "$ARM_OUT" "$ALLFILES,outfall_stage.bin"
+    }
+  fi
+}
+
+# n15_edit_lower DIR : the DEM cell of the listed coupling node is set below the node's invert in a copy of the case (N15 (d))
+N15_ROW=""; N15_COL=""; N15_VAL=""
+n15_edit_lower() {
+  $PYTHON -I - "$1/elevation.dem" "$N15_ROW" "$N15_COL" "$N15_VAL" <<'PYEOF'
+import sys
+p, row, col, val = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+lines = open(p).read().split("\n")
+r = lines[6 + row].split()
+r[col] = val
+lines[6 + row] = " ".join(r)
+open(p, "w").write("\n".join(lines))
+sys.stdout.write("DEM cell (%d, %d) of %s set to %s\n" % (row, col, p, val))
+PYEOF
+}
+# n15_rim_count LOG : the number the rank-0 rim line reports, "SWMM coupled-node rims set from the DEM: N nodes"
+n15_rim_count() { sed -n 's/.*SWMM coupled-node rims set from the DEM: \([0-9]*\) nodes.*/\1/p' "$1" | head -1; }
+
+case_N15() {
+  need_cpu || return 1
+  n13_write_helper
+  local H="$WORK/n13_helper.py" TB="$WORK/n15_lists" np RIM="swmm_node_rim_from_dem=1"
+  mkdir -p "$TB"
+  local -A BASEO AO
+  for np in 1 "$NP_BIG"; do
+    base_run cpu "$np" "_rim" $RIM || return 1; BASEO[$np]=$BASE_OUT
+    branch_run "n15_a_np$np" cpu "$np" $RIM || return 1; AO[$np]=$ARM_OUT
+    cmp_arm "N15/a/np$np" 0 "(a) swmm_dem_rim_exempt_nodes absent with swmm_node_rim_from_dem=1, CPU np$np: branch against the baseline run of the same configuration, byte for byte" "${BASEO[$np]}" "${AO[$np]}"
+  done
+  local nodes; nodes=($(sed -n 's/.*SWMM coupled node \([^:]*\): rim .*/\1/p' "${BASEO[1]}/../run.log"))
+  [ ${#nodes[@]} -ge 2 ] || { rec "N15/nodes" ERROR "fewer than two 'SWMM coupled node ... rim' lines in ${BASEO[1]}/../run.log"; return 1; }
+  $PYTHON -I "$H" select "$CASE_SRC" "$NP_BIG" "${BASEO[1]}/swmm/hydraulics_exchange_replay.bin" "${nodes[@]}" > "$LOGS/N15_select.log" 2>&1; local src=$?
+  cat "$LOGS/N15_select.log"
+  [ $src -eq 0 ] || { rec "N15/select" ERROR "no coupling node fits (exit $src; see $LOGS/N15_select.log)"; return 1; }
+  local NS NS_IDX NS_OWN NS_FIRST
+  read -r _ NS NS_IDX NS_OWN NS_FIRST <<< "$(grep '^NSTAR ' "$LOGS/N15_select.log")"
+  # the listed node must be a node whose DEM rim differs from SWMM's rim, or the exemption has nothing to change
+  local rimline demline rlog="${AO[1]}/../run.log"
+  rimline=$(sed -n "s/.*SWMM coupled node $NS: rim \([^,]*\), invert \([^ ]*\).*/\1 \2/p" "$rlog" | head -1)
+  demline=$(sed -n "s/.*SWMM coupled node $NS: DEM rim \([^ ]*\) (cell elevation \([^)]*\)).*/\1 \2/p" "$rlog" | head -1)
+  if [ -z "$rimline" ] || [ -z "$demline" ] || [ "${rimline%% *}" = "${demline%% *}" ]; then
+    rec "N15/select" ERROR "the listed node $NS has SWMM rim '${rimline%% *}' and DEM rim '${demline%% *}' in (a)'s log: a node whose DEM rim equals SWMM's rim gives the exemption nothing to change"
+    return 1
+  fi
+  rec "N15/select" PASS "N15 lists $NS (global index $NS_IDX, owner rank $NS_OWN at np$NP_BIG): SWMM rim ${rimline%% *}, invert ${rimline##* }, DEM rim ${demline%% *} (cell elevation ${demline##* }); it is alone in its cell and its first nonzero exchange is at side-file record $NS_FIRST of (a)"
+  printf '; exempt: one coupling node\n%s\n' "$NS" > "$TB/exempt_one.txt"
+  printf '; exempt: none\n' > "$TB/exempt_empty.txt"
+  printf '%s\n%s\n' "$NS" "$(echo "$NS" | tr 'A-Z' 'a-z')" > "$TB/exempt_repeat.txt"
+  printf 'O1\n' > "$TB/exempt_noncoupling.txt"
+
+  # (b) the key set to a list that names nothing
+  for np in 1 "$NP_BIG"; do
+    branch_run "n15_b_np$np" cpu "$np" $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_empty.txt" && \
+      cmp_arm "N15/b/np$np" 0 "(b) swmm_dem_rim_exempt_nodes set to an empty list file, CPU np$np: byte-identical to (a)" "${AO[$np]}" "$ARM_OUT"
+  done
+  # (c) one coupled node listed: serial and np8
+  local c1="" c8="" c1d="" c8d=""
+  branch_run n15_c_np1 cpu 1 $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_one.txt" && { c1=$ARM_OUT; c1d=$ARM_DIR; }
+  branch_run "n15_c_np$NP_BIG" cpu "$NP_BIG" $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_one.txt" && { c8=$ARM_OUT; c8d=$ARM_DIR; }
+  local arm anp out dir
+  for arm in "1:$c1:$c1d" "$NP_BIG:$c8:$c8d"; do
+    anp=${arm%%:*}; out=${arm#*:}; dir=${out#*:}; out=${out%%:*}
+    [ -n "$out" ] || continue
+    n13_must_differ "N15/c/np$anp/differs" "(c) $NS listed under swmm_node_rim_from_dem=1, CPU np$anp, against (a) at np$anp" "${AO[$anp]}" "$out"
+    HYD=0 chk "N15/c/np$anp/column" 0 "(c) np$anp against (a): the first differing side-file record differs in $NS's column ($NS_IDX) alone" $PYTHON -I "$H" firstcols "${AO[$anp]}/swmm/hydraulics_exchange_replay.bin" "$out/swmm/hydraulics_exchange_replay.bin" "$NS_IDX"
+    local na nc; na=$(n15_rim_count "${AO[$anp]}/../run.log"); nc=$(n15_rim_count "$dir/run.log")
+    [ -n "$na" ] && [ -n "$nc" ] && [ "$nc" = "$((na - 1))" ] && rec "N15/c/np$anp/rim-line" PASS "(c) the rank-0 rim line counts $nc nodes against (a)'s $na: one node fewer" || rec "N15/c/np$anp/rim-line" FAIL "(c) the rank-0 rim line counts '$nc' nodes against (a)'s '$na': expected one fewer"
+    local nex; nex=$(grep -ac "DEM rim exempt" "$dir/run.log")
+    [ "$nex" = 1 ] && grep -aq "SWMM coupled node $NS: DEM rim exempt" "$dir/run.log" && rec "N15/c/np$anp/exempt-lines" PASS "(c) exactly one 'DEM rim exempt' line, naming $NS" || rec "N15/c/np$anp/exempt-lines" FAIL "(c) $nex 'DEM rim exempt' lines (want exactly one, naming $NS; see $dir/run.log)"
+  done
+  if [ -n "$c1" ] && [ -n "$c8" ]; then
+    $CMP "$NEUT" compare --a "${AO[1]}" --b "${AO[$NP_BIG]}" > "$LOGS/N15_a_np1_vs_np8.log" 2>&1
+    if [ $? -eq 0 ]; then HYD=0 chk "N15/c/np1-vs-np$NP_BIG" 0 "(c) np1 against np$NP_BIG: byte-identical ((a) is byte-identical across the two rank counts)" $CMP "$NEUT" compare --a "$c1" --b "$c8"
+    else rec "N15/c/np1-vs-np$NP_BIG" REPORT "(c) np1 against np$NP_BIG not read: (a) is not byte-identical across the two rank counts"; fi
+  fi
+  # (d) a listed node whose cell lies at or below its invert runs: the DEM cell of $NS is set below its invert in a copy of the case
+  N15_ROW=$(awk -v n="$NS" '$1=="NODE" && $2==n {print $6}' "$LOGS/N15_select.log"); N15_COL=$(awk -v n="$NS" '$1=="NODE" && $2==n {print $8}' "$LOGS/N15_select.log")
+  N15_VAL=$($PYTHON -I -c "print(repr(float('${rimline##* }') - 0.05))")
+  if run_arm_edit n15_edit_lower n15_d_ctl cpu_branch 1 $RIM; then
+    rec "N15/d/control" BLIND "(d) control: the variant (cell of $NS at $N15_VAL, below its invert ${rimline##* }) ran WITHOUT the exemption: the variant does not produce the refused condition"
+  elif grep -aq "its DEM cell cannot give a rim" "$ARM_DIR/run.log"; then
+    rec "N15/d/control" PASS "(d) control: the variant (cell of $NS at $N15_VAL, below its invert ${rimline##* }) is refused without the exemption, 'its DEM cell cannot give a rim'"
+  else rec "N15/d/control" ERROR "(d) control: the variant run failed for another reason (see $ARM_DIR/run.log)"; fi
+  if run_arm_edit n15_edit_lower n15_d cpu_branch 1 $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_one.txt"; then
+    grep -aq "SWMM coupled node $NS: DEM rim exempt" "$ARM_DIR/run.log" && rec "N15/d" PASS "(d) $NS listed, its cell at $N15_VAL below its invert ${rimline##* }: the run completes, $NS exempt (not refused at the DEM-rim route)" || rec "N15/d" FAIL "(d) the run completed but did not log $NS as exempt (see $ARM_DIR/run.log)"
+  else rec "N15/d" FAIL "(d) $NS listed, its cell below its invert: the run did not complete (see $ARM_DIR/run.log)"; fi
+  # the refusal arms, np8
+  refusal_arm "N15/refuse/no-coupling-node" "a listed name that is no coupling node (O1)" "$TB/exempt_noncoupling.txt" no_edit $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_noncoupling.txt"
+  refusal_arm "N15/refuse/repeated-name" "a repeated name ($NS, then its lower-case spelling)" "$TB/exempt_repeat.txt" no_edit $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_repeat.txt"
+  refusal_arm "N15/refuse/unreadable" "an unreadable path" "$TB/does_not_exist.txt" no_edit $RIM swmm_dem_rim_exempt_nodes="$TB/does_not_exist.txt"
+  refusal_arm "N15/refuse/rim-key-off" "a nonempty list while swmm_node_rim_from_dem is off" "swmm_node_rim_from_dem is off" no_edit swmm_dem_rim_exempt_nodes="$TB/exempt_one.txt"
+  # the test-only breaks
+  if build_mut n15_m5 src/config_utils.h 'arglist\.swmm_dem_rim_exempt_nodes = argsd\("swmm_dem_rim_exempt_nodes", argmap, ""\);' 'arglist.swmm_dem_rim_exempt_nodes = "";'; then
+    run_arm n15_m5_c n15_m5 1 $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_one.txt" && \
+      chk "N15/M5/c" 1 "break M5 (a build that ignores the key): (c) is byte-identical to (a), so (c)'s must-differ arm fails" ofl_differ "${AO[1]}" "$ARM_OUT"
+  fi
+  if build_mut n15_m6 src/triton.h 'if \(!rim_exempt\.empty\(\) && rim_exempt\.count\(SWMM_triton::swmm_upper\(swmm_model\.nodeID\[k\]\)\) > 0\) \{' 'if (!rim_exempt.empty()) {'; then
+    run_arm n15_m6_c n15_m6 1 $RIM swmm_dem_rim_exempt_nodes="$TB/exempt_one.txt" && {
+      local nex6; nex6=$(grep -ac "DEM rim exempt" "$ARM_DIR/run.log")
+      [ "$nex6" = 1 ] && rec "N15/M6/exempt-lines" BLIND "break M6 (a build that exempts every node once the list is nonempty): still exactly one 'DEM rim exempt' line, the instrument cannot detect it" || rec "N15/M6/exempt-lines" PASS "break M6 (a build that exempts every node once the list is nonempty): $nex6 'DEM rim exempt' lines against the one listed node (must-fail arm failed as it must)"
+    }
+  fi
+}
+
 # ------------------------------------------------------------------ run
 case_coverage || true
-for c in N1 N2 N3 N5 N6 N7 N8 N9 N10 N11 N12 N13; do
+for c in N1 N2 N3 N5 N6 N7 N8 N9 N10 N11 N12 N13 N14 N15; do
   if want "$c"; then say "=============== $c ==============="; "case_$c"; fi
 done
 

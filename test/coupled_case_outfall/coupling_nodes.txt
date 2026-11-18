@@ -1,0 +1,3 @@
+; coupling nodes (swmm_coupling_nodes)
+J1
+J3

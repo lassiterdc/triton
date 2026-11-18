@@ -2053,6 +2053,13 @@ namespace DiagWriters
 	static const char* const DOMAIN_BALANCE_HEADER =
 		"%t_end, d_storage_m3, runoff_m3, inflow_m3, extbc_m3, clamp_m3, swmm_exchange_m3, "
 		"edge_west_m3, edge_east_m3, edge_south_m3, edge_north_m3, residual_m3";
+	// With swmm_driven_outfalls listing a node the header gains two columns after
+	// swmm_exchange_m3 and before the edge terms. With the key absent (or an empty list)
+	// DOMAIN_BALANCE_HEADER above is the header, byte for byte as it was.
+	static const char* const DOMAIN_BALANCE_HEADER_DRIVEN =
+		"%t_end, d_storage_m3, runoff_m3, inflow_m3, extbc_m3, clamp_m3, swmm_exchange_m3, "
+		"outfall_backflow_m3, outfall_backflow_deficit_m3, "
+		"edge_west_m3, edge_east_m3, edge_south_m3, edge_north_m3, residual_m3";
 
 	static constexpr std::size_t EDGE_FLUX_RECORD_BYTES = 5 * sizeof(double);
 	static constexpr std::size_t DT_LIMITER_RECORD_BYTES = 48;
@@ -2100,6 +2107,23 @@ namespace DiagWriters
 		std::snprintf(buf, sizeof(buf),
 		              "%.9f, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e",
 		              t_end, d_storage, runoff, inflow, extbc, clamp, swmm_exchange,
+		              edge_m3[0], edge_m3[1], edge_m3[2], edge_m3[3], residual);
+		f.append_row(buf);
+	}
+
+	/** @brief The domain_balance.csv row of a run with driven-stage outfalls: the row above with
+	 *  outfall_backflow_m3 (signed positive INTO the domain, so minus the volume the cells gave
+	 *  up) and outfall_backflow_deficit_m3 (the volume the limiter refused, positive) after
+	 *  swmm_exchange_m3. */
+	static inline void write_domain_balance_row_driven(diag_log::capture_file& f, double t_end, double d_storage,
+	                                                   double runoff, double inflow, double extbc, double clamp,
+	                                                   double swmm_exchange, double outfall_backflow,
+	                                                   double outfall_deficit, const double edge_m3[4], double residual)
+	{
+		char buf[640];
+		std::snprintf(buf, sizeof(buf),
+		              "%.9f, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e, %.12e",
+		              t_end, d_storage, runoff, inflow, extbc, clamp, swmm_exchange, outfall_backflow, outfall_deficit,
 		              edge_m3[0], edge_m3[1], edge_m3[2], edge_m3[3], residual);
 		f.append_row(buf);
 	}

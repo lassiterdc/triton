@@ -359,6 +359,71 @@ foreach(_t IN LISTS TRITON_MANHOLE_TABLE_TESTS)
            COMMAND test_manhole_table ${_t})
 endforeach()
 
+# Package 1j: the driven-stage open-water outfalls (swmm_driven_outfalls): the list and its
+# refusals, the stage rule at hextra, the one-way backflow against the one-node manhole kernel,
+# the outfall_stage.bin layout and its resume positioning cut at every byte offset, and the
+# source-structure check that every call site of the feature sits under driven_active().
+# Same build arrangement as the tests above; G1 and G2 read src/.
+add_executable(test_driven_outfall test_driven_outfall.cpp)
+
+target_include_directories(test_driven_outfall PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+
+target_link_libraries(test_driven_outfall PRIVATE kokkos swmm5)
+
+target_compile_definitions(test_driven_outfall PRIVATE
+  TRITON_H_PATH="${CMAKE_SOURCE_DIR}/src/triton.h")
+
+set(TRITON_DRIVEN_OUTFALL_TESTS
+  L1_list_file_format
+  L2_outfall_types_read_as_swmm_reads_them
+  L3_every_refusal_names_the_node
+  L4_link_sign_follows_the_inp_orientation
+  L5_strip_owner_is_the_row_stripe_rule
+  S1_stage_rule_at_hextra
+  S2_unit_conversions
+  B1_backflow_removes_the_requested_depth
+  B2_backflow_below_hextra_zeroes_the_momentum
+  B3_backflow_near_zero_takes_what_the_cell_had
+  B4_backflow_is_the_one_node_kernel_for_the_same_flow
+  B5_launcher_applies_each_cell_and_skips_a_zero_request
+  R1_header_and_record_layout
+  R2_positioning_by_count_cut_at_every_offset
+  R3_positioning_refuses_a_foreign_file
+  G1_every_call_site_is_guarded_by_driven_active
+  G2_the_manhole_path_is_not_edited)
+
+foreach(_t IN LISTS TRITON_DRIVEN_OUTFALL_TESTS)
+  add_test(NAME UNIT-DRIVEN-OUTFALL-${_t}
+           COMMAND test_driven_outfall ${_t})
+endforeach()
+
+# Package 1j: the engine surface the driven outfalls stand on, driven through swmm5.h on
+# generated dynamic-wave models: the existing setter writes a FIXED outfall's stage in the
+# model's unit, leaves a junction alone, reverses the link flow above the crown, gives the
+# free-outfall flow below the invert, and a reversed conduit keeps the .inp orientation.
+# Links the swmm5 target alone, like the 2a.1 reviewer test above.
+add_executable(test_outfall_stage_api test_outfall_stage_api.cpp)
+
+target_include_directories(test_outfall_stage_api PRIVATE
+  ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include)
+
+target_link_libraries(test_outfall_stage_api PRIVATE swmm5)
+
+set(TRITON_OUTFALL_STAGE_API_CASES
+  setter_writes_the_fixed_stage_in_model_units
+  setter_leaves_a_junction_untouched
+  stage_above_the_crown_reverses_the_link_flow
+  stage_below_the_invert_is_the_free_outfall
+  reversed_conduit_keeps_the_inp_orientation)
+
+foreach(_t IN LISTS TRITON_OUTFALL_STAGE_API_CASES)
+  add_test(NAME UNIT-OUTFALL-STAGE-API-${_t}
+           COMMAND test_outfall_stage_api ${_t})
+endforeach()
+
 add_executable(test_manhole_table_review test_manhole_table_review.cpp)
 
 target_include_directories(test_manhole_table_review PRIVATE
@@ -379,4 +444,44 @@ set(TRITON_MANHOLE_TABLE_REVIEW_TESTS
 foreach(_t IN LISTS TRITON_MANHOLE_TABLE_REVIEW_TESTS)
   add_test(NAME UNIT-MANHOLE-TABLE-REVIEW-${_t}
            COMMAND test_manhole_table_review ${_t})
+endforeach()
+
+# Package 1j reviewer test (adopted from the 1j.1 reviewer round): the position table of the
+# coupling blocks and the agreement of the backflow volume between kernel, record and cell.
+add_executable(test_driven_outfall_review test_driven_outfall_review.cpp)
+target_include_directories(test_driven_outfall_review PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/external/swmm/src/solver/include ${CMAKE_SOURCE_DIR}/external/swmm/src/solver)
+target_link_libraries(test_driven_outfall_review PRIVATE kokkos swmm5)
+target_compile_definitions(test_driven_outfall_review PRIVATE TRITON_H_PATH="${CMAKE_SOURCE_DIR}/src/triton.h")
+foreach(_t IN ITEMS RV1_feature_calls_follow_the_position_table_in_both_blocks RV2_backflow_volume_agrees_between_kernel_record_and_cell)
+  add_test(NAME UNIT-DRIVEN-OUTFALL-REVIEW-${_t} COMMAND test_driven_outfall_review ${_t})
+endforeach()
+
+# Package 1m: the per-node exemption of the DEM-rim loop (swmm_dem_rim_exempt_nodes): a
+# source-structure test of src/triton.h and src/config_utils.h with no link line. The rim
+# loop is entered only with a DEM, MPI and Kokkos, so the properties are read from the
+# source: the skip precedes the loop's own refusal, an absent key reaches no new statement,
+# every refusal exits, no collective sits in the key block, and the rim line counts one node
+# fewer. Each property is also run on a copy broken on purpose and must fail there.
+add_executable(test_dem_rim_exemption test_dem_rim_exemption.cpp)
+
+foreach(_t
+    K1_key_is_read_with_an_empty_default
+    E1_a_listed_node_is_skipped_before_the_refusal
+    E2_an_absent_key_reaches_no_new_statement
+    R1_every_refusal_exits_and_the_inert_key_is_named
+    M1_no_collective_in_the_key_block
+    L1_the_rim_line_counts_one_node_fewer)
+  add_test(NAME UNIT-DEM-RIM-EXEMPTION-${_t}
+           COMMAND test_dem_rim_exemption ${CMAKE_SOURCE_DIR}/src/triton.h
+                   ${CMAKE_SOURCE_DIR}/src/config_utils.h ${_t})
+endforeach()
+add_executable(test_dem_rim_exemption_review test_dem_rim_exemption_review.cpp)
+
+foreach(_t
+    F1_case_fold_on_both_sides
+    O1_refusal_order_and_the_coupling_refusal_exits
+    S1_set_include_inside_the_swmm_guard
+    Z1_the_skip_assigns_no_running_total)
+  add_test(NAME UNIT-DEM-RIM-EXEMPTION-REVIEW-${_t}
+           COMMAND test_dem_rim_exemption_review ${CMAKE_SOURCE_DIR}/src/triton.h ${_t})
 endforeach()

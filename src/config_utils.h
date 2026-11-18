@@ -90,6 +90,16 @@ namespace ConfigUtils
 		bool
 		swmm_node_rim_from_dem;
 
+		/**< Per-node exemption from the DEM-rim route: a path names a one-column file of
+		*   coupling node names (read like swmm_coupling_nodes: one name per line, ';'
+		*   comments, no header). A listed node is skipped by the swmm_node_rim_from_dem
+		*   loop in triton.h and keeps SWMM's own full depth as its rim. Empty (absent
+		*   key), or a file that lists no name, exempts nothing, as every earlier build
+		*   did. A nonempty list while swmm_node_rim_from_dem is off is refused, since
+		*   the key has an effect only under the DEM-rim route. Additive. */
+		std::string
+		swmm_dem_rim_exempt_nodes;
+
 		/**< Coupling nodes: a path names a one-column file of SWMM node names,
 		*   each a coupling node; ALL_JUNCTIONS couples every [JUNCTIONS] node;
 		*   empty (absent key) derives them from the [INFLOWS] FLOW lines as every
@@ -105,6 +115,18 @@ namespace ConfigUtils
 		*   node the two constants, as every earlier build did. Additive. */
 		std::string
 		swmm_manhole_table;
+
+		/**< Driven-stage open-water outfalls: a path names a one-column file of SWMM
+		*   OUTFALL node names (type FIXED), one name per line, `;` comments, no
+		*   header, read like swmm_coupling_nodes. A listed outfall stays an outfall
+		*   (it is not a coupling node); before every SWMM step TRITON sets its fixed
+		*   stage to the water-surface elevation of the cell holding it, z_cell + h,
+		*   or to the outfall's invert where the cell is drier than hextra. Water the
+		*   stage pushes into the sewer is taken from that cell; water the sewer
+		*   discharges there leaves the domain. Empty (absent key) lists no outfall
+		*   and every earlier build's code path is the one that runs. Additive. */
+		std::string
+		swmm_driven_outfalls;
 
 		/**< TRITON steps per SWMM step. 1 (absent key) steps SWMM every TRITON
 		*   step as every earlier build did; N > 1 sums each node's exchange over N
@@ -593,7 +615,9 @@ namespace ConfigUtils
 		arglist.swmm_snapshot_failed_replay = atoi((argsd("swmm_snapshot_failed_replay", argmap, "0")).c_str());
 		arglist.swmm_node_rim_from_dem = atoi((argsd("swmm_node_rim_from_dem", argmap, "0")).c_str());
 		arglist.swmm_coupling_nodes = argsd("swmm_coupling_nodes", argmap, "");
+		arglist.swmm_dem_rim_exempt_nodes = argsd("swmm_dem_rim_exempt_nodes", argmap, "");
 		arglist.swmm_manhole_table = argsd("swmm_manhole_table", argmap, "");
+		arglist.swmm_driven_outfalls = argsd("swmm_driven_outfalls", argmap, "");
 		arglist.swmm_coupling_interval = atoi((argsd("swmm_coupling_interval", argmap, "1")).c_str());
 		arglist.swmm_coupling_lag = atoi((argsd("swmm_coupling_lag", argmap, "0")).c_str());
 		arglist.swmm_diag_steps = atoi((argsd("swmm_diag_steps", argmap, "0")).c_str());

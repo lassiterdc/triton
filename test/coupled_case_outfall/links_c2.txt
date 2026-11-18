@@ -1,0 +1,2 @@
+; T1d links (swmm_diag_links): O1's one connected conduit
+C2
